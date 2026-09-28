@@ -1,0 +1,9 @@
+{
+  "name": "todo-cli",
+  "version": "1.0.0",
+  "description": "微型 todo CLI（Agent Router 演示仓库）",
+  "main": "todo.js",
+  "scripts": {
+    "test": "node test.js"
+  }
+}

@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agent Router 控制台</title>
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="/router-ui.css">
+<link rel="stylesheet" href="/console-upgrade.css">
+</head>
+<body>
+<header>
+  <div class="brand">
+    <span class="logo">⧉</span>
+    <h1>Agent Router <small>运行控制台</small></h1><a href="/" class="back-chat">返回聊天 ↗</a>
+  </div>
+  <div class="header-right">
+    <div id="health" class="health">
+      <span class="h-item" id="h-claude" title="Claude Code CLI"><i></i>claude</span>
+      <span class="h-item" id="h-zcode" title="ZCode CLI"><i></i>zcode</span>
+      <span class="h-item" id="h-devin" title="Devin CLI（需 devin auth login）"><i></i>devin</span>
+      <span class="h-item" id="h-codex" title="Codex CLI"><i></i>codex</span>
+      <span class="h-item" id="h-opencode" title="OpenCode CLI"><i></i>opencode</span>
+      <span class="h-item" id="h-antigravity" title="Antigravity CLI（agy，密钥环静默登录）"><i></i>antigravity</span>
+    </div>
+    <span id="run-state" class="pill idle">空闲</span>
+    <button id="btn-stop" class="btn danger" disabled>停止运行</button>
+  </div>
+</header>
+
+<div id="layout">
+  <aside>
+    <section class="panel">
+      <details id="start-panel"><summary>新建运行</summary>
+      <label class="field">
+        <span>总目标</span>
+        <textarea id="f-goal" rows="4" placeholder="例：给 todo-cli 添加优先级功能、补测试、更新 README"></textarea>
+      </label>
+      <label class="field">
+        <span>目标仓库 / 工作目录</span>
+        <input id="f-repo" type="text" placeholder="默认 demo/todo-cli（git 仓库或普通目录均可）">
+      </label>
+      <div class="field">
+        <span>派发模式</span>
+        <select id="f-mode">
+          <option value="direct" selected>直通（默认）— 多任务并行，直接在主目录工作</option>
+          <option value="worktree">worktree 隔离 — 每任务独立分支，完成后自动合并</option>
+        </select>
+      </div>
+      <div class="field">
+        <span>执行成员</span>
+        <div class="checks" id="f-agents">
+          <label><input type="checkbox" value="claude" checked>claude <span class="model-tag" data-m="claude"></span></label>
+          <label><input type="checkbox" value="zcode" checked>zcode <span class="model-tag" data-m="zcode"></span></label>
+          <label><input type="checkbox" value="devin">devin <span class="model-tag" data-m="devin"></span></label>
+          <label><input type="checkbox" value="codex">codex <span class="model-tag" data-m="codex"></span></label>
+          <label><input type="checkbox" value="opencode">opencode <span class="model-tag" data-m="opencode"></span></label>
+          <label><input type="checkbox" value="antigravity">antigravity <span class="model-tag" data-m="antigravity"></span></label>
+        </div>
+      </div>
+      <div class="field">
+        <span>主代理</span>
+        <select id="f-main">
+          <option value="claude" selected>claude — stream-json 常驻主线程（事件即时注入）</option>
+          <option value="zcode">zcode — 回合串联（每条消息一次 headless 运行续链）</option>
+          <option value="devin">devin — ACP 常驻（需已 devin auth login）</option>
+          <option value="codex">codex — 回合串联（OpenAI Codex CLI）</option>
+          <option value="opencode">opencode — 回合串联（SST OpenCode CLI）</option>
+          <option value="antigravity">antigravity — stream-json 常驻（Google Antigravity CLI）</option>
+        </select>
+      </div>
+      <div class="row2">
+
+        <label class="field">
+          <span>子代理超时（秒）</span>
+          <input id="f-timeout" type="number" min="60" max="3600" value="900">
+        </label>
+      </div>
+      <button id="btn-start" class="btn primary">▶ 启动运行</button>
+      <div id="start-err" class="err"></div></details>
+    </section>
+
+    <section class="panel grow">
+      <h2>运行记录 <button id="btn-refresh" class="mini" title="刷新">⟳</button> <button id="btn-logs" class="mini" title="查看所选运行的会话线程与日志（含系统提示词）">🧵 线程</button></h2>
+      <div id="run-list" class="run-list"><div class="empty">加载中…</div></div>
+    </section>
+  </aside>
+
+  <main>
+    <div id="view"><div id="current-goal">选择运行记录，查看进展与实时输出</div>
+      <div id="finish-banner" class="finish-banner hidden"></div>
+      <div class="row tasks-row">
+        <section class="panel">
+          <h2>任务板 <span id="task-summary" class="count"></span></h2>
+          <iframe id="shared-board" title="任务与成员" src="/board?embedded=1"></iframe><div id="board" class="board" hidden><div class="empty">选择运行记录，或启动一次新运行</div></div>
+        </section>
+        <section class="panel">
+          <h2>信箱 <span id="msg-count" class="count"></span></h2>
+          <div id="mailbox" class="mailbox"><div class="empty">暂无消息</div></div>
+        </section>
+      </div>
+      <section class="panel console-panel">
+        <div class="console-head">
+          <h2>控制台</h2>
+          <div class="console-tools">
+            <button class="mini chip-f active" data-f="all">全部</button>
+            <button class="mini chip-f" data-f="manager">主代理</button>
+            <button class="mini chip-f" data-f="event">事件</button>
+            <button class="mini chip-f" data-f="mail">信箱</button>
+            <button id="btn-pause" class="mini">暂停滚动</button>
+            <button id="btn-clear" class="mini">清屏</button>
+          </div>
+        </div>
+        <div id="agent-strip" class="agent-strip hidden"></div>
+        <div id="console" class="console"><div class="empty dim">实时输出（SSE）</div></div>
+        <div class="say-row">
+          <input id="say" type="text" placeholder="给主代理插话，回车或点发送（仅运行中可用）…" disabled>
+          <button id="btn-say" class="btn primary" disabled>发送</button>
+        </div>
+      </section>
+    </div>
+  </main>
+</div>
+
+<div id="log-modal" class="modal hidden">
+  <div class="modal-box">
+    <div class="modal-head">
+      <h3>会话日志 <span id="log-title"></span></h3>
+      <button id="btn-close-modal" class="mini">✕ 关闭</button>
+    </div>
+    <div class="modal-body">
+      <div id="log-list" class="log-list"></div>
+      <pre id="log-content" class="log-content">选择左侧文件查看</pre>
+    </div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
+

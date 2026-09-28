@@ -1,0 +1,15 @@
+# 运行数据、会话注册表与历史（含任务板、线程、日志）
+data/
+
+# deepseek-harness 本地构建产物（版权原因不随仓库分发；放置后即可启用 dsh 界面）
+dsh-web/
+
+# 用户本地覆盖配置（可执行路径/代理/模型偏好；格式见 README）
+router.config.json
+
+# agent 运行时注入的临时配置
+.zcode/
+.agents/mcp_config.json
+
+node_modules/
+*.log
