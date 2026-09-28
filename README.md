@@ -72,7 +72,7 @@ agent 之间不直连，全部通过一个**本地 MCP server**（stdio + JSON �
 node web/server.mjs        # dsh 界面: http://127.0.0.1:2288/  经典控制台: /console/
 ```
 
-> **dsh 界面不随本仓库分发**：`dsh-web/` 是 deepseek-harness 的本地构建产物（约 41MB，版权原因不公开）。克隆后直接启动会看到降级说明页，`/console/` 与 `/board` 不受影响；把你自己构建的 deepseek-harness 产物放到 `dsh-web/`（含 `index.html` 与 `dist/`）重启即可启用完整 dsh 界面。
+> `dsh-web/`（deepseek-harness 的本地构建）随仓库分发，开箱即用完整 dsh 界面；也可替换为你自己的构建（需含 `index.html` 与 `dist/`）。
 
 - **`/`(默认)**:deepseek-harness 原生 Web UI(构建产物已迁移至 `dsh-web/`),左侧工作区"Agent Router"下列出每次运行的各 agent 会话线程(每个 thread 独立展示),点开即见该 agent 的完整对话流——任务提示词、事件通知、可展开的工具调用卡片、AI 回复;线程文件变动实时推送。右下角"⧉ 任务板"按钮可展开任务板抽屉(非插件,iframe 集成);
 - **dsh 里新建会话 / 发消息**(按本项目运行模型桥接):「新建会话」只是登记一个空会话;该会话里的**第一条消息 = 总目标,直接启动一次运行**(默认 repo `demo/todo-cli`、成员 claude+zcode、直通模式;消息里带的 cwd 路径若存在且不在 data 目录下则作为目标目录)。运行进行中再发消息 = **给主代理插话**;「停止生成」= 停止当前运行。该会话在 dsh 里的对话流即新运行的 manager 线程;
