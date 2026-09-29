@@ -7,8 +7,8 @@ window.__ModuleLoader__.load({
 		let react_jsx_runtime = require("react/jsx-runtime");
 		let react = require("react");
 		let _deepseek_ai_dsh_client_ui_primitives = require("@deepseek-ai/dsh-client-ui-primitives");
-		//#region \0dsh-css:D:\Agent Router\deepseek-harness\packages\client\ui-approval\src\client\ApprovalPanel.module.css.mjs
-		const css = ".cL5yTq_root{padding:8px calc(var(--dsh-composer-side-clearance) + 16px) 12px;flex-direction:column;align-items:center;display:flex}.cL5yTq_card{width:100%;max-width:var(--dsh-chat-content-width);border:1px solid var(--dsw-alias-state-warn-secondary);border-radius:var(--dsw-radius-xl);background:var(--dsw-specific-input-major);box-shadow:var(--dsw-shadow-lv2);--dsh-scrollbar-thumb:var(--dsw-alias-scrollbar-bg-l2);--dsh-scrollbar-thumb-hover:var(--dsw-alias-scrollbar-hover-l2);overflow:hidden}.cL5yTq_strip{background:var(--dsw-alias-state-warn-tertiary);color:var(--dsw-alias-state-warn-primary);align-items:center;gap:8px;padding:10px 16px;font-size:13px;line-height:18px;display:flex}.cL5yTq_body{box-sizing:border-box;max-height:var(--dsh-composer-text-max-height);flex-direction:column;gap:6px;padding:12px 16px 0;display:flex;overflow-y:auto}.cL5yTq_headline{color:var(--dsw-alias-label-primary);font-size:15px;font-weight:500;line-height:24px}.cL5yTq_command{color:var(--dsw-alias-label-tertiary);font-family:var(--ds-font-family-code);word-break:break-all;font-size:13px;line-height:20px}.cL5yTq_actionRow{justify-content:flex-end;gap:8px;padding:14px 16px;display:flex}.cL5yTq_reject:hover:not(:disabled){background:var(--dsw-alias-interactive-bg-hover-danger);color:var(--dsw-alias-state-error-primary);border-color:#0000}";
+		//#region \0dsh-css:D:\deepseek-harness\packages\client\ui-approval\src\client\ApprovalPanel.module.css.mjs
+		const css = "._0ZIeDG_root{padding:8px calc(var(--dsh-composer-side-clearance) + 16px) 12px;flex-direction:column;align-items:center;display:flex}._0ZIeDG_card{width:100%;max-width:var(--dsh-chat-content-width);border:1px solid var(--dsw-alias-state-warn-secondary);border-radius:var(--dsw-radius-xl);background:var(--dsw-specific-input-major);box-shadow:var(--dsw-shadow-lv2);--dsh-scrollbar-thumb:var(--dsw-alias-scrollbar-bg-l2);--dsh-scrollbar-thumb-hover:var(--dsw-alias-scrollbar-hover-l2);overflow:hidden}._0ZIeDG_strip{background:var(--dsw-alias-state-warn-tertiary);color:var(--dsw-alias-state-warn-primary);align-items:center;gap:8px;padding:10px 16px;font-size:13px;line-height:18px;display:flex}._0ZIeDG_body{box-sizing:border-box;max-height:var(--dsh-composer-text-max-height);flex-direction:column;gap:6px;padding:12px 16px 0;display:flex;overflow-y:auto}._0ZIeDG_headline{color:var(--dsw-alias-label-primary);font-size:15px;font-weight:500;line-height:24px}._0ZIeDG_command{color:var(--dsw-alias-label-tertiary);font-family:var(--ds-font-family-code);word-break:break-all;font-size:13px;line-height:20px}._0ZIeDG_actionRow{justify-content:flex-end;gap:8px;padding:14px 16px;display:flex}._0ZIeDG_reject:hover:not(:disabled){background:var(--dsw-alias-interactive-bg-hover-danger);color:var(--dsw-alias-state-error-primary);border-color:#0000}";
 		const tagId = "@deepseek-ai/dsh-client-ui-approval/ApprovalPanel.module.css";
 		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId) + "]") === null) {
 			const tag = document.createElement("style");
@@ -18,14 +18,14 @@ window.__ModuleLoader__.load({
 			document.head.appendChild(tag);
 		}
 		var ApprovalPanel_module_css_default = {
-			"actionRow": "cL5yTq_actionRow",
-			"body": "cL5yTq_body",
-			"card": "cL5yTq_card",
-			"command": "cL5yTq_command",
-			"headline": "cL5yTq_headline",
-			"reject": "cL5yTq_reject",
-			"root": "cL5yTq_root",
-			"strip": "cL5yTq_strip"
+			"actionRow": "_0ZIeDG_actionRow",
+			"body": "_0ZIeDG_body",
+			"card": "_0ZIeDG_card",
+			"command": "_0ZIeDG_command",
+			"headline": "_0ZIeDG_headline",
+			"reject": "_0ZIeDG_reject",
+			"root": "_0ZIeDG_root",
+			"strip": "_0ZIeDG_strip"
 		};
 		//#endregion
 		//#region lib/types/client/ApprovalPanel.js
@@ -363,4 +363,4 @@ window.__ModuleLoader__.load({
 	}
 });
 ;
-//# sourceMappingURL=??@deepseek-ai/dsh-client-ui-approval/client.js.map&rev=bb6b0aa591ab
+//# sourceMappingURL=??@deepseek-ai/dsh-client-ui-approval/client.js.map&rev=5f967910bde2

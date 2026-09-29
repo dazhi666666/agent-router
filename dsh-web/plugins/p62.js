@@ -1,2328 +1,13308 @@
 window.__ModuleLoader__.load({
-	id: "@deepseek-ai/dsh-client-ui-deliverables",
+	id: "@deepseek-ai/dsh-api-remotes",
 	factory: (require) => {
 		var module = { exports: {} };
 		var exports = module.exports;
 		Object.defineProperty(exports, Symbol.toStringTag, { value: "Module" });
-		let _deepseek_ai_dsh_client_store = require("@deepseek-ai/dsh-client-store");
-		let react_jsx_runtime = require("react/jsx-runtime");
-		let react = require("react");
-		let _deepseek_ai_dsh_client_ui_primitives = require("@deepseek-ai/dsh-client-ui-primitives");
-		//#region lib/types/changes.js
-		/** Authenticated GET route serving one announced change summary while its Session lives. */
-		const CHANGED_FILES_PATH = "/api/changes.summary";
-		/** Authenticated GET route serving one listed file's turn-start and turn-end comparison while its Session lives. */
-		const CHANGES_DIFF_PATH = "/api/changes.diff";
-		/** Authenticated POST route for opening a changed file on the Host desktop. */
-		const CHANGES_OPEN_PATH = "/api/changes.open";
-		/**
-		* Browser-relative form of {@link CHANGED_FILES_PATH}; see
-		* .agents/notes/implemented/architecture/2026-09-14-web-document-relative-app-routes.md.
-		*/
-		const CHANGED_FILES_ROUTE = CHANGED_FILES_PATH.slice(1);
-		/** Browser-relative form of {@link CHANGES_DIFF_PATH}. */
-		const CHANGES_DIFF_ROUTE = CHANGES_DIFF_PATH.slice(1);
-		/** Browser-relative form of {@link CHANGES_OPEN_PATH}. */
-		const CHANGES_OPEN_ROUTE = CHANGES_OPEN_PATH.slice(1);
-		/** Resource-address prefix of a turn's review tab in the right Sidebar. */
-		const CHANGES_REVIEW_ADDRESS = "dsh-resource://changes-review/session/";
-		function isRecord$1(value) {
-			return typeof value === "object" && value !== null && !Array.isArray(value);
-		}
-		/**
-		* Validate one changed-file record read from the summary route.
-		* @param value - decoded JSON.
-		* @returns whether the record carries a path, a display path, and line counts.
-		*/
-		function isChangedFile(value) {
-			if (!isRecord$1(value)) return false;
-			const { path, display, added, deleted, binary, oversized } = value;
-			return typeof path === "string" && path.length > 0 && typeof display === "string" && display.length > 0 && Number.isSafeInteger(added) && Number.isSafeInteger(deleted) && (binary === void 0 || binary === true) && (oversized === void 0 || oversized === true);
-		}
-		/**
-		* Validate a summary read from the summary route.
-		* @param value - decoded JSON.
-		* @returns whether the value identifies a turn, a complete file list, the total count, and the line totals.
-		*/
-		function isChangesSummary(value) {
-			if (!isRecord$1(value)) return false;
-			const { turn, files, total, added, deleted } = value;
-			return Number.isSafeInteger(turn) && turn >= 1 && Number.isSafeInteger(total) && Number.isSafeInteger(added) && Number.isSafeInteger(deleted) && Array.isArray(files) && files.every(isChangedFile);
-		}
-		function isHunk(value) {
-			if (!isRecord$1(value)) return false;
-			const { oldStart, oldLines, newStart, newLines, lines } = value;
-			return [
-				oldStart,
-				oldLines,
-				newStart,
-				newLines
-			].every((field) => Number.isSafeInteger(field) && field >= 0) && Array.isArray(lines) && lines.every((line) => typeof line === "string" && /^[+ -]/.test(line));
-		}
-		/**
-		* Validate a comparison read from the comparison route.
-		* @param value - decoded JSON.
-		* @returns whether the value is a text comparison with well-formed hunks, or a binary or oversized refusal.
-		*/
-		function isChangesDiff(value) {
-			if (!isRecord$1(value)) return false;
-			const { kind, path, display } = value;
-			if (typeof path !== "string" || path.length === 0 || typeof display !== "string" || display.length === 0) return false;
-			if (kind === "binary" || kind === "oversized") return true;
-			if (kind !== "text") return false;
-			const { before, after, hunks, coarse } = value;
-			return typeof before === "boolean" && typeof after === "boolean" && typeof coarse === "boolean" && Array.isArray(hunks) && hunks.every(isHunk);
-		}
-		/**
-		* Validate the `workspace/changes` event data read from a Session log.
-		* @param value - decoded durable event data.
-		* @returns whether the event names a turn.
-		*/
-		function isChangesEvent(value) {
-			return isRecord$1(value) && Number.isSafeInteger(value.turn) && value.turn >= 1;
-		}
-		/**
-		* Build authenticated coordinates for the summary one `workspace/changes` event announced.
-		* @param sessionId - owning Session.
-		* @param seq - event sequence.
-		* @returns document-relative summary route.
-		*/
-		function changesSummaryUrl(sessionId, seq) {
-			return `${CHANGED_FILES_ROUTE}?${new URLSearchParams({
-				sessionId,
-				seq: String(seq)
-			})}`;
-		}
-		/**
-		* Build authenticated coordinates for one listed file's comparison.
-		* @param sessionId - owning Session.
-		* @param seq - workspace/changes event sequence.
-		* @param index - original index in the summary's files array.
-		* @returns document-relative comparison route.
-		*/
-		function changesDiffUrl(sessionId, seq, index) {
-			return `${CHANGES_DIFF_ROUTE}?${new URLSearchParams({
-				sessionId,
-				seq: String(seq),
-				index: String(index)
-			})}`;
-		}
-		/**
-		* Build authenticated coordinates for a changed file's native open.
-		* @param sessionId - owning Session.
-		* @param seq - workspace/changes event sequence.
-		* @param index - original index in the summary's files array.
-		* @returns document-relative action route.
-		*/
-		function changedFileUrl(sessionId, seq, index) {
-			return `${CHANGES_OPEN_ROUTE}?${new URLSearchParams({
-				sessionId,
-				seq: String(seq),
-				index: String(index)
-			})}`;
-		}
-		/**
-		* The right-Sidebar address of one turn's review. The Session and the event
-		* sequence identify the content; the turn rides along for the tab title.
-		* @param coordinates - viewed Session, announcing event, and turn.
-		* @returns a `dsh-resource://changes-review/session/…` address.
-		*/
-		function changesReviewAddress(coordinates) {
-			const { sessionId, seq, turn } = coordinates;
-			return `${CHANGES_REVIEW_ADDRESS}${encodeURIComponent(sessionId)}/${seq}/${turn}`;
-		}
-		/**
-		* Read the coordinates back out of a review address.
-		* @param address - a resource address.
-		* @returns the coordinates, or undefined for any other address.
-		*/
-		function parseChangesReviewAddress(address) {
-			if (!address.startsWith("dsh-resource://changes-review/session/")) return void 0;
-			const parts = address.slice(38).split("/");
-			if (parts.length !== 3) return void 0;
-			const [sessionId, seq, turn] = parts;
-			if (sessionId === "" || !/^\d+$/.test(seq) || !/^[1-9]\d*$/.test(turn)) return void 0;
-			try {
-				return {
-					sessionId: decodeURIComponent(sessionId),
-					seq: Number(seq),
-					turn: Number(turn)
-				};
-			} catch {
-				return;
-			}
-		}
-		//#endregion
-		//#region lib/types/client/host-read-store.js
-		/**
-		* Fetch-once cache of Host-served records keyed by their authenticated URL:
-		* one read per URL while a state stands, cleared on connection replacement,
-		* cancelled on disposal. Each store decides what a response means and which
-		* states a later request reads again.
-		*/
-		/** One browser plugin's reads of one record kind. */
-		var HostReadStore = class {
-			policy;
-			/** Record URLs key the state across Sessions and turns. */
-			state = (0, _deepseek_ai_dsh_client_store.createSnapshotStore)({});
-			lifetime = new AbortController();
-			/** The connection generation the current states belong to; a reset aborts it so no older read publishes. */
-			generation = new AbortController();
-			pending = /* @__PURE__ */ new Set();
-			constructor(policy) {
-				this.policy = policy;
-			}
-			/**
-			* Read one URL unless a state the policy keeps already stands for it.
-			* @param url - the record's authenticated URL.
-			* @returns after the state is published.
-			*/
-			async loadUrl(url) {
-				const current = this.state.getSnapshot()[url];
-				if (this.lifetime.signal.aborted || current !== void 0 && !this.policy.retryable(current)) return;
-				this.state.update((state) => {
-					state[url] = this.policy.loading;
-				});
-				const task = this.read(url, AbortSignal.any([this.lifetime.signal, this.generation.signal]));
-				this.pending.add(task);
-				try {
-					await task;
-				} finally {
-					this.pending.delete(task);
-				}
-			}
-			/** Forget every state and abandon in-flight reads; a replaced connection may reach a Host that no longer serves them. */
-			reset() {
-				this.generation.abort();
-				this.generation = new AbortController();
-				this.state.set({});
-			}
-			/** Cancel outstanding reads and wait until none can publish state. */
-			async dispose() {
-				this.lifetime.abort();
-				await Promise.all(this.pending);
-			}
-			async read(url, signal) {
-				let next;
-				try {
-					next = await this.policy.decode(await fetch(url, { signal }));
-				} catch {
-					next = this.policy.failed;
-				}
-				if (!signal.aborted) this.state.update((state) => {
-					state[url] = next;
-				});
-			}
-		};
-		//#endregion
-		//#region lib/types/client/changes-diff.js
-		/** One browser plugin's comparison reads; a failed read is the one state a later request replaces. */
-		var ChangesDiffStore = class extends HostReadStore {
-			constructor() {
-				super({
-					loading: "loading",
-					failed: "error",
-					retryable: (state) => state === "error",
-					decode: async (response) => {
-						if (response.status === 404) return "missing";
-						if (!response.ok) return "error";
-						const value = await response.json();
-						return isChangesDiff(value) ? value : "error";
-					}
-				});
-			}
-			/**
-			* Read one comparison; a cached comparison or a missing one is kept, a failed one is read again.
-			* @param sessionId - viewed Session.
-			* @param seq - the announcing event's sequence.
-			* @param index - the file's index in the summary.
-			* @returns after the state is published.
-			*/
-			load(sessionId, seq, index) {
-				return this.loadUrl(changesDiffUrl(sessionId, seq, index));
-			}
-		};
-		//#endregion
-		//#region lib/types/client/changes-summary.js
-		/** One browser plugin's summary reads; a summary or a missing answer is kept until the connection is replaced. */
-		var ChangesSummaryStore = class extends HostReadStore {
-			constructor() {
-				super({
-					loading: "loading",
-					failed: "missing",
-					retryable: () => false,
-					decode: async (response) => {
-						if (!response.ok) return "missing";
-						const value = await response.json();
-						return isChangesSummary(value) ? value : "missing";
-					}
-				});
-			}
-			/**
-			* Read one summary once; a later read of the same coordinates returns the cached state.
-			* @param sessionId - viewed Session.
-			* @param seq - the announcing event's sequence.
-			* @returns after the state is published.
-			*/
-			load(sessionId, seq) {
-				return this.loadUrl(changesSummaryUrl(sessionId, seq));
-			}
-		};
-		//#endregion
-		//#region lib/types/presented.js
-		/** Authenticated POST route for opening a workspace file on the Host desktop. */
-		const PRESENT_OPEN_PATH = "/api/present.open";
-		/** Authenticated desktop availability and destination metadata. */
-		const PRESENT_HOST_PATH = "/api/present.host";
-		/**
-		* Browser-relative form of {@link PRESENT_OPEN_PATH}; see
-		* .agents/notes/implemented/architecture/2026-09-14-web-document-relative-app-routes.md.
-		*/
-		const PRESENT_OPEN_ROUTE = PRESENT_OPEN_PATH.slice(1);
-		/** Browser-relative form of {@link PRESENT_HOST_PATH}. */
-		const PRESENT_HOST_ROUTE = PRESENT_HOST_PATH.slice(1);
-		/**
-		* Validate desktop metadata received over HTTP.
-		* @param value - decoded response.
-		* @returns whether all displayed and actionable fields are supported.
-		*/
-		function isPresentedHost(value) {
-			if (typeof value !== "object" || value === null) return false;
-			const host = value;
-			return typeof host.name === "string" && typeof host.available === "boolean" && (host.fileManager === null || host.fileManager === "finder" || host.fileManager === "explorer" || host.fileManager === "directory");
-		}
-		/**
-		* Validate a file declaration read from a Session log.
-		* @param value - decoded durable data.
-		* @returns whether the declaration contains a path and optional description.
-		*/
-		function isPresentedFile(value) {
-			if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
-			const { path, description } = value;
-			return typeof path === "string" && path.trim().length > 0 && (description === void 0 || typeof description === "string");
-		}
-		/**
-		* Build authenticated coordinates for a declared file.
-		* @param sessionId - owning Session.
-		* @param seq - deliverables/presented event sequence.
-		* @param index - original index in the event's files array.
-		* @returns document-relative file action route.
-		*/
-		function presentedFileUrl(sessionId, seq, index) {
-			return `${PRESENT_OPEN_ROUTE}?${new URLSearchParams({
-				sessionId,
-				seq: String(seq),
-				index: String(index)
-			})}`;
-		}
-		/**
-		* Validate a delivery event before reading its turn or file declarations.
-		* @param value - decoded durable event data.
-		* @returns whether the event identifies a turn, call, and file list.
-		*/
-		function isPresentedData(value) {
-			if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
-			const { turn, callId, files } = value;
-			return typeof turn === "number" && Number.isSafeInteger(turn) && turn >= 1 && typeof callId === "string" && callId.length > 0 && Array.isArray(files);
-		}
-		/**
-		* Trailing path segment, the part that identifies the file at a glance.
-		* @param path - Slash- or backslash-separated path.
-		* @returns The final segment, or the whole string when separator-free.
-		*/
-		function basename(path) {
-			const at = Math.max(path.lastIndexOf("/"), path.lastIndexOf("\\"));
-			return at === -1 ? path : path.slice(at + 1);
-		}
-		//#endregion
-		//#region lib/types/client/present-open.js
-		/** Shared native-open status for delivery cards, the changed-files card, and closing-message file mentions. */
-		/** Success feedback remains fully visible for five seconds before fading. */
-		const PRESENTED_SUCCESS_HOLD_MS = 5e3;
-		/** One browser plugin's file-open requests, cancelled when that plugin is disposed. */
-		var PresentedOpenController = class {
-			/** File action URLs key the state across Sessions, turns, and both clickable surfaces. */
-			state = (0, _deepseek_ai_dsh_client_store.createSnapshotStore)({});
-			/** Native destination metadata, or a retryable read failure. */
-			host = (0, _deepseek_ai_dsh_client_store.createSnapshotStore)(null);
-			expiry = /* @__PURE__ */ new Map();
-			loading;
-			metadata = new AbortController();
-			lifetime = new AbortController();
-			pending = /* @__PURE__ */ new Set();
-			/**
-			* Open a declared file once while a request for the same coordinates is pending.
-			* Failures remain visible on the card and a later gesture retries them.
-			* @param sessionId - viewed Session, including a fork's own identity.
-			* @param seq - durable delivery event sequence.
-			* @param index - original file index within that event.
-			* @param action - default application open or file-manager reveal.
-			* @param application - registered handler identifier for an explicit application choice.
-			* @returns null after a successful handoff, or the failure to announce after publishing card status.
-			*/
-			open(sessionId, seq, index, action = "open", application) {
-				return this.openUrl(presentedFileUrl(sessionId, seq, index), action, application);
-			}
-			/**
-			* Open one recorded changed file in the Host's default application.
-			* @param sessionId - viewed Session.
-			* @param seq - durable workspace/changes event sequence.
-			* @param index - original file index within that event.
-			* @param action - application open or file-manager reveal.
-			* @param application - registered handler identifier for an explicit application choice.
-			* @returns null after a successful handoff, or the failure to announce after publishing card status.
-			*/
-			openChanged(sessionId, seq, index, action = "open", application) {
-				return this.openUrl(changedFileUrl(sessionId, seq, index), action, application);
-			}
-			async openUrl(url, action, application) {
-				const phase = this.state.getSnapshot()[url];
-				if (this.lifetime.signal.aborted || phase === "opening" || phase === "revealing") return null;
-				this.clearExpiry(url);
-				this.state.update((state) => {
-					state[url] = action === "open" ? "opening" : "revealing";
-				});
-				const task = this.request(url, action, application);
-				this.pending.add(task);
-				try {
-					return await task;
-				} finally {
-					this.pending.delete(task);
-				}
-			}
-			/**
-			* Read the serving desktop metadata, coalescing concurrent reads; a later call retries failure.
-			* @returns after metadata or a retryable error is published.
-			*/
-			async loadHost() {
-				if (this.lifetime.signal.aborted) return;
-				if (this.loading !== void 0) return this.loading;
-				this.host.set(null);
-				const task = this.readHost(AbortSignal.any([this.lifetime.signal, this.metadata.signal]));
-				this.loading = task;
-				this.pending.add(task);
-				try {
-					await task;
-				} finally {
-					if (this.loading === task) this.loading = void 0;
-					this.pending.delete(task);
-				}
-			}
-			/** Invalidate desktop metadata on connection replacement; mounted cards request the new Host. */
-			resetHost() {
-				const wasLoading = this.loading !== void 0;
-				this.metadata.abort();
-				this.metadata = new AbortController();
-				this.loading = void 0;
-				this.host.set(null);
-				if (wasLoading) this.loadHost();
-			}
-			async readHost(signal) {
-				let host = "error";
-				try {
-					const response = await fetch(PRESENT_HOST_ROUTE, { signal });
-					if (response.ok) {
-						const value = await response.json();
-						if (isPresentedHost(value)) host = value;
-					}
-				} catch {
-					host = "error";
-				}
-				if (!signal.aborted) this.host.set(host);
-			}
-			/** Cancel outstanding requests and wait until no request can publish state. */
-			async dispose() {
-				this.lifetime.abort();
-				for (const url of this.expiry.keys()) this.clearExpiry(url);
-				await Promise.all(this.pending);
-			}
-			clearExpiry(url) {
-				clearTimeout(this.expiry.get(url));
-				this.expiry.delete(url);
-			}
-			async request(url, action, application) {
-				const failure = action === "open" ? "error" : "revealError";
-				let phase = action === "open" ? "opened" : "revealed";
-				try {
-					const target = action === "reveal" ? `${url}&action=reveal` : application === void 0 ? url : `${url}&application=${encodeURIComponent(application)}`;
-					const response = await fetch(target, {
-						method: "POST",
-						signal: this.lifetime.signal
-					});
-					if (!response.ok) phase = response.status === 422 ? "nativeUnavailable" : failure;
-				} catch {
-					phase = failure;
-				}
-				if (!this.lifetime.signal.aborted) {
-					if (phase === "opened" || phase === "revealed") this.expiry.set(url, setTimeout(() => {
-						this.expiry.delete(url);
-						this.state.update((state) => {
-							Reflect.deleteProperty(state, url);
-						});
-					}, 5200));
-					this.state.update((state) => {
-						state[url] = phase;
-					});
-				}
-				return phase === "opened" || phase === "revealed" ? null : action === "reveal" ? "revealError" : "openError";
-			}
-		};
-		//#endregion
-		//#region \0dsh-css:D:\Agent Router\deepseek-harness\packages\client\ui-deliverables\src\client\PresentRow.module.css.mjs
-		const css$4 = ".gaXRpa_summary{min-width:0;color:var(--dsw-alias-label-secondary);align-items:center;gap:8px;margin-left:8px;font-size:12px;display:flex}.gaXRpa_summary>:first-child{flex-shrink:0}.gaXRpa_paths{text-overflow:ellipsis;white-space:nowrap;overflow:hidden}.gaXRpa_output{border-radius:var(--dsw-radius-lg);background:var(--dsw-alias-bg-layer-1);color:var(--dsw-alias-label-secondary);white-space:pre-wrap;overflow-wrap:anywhere;margin:8px 0;padding:12px;font-size:12px}.gaXRpa_inspect{color:var(--dsw-alias-link);font:inherit;cursor:pointer;background:0 0;border:none;align-self:flex-start;padding:4px 0;font-size:12px}";
-		const tagId$4 = "@deepseek-ai/dsh-client-ui-deliverables/PresentRow.module.css";
-		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId$4) + "]") === null) {
-			const tag = document.createElement("style");
-			tag.dataset.plugin = "@deepseek-ai/dsh-client-ui-deliverables";
-			tag.dataset.pluginCss = tagId$4;
-			tag.textContent = css$4;
-			document.head.appendChild(tag);
-		}
-		var PresentRow_module_css_default = {
-			"inspect": "gaXRpa_inspect",
-			"output": "gaXRpa_output",
-			"paths": "gaXRpa_paths",
-			"summary": "gaXRpa_summary"
-		};
-		//#endregion
-		//#region lib/types/client/PresentRow.js
-		/** Present call status and expandable durable result text. */
-		/* v8 ignore next -- Non-expandable rows never invoke DisclosureRow's required toggle callback. */
-		const noop = () => void 0;
-		/** Raw arguments can be partial while a call is streaming. */
-		function fileNames(raw) {
-			let args;
-			try {
-				args = JSON.parse(raw);
-			} catch {
-				return raw;
-			}
-			if (typeof args !== "object" || args === null || !("files" in args) || !Array.isArray(args.files)) return raw;
-			return args.files.flatMap((file) => typeof file === "object" && file !== null && "path" in file && typeof file.path === "string" ? [file.path] : []).join(", ");
-		}
-		/**
-		* Render a present call using its recorded arguments and result.
-		* @param props - tool call and localized status copy.
-		* @returns a status row with a result disclosure.
-		*/
-		function PresentRow(props) {
-			return props.phase === "preparing" ? (0, react_jsx_runtime.jsx)(PreparingPresentRow, { ...props }) : (0, react_jsx_runtime.jsx)(StartedPresentRow, { ...props });
-		}
-		function PreparingPresentRow({ t }) {
-			return (0, react_jsx_runtime.jsx)("div", {
-				"data-tool": "present",
-				"data-state": "preparing",
-				"aria-label": t("row.preparing"),
-				children: (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.DisclosureRow, {
-					title: t("row.title"),
-					icon: (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconDeliverDocRegular, { size: 14 }),
-					open: false,
-					expandable: false,
-					onToggle: noop,
-					running: true
-				})
-			});
-		}
-		function StartedPresentRow({ block, inspect, t }) {
-			const settled = "kind" in block;
-			const state = !settled ? "running" : block.error?.code === "interrupted" ? "stopped" : block.isError ? "error" : "ok";
-			const args = (settled ? block.call?.argsRaw : block.argsRaw) ?? "";
-			const details = (settled ? block.content.map((item) => item.type === "text" ? item.text : JSON.stringify(item)).join("\n") : "") || (settled && block.error ? `${block.error.name}: ${block.error.code}` : "");
-			const [expanded, setExpanded] = (0, react.useState)(false);
-			return (0, react_jsx_runtime.jsx)("div", {
-				"data-tool": "present",
-				"data-state": state,
-				children: (0, react_jsx_runtime.jsxs)(_deepseek_ai_dsh_client_ui_primitives.DisclosureRow, {
-					title: t("row.title"),
-					icon: (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconDeliverDocRegular, { size: 14 }),
-					open: expanded && details !== "",
-					expandable: details !== "",
-					expandOnRowClick: true,
-					keepContentWhenOpen: true,
-					onToggle: () => {
-						setExpanded((value) => !value);
-					},
-					collapsedContent: (0, react_jsx_runtime.jsxs)("span", {
-						className: PresentRow_module_css_default.summary,
-						children: [(0, react_jsx_runtime.jsx)("span", { children: t(`row.${state}`) }), (0, react_jsx_runtime.jsx)("span", {
-							className: PresentRow_module_css_default.paths,
-							children: fileNames(args)
-						})]
-					}),
-					children: [(0, react_jsx_runtime.jsx)("pre", {
-						className: PresentRow_module_css_default.output,
-						children: details
-					}), inspect && (0, react_jsx_runtime.jsx)("button", {
-						type: "button",
-						className: PresentRow_module_css_default.inspect,
-						onClick: inspect,
-						children: t("row.inspect")
-					})]
-				})
-			});
-		}
-		//#endregion
-		//#region ../../util/workspace-path/lib/index.js
-		/**
-		* The `dsh-resource://file/…` address grammar: how a file is named across the
-		* Sidebar and the resource model, built and parsed without touching a
-		* filesystem.
-		* @module
-		*/
-		/** The scheme and type every file address opens with. */
-		const FILE_ADDRESS_PREFIX = "dsh-resource://file/";
-		/** Component-encode one id or path segment, keeping `:` literal for drive letters. */
-		function encodeSegment(segment) {
-			return encodeURIComponent(segment).replace(/%3A/gi, ":");
-		}
-		/** Encode a `/`-separated path segment by segment. */
-		function encodePath(path) {
-			return path.split("/").map(encodeSegment).join("/");
-		}
-		/**
-		* Build the address of a file read through one Session.
-		* @param sessionId - the Session whose Host workspace resolves the path.
-		* @param path - absolute or workspace-relative path; backslashes are normalized to `/`, and leading `./` prefixes are dropped.
-		* @returns the `dsh-resource://file/session/<sessionId>/<path>` address.
-		*/
-		function sessionFileAddress(sessionId, path) {
-			const normalized = path.replace(/\\/g, "/").replace(/^(?:\.\/)+/, "");
-			return `${FILE_ADDRESS_PREFIX}session/${encodeSegment(sessionId)}/${encodePath(normalized)}`;
-		}
-		/**
-		* Browser-safe Workspace path and display helpers.
-		* @module @deepseek-ai/dsh-util-workspace-path
-		*/
-		/** Whether a path uses a Windows drive or UNC prefix. */
-		function isWindowsStylePath(value) {
-			return /^[A-Za-z]:[/\\]/.test(value) || value.startsWith("\\\\");
-		}
-		/**
-		* Whether a path is absolute in either spelling the Host accepts: POSIX (`/a/b`) or Windows drive or UNC.
-		* @param path - the path to classify.
-		* @returns `true` for an absolute path; `false` for a Workspace-relative one.
-		*/
-		function isAbsoluteWorkspacePath(path) {
-			return path.startsWith("/") || isWindowsStylePath(path);
-		}
-		/**
-		* Resolve a Workspace-relative path into the Host-facing spelling used by path operations.
-		* @param cwd - Session Workspace root, when known.
-		* @param path - Absolute or Workspace-relative path.
-		* @returns an absolute path when a Workspace root is available, otherwise the original path.
-		*/
-		function resolveWorkspacePath(cwd, path) {
-			if (isAbsoluteWorkspacePath(path)) return path;
-			if (cwd === void 0 || cwd === "") return path;
-			const separator = isWindowsStylePath(cwd) && cwd.includes("\\") ? "\\" : "/";
-			return `${cwd.replace(/[/\\]+$/, "")}${separator}${path.replace(/^[/\\]+/, "")}`;
-		}
-		/**
-		* The address for a path as a caller holds it: a relative path, or an absolute
-		* path inside the Session's workspace, becomes a `session`-scoped address; an
-		* absolute path outside it, or one whose workspace root is unknown, keeps its
-		* absolute path in that Session's address.
-		* @param sessionId - the Session the path is read in.
-		* @param cwd - that Session's workspace root, when known.
-		* @param path - absolute or workspace-relative path, in either separator spelling.
-		* @returns the `dsh-resource://file/…` address.
-		*/
-		function fileAddressFor(sessionId, cwd, path) {
-			const normalized = path.replace(/\\/g, "/");
-			if (!isAbsoluteWorkspacePath(normalized)) return sessionFileAddress(sessionId, normalized);
-			const root = cwd === void 0 ? "" : cwd.replace(/\\/g, "/").replace(/\/+$/, "");
-			if (root !== "" && normalized === root) return sessionFileAddress(sessionId, "");
-			if (root !== "" && normalized.startsWith(`${root}/`)) return sessionFileAddress(sessionId, normalized.slice(root.length + 1));
-			return sessionFileAddress(sessionId, normalized);
-		}
-		//#endregion
-		//#region \0dsh-css:D:\Agent Router\deepseek-harness\packages\client\ui-deliverables\src\client\FileDiff.module.css.mjs
-		const css$3 = ".DEvgKW_root{--diff-empty-fill:color-mix(in srgb, var(--dsw-alias-interactive-bg-hover) 50%, transparent);box-sizing:border-box;width:100%;min-height:0;color:var(--dsw-alias-label-primary);flex-direction:column;display:flex}.DEvgKW_header{box-sizing:border-box;border-bottom:.5px solid var(--dsw-alias-border-l3);flex:none;align-items:center;gap:6px;height:38px;padding:0 6px 0 8px;display:flex}.DEvgKW_status{color:var(--dsw-alias-label-secondary);align-items:center;gap:12px;margin:0;padding:16px;font-size:13px;display:flex}.DEvgKW_body{min-height:0;font:var(--dsw-font-markdown-code-block);flex-direction:column;flex:auto;padding:8px 0 16px;display:flex;overflow:auto}.DEvgKW_columns{flex:auto;grid-template-columns:minmax(0,1fr) minmax(0,1fr);min-height:0;display:grid}.DEvgKW_column,.DEvgKW_body[data-review-view=unified]:not([data-review-wrap]){grid-template-columns:minmax(max-content,100%);align-content:start;display:grid}.DEvgKW_column{overscroll-behavior:none;min-width:0;overflow-x:scroll}.DEvgKW_column+.DEvgKW_column{border-left:.5px solid var(--dsw-alias-border-l3)}.DEvgKW_sideLine{box-sizing:border-box;white-space:pre;grid-template-columns:3.5em max-content;width:max-content;min-width:100%;min-height:22px;line-height:22px;display:grid}.DEvgKW_note{font:var(--dsw-font-xs-13);color:var(--dsw-alias-label-tertiary);margin:0;padding:4px 16px 8px}.DEvgKW_hunk{margin-bottom:8px}.DEvgKW_hunkHeader{color:var(--dsw-alias-label-tertiary);white-space:pre;padding:4px 16px}.DEvgKW_line{box-sizing:border-box;white-space:pre;grid-template-columns:3.5em 3.5em 1.2em minmax(0,1fr);min-height:22px;line-height:22px;display:grid}.DEvgKW_splitLine{white-space:pre;grid-template-columns:minmax(0,1fr) minmax(0,1fr);min-height:22px;line-height:22px;display:grid}.DEvgKW_cell{box-sizing:border-box;grid-template-columns:3.5em minmax(0,1fr);min-width:0;display:grid}.DEvgKW_cell+.DEvgKW_cell{border-left:.5px solid var(--dsw-alias-border-l3)}.DEvgKW_number{color:var(--dsw-alias-label-tertiary);text-align:right;user-select:none;padding-right:8px}.DEvgKW_sign{text-align:center;user-select:none}.DEvgKW_text{padding-right:16px}.DEvgKW_body[data-review-wrap] .DEvgKW_line,.DEvgKW_body[data-review-wrap] .DEvgKW_splitLine{white-space:pre-wrap}.DEvgKW_body[data-review-wrap] .DEvgKW_text{overflow-wrap:anywhere}.DEvgKW_add{--diff-gutter-fill:var(--dsw-alias-file-diff-added-gutter);--diff-marker:var(--dsw-alias-file-diff-added-marker);background:var(--dsw-alias-file-diff-added-bg)}.DEvgKW_del{--diff-gutter-fill:var(--dsw-alias-file-diff-deleted-gutter);--diff-marker:var(--dsw-alias-file-diff-deleted-marker);background:var(--dsw-alias-file-diff-deleted-bg)}.DEvgKW_add .DEvgKW_number,.DEvgKW_del .DEvgKW_number{background:var(--diff-gutter-fill);color:var(--diff-marker)}.DEvgKW_add .DEvgKW_number:first-child,.DEvgKW_del .DEvgKW_number:first-child{box-shadow:inset 3px 0 0 var(--diff-marker)}.DEvgKW_add .DEvgKW_sign,.DEvgKW_del .DEvgKW_sign{color:var(--diff-marker)}.DEvgKW_context .DEvgKW_text{color:var(--dsw-alias-label-secondary)}.DEvgKW_empty{background:var(--diff-empty-fill)}";
-		const tagId$3 = "@deepseek-ai/dsh-client-ui-deliverables/FileDiff.module.css";
-		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId$3) + "]") === null) {
-			const tag = document.createElement("style");
-			tag.dataset.plugin = "@deepseek-ai/dsh-client-ui-deliverables";
-			tag.dataset.pluginCss = tagId$3;
-			tag.textContent = css$3;
-			document.head.appendChild(tag);
-		}
-		var FileDiff_module_css_default = {
-			"add": "DEvgKW_add",
-			"body": "DEvgKW_body",
-			"cell": "DEvgKW_cell",
-			"column": "DEvgKW_column",
-			"columns": "DEvgKW_columns",
-			"context": "DEvgKW_context",
-			"del": "DEvgKW_del",
-			"empty": "DEvgKW_empty",
-			"header": "DEvgKW_header",
-			"hunk": "DEvgKW_hunk",
-			"hunkHeader": "DEvgKW_hunkHeader",
-			"line": "DEvgKW_line",
-			"note": "DEvgKW_note",
-			"number": "DEvgKW_number",
-			"root": "DEvgKW_root",
-			"sideLine": "DEvgKW_sideLine",
-			"sign": "DEvgKW_sign",
-			"splitLine": "DEvgKW_splitLine",
-			"status": "DEvgKW_status",
-			"text": "DEvgKW_text"
-		};
-		//#endregion
-		//#region lib/types/client/FileDiff.js
-		/** Shared file comparison for the turn-tail hover preview and Sidebar review. */
-		/** Maximum rendered lines per comparison. */
-		const MAX_RENDERED_LINES = 5e3;
-		function highlightedSide(rows, side, highlighter) {
-			const source = rows.flatMap((row) => {
-				const no = row[side];
-				return no === void 0 ? [] : [{
-					no,
-					text: row.text
-				}];
-			});
-			if (source.length === 0) return /* @__PURE__ */ new Map();
-			const highlighted = highlighter(source.map((line) => line.text).join("\n"));
-			if (highlighted === void 0) return void 0;
-			return new Map(source.map((line, index) => {
-				return [line.no, highlighted[index] ?? []];
-			}));
-		}
-		function hunkHighlights(hunk, highlighter) {
-			const rows = hunkRows(hunk);
-			return {
-				old: highlightedSide(rows, "old", highlighter),
-				new: highlightedSide(rows, "new", highlighter)
-			};
-		}
-		function DiffText({ text, spans }) {
-			return (0, react_jsx_runtime.jsx)("span", {
-				className: FileDiff_module_css_default.text,
-				"data-diff-code": spans === void 0 ? void 0 : "",
-				children: spans === void 0 ? text : spans.map((span, index) => (0, react_jsx_runtime.jsx)("span", {
-					style: span.style,
-					children: span.text
-				}, index))
-			});
-		}
-		/**
-		* Number a hunk's lines: context lines count on both sides, deletions on the
-		* old side, additions on the new side.
-		* @param hunk - a served hunk.
-		* @returns the rows in order.
-		*/
-		function hunkRows(hunk) {
-			let oldNo = hunk.oldStart;
-			let newNo = hunk.newStart;
-			return hunk.lines.map((line) => {
-				const text = line.slice(1);
-				switch (line[0]) {
-					case "+": return {
-						kind: "add",
-						old: void 0,
-						new: newNo++,
-						text
-					};
-					case "-": return {
-						kind: "del",
-						old: oldNo++,
-						new: void 0,
-						text
-					};
-					default: return {
-						kind: "context",
-						old: oldNo++,
-						new: newNo++,
-						text
-					};
-				}
-			});
-		}
-		/**
-		* Pair a hunk's lines for the side-by-side view: each run of deletions is
-		* aligned with the run of additions that follows it, row by row, and context
-		* lines sit on both sides.
-		* @param hunk - a served hunk.
-		* @returns the rows in order.
-		*/
-		function splitRows(hunk) {
-			const rows = [];
-			let dels = [];
-			let adds = [];
-			const flush = () => {
-				for (let at = 0; at < Math.max(dels.length, adds.length); at += 1) {
-					const left = dels[at];
-					const right = adds[at];
-					rows.push({
-						...left === void 0 ? {} : { left },
-						...right === void 0 ? {} : { right }
-					});
-				}
-				dels = [];
-				adds = [];
-			};
-			for (const row of hunkRows(hunk)) if (row.kind === "del") dels.push({
-				no: row.old,
-				text: row.text,
-				kind: "del"
-			});
-			else if (row.kind === "add") adds.push({
-				no: row.new,
-				text: row.text,
-				kind: "add"
-			});
-			else {
-				flush();
-				rows.push({
-					left: {
-						no: row.old,
-						text: row.text,
-						kind: "context"
-					},
-					right: {
-						no: row.new,
-						text: row.text,
-						kind: "context"
-					}
-				});
-			}
-			flush();
-			return rows;
-		}
-		/**
-		* The hunks to draw, cut at {@link MAX_RENDERED_LINES} lines in total.
-		* @param hunks - served hunks.
-		* @returns the hunks with the last one shortened as needed, and whether anything was cut.
-		*/
-		function renderedHunks(hunks) {
-			let budget = MAX_RENDERED_LINES;
-			const kept = [];
-			for (const hunk of hunks) {
-				if (budget === 0) return {
-					hunks: kept,
-					truncated: true
-				};
-				kept.push(hunk.lines.length <= budget ? hunk : {
-					...hunk,
-					lines: hunk.lines.slice(0, budget)
-				});
-				budget -= Math.min(budget, hunk.lines.length);
-			}
-			return {
-				hunks: kept,
-				truncated: hunks.some((hunk, at) => kept[at] !== hunk)
-			};
-		}
-		/** The one-line fact about a text comparison worth stating above its hunks, if any. */
-		function noteOf(diff) {
-			if (!diff.before) return "diff.created";
-			if (!diff.after) return "diff.deleted";
-			if (diff.hunks.length === 0) return "diff.unchanged";
-		}
-		/**
-		* Render a file comparison with the same states and highlighting in previews and review tabs.
-		* Addition-only and deletion-only comparisons use one column without changing the requested layout.
-		* @param props - comparison state, layout choices, retry action, and localized copy.
-		* @returns the comparison or its loading, unavailable, or error state.
-		*/
-		function FileDiff({ state, split, wrap, retry, t }) {
-			if (state === void 0 || state === "loading") return (0, react_jsx_runtime.jsx)("p", {
-				className: FileDiff_module_css_default.status,
-				role: "status",
-				children: t("diff.loading")
-			});
-			if (state === "missing") return (0, react_jsx_runtime.jsx)("p", {
-				className: FileDiff_module_css_default.status,
-				children: t("diff.missing")
-			});
-			if (state === "error") return (0, react_jsx_runtime.jsxs)("div", {
-				className: FileDiff_module_css_default.status,
-				children: [(0, react_jsx_runtime.jsx)("span", { children: t("diff.error") }), (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
-					size: "sm",
-					onClick: retry,
-					children: t("presented.retry")
-				})]
-			});
-			if (state.kind === "binary") return (0, react_jsx_runtime.jsx)("p", {
-				className: FileDiff_module_css_default.status,
-				children: t("diff.binary")
-			});
-			if (state.kind === "oversized") return (0, react_jsx_runtime.jsx)("p", {
-				className: FileDiff_module_css_default.status,
-				children: t("diff.oversized")
-			});
-			const oneSided = state.hunks.some((hunk) => hunk.lines.some((line) => line.startsWith("+"))) !== state.hunks.some((hunk) => hunk.lines.some((line) => line.startsWith("-")));
-			return (0, react_jsx_runtime.jsx)(TextDiff, {
-				diff: state,
-				split: split && !oneSided,
-				wrap,
-				t
-			});
-		}
-		/** The kind a paired row carries: a deletion or addition on either side, otherwise context. */
-		function splitRowKind(row) {
-			return row.left?.kind === "del" ? "del" : row.right?.kind === "add" ? "add" : "context";
-		}
-		function hunkHeader(hunk) {
-			return `@@ -${hunk.oldStart},${hunk.oldLines} +${hunk.newStart},${hunk.newLines} @@`;
-		}
-		/**
-		* The side-by-side view without wrapping: two columns that clip their long
-		* lines and scroll together on both axes, so a long line on one side never
-		* runs under the other and both sides show the same rows and columns of text.
-		* Every line is one fixed-height row, which keeps the sides aligned.
-		* The columns suppress elastic overscroll while retaining native in-range scrolling.
-		*/
-		function SplitColumns({ hunks, highlights }) {
-			const paired = (0, react.useMemo)(() => hunks.map((hunk) => ({
-				header: hunkHeader(hunk),
-				rows: splitRows(hunk)
-			})), [hunks]);
-			const columns = (0, react.useRef)({
-				left: null,
-				right: null
-			});
-			const offsets = (0, react.useRef)({
-				left: {
-					scrollLeft: 0,
-					scrollTop: 0
-				},
-				right: {
-					scrollLeft: 0,
-					scrollTop: 0
-				}
-			});
-			const follow = (side) => (event) => {
-				const peer = side === "left" ? "right" : "left";
-				const other = columns.current[peer];
-				/* v8 ignore next -- Both column refs are attached before browser scroll events can run. */
-				if (other === null) return;
-				for (const axis of ["scrollLeft", "scrollTop"]) {
-					const value = event.currentTarget[axis];
-					if (offsets.current[side][axis] === value) continue;
-					offsets.current[side][axis] = value;
-					other[axis] = value;
-					offsets.current[peer][axis] = other[axis];
-				}
-			};
-			return (0, react_jsx_runtime.jsx)("div", {
-				className: FileDiff_module_css_default.columns,
-				children: ["left", "right"].map((side) => (0, react_jsx_runtime.jsx)("div", {
-					className: FileDiff_module_css_default.column,
-					"data-diff-side": side,
-					ref: (element) => {
-						columns.current[side] = element;
-					},
-					onScroll: follow(side),
-					children: paired.map((hunk, position) => (0, react_jsx_runtime.jsxs)("section", {
-						className: FileDiff_module_css_default.hunk,
-						children: [(0, react_jsx_runtime.jsx)("div", {
-							className: FileDiff_module_css_default.hunkHeader,
-							"data-diff-hunk-header": true,
-							children: hunk.header
-						}), hunk.rows.map((row, at) => {
-							const cell = row[side];
-							const spans = cell === void 0 ? void 0 : highlights[position]?.[side === "left" ? "old" : "new"]?.get(cell.no);
-							return (0, react_jsx_runtime.jsxs)("div", {
-								className: `${FileDiff_module_css_default.sideLine} ${cell === void 0 ? FileDiff_module_css_default.empty : FileDiff_module_css_default[cell.kind]}`,
-								"data-diff-line": splitRowKind(row),
-								children: [(0, react_jsx_runtime.jsx)("span", {
-									className: FileDiff_module_css_default.number,
-									children: cell?.no ?? ""
-								}), (0, react_jsx_runtime.jsx)(DiffText, {
-									text: cell?.text ?? "",
-									spans
-								})]
-							}, at);
-						})]
-					}, position))
-				}, side))
-			});
-		}
-		/** The hunks of a text comparison with their line numbers, unified or side by side. */
-		function TextDiff({ diff, split, wrap, t }) {
-			const note = noteOf(diff);
-			const { hunks, truncated } = (0, react.useMemo)(() => renderedHunks(diff.hunks), [diff.hunks]);
-			const highlighter = (0, _deepseek_ai_dsh_client_ui_primitives.useCodeHighlighter)((0, _deepseek_ai_dsh_client_ui_primitives.languageForPath)(diff.path));
-			const highlights = (0, react.useMemo)(() => hunks.map((hunk) => hunkHighlights(hunk, highlighter)), [hunks, highlighter]);
-			return (0, react_jsx_runtime.jsxs)("div", {
-				className: FileDiff_module_css_default.body,
-				"data-review-view": split ? "split" : "unified",
-				"data-review-wrap": wrap || void 0,
-				children: [
-					note !== void 0 && (0, react_jsx_runtime.jsx)("p", {
-						className: FileDiff_module_css_default.note,
-						"data-diff-note": hunks.length === 0 ? "empty" : "metadata",
-						children: t(note)
-					}),
-					diff.coarse && (0, react_jsx_runtime.jsx)("p", {
-						className: FileDiff_module_css_default.note,
-						"data-diff-coarse": true,
-						children: t("diff.coarse")
-					}),
-					truncated && (0, react_jsx_runtime.jsx)("p", {
-						className: FileDiff_module_css_default.note,
-						"data-diff-truncated": true,
-						children: t("diff.truncated", { count: String(5e3) })
-					}),
-					split && !wrap ? (0, react_jsx_runtime.jsx)(SplitColumns, {
-						hunks,
-						highlights
-					}) : hunks.map((hunk, position) => {
-						const highlighted = highlights[position];
-						return (0, react_jsx_runtime.jsxs)("section", {
-							className: FileDiff_module_css_default.hunk,
-							children: [(0, react_jsx_runtime.jsx)("div", {
-								className: FileDiff_module_css_default.hunkHeader,
-								"data-diff-hunk-header": true,
-								children: hunkHeader(hunk)
-							}), split ? splitRows(hunk).map((row, at) => (0, react_jsx_runtime.jsxs)("div", {
-								className: FileDiff_module_css_default.splitLine,
-								"data-diff-line": splitRowKind(row),
-								children: [(0, react_jsx_runtime.jsxs)("span", {
-									className: `${FileDiff_module_css_default.cell} ${row.left === void 0 ? FileDiff_module_css_default.empty : FileDiff_module_css_default[row.left.kind]}`,
-									children: [(0, react_jsx_runtime.jsx)("span", {
-										className: FileDiff_module_css_default.number,
-										children: row.left?.no ?? ""
-									}), (0, react_jsx_runtime.jsx)(DiffText, {
-										text: row.left?.text ?? "",
-										spans: row.left === void 0 ? void 0 : highlighted?.old?.get(row.left.no)
-									})]
-								}), (0, react_jsx_runtime.jsxs)("span", {
-									className: `${FileDiff_module_css_default.cell} ${row.right === void 0 ? FileDiff_module_css_default.empty : FileDiff_module_css_default[row.right.kind]}`,
-									children: [(0, react_jsx_runtime.jsx)("span", {
-										className: FileDiff_module_css_default.number,
-										children: row.right?.no ?? ""
-									}), (0, react_jsx_runtime.jsx)(DiffText, {
-										text: row.right?.text ?? "",
-										spans: row.right === void 0 ? void 0 : highlighted?.new?.get(row.right.no)
-									})]
-								})]
-							}, at)) : hunkRows(hunk).map((row, at) => (0, react_jsx_runtime.jsxs)("div", {
-								className: `${FileDiff_module_css_default.line} ${FileDiff_module_css_default[row.kind]}`,
-								"data-diff-line": row.kind,
-								children: [
-									(0, react_jsx_runtime.jsx)("span", {
-										className: FileDiff_module_css_default.number,
-										children: row.old ?? ""
-									}),
-									(0, react_jsx_runtime.jsx)("span", {
-										className: FileDiff_module_css_default.number,
-										children: row.new ?? ""
-									}),
-									(0, react_jsx_runtime.jsx)("span", {
-										className: FileDiff_module_css_default.sign,
-										children: row.kind === "add" ? "+" : row.kind === "del" ? "-" : " "
-									}),
-									(0, react_jsx_runtime.jsx)(DiffText, {
-										text: row.text,
-										spans: row.kind === "add" ? highlighted?.new?.get(row.new) : highlighted?.old?.get(row.old)
-									})
-								]
-							}, at))]
-						}, position);
-					})
-				]
-			});
-		}
-		//#endregion
-		//#region ../../core/session/lib/types/surface.js
-		/** Runtime counterpart of the message-producing event union. */
-		const SURFACE_EVENT_TYPES = new Set([
-			"system/message",
-			"developer/message",
-			"user/message",
-			"assistant/message",
-			"tool/result"
-		]);
-		/**
-		* Narrow an event to a surface-eligible event carrying its required marker.
-		* @param event - event to test.
-		* @returns true when both the type and marker identify a surface event.
-		*/
-		function isSurfaceEvent(event) {
-			if (!SURFACE_EVENT_TYPES.has(event.type)) return false;
-			return event.surfaceOp !== void 0;
-		}
-		/**
-		* Narrow an event to an append-origin surface event: one that entered the
-		* surface at its own log position and was never itself a replacement copy.
-		*
-		* The model-visible surface deliberately shadows replaced ranges, so it is the
-		* wrong source for a human transcript — a landed replacement would erase
-		* conversation the user already saw. Append-origin events are that transcript's
-		* durable source material; replacement copies stay model-only.
-		* @param event - event to test.
-		* @returns true when the event appended to the surface tail.
-		*/
-		function isAppendSurfaceEvent(event) {
-			return isSurfaceEvent(event) && event.surfaceOp === "append";
-		}
-		//#endregion
-		//#region lib/types/client/turn-deliverables.js
-		/**
-		* Turn-scoped produced-file Definition and readers. Client-only and
-		* model-free: produced paths come from successful first-party mutation calls,
-		* changed files from the Host's recorded git summary, and deliveries from
-		* `present`; never from presentation data or the closing prose.
-		*/
-		/**
-		* Extract the path from a supported first-party mutation call. Session
-		* `tool/call` events are root calls; PTC dispatch children do not enter this
-		* Definition independently.
-		* @param name - wire tool name.
-		* @param argsRaw - model-produced JSON arguments.
-		* @returns the mutation path, or null when the call is not a supported mutation.
-		*/
-		function mutationPath(name, argsRaw) {
-			let args;
-			try {
-				args = JSON.parse(argsRaw);
-			} catch {
-				return null;
-			}
-			if (!isRecord(args)) return null;
-			switch (name) {
-				case "write": return typeof args.content === "string" ? pathValue(args.file_path) : null;
-				case "edit": return validEditArgs(args) ? pathValue(args.file_path) : null;
-				case "str_replace_editor": return editorMutationPath(args);
-				default: return null;
-			}
-		}
-		/** Validate the fields that an `edit` execution requires. */
-		function validEditArgs(args) {
-			return typeof args.old_string === "string" && args.old_string.length > 0 && typeof args.new_string === "string" && args.old_string !== args.new_string && (args.replace_all === void 0 || typeof args.replace_all === "boolean");
-		}
-		/** Extract a path only from a complete mutating editor command. */
-		function editorMutationPath(args) {
-			const path = pathValue(args.path);
-			if (path === null) return null;
-			switch (args.command) {
-				case "create": return typeof args.file_text === "string" ? path : null;
-				case "str_replace": return typeof args.old_str === "string" && args.old_str.length > 0 && (args.new_str === void 0 || typeof args.new_str === "string") ? path : null;
-				case "insert": return typeof args.insert_line === "number" && Number.isInteger(args.insert_line) && args.insert_line >= 0 && typeof args.new_str === "string" ? path : null;
-				default: return null;
-			}
-		}
-		/** A non-blank path preserves the exact spelling supplied to the tool. */
-		function pathValue(value) {
-			return typeof value === "string" && value.trim().length > 0 ? value : null;
-		}
-		/** Narrow parsed JSON to an argument object. */
-		function isRecord(value) {
-			return typeof value === "object" && value !== null && !Array.isArray(value);
-		}
-		/**
-		* Files produced by one Turn data value.
-		*
-		* The source is the arguments of successful `write`, `edit`, and mutating
-		* `str_replace_editor` calls, not the closing prose: a produced file must be
-		* listed whether or not the model remembered to name it. Reads, unsupported
-		* tools, malformed calls, and failed results contribute nothing. Paths keep
-		* first-seen order and appear once, so a file written and then edited in the
-		* same turn is one entry.
-		*
-		* The Conversation Location index owns turn membership before this function
-		* runs, so paths cannot spill across turns and this derivation does not infer
-		* boundaries from neighboring presentation Nodes.
-		* @param data - engine-published Deliverables data for one Turn.
-		* @param seq - closing Assistant seq; later Tool settlements are excluded.
-		* @returns Produced paths in first-seen order; empty when the turn wrote nothing.
-		*/
-		function producedForClosing(data, seq = Number.POSITIVE_INFINITY) {
-			if (data === void 0) return [];
-			const paths = [];
-			const seen = /* @__PURE__ */ new Set();
-			for (const produced of data.produced) {
-				if (produced.seq > seq || seen.has(produced.path)) continue;
-				seen.add(produced.path);
-				paths.push(produced.path);
-			}
-			return paths;
-		}
-		/**
-		* Claim the turn-tail chain only when its closing turn produced files.
-		* @param owner - Turn-tail owner currency for the closing assistant.
-		* @returns Produced paths as the component's match, or null to decline before mount.
-		*/
-		function selectProducedFiles(owner) {
-			const paths = producedForClosing(owner.turn.data.get("deliverables"), owner.seq);
-			return paths.length === 0 ? null : paths;
-		}
-		/** Turn-local successful mutation accumulator; it publishes no view Node. */
-		const deliverablesDefinition = {
-			kind: "deliverables",
-			match: (event) => {
-				if (event.type === "turn/start") return {
-					id: String(event.data.turn),
-					role: "start"
-				};
-				if (event.type === "tool/call") return {
-					id: String(event.data.turn),
-					role: "update"
-				};
-				if (event.type === "deliverables/presented") return isPresentedData(event.data) ? {
-					id: String(event.data.turn),
-					role: "update"
-				} : null;
-				if (event.type === "workspace/changes") return isChangesEvent(event.data) ? {
-					id: String(event.data.turn),
-					role: "update"
-				} : null;
-				if (event.type === "tool/result" && isAppendSurfaceEvent(event)) return {
-					id: String(event.data.turn),
-					role: "update"
-				};
-				return null;
-			},
-			start: (_context, match) => {
-				if (match.event.type !== "turn/start") throw new Error("deliverables start requires turn/start");
-				return {
-					turn: match.event.data.turn,
-					calls: /* @__PURE__ */ new Map(),
-					produced: []
-				};
-			},
-			update: (context, match) => {
-				if (match.event.type === "workspace/changes") return {
-					...context.state,
-					changes: { seq: match.event.seq }
-				};
-				if (match.event.type === "deliverables/presented") {
-					const { files } = match.event.data;
-					const seq = match.event.seq;
-					const presented = [];
-					for (let index = 0; index < files.length; index += 1) {
-						const file = files[index];
-						if (isPresentedFile(file)) presented.push({
-							...file,
-							seq,
-							index
-						});
-					}
-					if (presented.length === 0) return context.state;
-					return {
-						...context.state,
-						presented: [...context.state.presented ?? [], ...presented]
-					};
-				}
-				if (match.event.type === "tool/call") {
-					const calls = new Map(context.state.calls);
-					calls.set(String(match.event.data.callId), mutationPath(match.event.data.name, match.event.data.arguments));
-					return {
-						...context.state,
-						calls
-					};
-				}
-				if (match.event.type !== "tool/result") return context.state;
-				if (match.event.data.message.isError === true) return context.state;
-				const callId = String(match.event.data.message.source.callId);
-				const path = context.state.calls.get(callId);
-				return path === null || path === void 0 ? context.state : {
-					...context.state,
-					produced: [...context.state.produced, {
-						seq: match.event.seq,
-						path
-					}]
-				};
-			},
-			buildLocationData: (context, scope, previous) => {
-				if (scope !== "turn" || context.state === void 0) return null;
-				if (previous?.kind === "turn" && previous.turn === context.state.turn && previous.key === "deliverables" && previous.value.produced === context.state.produced && previous.value.presented === context.state.presented && previous.value.changes === context.state.changes) return previous;
-				return {
-					kind: "turn",
-					turn: context.state.turn,
-					key: "deliverables",
+		//#region ../../../node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/core/core.js
+		var _a$1;
+		function $constructor(name, initializer, params) {
+			function init(inst, def) {
+				if (!inst._zod) Object.defineProperty(inst, "_zod", {
 					value: {
-						produced: context.state.produced,
-						...context.state.presented === void 0 ? {} : { presented: context.state.presented },
-						...context.state.changes === void 0 ? {} : { changes: context.state.changes }
-					}
-				};
+						def,
+						constr: _,
+						traits: /* @__PURE__ */ new Set()
+					},
+					enumerable: false
+				});
+				if (inst._zod.traits.has(name)) return;
+				inst._zod.traits.add(name);
+				initializer(inst, def);
+				const proto = _.prototype;
+				const keys = Object.keys(proto);
+				for (let i = 0; i < keys.length; i++) {
+					const k = keys[i];
+					if (!(k in inst)) inst[k] = proto[k].bind(inst);
+				}
+			}
+			const Parent = params?.Parent ?? Object;
+			class Definition extends Parent {}
+			Object.defineProperty(Definition, "name", { value: name });
+			function _(def) {
+				var _a;
+				const inst = params?.Parent ? new Definition() : this;
+				init(inst, def);
+				(_a = inst._zod).deferred ?? (_a.deferred = []);
+				for (const fn of inst._zod.deferred) fn();
+				return inst;
+			}
+			Object.defineProperty(_, "init", { value: init });
+			Object.defineProperty(_, Symbol.hasInstance, { value: (inst) => {
+				if (params?.Parent && inst instanceof params.Parent) return true;
+				return inst?._zod?.traits?.has(name);
+			} });
+			Object.defineProperty(_, "name", { value: name });
+			return _;
+		}
+		var $ZodAsyncError = class extends Error {
+			constructor() {
+				super(`Encountered Promise during synchronous parse. Use .parseAsync() instead.`);
 			}
 		};
-		/**
-		* The turn's latest change announcement.
-		* @param owner - closing turn.
-		* @returns the announcement, or null when the Host recorded none.
-		*/
-		function changesForClosing(owner) {
-			return owner.turn.data.get("deliverables")?.changes ?? null;
+		var $ZodEncodeError = class extends Error {
+			constructor(name) {
+				super(`Encountered unidirectional transform during encode: ${name}`);
+				this.name = "ZodEncodeError";
+			}
+		};
+		(_a$1 = globalThis).__zod_globalConfig ?? (_a$1.__zod_globalConfig = {});
+		const globalConfig = globalThis.__zod_globalConfig;
+		function config(newConfig) {
+			if (newConfig) Object.assign(globalConfig, newConfig);
+			return globalConfig;
 		}
-		/**
-		* Select the latest declaration of each path before the closing reply.
-		* @param owner - closing turn and sequence.
-		* @returns replayable deliveries in first-seen path order.
-		*/
-		function presentedForClosing(owner) {
-			const files = /* @__PURE__ */ new Map();
-			for (const file of owner.turn.data.get("deliverables")?.presented ?? []) if (file.seq < owner.seq) files.set(file.path, file);
-			return [...files.values()];
+		//#endregion
+		//#region ../../../node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/core/util.js
+		function getEnumValues(entries) {
+			const numericValues = Object.values(entries).filter((v) => typeof v === "number");
+			return Object.entries(entries).filter(([k, _]) => numericValues.indexOf(+k) === -1).map(([_, v]) => v);
 		}
-		/**
-		* Resolves inline-code references against one turn's produced or delivered
-		* paths. Exact paths resolve directly; a basename resolves only when exactly
-		* one supplied path has that basename. Ambiguous and unknown tokens stay inert.
-		* @param paths - The turn's produced or delivered paths, already deduplicated.
-		* @param openFile - The chat view's file opener.
-		* @param label - Localizes the accessible open-label for a resolved path.
-		* @returns The resolver MarkdownText consumes; the full path rides `title`,
-		* the same disambiguator the row's chips carry.
-		*/
-		function producedFileMentions(paths, openFile, label) {
-			return { resolve(value) {
-				const path = paths.includes(value) ? value : onlyPathWithBasename(paths, value);
-				if (path === void 0) return void 0;
-				return {
-					open: () => {
-						openFile(path);
-					},
-					label: label(path),
-					title: path
-				};
+		function jsonStringifyReplacer(_, value) {
+			if (typeof value === "bigint") return value.toString();
+			return value;
+		}
+		function cached(getter) {
+			return { get value() {
+				{
+					const value = getter();
+					Object.defineProperty(this, "value", { value });
+					return value;
+				}
+				throw new Error("cached value already set");
 			} };
 		}
-		/** The single supplied path whose basename is exactly `value`, else undefined. */
-		function onlyPathWithBasename(paths, value) {
-			const matches = paths.filter((path) => basename(path) === value);
-			return matches.length === 1 ? matches[0] : void 0;
+		function nullish(input) {
+			return input === null || input === void 0;
 		}
-		//#endregion
-		//#region \0dsh-css:D:\Agent Router\deepseek-harness\packages\client\ui-deliverables\src\client\ChangedFiles.module.css.mjs
-		const css$2 = ".pu6s2G_card{--changes-fill:var(--dsw-static-neutral-50);--changes-hover:var(--dsw-static-neutral-100);border:.5px solid var(--dsw-alias-border-l2);border-radius:var(--dsw-radius-lg);background:var(--dsw-alias-bg-layer-1);min-width:0;color:var(--dsw-alias-label-primary);flex-direction:column;margin-top:4px;display:flex;overflow:hidden}.pu6s2G_card[data-single=true]{border-color:var(--dsw-alias-border-l1)}body[data-ds-dark-theme] .pu6s2G_card{--changes-fill:var(--dsw-static-neutral-850);--changes-hover:var(--dsw-static-neutral-800)}.pu6s2G_header{box-sizing:border-box;background:var(--changes-fill);width:100%;min-width:0;height:60px;color:inherit;font:inherit;text-align:left;border:0;align-items:center;gap:10px;margin:0;padding:8px 10px;display:flex}button.pu6s2G_header{cursor:pointer;transition:background-color .12s}button.pu6s2G_header:hover:not(:disabled),button.pu6s2G_header:focus-visible{background:var(--changes-hover)}button.pu6s2G_header:focus-visible{box-shadow:inset 0 0 0 2px var(--dsw-focus-ring-color,var(--dsw-alias-state-business-primary));outline:none}button.pu6s2G_header:disabled{cursor:progress}.pu6s2G_tile{box-sizing:border-box;border:.5px solid var(--dsw-alias-border-l1);border-radius:var(--dsw-radius-lg);background:color-mix(in srgb, var(--dsw-static-neutral-00) 50%, transparent);flex:none;place-items:center;width:40px;height:40px;display:grid}body[data-ds-dark-theme] .pu6s2G_tile{background:color-mix(in srgb, var(--dsw-static-neutral-00) 5%, transparent)}.pu6s2G_titles{flex-direction:column;flex:1;min-width:0;display:flex}.pu6s2G_title{text-overflow:ellipsis;white-space:nowrap;font-size:13px;font-weight:500;line-height:20px;overflow:hidden}.pu6s2G_stat{color:var(--dsw-alias-label-tertiary);font-size:10px;line-height:16px;display:inline-flex}.pu6s2G_statCounts{font-family:var(--ds-font-family-code);gap:6px;display:inline-flex}.pu6s2G_previewHint,.pu6s2G_header:hover .pu6s2G_statCounts,.pu6s2G_header:focus-visible .pu6s2G_statCounts{display:none}.pu6s2G_header:hover .pu6s2G_previewHint,.pu6s2G_header:focus-visible .pu6s2G_previewHint{display:inline}.pu6s2G_stat[data-error=true],.pu6s2G_counts[data-error=true]{color:var(--dsw-alias-state-error-primary)}.pu6s2G_added{color:var(--dsw-alias-state-success-primary)}.pu6s2G_deleted{color:var(--dsw-alias-state-error-primary)}.pu6s2G_list{border-top:.5px solid var(--dsw-alias-border-l2);margin:0;padding:0;list-style:none}.pu6s2G_row{box-sizing:border-box;width:100%;min-width:0;min-height:24px;color:var(--dsw-alias-label-tertiary);cursor:pointer;font-family:var(--ds-font-family-code);text-align:left;background:0 0;border:0;justify-content:space-between;align-items:center;gap:10px;margin:0;padding:7px 18px 7px 14px;font-size:11px;line-height:18px;display:flex}.pu6s2G_row:hover:not(:disabled),.pu6s2G_row:focus-visible{background:var(--dsw-alias-interactive-bg-hover)}.pu6s2G_row:focus-visible{box-shadow:inset 0 0 0 2px var(--dsw-focus-ring-color,var(--dsw-alias-state-business-primary));outline:none}.pu6s2G_row:disabled{cursor:progress}.pu6s2G_path{min-width:0;font-family:var(--dsw-font-family);text-overflow:ellipsis;white-space:nowrap;font-size:12px;overflow:hidden}.pu6s2G_counts{white-space:nowrap;color:var(--dsw-alias-label-tertiary);flex:none;gap:6px;display:inline-flex}.pu6s2G_toggle{box-sizing:border-box;width:100%;color:var(--dsw-alias-label-tertiary);cursor:pointer;font:inherit;text-align:left;background:0 0;border:0;justify-content:flex-start;align-items:center;gap:4px;margin:0;padding:10px 18px 10px 14px;font-size:12px;line-height:18px;display:inline-flex}.pu6s2G_toggle:hover{background:var(--dsw-alias-interactive-bg-hover)}.pu6s2G_toggle svg{flex:none;width:14px;height:14px}@media (pointer:coarse){.pu6s2G_row,.pu6s2G_toggle{min-height:44px}}.pu6s2G_preview{max-height:100%;overflow:hidden}.pu6s2G_previewPath{min-width:0;color:var(--dsw-alias-label-tertiary);font-family:var(--ds-font-family-code);white-space:nowrap;flex:auto;font-size:12px;line-height:20px;overflow:auto hidden}.pu6s2G_preview [data-diff-note=metadata],.pu6s2G_preview [data-diff-hunk-header]{display:none}";
-		const tagId$2 = "@deepseek-ai/dsh-client-ui-deliverables/ChangedFiles.module.css";
-		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId$2) + "]") === null) {
-			const tag = document.createElement("style");
-			tag.dataset.plugin = "@deepseek-ai/dsh-client-ui-deliverables";
-			tag.dataset.pluginCss = tagId$2;
-			tag.textContent = css$2;
-			document.head.appendChild(tag);
+		function cleanRegex(source) {
+			const start = source.startsWith("^") ? 1 : 0;
+			const end = source.endsWith("$") ? source.length - 1 : source.length;
+			return source.slice(start, end);
 		}
-		var ChangedFiles_module_css_default = {
-			"added": "pu6s2G_added",
-			"card": "pu6s2G_card",
-			"counts": "pu6s2G_counts",
-			"deleted": "pu6s2G_deleted",
-			"header": "pu6s2G_header",
-			"list": "pu6s2G_list",
-			"path": "pu6s2G_path",
-			"preview": "pu6s2G_preview",
-			"previewHint": "pu6s2G_previewHint",
-			"previewPath": "pu6s2G_previewPath",
-			"row": "pu6s2G_row",
-			"stat": "pu6s2G_stat",
-			"statCounts": "pu6s2G_statCounts",
-			"tile": "pu6s2G_tile",
-			"title": "pu6s2G_title",
-			"titles": "pu6s2G_titles",
-			"toggle": "pu6s2G_toggle"
-		};
-		//#endregion
-		//#region lib/types/client/ChangedFiles.js
-		/** Turn changes use a compact single-file card or a header with a folded file list. */
-		/** Rows shown before the fold; the design's summary height for a closing message. */
-		const COLLAPSED_ROWS = 4;
-		const GROUPED$1 = new Intl.NumberFormat("en-US");
-		/** Added and deleted line counts in the card's colors. */
-		function Counts$1({ added, deleted, t }) {
-			return (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [(0, react_jsx_runtime.jsx)("span", {
-				className: ChangedFiles_module_css_default.added,
-				children: t("changes.added", { count: GROUPED$1.format(added) })
-			}), (0, react_jsx_runtime.jsx)("span", {
-				className: ChangedFiles_module_css_default.deleted,
-				children: t("changes.deleted", { count: GROUPED$1.format(deleted) })
-			})] });
+		function floatSafeRemainder(val, step) {
+			const ratio = val / step;
+			const roundedRatio = Math.round(ratio);
+			const tolerance = Number.EPSILON * Math.max(Math.abs(ratio), 1);
+			if (Math.abs(ratio - roundedRatio) < tolerance) return 0;
+			return ratio - roundedRatio;
 		}
-		/**
-		* Render one turn's changed files. The header opens the turn's review in the
-		* right Sidebar on its first file. A single file uses only the header; it and
-		* multi-file rows preview their comparison after a 500ms hover.
-		* @param props - the recorded summary, the review opener, and localized copy.
-		* @returns the card.
-		*/
-		function ChangedFiles({ changes, cwd, openReview, t, sessionId, useChangesDiff, loadChangesDiff }) {
-			const cardRef = (0, react.useRef)(null);
-			const pathDescriptionId = (0, react.useId)();
-			const [expanded, setExpanded] = (0, react.useState)(false);
-			const singleFile = changes.total === 1 ? changes.files[0] : void 0;
-			const foldable = changes.files.length > COLLAPSED_ROWS;
-			const rows = foldable && !expanded ? changes.files.slice(0, COLLAPSED_ROWS) : changes.files;
-			const header = (0, react_jsx_runtime.jsxs)("button", {
-				type: "button",
-				className: ChangedFiles_module_css_default.header,
-				"aria-label": singleFile === void 0 ? t("changes.openReview") : t("changes.viewDiff", { name: singleFile.display }),
-				"aria-describedby": singleFile === void 0 ? void 0 : pathDescriptionId,
-				onClick: () => {
-					openReview(0);
+		const EVALUATING = /* @__PURE__*/ Symbol("evaluating");
+		function defineLazy(object, key, getter) {
+			let value = void 0;
+			Object.defineProperty(object, key, {
+				get() {
+					if (value === EVALUATING) return;
+					if (value === void 0) {
+						value = EVALUATING;
+						value = getter();
+					}
+					return value;
 				},
-				children: [(0, react_jsx_runtime.jsx)("span", {
-					className: ChangedFiles_module_css_default.tile,
-					children: singleFile === void 0 ? (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.FileTypeIcon, {
-						kind: "code",
-						size: 20
-					}) : (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.FileTypeIcon, {
-						path: singleFile.path,
-						size: 20
-					})
-				}), (0, react_jsx_runtime.jsxs)("span", {
-					className: ChangedFiles_module_css_default.titles,
-					children: [(0, react_jsx_runtime.jsx)("span", {
-						className: ChangedFiles_module_css_default.title,
-						children: singleFile === void 0 ? t("changes.title", { count: String(changes.total) }) : t("changes.singleTitle", { name: basename(singleFile.path) })
-					}), (0, react_jsx_runtime.jsxs)("span", {
-						className: ChangedFiles_module_css_default.stat,
-						children: [(0, react_jsx_runtime.jsx)("span", {
-							className: ChangedFiles_module_css_default.statCounts,
-							children: singleFile?.binary === true ? t("changes.binary") : singleFile?.oversized === true ? t("changes.oversized") : (0, react_jsx_runtime.jsx)(Counts$1, {
-								t,
-								added: changes.added,
-								deleted: changes.deleted
-							})
-						}), (0, react_jsx_runtime.jsx)("span", {
-							className: ChangedFiles_module_css_default.previewHint,
-							children: t("presented.preview")
-						})]
-					})]
-				})]
-			});
-			return (0, react_jsx_runtime.jsxs)("div", {
-				ref: cardRef,
-				className: ChangedFiles_module_css_default.card,
-				"data-changed-files": true,
-				"data-single": singleFile !== void 0 || void 0,
-				children: [
-					singleFile === void 0 ? header : (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [(0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.HoverCard, {
-						variant: "preview",
-						widthAnchorRef: cardRef,
-						openDelayMs: 500,
-						anchor: header,
-						content: (0, react_jsx_runtime.jsx)(ChangedFilePreview, {
-							sessionId,
-							seq: changes.seq,
-							index: 0,
-							display: resolveWorkspacePath(cwd, singleFile.path),
-							useChangesDiff,
-							loadChangesDiff,
-							t
-						})
-					}), (0, react_jsx_runtime.jsx)("span", {
-						id: pathDescriptionId,
-						hidden: true,
-						children: resolveWorkspacePath(cwd, singleFile.path)
-					})] }),
-					singleFile === void 0 && (0, react_jsx_runtime.jsx)("ul", {
-						className: ChangedFiles_module_css_default.list,
-						children: rows.map((file, index) => (0, react_jsx_runtime.jsxs)("li", { children: [(0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.HoverCard, {
-							variant: "preview",
-							widthAnchorRef: cardRef,
-							openDelayMs: 500,
-							content: (0, react_jsx_runtime.jsx)(ChangedFilePreview, {
-								sessionId,
-								seq: changes.seq,
-								index,
-								display: resolveWorkspacePath(cwd, file.path),
-								useChangesDiff,
-								loadChangesDiff,
-								t
-							}),
-							anchor: (0, react_jsx_runtime.jsxs)("button", {
-								type: "button",
-								className: ChangedFiles_module_css_default.row,
-								"aria-label": t("changes.viewDiff", { name: file.display }),
-								"aria-describedby": `${pathDescriptionId}-${index}`,
-								onClick: () => {
-									openReview(index);
-								},
-								children: [(0, react_jsx_runtime.jsx)("span", {
-									className: ChangedFiles_module_css_default.path,
-									children: file.display
-								}), (0, react_jsx_runtime.jsx)("span", {
-									className: ChangedFiles_module_css_default.counts,
-									children: file.binary === true ? t("changes.binary") : file.oversized === true ? t("changes.oversized") : (0, react_jsx_runtime.jsx)(Counts$1, {
-										t,
-										added: file.added,
-										deleted: file.deleted
-									})
-								})]
-							})
-						}), (0, react_jsx_runtime.jsx)("span", {
-							id: `${pathDescriptionId}-${index}`,
-							hidden: true,
-							children: resolveWorkspacePath(cwd, file.path)
-						})] }, file.display))
-					}),
-					foldable && (0, react_jsx_runtime.jsxs)("button", {
-						type: "button",
-						className: ChangedFiles_module_css_default.toggle,
-						"aria-expanded": expanded,
-						"aria-label": t(expanded ? "changes.collapseAria" : "changes.expandAria", { count: String(changes.files.length) }),
-						onClick: () => {
-							setExpanded((value) => !value);
-						},
-						children: [(0, react_jsx_runtime.jsx)("span", { children: t(expanded ? "changes.collapse" : "changes.all", { count: String(changes.files.length) }) }), expanded ? (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconChevronUpOutlineRegular, {}) : (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconChevronDownOutlineRegular, {})]
-					})
-				]
+				set(v) {
+					Object.defineProperty(object, key, { value: v });
+				},
+				configurable: true
 			});
 		}
-		/** Mounted only while its hover card is open, so passing over a row does not read a comparison. */
-		function ChangedFilePreview({ sessionId, seq, index, display, useChangesDiff, loadChangesDiff, t }) {
-			const state = useChangesDiff((value) => value[changesDiffUrl(sessionId, seq, index)]);
-			(0, react.useEffect)(() => {
-				if (state === void 0) loadChangesDiff(sessionId, seq, index);
-			}, [
-				state,
-				sessionId,
-				seq,
-				index,
-				loadChangesDiff
-			]);
-			return (0, react_jsx_runtime.jsxs)("div", {
-				className: `${FileDiff_module_css_default.root} ${ChangedFiles_module_css_default.preview}`,
-				"data-changes-hover-preview": true,
-				children: [(0, react_jsx_runtime.jsx)("div", {
-					className: FileDiff_module_css_default.header,
-					children: (0, react_jsx_runtime.jsx)("span", {
-						className: ChangedFiles_module_css_default.previewPath,
-						"data-changes-preview-path": true,
-						children: display
-					})
-				}), (0, react_jsx_runtime.jsx)(FileDiff, {
-					state,
-					split: false,
-					wrap: false,
-					t,
-					retry: () => {
-						loadChangesDiff(sessionId, seq, index);
-					}
-				})]
+		function assignProp(target, prop, value) {
+			Object.defineProperty(target, prop, {
+				value,
+				writable: true,
+				enumerable: true,
+				configurable: true
 			});
 		}
-		//#endregion
-		//#region \0dsh-css:D:\Agent Router\deepseek-harness\packages\client\ui-deliverables\src\client\Deliverables.module.css.mjs
-		const css$1 = ".NZ2dPG_root{--deliverable-fill:var(--dsw-static-neutral-50);--deliverable-hover:var(--dsw-static-neutral-100);flex-direction:column;gap:16px;min-width:0;margin-top:4px;display:flex;container-type:inline-size}.NZ2dPG_root[data-after-changes=true]{margin-top:0}body[data-ds-dark-theme] .NZ2dPG_root{--deliverable-fill:var(--dsw-static-neutral-850);--deliverable-hover:var(--dsw-static-neutral-800)}.NZ2dPG_hostStatus{color:var(--dsw-alias-label-secondary);align-items:center;gap:8px;font-size:12px;line-height:18px;display:flex}.NZ2dPG_presented{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;min-width:0;display:grid}.NZ2dPG_presented[data-single=true]{grid-template-columns:minmax(0,1fr)}.NZ2dPG_file{box-sizing:border-box;border:.5px solid var(--dsw-alias-border-l1);border-radius:var(--dsw-radius-lg);background:var(--deliverable-fill);min-width:0;height:60px;color:var(--dsw-alias-label-primary);align-items:center;gap:10px;padding:8px 10px;transition:background-color .12s;display:flex;position:relative;overflow:hidden}.NZ2dPG_file:hover{background:var(--deliverable-hover)}.NZ2dPG_cardPreview{z-index:1;border-radius:inherit;cursor:pointer;background:0 0;border:0;width:100%;padding:0;position:absolute;inset:0}.NZ2dPG_cardPreview:focus-visible{box-shadow:inset 0 0 0 2px var(--dsw-focus-ring-color,var(--dsw-alias-state-business-primary));outline:none}.NZ2dPG_fileIcon{z-index:2;box-sizing:border-box;pointer-events:none;border:.5px solid var(--dsw-alias-border-l1);border-radius:var(--dsw-radius-lg);background:color-mix(in srgb, var(--dsw-static-neutral-00) 50%, transparent);width:40px;height:40px;color:var(--dsw-alias-link);flex:none;place-items:center;display:grid;position:relative;overflow:hidden}body[data-ds-dark-theme] .NZ2dPG_fileIcon{background:color-mix(in srgb, var(--dsw-static-neutral-00) 5%, transparent)}.NZ2dPG_fileBody{z-index:2;pointer-events:none;flex:1;justify-content:space-between;align-items:center;gap:12px;min-width:0;display:flex;position:relative}.NZ2dPG_details{flex-direction:column;flex:1;justify-content:center;gap:2px;min-width:0;display:flex}.NZ2dPG_fileName{text-overflow:ellipsis;white-space:nowrap;font-size:13px;font-weight:500;line-height:20px;overflow:hidden}.NZ2dPG_description{color:var(--dsw-alias-label-tertiary);text-overflow:ellipsis;white-space:nowrap;font-size:10px;font-weight:400;line-height:16px;overflow:hidden}.NZ2dPG_description[data-error=true]{color:var(--dsw-alias-state-error-primary)}.NZ2dPG_previewHint,.NZ2dPG_file:hover .NZ2dPG_description:not([role=status]) .NZ2dPG_secondaryText{display:none}.NZ2dPG_file:hover .NZ2dPG_description:not([role=status]) .NZ2dPG_previewHint{display:inline}.NZ2dPG_toggle{border-radius:var(--dsw-radius-sm);min-width:0;color:var(--dsw-alias-label-tertiary);cursor:pointer;font:inherit;background:0 0;border:0;align-self:center;align-items:center;gap:4px;padding:1px 11px;font-size:12px;line-height:18px;display:inline-flex}.NZ2dPG_toggle:hover{background:var(--dsw-alias-interactive-bg-hover)}.NZ2dPG_toggle svg{flex:none;width:14px;height:14px}@container (width<=620px){.NZ2dPG_presented{grid-template-columns:minmax(0,1fr)}}.NZ2dPG_actions{pointer-events:auto;flex:none;display:inline-flex}.NZ2dPG_secondaryText[data-success]{animation-name:NZ2dPG_success-fade;animation-timing-function:ease-out;animation-fill-mode:forwards}@keyframes NZ2dPG_success-fade{to{opacity:0}}@media (prefers-reduced-motion:reduce){.NZ2dPG_secondaryText[data-success]{animation-name:none}}";
-		const tagId$1 = "@deepseek-ai/dsh-client-ui-deliverables/Deliverables.module.css";
-		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId$1) + "]") === null) {
-			const tag = document.createElement("style");
-			tag.dataset.plugin = "@deepseek-ai/dsh-client-ui-deliverables";
-			tag.dataset.pluginCss = tagId$1;
-			tag.textContent = css$1;
-			document.head.appendChild(tag);
+		function mergeDefs(...defs) {
+			const mergedDescriptors = {};
+			for (const def of defs) Object.assign(mergedDescriptors, Object.getOwnPropertyDescriptors(def));
+			return Object.defineProperties({}, mergedDescriptors);
 		}
-		var Deliverables_module_css_default = {
-			"actions": "NZ2dPG_actions",
-			"cardPreview": "NZ2dPG_cardPreview",
-			"description": "NZ2dPG_description",
-			"details": "NZ2dPG_details",
-			"file": "NZ2dPG_file",
-			"fileBody": "NZ2dPG_fileBody",
-			"fileIcon": "NZ2dPG_fileIcon",
-			"fileName": "NZ2dPG_fileName",
-			"hostStatus": "NZ2dPG_hostStatus",
-			"presented": "NZ2dPG_presented",
-			"previewHint": "NZ2dPG_previewHint",
-			"root": "NZ2dPG_root",
-			"secondaryText": "NZ2dPG_secondaryText",
-			"success-fade": "NZ2dPG_success-fade",
-			"toggle": "NZ2dPG_toggle"
-		};
-		//#endregion
-		//#region lib/types/client/PresentedFileCard.js
-		function cardDescription(description, fallback) {
-			const trimmed = description?.replace(/\s*(?:\([^()]*\)|（[^（）]*）)\s*$/u, "").trim();
-			return trimmed === void 0 || trimmed === "" ? fallback : trimmed;
+		function esc(str) {
+			return JSON.stringify(str);
 		}
-		/**
-		* Render independent file actions without nesting buttons inside a clickable card.
-		* @param props - durable file metadata, Sidebar preview, Host capabilities, gesture status, and localized copy.
-		* @returns the file card and its anchored action menu.
-		*/
-		function PresentedFileCard({ file, cwd, phase, host, onPreview, actions, t }) {
-			const succeeded = phase === "opened" || phase === "revealed";
-			const reveal = host?.fileManager ?? "directory";
-			const name = basename(file.path);
-			const metadata = (0, _deepseek_ai_dsh_client_ui_primitives.fileExtension)(name).toUpperCase() || t("presented.file");
-			const status = phase === void 0 ? cardDescription(file.description, metadata) : t(reveal === "directory" && phase === "revealed" ? "presented.directoryOpened" : reveal === "directory" && phase === "revealing" ? "presented.directoryOpening" : reveal === "directory" && phase === "revealError" ? "presented.directoryError" : `presented.${phase}`);
-			return (0, react_jsx_runtime.jsxs)("div", {
-				className: Deliverables_module_css_default.file,
-				"data-presented-file": true,
-				children: [
-					(0, react_jsx_runtime.jsx)("button", {
-						type: "button",
-						className: Deliverables_module_css_default.cardPreview,
-						title: resolveWorkspacePath(cwd, file.path),
-						"aria-label": t("presented.previewCard", { name: file.path }),
-						onClick: onPreview
-					}),
-					(0, react_jsx_runtime.jsx)("span", {
-						className: Deliverables_module_css_default.fileIcon,
-						children: (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.FileTypeIcon, {
-							path: file.path,
-							size: 20
-						})
-					}),
-					(0, react_jsx_runtime.jsxs)("div", {
-						className: Deliverables_module_css_default.fileBody,
-						children: [(0, react_jsx_runtime.jsxs)("div", {
-							className: Deliverables_module_css_default.details,
-							children: [(0, react_jsx_runtime.jsx)("span", {
-								className: Deliverables_module_css_default.fileName,
-								children: name
-							}), (0, react_jsx_runtime.jsxs)("span", {
-								className: Deliverables_module_css_default.description,
-								"data-presented-description": true,
-								role: phase === void 0 ? void 0 : "status",
-								"data-error": phase === "error" || phase === "revealError" || phase === "nativeUnavailable" ? true : void 0,
-								children: [(0, react_jsx_runtime.jsx)("span", {
-									className: Deliverables_module_css_default.secondaryText,
-									"data-success": succeeded || void 0,
-									style: succeeded ? {
-										animationDelay: `${PRESENTED_SUCCESS_HOLD_MS}ms`,
-										animationDuration: `200ms`
-									} : void 0,
-									children: status
-								}), (0, react_jsx_runtime.jsx)("span", {
-									className: Deliverables_module_css_default.previewHint,
-									children: t("presented.preview")
-								})]
-							})]
-						}), (0, react_jsx_runtime.jsx)("div", {
-							className: Deliverables_module_css_default.actions,
-							children: actions
-						})]
-					})
-				]
-			});
+		function slugify(input) {
+			return input.toLowerCase().trim().replace(/[^\w\s-]/g, "").replace(/[\s_-]+/g, "-").replace(/^-+|-+$/g, "");
 		}
-		//#endregion
-		//#region lib/types/client/Deliverables.js
-		/** The changed-files card, shown only while the Host serves the turn's summary, and explicitly declared files for a closing turn. */
-		const COLLAPSED_PRESENTED_COUNT = 4;
-		/**
-		* Claim turns with a change announcement or declared files.
-		* @param owner - closing turn.
-		* @returns matched announcement and deliveries, or null for a turn with neither.
-		*/
-		function selectDeliverables(owner) {
-			const changes = changesForClosing(owner);
-			const presented = presentedForClosing(owner);
-			return changes === null && presented.length === 0 ? null : {
-				changes,
-				presented
+		const captureStackTrace = "captureStackTrace" in Error ? Error.captureStackTrace : (..._args) => {};
+		function isObject(data) {
+			return typeof data === "object" && data !== null && !Array.isArray(data);
+		}
+		const allowsEval = /* @__PURE__*/ cached(() => {
+			if (globalConfig.jitless) return false;
+			if (typeof navigator !== "undefined" && navigator?.userAgent?.includes("Cloudflare")) return false;
+			try {
+				new Function("");
+				return true;
+			} catch (_) {
+				return false;
+			}
+		});
+		function isPlainObject(o) {
+			if (isObject(o) === false) return false;
+			const ctor = o.constructor;
+			if (ctor === void 0) return true;
+			if (typeof ctor !== "function") return true;
+			const prot = ctor.prototype;
+			if (isObject(prot) === false) return false;
+			if (Object.prototype.hasOwnProperty.call(prot, "isPrototypeOf") === false) return false;
+			return true;
+		}
+		function shallowClone(o) {
+			if (isPlainObject(o)) return { ...o };
+			if (Array.isArray(o)) return [...o];
+			if (o instanceof Map) return new Map(o);
+			if (o instanceof Set) return new Set(o);
+			return o;
+		}
+		const propertyKeyTypes = /* @__PURE__*/ new Set([
+			"string",
+			"number",
+			"symbol"
+		]);
+		function escapeRegex(str) {
+			return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+		}
+		function clone(inst, def, params) {
+			const cl = new inst._zod.constr(def ?? inst._zod.def);
+			if (!def || params?.parent) cl._zod.parent = inst;
+			return cl;
+		}
+		function normalizeParams(_params) {
+			const params = _params;
+			if (!params) return {};
+			if (typeof params === "string") return { error: () => params };
+			if (params?.message !== void 0) {
+				if (params?.error !== void 0) throw new Error("Cannot specify both `message` and `error` params");
+				params.error = params.message;
+			}
+			delete params.message;
+			if (typeof params.error === "string") return {
+				...params,
+				error: () => params.error
 			};
+			return params;
 		}
-		/**
-		* Contribute file deliveries alongside other completed-Turn artifacts.
-		* @param props - closing Turn, file actions, and localized copy.
-		* @returns file rows, or null when the Turn declares none.
-		*/
-		function DeliverablesTail(props) {
-			const matched = selectDeliverables(props);
-			return matched === null ? null : (0, react_jsx_runtime.jsx)(Deliverables, {
-				...props,
-				matched
+		function optionalKeys(shape) {
+			return Object.keys(shape).filter((k) => {
+				return shape[k]._zod.optin === "optional" && shape[k]._zod.optout === "optional";
 			});
 		}
-		/**
-		* Render the changed-files card, once the Host has served the announced
-		* summary and it lists a file, and shared native opening controls for declared
-		* files. A summary the Host no longer serves leaves no card.
-		* @param props - matched announcement and files, workspace opener, and localized copy.
-		* @returns the closing turn's file rows.
-		*/
-		function Deliverables({ matched, openFile, t, sessionId, useSessions, openPresented, openChangesReview, usePresentedOpen, usePresentedHost, useChangesDiff, loadChangesDiff, useChangesSummary, reloadPresentedHost, loadChangesSummary, useShowCodeDiff, renderSlot }) {
-			const [expanded, setExpanded] = (0, react.useState)(false);
-			const showCodeDiff = useShowCodeDiff((value) => value);
-			const cwd = useSessions((state) => state.byId[sessionId]?.cwd);
-			const states = usePresentedOpen((value) => value);
-			const host = usePresentedHost((value) => value);
-			const announced = showCodeDiff ? matched.changes : null;
-			const summary = useChangesSummary((value) => announced === null ? void 0 : value[changesSummaryUrl(sessionId, announced.seq)]);
-			(0, react.useEffect)(() => {
-				if (announced !== null && summary === void 0) loadChangesSummary(sessionId, announced.seq);
-			}, [
-				announced,
-				summary,
-				sessionId,
-				loadChangesSummary
-			]);
-			const changes = announced !== null && typeof summary === "object" && summary.files.length > 0 ? {
-				seq: announced.seq,
-				...summary
-			} : null;
-			const collapsible = matched.presented.length > COLLAPSED_PRESENTED_COUNT;
-			const presented = collapsible && !expanded ? matched.presented.slice(0, COLLAPSED_PRESENTED_COUNT) : matched.presented;
-			(0, react.useEffect)(() => {
-				if (host === null) reloadPresentedHost();
-			}, [host, reloadPresentedHost]);
-			return (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [changes !== null && (0, react_jsx_runtime.jsx)(ChangedFiles, {
-				changes,
-				cwd,
-				t,
-				sessionId,
-				useChangesDiff,
-				loadChangesDiff,
-				openReview: (index) => {
-					openChangesReview({
-						sessionId,
-						seq: changes.seq,
-						turn: changes.turn
-					}, index);
-				}
-			}), matched.presented.length > 0 && (0, react_jsx_runtime.jsxs)("div", {
-				className: Deliverables_module_css_default.root,
-				"data-after-changes": changes !== null || void 0,
-				children: [
-					host === "error" && (0, react_jsx_runtime.jsxs)("div", {
-						className: Deliverables_module_css_default.hostStatus,
-						children: [(0, react_jsx_runtime.jsx)("span", { children: t("presented.hostError") }), (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
-							size: "sm",
-							onClick: () => {
-								reloadPresentedHost();
-							},
-							children: t("presented.retry")
-						})]
-					}),
-					host !== null && host !== "error" && !host.available && (0, react_jsx_runtime.jsx)("span", {
-						className: Deliverables_module_css_default.hostStatus,
-						children: t("presented.unavailable")
-					}),
-					(0, react_jsx_runtime.jsx)("div", {
-						className: Deliverables_module_css_default.presented,
-						"data-presented-files-row": true,
-						"data-single": matched.presented.length === 1 ? true : void 0,
-						children: presented.map((file) => (0, react_jsx_runtime.jsx)(PresentedFileCard, {
-							file,
-							cwd,
-							phase: states[presentedFileUrl(sessionId, file.seq, file.index)],
-							host: host === "error" ? null : host,
-							t,
-							onPreview: () => {
-								openFile(file.path);
-							},
-							actions: renderSlot("deliverables.file.actions", {
-								actionUrl: presentedFileUrl(sessionId, file.seq, file.index),
-								available: host !== null && host !== "error" && host.available,
-								pending: states[presentedFileUrl(sessionId, file.seq, file.index)] === "opening" || states[presentedFileUrl(sessionId, file.seq, file.index)] === "revealing",
-								onAction: (action, application) => openPresented(sessionId, file.seq, file.index, action, application)
-							})
-						}, `${file.seq}:${file.index}`))
-					}),
-					collapsible && (0, react_jsx_runtime.jsxs)("button", {
-						type: "button",
-						className: Deliverables_module_css_default.toggle,
-						"aria-expanded": expanded,
-						"aria-label": t(expanded ? "presented.collapseAria" : "presented.expandAria", { count: matched.presented.length }),
-						onClick: () => {
-							setExpanded((value) => !value);
-						},
-						children: [(0, react_jsx_runtime.jsx)("span", { children: t(expanded ? "presented.collapse" : "presented.all", { count: matched.presented.length }) }), expanded ? (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconChevronUpOutlineRegular, {}) : (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconChevronDownOutlineRegular, {})]
-					})
-				]
-			})] });
-		}
-		//#endregion
-		//#region \0dsh-css:D:\Agent Router\deepseek-harness\packages\client\ui-deliverables\src\client\ReviewTab.module.css.mjs
-		const css = ".HqlDXa_root{height:100%}.HqlDXa_selector{flex:0 auto;min-width:0}.HqlDXa_selectorLabel{text-overflow:ellipsis;white-space:nowrap;flex:auto;min-width:0;font-size:12px;overflow:hidden}.HqlDXa_selectorButton{box-sizing:border-box;border-radius:var(--dsw-radius-sm);max-width:100%;height:28px;color:var(--dsw-alias-label-primary);cursor:pointer;font:inherit;background:0 0;border:0;align-items:center;gap:4px;padding:0 6px 0 8px;font-size:12px;line-height:20px;display:inline-flex}.HqlDXa_selectorButton:hover,.HqlDXa_selectorButton[aria-expanded=true]{background:var(--dsw-alias-interactive-bg-hover)}.HqlDXa_selectorButton svg{flex:none;display:block}.HqlDXa_item{justify-content:space-between;align-items:center;gap:12px;min-width:0;display:flex}.HqlDXa_itemPath{text-overflow:ellipsis;white-space:nowrap;min-width:0;line-height:20px;overflow:hidden}.HqlDXa_itemCounts,.HqlDXa_counts{font-family:var(--ds-font-family-code);color:var(--dsw-alias-label-tertiary);flex:none;align-items:center;gap:6px;font-size:12px;line-height:20px;display:inline-flex}.HqlDXa_counts{min-width:0;margin-right:auto}.HqlDXa_added{color:var(--dsw-alias-state-success-primary)}.HqlDXa_deleted{color:var(--dsw-alias-state-error-primary)}.HqlDXa_label{color:var(--dsw-alias-label-tertiary)}.HqlDXa_tools{flex:none;align-items:center;gap:2px;margin-left:auto;display:inline-flex}.HqlDXa_tool{border-radius:var(--dsw-radius-sm);width:28px;height:28px;color:var(--dsw-alias-label-secondary);cursor:pointer;background:0 0;border:0;flex:none;justify-content:center;align-items:center;padding:6px;display:inline-flex}.HqlDXa_tool svg{width:15px;height:15px}.HqlDXa_tool:hover:not(:disabled){color:var(--dsw-alias-label-primary);background:var(--dsw-alias-interactive-bg-hover)}.HqlDXa_tool[aria-pressed=true] .HqlDXa_compareIcon{transform:rotate(90deg)}.HqlDXa_tool:disabled{cursor:progress}.HqlDXa_tool[data-error]{color:var(--dsw-alias-state-error-primary)}";
-		const tagId = "@deepseek-ai/dsh-client-ui-deliverables/ReviewTab.module.css";
-		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId) + "]") === null) {
-			const tag = document.createElement("style");
-			tag.dataset.plugin = "@deepseek-ai/dsh-client-ui-deliverables";
-			tag.dataset.pluginCss = tagId;
-			tag.textContent = css;
-			document.head.appendChild(tag);
-		}
-		var ReviewTab_module_css_default = {
-			"added": "HqlDXa_added",
-			"compareIcon": "HqlDXa_compareIcon",
-			"counts": "HqlDXa_counts",
-			"deleted": "HqlDXa_deleted",
-			"item": "HqlDXa_item",
-			"itemCounts": "HqlDXa_itemCounts",
-			"itemPath": "HqlDXa_itemPath",
-			"label": "HqlDXa_label",
-			"root": "HqlDXa_root",
-			"selector": "HqlDXa_selector",
-			"selectorButton": "HqlDXa_selectorButton",
-			"selectorLabel": "HqlDXa_selectorLabel",
-			"tool": "HqlDXa_tool",
-			"tools": "HqlDXa_tools"
+		const NUMBER_FORMAT_RANGES = {
+			safeint: [Number.MIN_SAFE_INTEGER, Number.MAX_SAFE_INTEGER],
+			int32: [-2147483648, 2147483647],
+			uint32: [0, 4294967295],
+			float32: [-34028234663852886e22, 34028234663852886e22],
+			float64: [-Number.MAX_VALUE, Number.MAX_VALUE]
 		};
-		//#endregion
-		//#region lib/types/client/ReviewTab.js
-		/**
-		* The review tab: one turn's changed files behind a file selector, with the
-		* selected file's turn-start and turn-end comparison drawn unified or side by
-		* side, wrapped or scrolling, and controls to open the file itself.
-		*/
-		const GROUPED = new Intl.NumberFormat("en-US");
-		/** The file index a navigation names, when it names one. */
-		function navigatedIndex(params) {
-			const index = params?.index;
-			return typeof index === "number" && Number.isSafeInteger(index) && index >= 0 ? index : void 0;
+		function pick(schema, mask) {
+			const currDef = schema._zod.def;
+			const checks = currDef.checks;
+			if (checks && checks.length > 0) throw new Error(".pick() cannot be used on object schemas containing refinements");
+			return clone(schema, mergeDefs(schema._zod.def, {
+				get shape() {
+					const newShape = {};
+					for (const key in mask) {
+						if (!(key in currDef.shape)) throw new Error(`Unrecognized key: "${key}"`);
+						if (!mask[key]) continue;
+						newShape[key] = currDef.shape[key];
+					}
+					assignProp(this, "shape", newShape);
+					return newShape;
+				},
+				checks: []
+			}));
 		}
-		/** Added and deleted line counts in the card's colors. */
-		function Counts({ file, t }) {
-			if (file.binary === true) return (0, react_jsx_runtime.jsx)("span", {
-				className: ReviewTab_module_css_default.label,
-				children: t("changes.binary")
-			});
-			if (file.oversized === true) return (0, react_jsx_runtime.jsx)("span", {
-				className: ReviewTab_module_css_default.label,
-				children: t("changes.oversized")
-			});
-			return (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [(0, react_jsx_runtime.jsx)("span", {
-				className: ReviewTab_module_css_default.added,
-				children: t("changes.added", { count: GROUPED.format(file.added) })
-			}), (0, react_jsx_runtime.jsx)("span", {
-				className: ReviewTab_module_css_default.deleted,
-				children: t("changes.deleted", { count: GROUPED.format(file.deleted) })
-			})] });
+		function omit(schema, mask) {
+			const currDef = schema._zod.def;
+			const checks = currDef.checks;
+			if (checks && checks.length > 0) throw new Error(".omit() cannot be used on object schemas containing refinements");
+			return clone(schema, mergeDefs(schema._zod.def, {
+				get shape() {
+					const newShape = { ...schema._zod.def.shape };
+					for (const key in mask) {
+						if (!(key in currDef.shape)) throw new Error(`Unrecognized key: "${key}"`);
+						if (!mask[key]) continue;
+						delete newShape[key];
+					}
+					assignProp(this, "shape", newShape);
+					return newShape;
+				},
+				checks: []
+			}));
 		}
-		/**
-		* The review type's body, registered under `sidebar.right.pane.tab` as `changes-review`.
-		* @param props - composed slot props.
-		* @returns the selected file's comparison behind the file selector, or the state that stands in for it.
-		*/
-		function ReviewTab({ useTabInfo, sessionId, useSessions, useStore, actions, useChangesSummary, useChangesDiff, usePresentedOpen, usePresentedHost, loadChangesSummary, loadChangesDiff, reloadPresentedHost, openChanged, t, renderSlot }) {
-			const { tab } = useTabInfo();
-			const { navigation, signal } = tab;
-			const coordinates = (0, react.useMemo)(() => parseChangesReviewAddress(tab.contentId), [tab.contentId]);
-			if (coordinates === void 0) throw new Error(`ui-deliverables: not a review address "${tab.contentId}"`);
-			const { seq } = coordinates;
-			const cwd = useSessions((sessions) => sessions.byId[sessionId]?.cwd);
-			const summary = useChangesSummary((value) => value[changesSummaryUrl(sessionId, seq)]);
-			const state = useStore((store) => store.byTab[tab.id]);
-			const host = usePresentedHost((value) => value);
-			(0, react.useEffect)(() => {
-				if (state?.navigated === navigation.revision) return;
-				actions.navigated(tab.id, navigation.revision, navigatedIndex(navigation.params) ?? state?.index ?? 0);
-			}, [
-				state,
-				navigation.revision,
-				navigation.params,
-				actions,
-				tab.id
-			]);
-			(0, react.useEffect)(() => {
-				const forget = () => {
-					actions.forget(tab.id);
+		function extend(schema, shape) {
+			if (!isPlainObject(shape)) throw new Error("Invalid input to extend: expected a plain object");
+			const checks = schema._zod.def.checks;
+			if (checks && checks.length > 0) {
+				const existingShape = schema._zod.def.shape;
+				for (const key in shape) if (Object.getOwnPropertyDescriptor(existingShape, key) !== void 0) throw new Error("Cannot overwrite keys on object schemas containing refinements. Use `.safeExtend()` instead.");
+			}
+			return clone(schema, mergeDefs(schema._zod.def, { get shape() {
+				const _shape = {
+					...schema._zod.def.shape,
+					...shape
 				};
-				signal.addEventListener("abort", forget, { once: true });
-				return () => {
-					signal.removeEventListener("abort", forget);
+				assignProp(this, "shape", _shape);
+				return _shape;
+			} }));
+		}
+		function safeExtend(schema, shape) {
+			if (!isPlainObject(shape)) throw new Error("Invalid input to safeExtend: expected a plain object");
+			return clone(schema, mergeDefs(schema._zod.def, { get shape() {
+				const _shape = {
+					...schema._zod.def.shape,
+					...shape
 				};
-			}, [
-				signal,
-				actions,
-				tab.id
-			]);
-			(0, react.useEffect)(() => {
-				if (summary === void 0) loadChangesSummary(sessionId, seq);
-			}, [
-				summary,
-				sessionId,
-				seq,
-				loadChangesSummary
-			]);
-			(0, react.useEffect)(() => {
-				if (host === null) reloadPresentedHost();
-			}, [host, reloadPresentedHost]);
-			const files = typeof summary === "object" ? summary.files : [];
-			const index = state !== void 0 && files[state.index] !== void 0 ? state.index : 0;
-			const file = files[index];
-			const diffState = useChangesDiff((value) => file === void 0 ? void 0 : value[changesDiffUrl(sessionId, seq, index)]);
-			(0, react.useEffect)(() => {
-				if (file !== void 0 && diffState === void 0) loadChangesDiff(sessionId, seq, index);
-			}, [
-				file,
-				diffState,
-				sessionId,
-				seq,
-				index,
-				loadChangesDiff
-			]);
-			const phase = usePresentedOpen((value) => file === void 0 ? void 0 : value[changedFileUrl(sessionId, seq, index)]);
-			const [menuOpen, setMenuOpen] = (0, react.useState)(false);
-			const split = state?.split === true;
-			const wrap = state?.wrap === true;
-			const native = host !== null && host !== "error" && host.available && phase !== "nativeUnavailable";
-			const summaryState = summary === void 0 || summary === "loading" ? "loading" : summary === "missing" ? "missing" : "ready";
-			return (0, react_jsx_runtime.jsxs)("div", {
-				className: `${FileDiff_module_css_default.root} ${ReviewTab_module_css_default.root}`,
-				"data-changes-review": true,
-				"data-review-state": summaryState,
-				children: [
-					(0, react_jsx_runtime.jsxs)("div", {
-						className: FileDiff_module_css_default.header,
-						children: [
-							file === void 0 ? (0, react_jsx_runtime.jsx)("span", {
-								className: ReviewTab_module_css_default.selectorLabel,
-								children: t("review.title", { turn: String(coordinates.turn) })
-							}) : (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Menu, {
-								className: ReviewTab_module_css_default.selector,
-								open: menuOpen,
-								autoFocus: true,
-								portal: true,
-								align: "start",
-								dense: true,
-								onClose: () => {
-									setMenuOpen(false);
-								},
-								anchor: (0, react_jsx_runtime.jsxs)("button", {
-									type: "button",
-									className: ReviewTab_module_css_default.selectorButton,
-									"aria-haspopup": "menu",
-									"aria-expanded": menuOpen,
-									"aria-label": t("review.selectFile"),
-									title: file.display,
-									"data-review-file": file.path,
-									onClick: () => {
-										setMenuOpen((value) => !value);
-									},
-									children: [(0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.PathLabel, { path: file.display }), (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconChevronDownOutlineRegular, { size: 12 })]
-								}),
-								items: files.map((entry, at) => ({
-									id: String(at),
-									label: (0, react_jsx_runtime.jsxs)("span", {
-										className: ReviewTab_module_css_default.item,
-										children: [(0, react_jsx_runtime.jsx)("span", {
-											className: ReviewTab_module_css_default.itemPath,
-											children: entry.display
-										}), (0, react_jsx_runtime.jsx)("span", {
-											className: ReviewTab_module_css_default.itemCounts,
-											children: (0, react_jsx_runtime.jsx)(Counts, {
-												file: entry,
-												t
-											})
-										})]
-									})
-								})),
-								selectedId: String(index),
-								onSelect: (id) => {
-									actions.selected(tab.id, Number(id));
-									setMenuOpen(false);
-								}
-							}),
-							file !== void 0 && (0, react_jsx_runtime.jsx)("span", {
-								className: ReviewTab_module_css_default.counts,
-								children: (0, react_jsx_runtime.jsx)(Counts, {
-									file,
-									t
-								})
-							}),
-							(0, react_jsx_runtime.jsxs)("span", {
-								className: ReviewTab_module_css_default.tools,
-								children: [
-									(0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Tooltip, {
-										label: t(split ? "review.unified" : "review.split"),
-										side: "bottom",
-										delayMs: 500,
-										children: (0, react_jsx_runtime.jsx)("button", {
-											type: "button",
-											className: ReviewTab_module_css_default.tool,
-											"aria-pressed": split,
-											"aria-label": t("review.splitAria"),
-											"data-review-tool": "split",
-											onClick: () => {
-												actions.toggledSplit(tab.id);
-											},
-											children: (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconCompareSplitOutlineRegular, { className: ReviewTab_module_css_default.compareIcon })
-										})
-									}),
-									(0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Tooltip, {
-										label: t(wrap ? "review.nowrap" : "review.wrap"),
-										side: "bottom",
-										delayMs: 500,
-										children: (0, react_jsx_runtime.jsx)("button", {
-											type: "button",
-											className: ReviewTab_module_css_default.tool,
-											"aria-pressed": wrap,
-											"aria-label": t("review.wrapAria"),
-											"data-review-tool": "wrap",
-											onClick: () => {
-												actions.toggledWrap(tab.id);
-											},
-											children: wrap ? (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconNowrapFillRegular, {}) : (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconWrapFillRegular, {})
-										})
-									}),
-									file !== void 0 && (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Tooltip, {
-										label: t("review.openFile"),
-										side: "bottom",
-										delayMs: 500,
-										children: (0, react_jsx_runtime.jsx)("button", {
-											type: "button",
-											className: ReviewTab_module_css_default.tool,
-											"aria-label": t("review.openFileAria", { name: file.display }),
-											"data-review-tool": "open-file",
-											onClick: () => {
-												tab.actions.openResource(fileAddressFor(sessionId, cwd, file.path));
-											},
-											children: (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconInspectOutlineRegular, {})
-										})
-									}),
-									file !== void 0 && renderSlot("deliverables.review.file.actions", {
-										actionUrl: changedFileUrl(sessionId, seq, index),
-										available: native,
-										pending: phase === "opening" || phase === "revealing",
-										onAction: (action, application) => openChanged(sessionId, seq, index, action, application)
-									})
-								]
-							})
-						]
-					}),
-					summaryState === "loading" && (0, react_jsx_runtime.jsx)("p", {
-						className: FileDiff_module_css_default.status,
-						role: "status",
-						children: t("diff.loading")
-					}),
-					summaryState === "missing" && (0, react_jsx_runtime.jsx)("p", {
-						className: FileDiff_module_css_default.status,
-						children: t("diff.missing")
-					}),
-					file !== void 0 && (0, react_jsx_runtime.jsx)(FileDiff, {
-						state: diffState,
-						split,
-						wrap,
-						t,
-						retry: () => {
-							loadChangesDiff(sessionId, seq, index);
-						}
-					})
-				]
+				assignProp(this, "shape", _shape);
+				return _shape;
+			} }));
+		}
+		function merge(a, b) {
+			if (a._zod.def.checks?.length) throw new Error(".merge() cannot be used on object schemas containing refinements. Use .safeExtend() instead.");
+			return clone(a, mergeDefs(a._zod.def, {
+				get shape() {
+					const _shape = {
+						...a._zod.def.shape,
+						...b._zod.def.shape
+					};
+					assignProp(this, "shape", _shape);
+					return _shape;
+				},
+				get catchall() {
+					return b._zod.def.catchall;
+				},
+				checks: b._zod.def.checks ?? []
+			}));
+		}
+		function partial(Class, schema, mask) {
+			const checks = schema._zod.def.checks;
+			if (checks && checks.length > 0) throw new Error(".partial() cannot be used on object schemas containing refinements");
+			return clone(schema, mergeDefs(schema._zod.def, {
+				get shape() {
+					const oldShape = schema._zod.def.shape;
+					const shape = { ...oldShape };
+					if (mask) for (const key in mask) {
+						if (!(key in oldShape)) throw new Error(`Unrecognized key: "${key}"`);
+						if (!mask[key]) continue;
+						shape[key] = Class ? new Class({
+							type: "optional",
+							innerType: oldShape[key]
+						}) : oldShape[key];
+					}
+					else for (const key in oldShape) shape[key] = Class ? new Class({
+						type: "optional",
+						innerType: oldShape[key]
+					}) : oldShape[key];
+					assignProp(this, "shape", shape);
+					return shape;
+				},
+				checks: []
+			}));
+		}
+		function required(Class, schema, mask) {
+			return clone(schema, mergeDefs(schema._zod.def, { get shape() {
+				const oldShape = schema._zod.def.shape;
+				const shape = { ...oldShape };
+				if (mask) for (const key in mask) {
+					if (!(key in shape)) throw new Error(`Unrecognized key: "${key}"`);
+					if (!mask[key]) continue;
+					shape[key] = new Class({
+						type: "nonoptional",
+						innerType: oldShape[key]
+					});
+				}
+				else for (const key in oldShape) shape[key] = new Class({
+					type: "nonoptional",
+					innerType: oldShape[key]
+				});
+				assignProp(this, "shape", shape);
+				return shape;
+			} }));
+		}
+		function aborted(x, startIndex = 0) {
+			if (x.aborted === true) return true;
+			for (let i = startIndex; i < x.issues.length; i++) if (x.issues[i]?.continue !== true) return true;
+			return false;
+		}
+		function explicitlyAborted(x, startIndex = 0) {
+			if (x.aborted === true) return true;
+			for (let i = startIndex; i < x.issues.length; i++) if (x.issues[i]?.continue === false) return true;
+			return false;
+		}
+		function prefixIssues(path, issues) {
+			return issues.map((iss) => {
+				var _a;
+				(_a = iss).path ?? (_a.path = []);
+				iss.path.unshift(path);
+				return iss;
 			});
+		}
+		function unwrapMessage(message) {
+			return typeof message === "string" ? message : message?.message;
+		}
+		function finalizeIssue(iss, ctx, config) {
+			const message = iss.message ? iss.message : unwrapMessage(iss.inst?._zod.def?.error?.(iss)) ?? unwrapMessage(ctx?.error?.(iss)) ?? unwrapMessage(config.customError?.(iss)) ?? unwrapMessage(config.localeError?.(iss)) ?? "Invalid input";
+			const { inst: _inst, continue: _continue, input: _input, ...rest } = iss;
+			rest.path ?? (rest.path = []);
+			rest.message = message;
+			if (ctx?.reportInput) rest.input = _input;
+			return rest;
+		}
+		function getLengthableOrigin(input) {
+			if (Array.isArray(input)) return "array";
+			if (typeof input === "string") return "string";
+			return "unknown";
+		}
+		function issue(...args) {
+			const [iss, input, inst] = args;
+			if (typeof iss === "string") return {
+				message: iss,
+				code: "custom",
+				input,
+				inst
+			};
+			return { ...iss };
 		}
 		//#endregion
-		//#region lib/types/client/review-definition.js
-		/** The tab kind this package owns. */
-		const CHANGES_REVIEW_KIND = "changes-review";
-		/** This implementation's identity in the tab system, and the key its body registers under. */
-		const CHANGES_REVIEW_ID = "@deepseek-ai/dsh-client-ui-deliverables";
-		/**
-		* The review type's registry definition.
-		* @param t - namespace-bound translate, read fresh on every title call.
-		* @returns the definition to register.
-		*/
-		function changesReviewDefinition(t) {
+		//#region ../../../node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/core/errors.js
+		const initializer$1 = (inst, def) => {
+			inst.name = "$ZodError";
+			Object.defineProperty(inst, "_zod", {
+				value: inst._zod,
+				enumerable: false
+			});
+			Object.defineProperty(inst, "issues", {
+				value: def,
+				enumerable: false
+			});
+			inst.message = JSON.stringify(def, jsonStringifyReplacer, 2);
+			Object.defineProperty(inst, "toString", {
+				value: () => inst.message,
+				enumerable: false
+			});
+		};
+		const $ZodError = $constructor("$ZodError", initializer$1);
+		const $ZodRealError = $constructor("$ZodError", initializer$1, { Parent: Error });
+		function flattenError(error, mapper = (issue) => issue.message) {
+			const fieldErrors = {};
+			const formErrors = [];
+			for (const sub of error.issues) if (sub.path.length > 0) {
+				fieldErrors[sub.path[0]] = fieldErrors[sub.path[0]] || [];
+				fieldErrors[sub.path[0]].push(mapper(sub));
+			} else formErrors.push(mapper(sub));
 			return {
-				id: CHANGES_REVIEW_ID,
-				kind: CHANGES_REVIEW_KIND,
-				patterns: ["dsh-resource://changes-review/**"],
-				priority: "builtin",
-				canOpen: (address) => parseChangesReviewAddress(address) !== void 0,
-				title: (address) => {
-					const turn = parseChangesReviewAddress(address)?.turn;
-					return turn === void 0 ? address : t("review.title", { turn: String(turn) });
-				}
+				formErrors,
+				fieldErrors
 			};
 		}
+		function formatError(error, mapper = (issue) => issue.message) {
+			const fieldErrors = { _errors: [] };
+			const processError = (error, path = []) => {
+				for (const issue of error.issues) if (issue.code === "invalid_union" && issue.errors.length) issue.errors.map((issues) => processError({ issues }, [...path, ...issue.path]));
+				else if (issue.code === "invalid_key") processError({ issues: issue.issues }, [...path, ...issue.path]);
+				else if (issue.code === "invalid_element") processError({ issues: issue.issues }, [...path, ...issue.path]);
+				else {
+					const fullpath = [...path, ...issue.path];
+					if (fullpath.length === 0) fieldErrors._errors.push(mapper(issue));
+					else {
+						let curr = fieldErrors;
+						let i = 0;
+						while (i < fullpath.length) {
+							const el = fullpath[i];
+							if (!(i === fullpath.length - 1)) curr[el] = curr[el] || { _errors: [] };
+							else {
+								curr[el] = curr[el] || { _errors: [] };
+								curr[el]._errors.push(mapper(issue));
+							}
+							curr = curr[el];
+							i++;
+						}
+					}
+				}
+			};
+			processError(error);
+			return fieldErrors;
+		}
 		//#endregion
-		//#region lib/types/client/review-store.js
+		//#region ../../../node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/core/parse.js
+		const _parse = (_Err) => (schema, value, _ctx, _params) => {
+			const ctx = _ctx ? {
+				..._ctx,
+				async: false
+			} : { async: false };
+			const result = schema._zod.run({
+				value,
+				issues: []
+			}, ctx);
+			if (result instanceof Promise) throw new $ZodAsyncError();
+			if (result.issues.length) {
+				const e = new ((_params?.Err) ?? _Err)(result.issues.map((iss) => finalizeIssue(iss, ctx, config())));
+				captureStackTrace(e, _params?.callee);
+				throw e;
+			}
+			return result.value;
+		};
+		const _parseAsync = (_Err) => async (schema, value, _ctx, params) => {
+			const ctx = _ctx ? {
+				..._ctx,
+				async: true
+			} : { async: true };
+			let result = schema._zod.run({
+				value,
+				issues: []
+			}, ctx);
+			if (result instanceof Promise) result = await result;
+			if (result.issues.length) {
+				const e = new ((params?.Err) ?? _Err)(result.issues.map((iss) => finalizeIssue(iss, ctx, config())));
+				captureStackTrace(e, params?.callee);
+				throw e;
+			}
+			return result.value;
+		};
+		const _safeParse = (_Err) => (schema, value, _ctx) => {
+			const ctx = _ctx ? {
+				..._ctx,
+				async: false
+			} : { async: false };
+			const result = schema._zod.run({
+				value,
+				issues: []
+			}, ctx);
+			if (result instanceof Promise) throw new $ZodAsyncError();
+			return result.issues.length ? {
+				success: false,
+				error: new (_Err ?? $ZodError)(result.issues.map((iss) => finalizeIssue(iss, ctx, config())))
+			} : {
+				success: true,
+				data: result.value
+			};
+		};
+		const safeParse$1 = /* @__PURE__*/ _safeParse($ZodRealError);
+		const _safeParseAsync = (_Err) => async (schema, value, _ctx) => {
+			const ctx = _ctx ? {
+				..._ctx,
+				async: true
+			} : { async: true };
+			let result = schema._zod.run({
+				value,
+				issues: []
+			}, ctx);
+			if (result instanceof Promise) result = await result;
+			return result.issues.length ? {
+				success: false,
+				error: new _Err(result.issues.map((iss) => finalizeIssue(iss, ctx, config())))
+			} : {
+				success: true,
+				data: result.value
+			};
+		};
+		const safeParseAsync$1 = /* @__PURE__*/ _safeParseAsync($ZodRealError);
+		const _encode = (_Err) => (schema, value, _ctx) => {
+			const ctx = _ctx ? {
+				..._ctx,
+				direction: "backward"
+			} : { direction: "backward" };
+			return _parse(_Err)(schema, value, ctx);
+		};
+		const _decode = (_Err) => (schema, value, _ctx) => {
+			return _parse(_Err)(schema, value, _ctx);
+		};
+		const _encodeAsync = (_Err) => async (schema, value, _ctx) => {
+			const ctx = _ctx ? {
+				..._ctx,
+				direction: "backward"
+			} : { direction: "backward" };
+			return _parseAsync(_Err)(schema, value, ctx);
+		};
+		const _decodeAsync = (_Err) => async (schema, value, _ctx) => {
+			return _parseAsync(_Err)(schema, value, _ctx);
+		};
+		const _safeEncode = (_Err) => (schema, value, _ctx) => {
+			const ctx = _ctx ? {
+				..._ctx,
+				direction: "backward"
+			} : { direction: "backward" };
+			return _safeParse(_Err)(schema, value, ctx);
+		};
+		const _safeDecode = (_Err) => (schema, value, _ctx) => {
+			return _safeParse(_Err)(schema, value, _ctx);
+		};
+		const _safeEncodeAsync = (_Err) => async (schema, value, _ctx) => {
+			const ctx = _ctx ? {
+				..._ctx,
+				direction: "backward"
+			} : { direction: "backward" };
+			return _safeParseAsync(_Err)(schema, value, ctx);
+		};
+		const _safeDecodeAsync = (_Err) => async (schema, value, _ctx) => {
+			return _safeParseAsync(_Err)(schema, value, _ctx);
+		};
+		//#endregion
+		//#region ../../../node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/core/regexes.js
 		/**
-		* The review tab's view state: which listed file is shown, whether hunks are
-		* drawn side by side, and whether long lines wrap. One bucket per tab, so two
-		* reviews in one session keep their own choices; the bucket ends with the
-		* tab record's signal.
+		* @deprecated CUID v1 is deprecated by its authors due to information leakage
+		* (timestamps embedded in the id). Use {@link cuid2} instead.
+		* See https://github.com/paralleldrive/cuid.
 		*/
-		function bucket(state, tabId) {
-			const tab = state.byTab[tabId];
-			if (tab === void 0) throw new Error(`ui-deliverables: no review state for tab "${tabId}"`);
-			return tab;
+		const cuid = /^[cC][0-9a-z]{6,}$/;
+		const cuid2 = /^[0-9a-z]+$/;
+		const ulid = /^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$/;
+		const xid = /^[0-9a-vA-V]{20}$/;
+		const ksuid = /^[A-Za-z0-9]{27}$/;
+		const nanoid = /^[a-zA-Z0-9_-]{21}$/;
+		/** ISO 8601-1 duration regex. Does not support the 8601-2 extensions like negative durations or fractional/negative components. */
+		const duration$1 = /^P(?:(\d+W)|(?!.*W)(?=\d|T\d)(\d+Y)?(\d+M)?(\d+D)?(T(?=\d)(\d+H)?(\d+M)?(\d+([.,]\d+)?S)?)?)$/;
+		/** A regex for any UUID-like identifier: 8-4-4-4-12 hex pattern */
+		const guid = /^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$/;
+		/** Returns a regex for validating an RFC 9562/4122 UUID.
+		*
+		* @param version Optionally specify a version 1-8. If no version is specified, all versions are supported. */
+		const uuid = (version) => {
+			if (!version) return /^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$/;
+			return new RegExp(`^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-${version}[0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12})$`);
+		};
+		/** Practical email validation */
+		const email = /^(?!\.)(?!.*\.\.)([A-Za-z0-9_'+\-\.]*)[A-Za-z0-9_+-]@([A-Za-z0-9][A-Za-z0-9\-]*\.)+[A-Za-z]{2,}$/;
+		const _emoji$1 = `^(\\p{Extended_Pictographic}|\\p{Emoji_Component})+$`;
+		function emoji() {
+			return new RegExp(_emoji$1, "u");
+		}
+		const ipv4 = /^(?:(?:25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9])\.){3}(?:25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9])$/;
+		const ipv6 = /^(([0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,7}:|([0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,5}(:[0-9a-fA-F]{1,4}){1,2}|([0-9a-fA-F]{1,4}:){1,4}(:[0-9a-fA-F]{1,4}){1,3}|([0-9a-fA-F]{1,4}:){1,3}(:[0-9a-fA-F]{1,4}){1,4}|([0-9a-fA-F]{1,4}:){1,2}(:[0-9a-fA-F]{1,4}){1,5}|[0-9a-fA-F]{1,4}:((:[0-9a-fA-F]{1,4}){1,6})|:((:[0-9a-fA-F]{1,4}){1,7}|:))$/;
+		const cidrv4 = /^((25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9])\.){3}(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9])\/([0-9]|[1-2][0-9]|3[0-2])$/;
+		const cidrv6 = /^(([0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}|::|([0-9a-fA-F]{1,4})?::([0-9a-fA-F]{1,4}:?){0,6})\/(12[0-8]|1[01][0-9]|[1-9]?[0-9])$/;
+		const base64 = /^$|^(?:[0-9a-zA-Z+/]{4})*(?:(?:[0-9a-zA-Z+/]{2}==)|(?:[0-9a-zA-Z+/]{3}=))?$/;
+		const base64url = /^[A-Za-z0-9_-]*$/;
+		const httpProtocol = /^https?$/;
+		const e164 = /^\+[1-9]\d{6,14}$/;
+		const dateSource = `(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))`;
+		const date$1 = /*@__PURE__*/ new RegExp(`^${dateSource}$`);
+		function timeSource(args) {
+			const hhmm = `(?:[01]\\d|2[0-3]):[0-5]\\d`;
+			return typeof args.precision === "number" ? args.precision === -1 ? `${hhmm}` : args.precision === 0 ? `${hhmm}:[0-5]\\d` : `${hhmm}:[0-5]\\d\\.\\d{${args.precision}}` : `${hhmm}(?::[0-5]\\d(?:\\.\\d+)?)?`;
+		}
+		function time$1(args) {
+			return new RegExp(`^${timeSource(args)}$`);
+		}
+		function datetime$1(args) {
+			const time = timeSource({ precision: args.precision });
+			const opts = ["Z"];
+			if (args.local) opts.push("");
+			if (args.offset) opts.push(`([+-](?:[01]\\d|2[0-3]):[0-5]\\d)`);
+			const timeRegex = `${time}(?:${opts.join("|")})`;
+			return new RegExp(`^${dateSource}T(?:${timeRegex})$`);
+		}
+		const string$1 = (params) => {
+			const regex = params ? `[\\s\\S]{${params?.minimum ?? 0},${params?.maximum ?? ""}}` : `[\\s\\S]*`;
+			return new RegExp(`^${regex}$`);
+		};
+		const integer = /^-?\d+$/;
+		const number$1 = /^-?\d+(?:\.\d+)?$/;
+		const boolean$1 = /^(?:true|false)$/i;
+		const _undefined$2 = /^undefined$/i;
+		const lowercase = /^[^A-Z]*$/;
+		const uppercase = /^[^a-z]*$/;
+		//#endregion
+		//#region ../../../node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/core/checks.js
+		const $ZodCheck = /*@__PURE__*/ $constructor("$ZodCheck", (inst, def) => {
+			var _a;
+			inst._zod ?? (inst._zod = {});
+			inst._zod.def = def;
+			(_a = inst._zod).onattach ?? (_a.onattach = []);
+		});
+		const numericOriginMap = {
+			number: "number",
+			bigint: "bigint",
+			object: "date"
+		};
+		const $ZodCheckLessThan = /*@__PURE__*/ $constructor("$ZodCheckLessThan", (inst, def) => {
+			$ZodCheck.init(inst, def);
+			const origin = numericOriginMap[typeof def.value];
+			inst._zod.onattach.push((inst) => {
+				const bag = inst._zod.bag;
+				const curr = (def.inclusive ? bag.maximum : bag.exclusiveMaximum) ?? Number.POSITIVE_INFINITY;
+				if (def.value < curr) if (def.inclusive) bag.maximum = def.value;
+				else bag.exclusiveMaximum = def.value;
+			});
+			inst._zod.check = (payload) => {
+				if (def.inclusive ? payload.value <= def.value : payload.value < def.value) return;
+				payload.issues.push({
+					origin,
+					code: "too_big",
+					maximum: typeof def.value === "object" ? def.value.getTime() : def.value,
+					input: payload.value,
+					inclusive: def.inclusive,
+					inst,
+					continue: !def.abort
+				});
+			};
+		});
+		const $ZodCheckGreaterThan = /*@__PURE__*/ $constructor("$ZodCheckGreaterThan", (inst, def) => {
+			$ZodCheck.init(inst, def);
+			const origin = numericOriginMap[typeof def.value];
+			inst._zod.onattach.push((inst) => {
+				const bag = inst._zod.bag;
+				const curr = (def.inclusive ? bag.minimum : bag.exclusiveMinimum) ?? Number.NEGATIVE_INFINITY;
+				if (def.value > curr) if (def.inclusive) bag.minimum = def.value;
+				else bag.exclusiveMinimum = def.value;
+			});
+			inst._zod.check = (payload) => {
+				if (def.inclusive ? payload.value >= def.value : payload.value > def.value) return;
+				payload.issues.push({
+					origin,
+					code: "too_small",
+					minimum: typeof def.value === "object" ? def.value.getTime() : def.value,
+					input: payload.value,
+					inclusive: def.inclusive,
+					inst,
+					continue: !def.abort
+				});
+			};
+		});
+		const $ZodCheckMultipleOf = /*@__PURE__*/ $constructor("$ZodCheckMultipleOf", (inst, def) => {
+			$ZodCheck.init(inst, def);
+			inst._zod.onattach.push((inst) => {
+				var _a;
+				(_a = inst._zod.bag).multipleOf ?? (_a.multipleOf = def.value);
+			});
+			inst._zod.check = (payload) => {
+				if (typeof payload.value !== typeof def.value) throw new Error("Cannot mix number and bigint in multiple_of check.");
+				if (typeof payload.value === "bigint" ? payload.value % def.value === BigInt(0) : floatSafeRemainder(payload.value, def.value) === 0) return;
+				payload.issues.push({
+					origin: typeof payload.value,
+					code: "not_multiple_of",
+					divisor: def.value,
+					input: payload.value,
+					inst,
+					continue: !def.abort
+				});
+			};
+		});
+		const $ZodCheckNumberFormat = /*@__PURE__*/ $constructor("$ZodCheckNumberFormat", (inst, def) => {
+			$ZodCheck.init(inst, def);
+			def.format = def.format || "float64";
+			const isInt = def.format?.includes("int");
+			const origin = isInt ? "int" : "number";
+			const [minimum, maximum] = NUMBER_FORMAT_RANGES[def.format];
+			inst._zod.onattach.push((inst) => {
+				const bag = inst._zod.bag;
+				bag.format = def.format;
+				bag.minimum = minimum;
+				bag.maximum = maximum;
+				if (isInt) bag.pattern = integer;
+			});
+			inst._zod.check = (payload) => {
+				const input = payload.value;
+				if (isInt) {
+					if (!Number.isInteger(input)) {
+						payload.issues.push({
+							expected: origin,
+							format: def.format,
+							code: "invalid_type",
+							continue: false,
+							input,
+							inst
+						});
+						return;
+					}
+					if (!Number.isSafeInteger(input)) {
+						if (input > 0) payload.issues.push({
+							input,
+							code: "too_big",
+							maximum: Number.MAX_SAFE_INTEGER,
+							note: "Integers must be within the safe integer range.",
+							inst,
+							origin,
+							inclusive: true,
+							continue: !def.abort
+						});
+						else payload.issues.push({
+							input,
+							code: "too_small",
+							minimum: Number.MIN_SAFE_INTEGER,
+							note: "Integers must be within the safe integer range.",
+							inst,
+							origin,
+							inclusive: true,
+							continue: !def.abort
+						});
+						return;
+					}
+				}
+				if (input < minimum) payload.issues.push({
+					origin: "number",
+					input,
+					code: "too_small",
+					minimum,
+					inclusive: true,
+					inst,
+					continue: !def.abort
+				});
+				if (input > maximum) payload.issues.push({
+					origin: "number",
+					input,
+					code: "too_big",
+					maximum,
+					inclusive: true,
+					inst,
+					continue: !def.abort
+				});
+			};
+		});
+		const $ZodCheckMaxLength = /*@__PURE__*/ $constructor("$ZodCheckMaxLength", (inst, def) => {
+			var _a;
+			$ZodCheck.init(inst, def);
+			(_a = inst._zod.def).when ?? (_a.when = (payload) => {
+				const val = payload.value;
+				return !nullish(val) && val.length !== void 0;
+			});
+			inst._zod.onattach.push((inst) => {
+				const curr = inst._zod.bag.maximum ?? Number.POSITIVE_INFINITY;
+				if (def.maximum < curr) inst._zod.bag.maximum = def.maximum;
+			});
+			inst._zod.check = (payload) => {
+				const input = payload.value;
+				if (input.length <= def.maximum) return;
+				const origin = getLengthableOrigin(input);
+				payload.issues.push({
+					origin,
+					code: "too_big",
+					maximum: def.maximum,
+					inclusive: true,
+					input,
+					inst,
+					continue: !def.abort
+				});
+			};
+		});
+		const $ZodCheckMinLength = /*@__PURE__*/ $constructor("$ZodCheckMinLength", (inst, def) => {
+			var _a;
+			$ZodCheck.init(inst, def);
+			(_a = inst._zod.def).when ?? (_a.when = (payload) => {
+				const val = payload.value;
+				return !nullish(val) && val.length !== void 0;
+			});
+			inst._zod.onattach.push((inst) => {
+				const curr = inst._zod.bag.minimum ?? Number.NEGATIVE_INFINITY;
+				if (def.minimum > curr) inst._zod.bag.minimum = def.minimum;
+			});
+			inst._zod.check = (payload) => {
+				const input = payload.value;
+				if (input.length >= def.minimum) return;
+				const origin = getLengthableOrigin(input);
+				payload.issues.push({
+					origin,
+					code: "too_small",
+					minimum: def.minimum,
+					inclusive: true,
+					input,
+					inst,
+					continue: !def.abort
+				});
+			};
+		});
+		const $ZodCheckLengthEquals = /*@__PURE__*/ $constructor("$ZodCheckLengthEquals", (inst, def) => {
+			var _a;
+			$ZodCheck.init(inst, def);
+			(_a = inst._zod.def).when ?? (_a.when = (payload) => {
+				const val = payload.value;
+				return !nullish(val) && val.length !== void 0;
+			});
+			inst._zod.onattach.push((inst) => {
+				const bag = inst._zod.bag;
+				bag.minimum = def.length;
+				bag.maximum = def.length;
+				bag.length = def.length;
+			});
+			inst._zod.check = (payload) => {
+				const input = payload.value;
+				const length = input.length;
+				if (length === def.length) return;
+				const origin = getLengthableOrigin(input);
+				const tooBig = length > def.length;
+				payload.issues.push({
+					origin,
+					...tooBig ? {
+						code: "too_big",
+						maximum: def.length
+					} : {
+						code: "too_small",
+						minimum: def.length
+					},
+					inclusive: true,
+					exact: true,
+					input: payload.value,
+					inst,
+					continue: !def.abort
+				});
+			};
+		});
+		const $ZodCheckStringFormat = /*@__PURE__*/ $constructor("$ZodCheckStringFormat", (inst, def) => {
+			var _a, _b;
+			$ZodCheck.init(inst, def);
+			inst._zod.onattach.push((inst) => {
+				const bag = inst._zod.bag;
+				bag.format = def.format;
+				if (def.pattern) {
+					bag.patterns ?? (bag.patterns = /* @__PURE__ */ new Set());
+					bag.patterns.add(def.pattern);
+				}
+			});
+			if (def.pattern) (_a = inst._zod).check ?? (_a.check = (payload) => {
+				def.pattern.lastIndex = 0;
+				if (def.pattern.test(payload.value)) return;
+				payload.issues.push({
+					origin: "string",
+					code: "invalid_format",
+					format: def.format,
+					input: payload.value,
+					...def.pattern ? { pattern: def.pattern.toString() } : {},
+					inst,
+					continue: !def.abort
+				});
+			});
+			else (_b = inst._zod).check ?? (_b.check = () => {});
+		});
+		const $ZodCheckRegex = /*@__PURE__*/ $constructor("$ZodCheckRegex", (inst, def) => {
+			$ZodCheckStringFormat.init(inst, def);
+			inst._zod.check = (payload) => {
+				def.pattern.lastIndex = 0;
+				if (def.pattern.test(payload.value)) return;
+				payload.issues.push({
+					origin: "string",
+					code: "invalid_format",
+					format: "regex",
+					input: payload.value,
+					pattern: def.pattern.toString(),
+					inst,
+					continue: !def.abort
+				});
+			};
+		});
+		const $ZodCheckLowerCase = /*@__PURE__*/ $constructor("$ZodCheckLowerCase", (inst, def) => {
+			def.pattern ?? (def.pattern = lowercase);
+			$ZodCheckStringFormat.init(inst, def);
+		});
+		const $ZodCheckUpperCase = /*@__PURE__*/ $constructor("$ZodCheckUpperCase", (inst, def) => {
+			def.pattern ?? (def.pattern = uppercase);
+			$ZodCheckStringFormat.init(inst, def);
+		});
+		const $ZodCheckIncludes = /*@__PURE__*/ $constructor("$ZodCheckIncludes", (inst, def) => {
+			$ZodCheck.init(inst, def);
+			const escapedRegex = escapeRegex(def.includes);
+			const pattern = new RegExp(typeof def.position === "number" ? `^.{${def.position}}${escapedRegex}` : escapedRegex);
+			def.pattern = pattern;
+			inst._zod.onattach.push((inst) => {
+				const bag = inst._zod.bag;
+				bag.patterns ?? (bag.patterns = /* @__PURE__ */ new Set());
+				bag.patterns.add(pattern);
+			});
+			inst._zod.check = (payload) => {
+				if (payload.value.includes(def.includes, def.position)) return;
+				payload.issues.push({
+					origin: "string",
+					code: "invalid_format",
+					format: "includes",
+					includes: def.includes,
+					input: payload.value,
+					inst,
+					continue: !def.abort
+				});
+			};
+		});
+		const $ZodCheckStartsWith = /*@__PURE__*/ $constructor("$ZodCheckStartsWith", (inst, def) => {
+			$ZodCheck.init(inst, def);
+			const pattern = new RegExp(`^${escapeRegex(def.prefix)}.*`);
+			def.pattern ?? (def.pattern = pattern);
+			inst._zod.onattach.push((inst) => {
+				const bag = inst._zod.bag;
+				bag.patterns ?? (bag.patterns = /* @__PURE__ */ new Set());
+				bag.patterns.add(pattern);
+			});
+			inst._zod.check = (payload) => {
+				if (payload.value.startsWith(def.prefix)) return;
+				payload.issues.push({
+					origin: "string",
+					code: "invalid_format",
+					format: "starts_with",
+					prefix: def.prefix,
+					input: payload.value,
+					inst,
+					continue: !def.abort
+				});
+			};
+		});
+		const $ZodCheckEndsWith = /*@__PURE__*/ $constructor("$ZodCheckEndsWith", (inst, def) => {
+			$ZodCheck.init(inst, def);
+			const pattern = new RegExp(`.*${escapeRegex(def.suffix)}$`);
+			def.pattern ?? (def.pattern = pattern);
+			inst._zod.onattach.push((inst) => {
+				const bag = inst._zod.bag;
+				bag.patterns ?? (bag.patterns = /* @__PURE__ */ new Set());
+				bag.patterns.add(pattern);
+			});
+			inst._zod.check = (payload) => {
+				if (payload.value.endsWith(def.suffix)) return;
+				payload.issues.push({
+					origin: "string",
+					code: "invalid_format",
+					format: "ends_with",
+					suffix: def.suffix,
+					input: payload.value,
+					inst,
+					continue: !def.abort
+				});
+			};
+		});
+		const $ZodCheckOverwrite = /*@__PURE__*/ $constructor("$ZodCheckOverwrite", (inst, def) => {
+			$ZodCheck.init(inst, def);
+			inst._zod.check = (payload) => {
+				payload.value = def.tx(payload.value);
+			};
+		});
+		//#endregion
+		//#region ../../../node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/core/doc.js
+		var Doc = class {
+			constructor(args = []) {
+				this.content = [];
+				this.indent = 0;
+				if (this) this.args = args;
+			}
+			indented(fn) {
+				this.indent += 1;
+				fn(this);
+				this.indent -= 1;
+			}
+			write(arg) {
+				if (typeof arg === "function") {
+					arg(this, { execution: "sync" });
+					arg(this, { execution: "async" });
+					return;
+				}
+				const lines = arg.split("\n").filter((x) => x);
+				const minIndent = Math.min(...lines.map((x) => x.length - x.trimStart().length));
+				const dedented = lines.map((x) => x.slice(minIndent)).map((x) => " ".repeat(this.indent * 2) + x);
+				for (const line of dedented) this.content.push(line);
+			}
+			compile() {
+				const F = Function;
+				const args = this?.args;
+				const lines = [...(this?.content ?? [``]).map((x) => `  ${x}`)];
+				return new F(...args, lines.join("\n"));
+			}
+		};
+		//#endregion
+		//#region ../../../node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/core/versions.js
+		const version = {
+			major: 4,
+			minor: 4,
+			patch: 3
+		};
+		//#endregion
+		//#region ../../../node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/core/schemas.js
+		const $ZodType = /*@__PURE__*/ $constructor("$ZodType", (inst, def) => {
+			var _a;
+			inst ?? (inst = {});
+			inst._zod.def = def;
+			inst._zod.bag = inst._zod.bag || {};
+			inst._zod.version = version;
+			const checks = [...inst._zod.def.checks ?? []];
+			if (inst._zod.traits.has("$ZodCheck")) checks.unshift(inst);
+			for (const ch of checks) for (const fn of ch._zod.onattach) fn(inst);
+			if (checks.length === 0) {
+				(_a = inst._zod).deferred ?? (_a.deferred = []);
+				inst._zod.deferred?.push(() => {
+					inst._zod.run = inst._zod.parse;
+				});
+			} else {
+				const runChecks = (payload, checks, ctx) => {
+					let isAborted = aborted(payload);
+					let asyncResult;
+					for (const ch of checks) {
+						if (ch._zod.def.when) {
+							if (explicitlyAborted(payload)) continue;
+							if (!ch._zod.def.when(payload)) continue;
+						} else if (isAborted) continue;
+						const currLen = payload.issues.length;
+						const _ = ch._zod.check(payload);
+						if (_ instanceof Promise && ctx?.async === false) throw new $ZodAsyncError();
+						if (asyncResult || _ instanceof Promise) asyncResult = (asyncResult ?? Promise.resolve()).then(async () => {
+							await _;
+							if (payload.issues.length === currLen) return;
+							if (!isAborted) isAborted = aborted(payload, currLen);
+						});
+						else {
+							if (payload.issues.length === currLen) continue;
+							if (!isAborted) isAborted = aborted(payload, currLen);
+						}
+					}
+					if (asyncResult) return asyncResult.then(() => {
+						return payload;
+					});
+					return payload;
+				};
+				const handleCanaryResult = (canary, payload, ctx) => {
+					if (aborted(canary)) {
+						canary.aborted = true;
+						return canary;
+					}
+					const checkResult = runChecks(payload, checks, ctx);
+					if (checkResult instanceof Promise) {
+						if (ctx.async === false) throw new $ZodAsyncError();
+						return checkResult.then((checkResult) => inst._zod.parse(checkResult, ctx));
+					}
+					return inst._zod.parse(checkResult, ctx);
+				};
+				inst._zod.run = (payload, ctx) => {
+					if (ctx.skipChecks) return inst._zod.parse(payload, ctx);
+					if (ctx.direction === "backward") {
+						const canary = inst._zod.parse({
+							value: payload.value,
+							issues: []
+						}, {
+							...ctx,
+							skipChecks: true
+						});
+						if (canary instanceof Promise) return canary.then((canary) => {
+							return handleCanaryResult(canary, payload, ctx);
+						});
+						return handleCanaryResult(canary, payload, ctx);
+					}
+					const result = inst._zod.parse(payload, ctx);
+					if (result instanceof Promise) {
+						if (ctx.async === false) throw new $ZodAsyncError();
+						return result.then((result) => runChecks(result, checks, ctx));
+					}
+					return runChecks(result, checks, ctx);
+				};
+			}
+			defineLazy(inst, "~standard", () => ({
+				validate: (value) => {
+					try {
+						const r = safeParse$1(inst, value);
+						return r.success ? { value: r.data } : { issues: r.error?.issues };
+					} catch (_) {
+						return safeParseAsync$1(inst, value).then((r) => r.success ? { value: r.data } : { issues: r.error?.issues });
+					}
+				},
+				vendor: "zod",
+				version: 1
+			}));
+		});
+		const $ZodString = /*@__PURE__*/ $constructor("$ZodString", (inst, def) => {
+			$ZodType.init(inst, def);
+			inst._zod.pattern = [...inst?._zod.bag?.patterns ?? []].pop() ?? string$1(inst._zod.bag);
+			inst._zod.parse = (payload, _) => {
+				if (def.coerce) try {
+					payload.value = String(payload.value);
+				} catch (_) {}
+				if (typeof payload.value === "string") return payload;
+				payload.issues.push({
+					expected: "string",
+					code: "invalid_type",
+					input: payload.value,
+					inst
+				});
+				return payload;
+			};
+		});
+		const $ZodStringFormat = /*@__PURE__*/ $constructor("$ZodStringFormat", (inst, def) => {
+			$ZodCheckStringFormat.init(inst, def);
+			$ZodString.init(inst, def);
+		});
+		const $ZodGUID = /*@__PURE__*/ $constructor("$ZodGUID", (inst, def) => {
+			def.pattern ?? (def.pattern = guid);
+			$ZodStringFormat.init(inst, def);
+		});
+		const $ZodUUID = /*@__PURE__*/ $constructor("$ZodUUID", (inst, def) => {
+			if (def.version) {
+				const v = {
+					v1: 1,
+					v2: 2,
+					v3: 3,
+					v4: 4,
+					v5: 5,
+					v6: 6,
+					v7: 7,
+					v8: 8
+				}[def.version];
+				if (v === void 0) throw new Error(`Invalid UUID version: "${def.version}"`);
+				def.pattern ?? (def.pattern = uuid(v));
+			} else def.pattern ?? (def.pattern = uuid());
+			$ZodStringFormat.init(inst, def);
+		});
+		const $ZodEmail = /*@__PURE__*/ $constructor("$ZodEmail", (inst, def) => {
+			def.pattern ?? (def.pattern = email);
+			$ZodStringFormat.init(inst, def);
+		});
+		const $ZodURL = /*@__PURE__*/ $constructor("$ZodURL", (inst, def) => {
+			$ZodStringFormat.init(inst, def);
+			inst._zod.check = (payload) => {
+				try {
+					const trimmed = payload.value.trim();
+					if (!def.normalize && def.protocol?.source === httpProtocol.source) {
+						if (!/^https?:\/\//i.test(trimmed)) {
+							payload.issues.push({
+								code: "invalid_format",
+								format: "url",
+								note: "Invalid URL format",
+								input: payload.value,
+								inst,
+								continue: !def.abort
+							});
+							return;
+						}
+					}
+					const url = new URL(trimmed);
+					if (def.hostname) {
+						def.hostname.lastIndex = 0;
+						if (!def.hostname.test(url.hostname)) payload.issues.push({
+							code: "invalid_format",
+							format: "url",
+							note: "Invalid hostname",
+							pattern: def.hostname.source,
+							input: payload.value,
+							inst,
+							continue: !def.abort
+						});
+					}
+					if (def.protocol) {
+						def.protocol.lastIndex = 0;
+						if (!def.protocol.test(url.protocol.endsWith(":") ? url.protocol.slice(0, -1) : url.protocol)) payload.issues.push({
+							code: "invalid_format",
+							format: "url",
+							note: "Invalid protocol",
+							pattern: def.protocol.source,
+							input: payload.value,
+							inst,
+							continue: !def.abort
+						});
+					}
+					if (def.normalize) payload.value = url.href;
+					else payload.value = trimmed;
+					return;
+				} catch (_) {
+					payload.issues.push({
+						code: "invalid_format",
+						format: "url",
+						input: payload.value,
+						inst,
+						continue: !def.abort
+					});
+				}
+			};
+		});
+		const $ZodEmoji = /*@__PURE__*/ $constructor("$ZodEmoji", (inst, def) => {
+			def.pattern ?? (def.pattern = emoji());
+			$ZodStringFormat.init(inst, def);
+		});
+		const $ZodNanoID = /*@__PURE__*/ $constructor("$ZodNanoID", (inst, def) => {
+			def.pattern ?? (def.pattern = nanoid);
+			$ZodStringFormat.init(inst, def);
+		});
+		/**
+		* @deprecated CUID v1 is deprecated by its authors due to information leakage
+		* (timestamps embedded in the id). Use {@link $ZodCUID2} instead.
+		* See https://github.com/paralleldrive/cuid.
+		*/
+		const $ZodCUID = /*@__PURE__*/ $constructor("$ZodCUID", (inst, def) => {
+			def.pattern ?? (def.pattern = cuid);
+			$ZodStringFormat.init(inst, def);
+		});
+		const $ZodCUID2 = /*@__PURE__*/ $constructor("$ZodCUID2", (inst, def) => {
+			def.pattern ?? (def.pattern = cuid2);
+			$ZodStringFormat.init(inst, def);
+		});
+		const $ZodULID = /*@__PURE__*/ $constructor("$ZodULID", (inst, def) => {
+			def.pattern ?? (def.pattern = ulid);
+			$ZodStringFormat.init(inst, def);
+		});
+		const $ZodXID = /*@__PURE__*/ $constructor("$ZodXID", (inst, def) => {
+			def.pattern ?? (def.pattern = xid);
+			$ZodStringFormat.init(inst, def);
+		});
+		const $ZodKSUID = /*@__PURE__*/ $constructor("$ZodKSUID", (inst, def) => {
+			def.pattern ?? (def.pattern = ksuid);
+			$ZodStringFormat.init(inst, def);
+		});
+		const $ZodISODateTime = /*@__PURE__*/ $constructor("$ZodISODateTime", (inst, def) => {
+			def.pattern ?? (def.pattern = datetime$1(def));
+			$ZodStringFormat.init(inst, def);
+		});
+		const $ZodISODate = /*@__PURE__*/ $constructor("$ZodISODate", (inst, def) => {
+			def.pattern ?? (def.pattern = date$1);
+			$ZodStringFormat.init(inst, def);
+		});
+		const $ZodISOTime = /*@__PURE__*/ $constructor("$ZodISOTime", (inst, def) => {
+			def.pattern ?? (def.pattern = time$1(def));
+			$ZodStringFormat.init(inst, def);
+		});
+		const $ZodISODuration = /*@__PURE__*/ $constructor("$ZodISODuration", (inst, def) => {
+			def.pattern ?? (def.pattern = duration$1);
+			$ZodStringFormat.init(inst, def);
+		});
+		const $ZodIPv4 = /*@__PURE__*/ $constructor("$ZodIPv4", (inst, def) => {
+			def.pattern ?? (def.pattern = ipv4);
+			$ZodStringFormat.init(inst, def);
+			inst._zod.bag.format = `ipv4`;
+		});
+		const $ZodIPv6 = /*@__PURE__*/ $constructor("$ZodIPv6", (inst, def) => {
+			def.pattern ?? (def.pattern = ipv6);
+			$ZodStringFormat.init(inst, def);
+			inst._zod.bag.format = `ipv6`;
+			inst._zod.check = (payload) => {
+				try {
+					new URL(`http://[${payload.value}]`);
+				} catch {
+					payload.issues.push({
+						code: "invalid_format",
+						format: "ipv6",
+						input: payload.value,
+						inst,
+						continue: !def.abort
+					});
+				}
+			};
+		});
+		const $ZodCIDRv4 = /*@__PURE__*/ $constructor("$ZodCIDRv4", (inst, def) => {
+			def.pattern ?? (def.pattern = cidrv4);
+			$ZodStringFormat.init(inst, def);
+		});
+		const $ZodCIDRv6 = /*@__PURE__*/ $constructor("$ZodCIDRv6", (inst, def) => {
+			def.pattern ?? (def.pattern = cidrv6);
+			$ZodStringFormat.init(inst, def);
+			inst._zod.check = (payload) => {
+				const parts = payload.value.split("/");
+				try {
+					if (parts.length !== 2) throw new Error();
+					const [address, prefix] = parts;
+					if (!prefix) throw new Error();
+					const prefixNum = Number(prefix);
+					if (`${prefixNum}` !== prefix) throw new Error();
+					if (prefixNum < 0 || prefixNum > 128) throw new Error();
+					new URL(`http://[${address}]`);
+				} catch {
+					payload.issues.push({
+						code: "invalid_format",
+						format: "cidrv6",
+						input: payload.value,
+						inst,
+						continue: !def.abort
+					});
+				}
+			};
+		});
+		function isValidBase64(data) {
+			if (data === "") return true;
+			if (/\s/.test(data)) return false;
+			if (data.length % 4 !== 0) return false;
+			try {
+				atob(data);
+				return true;
+			} catch {
+				return false;
+			}
+		}
+		const $ZodBase64 = /*@__PURE__*/ $constructor("$ZodBase64", (inst, def) => {
+			def.pattern ?? (def.pattern = base64);
+			$ZodStringFormat.init(inst, def);
+			inst._zod.bag.contentEncoding = "base64";
+			inst._zod.check = (payload) => {
+				if (isValidBase64(payload.value)) return;
+				payload.issues.push({
+					code: "invalid_format",
+					format: "base64",
+					input: payload.value,
+					inst,
+					continue: !def.abort
+				});
+			};
+		});
+		function isValidBase64URL(data) {
+			if (!base64url.test(data)) return false;
+			const base64 = data.replace(/[-_]/g, (c) => c === "-" ? "+" : "/");
+			return isValidBase64(base64.padEnd(Math.ceil(base64.length / 4) * 4, "="));
+		}
+		const $ZodBase64URL = /*@__PURE__*/ $constructor("$ZodBase64URL", (inst, def) => {
+			def.pattern ?? (def.pattern = base64url);
+			$ZodStringFormat.init(inst, def);
+			inst._zod.bag.contentEncoding = "base64url";
+			inst._zod.check = (payload) => {
+				if (isValidBase64URL(payload.value)) return;
+				payload.issues.push({
+					code: "invalid_format",
+					format: "base64url",
+					input: payload.value,
+					inst,
+					continue: !def.abort
+				});
+			};
+		});
+		const $ZodE164 = /*@__PURE__*/ $constructor("$ZodE164", (inst, def) => {
+			def.pattern ?? (def.pattern = e164);
+			$ZodStringFormat.init(inst, def);
+		});
+		function isValidJWT(token, algorithm = null) {
+			try {
+				const tokensParts = token.split(".");
+				if (tokensParts.length !== 3) return false;
+				const [header] = tokensParts;
+				if (!header) return false;
+				const parsedHeader = JSON.parse(atob(header));
+				if ("typ" in parsedHeader && parsedHeader?.typ !== "JWT") return false;
+				if (!parsedHeader.alg) return false;
+				if (algorithm && (!("alg" in parsedHeader) || parsedHeader.alg !== algorithm)) return false;
+				return true;
+			} catch {
+				return false;
+			}
+		}
+		const $ZodJWT = /*@__PURE__*/ $constructor("$ZodJWT", (inst, def) => {
+			$ZodStringFormat.init(inst, def);
+			inst._zod.check = (payload) => {
+				if (isValidJWT(payload.value, def.alg)) return;
+				payload.issues.push({
+					code: "invalid_format",
+					format: "jwt",
+					input: payload.value,
+					inst,
+					continue: !def.abort
+				});
+			};
+		});
+		const $ZodNumber = /*@__PURE__*/ $constructor("$ZodNumber", (inst, def) => {
+			$ZodType.init(inst, def);
+			inst._zod.pattern = inst._zod.bag.pattern ?? number$1;
+			inst._zod.parse = (payload, _ctx) => {
+				if (def.coerce) try {
+					payload.value = Number(payload.value);
+				} catch (_) {}
+				const input = payload.value;
+				if (typeof input === "number" && !Number.isNaN(input) && Number.isFinite(input)) return payload;
+				const received = typeof input === "number" ? Number.isNaN(input) ? "NaN" : !Number.isFinite(input) ? "Infinity" : void 0 : void 0;
+				payload.issues.push({
+					expected: "number",
+					code: "invalid_type",
+					input,
+					inst,
+					...received ? { received } : {}
+				});
+				return payload;
+			};
+		});
+		const $ZodNumberFormat = /*@__PURE__*/ $constructor("$ZodNumberFormat", (inst, def) => {
+			$ZodCheckNumberFormat.init(inst, def);
+			$ZodNumber.init(inst, def);
+		});
+		const $ZodBoolean = /*@__PURE__*/ $constructor("$ZodBoolean", (inst, def) => {
+			$ZodType.init(inst, def);
+			inst._zod.pattern = boolean$1;
+			inst._zod.parse = (payload, _ctx) => {
+				if (def.coerce) try {
+					payload.value = Boolean(payload.value);
+				} catch (_) {}
+				const input = payload.value;
+				if (typeof input === "boolean") return payload;
+				payload.issues.push({
+					expected: "boolean",
+					code: "invalid_type",
+					input,
+					inst
+				});
+				return payload;
+			};
+		});
+		const $ZodUndefined = /*@__PURE__*/ $constructor("$ZodUndefined", (inst, def) => {
+			$ZodType.init(inst, def);
+			inst._zod.pattern = _undefined$2;
+			inst._zod.values = new Set([void 0]);
+			inst._zod.parse = (payload, _ctx) => {
+				const input = payload.value;
+				if (typeof input === "undefined") return payload;
+				payload.issues.push({
+					expected: "undefined",
+					code: "invalid_type",
+					input,
+					inst
+				});
+				return payload;
+			};
+		});
+		const $ZodUnknown = /*@__PURE__*/ $constructor("$ZodUnknown", (inst, def) => {
+			$ZodType.init(inst, def);
+			inst._zod.parse = (payload) => payload;
+		});
+		const $ZodNever = /*@__PURE__*/ $constructor("$ZodNever", (inst, def) => {
+			$ZodType.init(inst, def);
+			inst._zod.parse = (payload, _ctx) => {
+				payload.issues.push({
+					expected: "never",
+					code: "invalid_type",
+					input: payload.value,
+					inst
+				});
+				return payload;
+			};
+		});
+		const $ZodVoid = /*@__PURE__*/ $constructor("$ZodVoid", (inst, def) => {
+			$ZodType.init(inst, def);
+			inst._zod.parse = (payload, _ctx) => {
+				const input = payload.value;
+				if (typeof input === "undefined") return payload;
+				payload.issues.push({
+					expected: "void",
+					code: "invalid_type",
+					input,
+					inst
+				});
+				return payload;
+			};
+		});
+		function handleArrayResult(result, final, index) {
+			if (result.issues.length) final.issues.push(...prefixIssues(index, result.issues));
+			final.value[index] = result.value;
+		}
+		const $ZodArray = /*@__PURE__*/ $constructor("$ZodArray", (inst, def) => {
+			$ZodType.init(inst, def);
+			inst._zod.parse = (payload, ctx) => {
+				const input = payload.value;
+				if (!Array.isArray(input)) {
+					payload.issues.push({
+						expected: "array",
+						code: "invalid_type",
+						input,
+						inst
+					});
+					return payload;
+				}
+				payload.value = Array(input.length);
+				const proms = [];
+				for (let i = 0; i < input.length; i++) {
+					const item = input[i];
+					const result = def.element._zod.run({
+						value: item,
+						issues: []
+					}, ctx);
+					if (result instanceof Promise) proms.push(result.then((result) => handleArrayResult(result, payload, i)));
+					else handleArrayResult(result, payload, i);
+				}
+				if (proms.length) return Promise.all(proms).then(() => payload);
+				return payload;
+			};
+		});
+		function handlePropertyResult(result, final, key, input, isOptionalIn, isOptionalOut) {
+			const isPresent = key in input;
+			if (result.issues.length) {
+				if (isOptionalIn && isOptionalOut && !isPresent) return;
+				final.issues.push(...prefixIssues(key, result.issues));
+			}
+			if (!isPresent && !isOptionalIn) {
+				if (!result.issues.length) final.issues.push({
+					code: "invalid_type",
+					expected: "nonoptional",
+					input: void 0,
+					path: [key]
+				});
+				return;
+			}
+			if (result.value === void 0) {
+				if (isPresent) final.value[key] = void 0;
+			} else final.value[key] = result.value;
+		}
+		function normalizeDef(def) {
+			const keys = Object.keys(def.shape);
+			for (const k of keys) if (!def.shape?.[k]?._zod?.traits?.has("$ZodType")) throw new Error(`Invalid element at key "${k}": expected a Zod schema`);
+			const okeys = optionalKeys(def.shape);
+			return {
+				...def,
+				keys,
+				keySet: new Set(keys),
+				numKeys: keys.length,
+				optionalKeys: new Set(okeys)
+			};
+		}
+		function handleCatchall(proms, input, payload, ctx, def, inst) {
+			const unrecognized = [];
+			const keySet = def.keySet;
+			const _catchall = def.catchall._zod;
+			const t = _catchall.def.type;
+			const isOptionalIn = _catchall.optin === "optional";
+			const isOptionalOut = _catchall.optout === "optional";
+			for (const key in input) {
+				if (key === "__proto__") continue;
+				if (keySet.has(key)) continue;
+				if (t === "never") {
+					unrecognized.push(key);
+					continue;
+				}
+				const r = _catchall.run({
+					value: input[key],
+					issues: []
+				}, ctx);
+				if (r instanceof Promise) proms.push(r.then((r) => handlePropertyResult(r, payload, key, input, isOptionalIn, isOptionalOut)));
+				else handlePropertyResult(r, payload, key, input, isOptionalIn, isOptionalOut);
+			}
+			if (unrecognized.length) payload.issues.push({
+				code: "unrecognized_keys",
+				keys: unrecognized,
+				input,
+				inst
+			});
+			if (!proms.length) return payload;
+			return Promise.all(proms).then(() => {
+				return payload;
+			});
+		}
+		const $ZodObject = /*@__PURE__*/ $constructor("$ZodObject", (inst, def) => {
+			$ZodType.init(inst, def);
+			if (!Object.getOwnPropertyDescriptor(def, "shape")?.get) {
+				const sh = def.shape;
+				Object.defineProperty(def, "shape", { get: () => {
+					const newSh = { ...sh };
+					Object.defineProperty(def, "shape", { value: newSh });
+					return newSh;
+				} });
+			}
+			const _normalized = cached(() => normalizeDef(def));
+			defineLazy(inst._zod, "propValues", () => {
+				const shape = def.shape;
+				const propValues = {};
+				for (const key in shape) {
+					const field = shape[key]._zod;
+					if (field.values) {
+						propValues[key] ?? (propValues[key] = /* @__PURE__ */ new Set());
+						for (const v of field.values) propValues[key].add(v);
+					}
+				}
+				return propValues;
+			});
+			const isObject$1 = isObject;
+			const catchall = def.catchall;
+			let value;
+			inst._zod.parse = (payload, ctx) => {
+				value ?? (value = _normalized.value);
+				const input = payload.value;
+				if (!isObject$1(input)) {
+					payload.issues.push({
+						expected: "object",
+						code: "invalid_type",
+						input,
+						inst
+					});
+					return payload;
+				}
+				payload.value = {};
+				const proms = [];
+				const shape = value.shape;
+				for (const key of value.keys) {
+					const el = shape[key];
+					const isOptionalIn = el._zod.optin === "optional";
+					const isOptionalOut = el._zod.optout === "optional";
+					const r = el._zod.run({
+						value: input[key],
+						issues: []
+					}, ctx);
+					if (r instanceof Promise) proms.push(r.then((r) => handlePropertyResult(r, payload, key, input, isOptionalIn, isOptionalOut)));
+					else handlePropertyResult(r, payload, key, input, isOptionalIn, isOptionalOut);
+				}
+				if (!catchall) return proms.length ? Promise.all(proms).then(() => payload) : payload;
+				return handleCatchall(proms, input, payload, ctx, _normalized.value, inst);
+			};
+		});
+		const $ZodObjectJIT = /*@__PURE__*/ $constructor("$ZodObjectJIT", (inst, def) => {
+			$ZodObject.init(inst, def);
+			const superParse = inst._zod.parse;
+			const _normalized = cached(() => normalizeDef(def));
+			const generateFastpass = (shape) => {
+				const doc = new Doc([
+					"shape",
+					"payload",
+					"ctx"
+				]);
+				const normalized = _normalized.value;
+				const parseStr = (key) => {
+					const k = esc(key);
+					return `shape[${k}]._zod.run({ value: input[${k}], issues: [] }, ctx)`;
+				};
+				doc.write(`const input = payload.value;`);
+				const ids = Object.create(null);
+				let counter = 0;
+				for (const key of normalized.keys) ids[key] = `key_${counter++}`;
+				doc.write(`const newResult = {};`);
+				for (const key of normalized.keys) {
+					const id = ids[key];
+					const k = esc(key);
+					const schema = shape[key];
+					const isOptionalIn = schema?._zod?.optin === "optional";
+					const isOptionalOut = schema?._zod?.optout === "optional";
+					doc.write(`const ${id} = ${parseStr(key)};`);
+					if (isOptionalIn && isOptionalOut) doc.write(`
+        if (${id}.issues.length) {
+          if (${k} in input) {
+            payload.issues = payload.issues.concat(${id}.issues.map(iss => ({
+              ...iss,
+              path: iss.path ? [${k}, ...iss.path] : [${k}]
+            })));
+          }
+        }
+        
+        if (${id}.value === undefined) {
+          if (${k} in input) {
+            newResult[${k}] = undefined;
+          }
+        } else {
+          newResult[${k}] = ${id}.value;
+        }
+        
+      `);
+					else if (!isOptionalIn) doc.write(`
+        const ${id}_present = ${k} in input;
+        if (${id}.issues.length) {
+          payload.issues = payload.issues.concat(${id}.issues.map(iss => ({
+            ...iss,
+            path: iss.path ? [${k}, ...iss.path] : [${k}]
+          })));
+        }
+        if (!${id}_present && !${id}.issues.length) {
+          payload.issues.push({
+            code: "invalid_type",
+            expected: "nonoptional",
+            input: undefined,
+            path: [${k}]
+          });
+        }
+
+        if (${id}_present) {
+          if (${id}.value === undefined) {
+            newResult[${k}] = undefined;
+          } else {
+            newResult[${k}] = ${id}.value;
+          }
+        }
+
+      `);
+					else doc.write(`
+        if (${id}.issues.length) {
+          payload.issues = payload.issues.concat(${id}.issues.map(iss => ({
+            ...iss,
+            path: iss.path ? [${k}, ...iss.path] : [${k}]
+          })));
+        }
+        
+        if (${id}.value === undefined) {
+          if (${k} in input) {
+            newResult[${k}] = undefined;
+          }
+        } else {
+          newResult[${k}] = ${id}.value;
+        }
+        
+      `);
+				}
+				doc.write(`payload.value = newResult;`);
+				doc.write(`return payload;`);
+				const fn = doc.compile();
+				return (payload, ctx) => fn(shape, payload, ctx);
+			};
+			let fastpass;
+			const isObject$2 = isObject;
+			const jit = !globalConfig.jitless;
+			const fastEnabled = jit && allowsEval.value;
+			const catchall = def.catchall;
+			let value;
+			inst._zod.parse = (payload, ctx) => {
+				value ?? (value = _normalized.value);
+				const input = payload.value;
+				if (!isObject$2(input)) {
+					payload.issues.push({
+						expected: "object",
+						code: "invalid_type",
+						input,
+						inst
+					});
+					return payload;
+				}
+				if (jit && fastEnabled && ctx?.async === false && ctx.jitless !== true) {
+					if (!fastpass) fastpass = generateFastpass(def.shape);
+					payload = fastpass(payload, ctx);
+					if (!catchall) return payload;
+					return handleCatchall([], input, payload, ctx, value, inst);
+				}
+				return superParse(payload, ctx);
+			};
+		});
+		function handleUnionResults(results, final, inst, ctx) {
+			for (const result of results) if (result.issues.length === 0) {
+				final.value = result.value;
+				return final;
+			}
+			const nonaborted = results.filter((r) => !aborted(r));
+			if (nonaborted.length === 1) {
+				final.value = nonaborted[0].value;
+				return nonaborted[0];
+			}
+			final.issues.push({
+				code: "invalid_union",
+				input: final.value,
+				inst,
+				errors: results.map((result) => result.issues.map((iss) => finalizeIssue(iss, ctx, config())))
+			});
+			return final;
+		}
+		const $ZodUnion = /*@__PURE__*/ $constructor("$ZodUnion", (inst, def) => {
+			$ZodType.init(inst, def);
+			defineLazy(inst._zod, "optin", () => def.options.some((o) => o._zod.optin === "optional") ? "optional" : void 0);
+			defineLazy(inst._zod, "optout", () => def.options.some((o) => o._zod.optout === "optional") ? "optional" : void 0);
+			defineLazy(inst._zod, "values", () => {
+				if (def.options.every((o) => o._zod.values)) return new Set(def.options.flatMap((option) => Array.from(option._zod.values)));
+			});
+			defineLazy(inst._zod, "pattern", () => {
+				if (def.options.every((o) => o._zod.pattern)) {
+					const patterns = def.options.map((o) => o._zod.pattern);
+					return new RegExp(`^(${patterns.map((p) => cleanRegex(p.source)).join("|")})$`);
+				}
+			});
+			const first = def.options.length === 1 ? def.options[0]._zod.run : null;
+			inst._zod.parse = (payload, ctx) => {
+				if (first) return first(payload, ctx);
+				let async = false;
+				const results = [];
+				for (const option of def.options) {
+					const result = option._zod.run({
+						value: payload.value,
+						issues: []
+					}, ctx);
+					if (result instanceof Promise) {
+						results.push(result);
+						async = true;
+					} else {
+						if (result.issues.length === 0) return result;
+						results.push(result);
+					}
+				}
+				if (!async) return handleUnionResults(results, payload, inst, ctx);
+				return Promise.all(results).then((results) => {
+					return handleUnionResults(results, payload, inst, ctx);
+				});
+			};
+		});
+		const $ZodIntersection = /*@__PURE__*/ $constructor("$ZodIntersection", (inst, def) => {
+			$ZodType.init(inst, def);
+			inst._zod.parse = (payload, ctx) => {
+				const input = payload.value;
+				const left = def.left._zod.run({
+					value: input,
+					issues: []
+				}, ctx);
+				const right = def.right._zod.run({
+					value: input,
+					issues: []
+				}, ctx);
+				if (left instanceof Promise || right instanceof Promise) return Promise.all([left, right]).then(([left, right]) => {
+					return handleIntersectionResults(payload, left, right);
+				});
+				return handleIntersectionResults(payload, left, right);
+			};
+		});
+		function mergeValues(a, b) {
+			if (a === b) return {
+				valid: true,
+				data: a
+			};
+			if (a instanceof Date && b instanceof Date && +a === +b) return {
+				valid: true,
+				data: a
+			};
+			if (isPlainObject(a) && isPlainObject(b)) {
+				const bKeys = Object.keys(b);
+				const sharedKeys = Object.keys(a).filter((key) => bKeys.indexOf(key) !== -1);
+				const newObj = {
+					...a,
+					...b
+				};
+				for (const key of sharedKeys) {
+					const sharedValue = mergeValues(a[key], b[key]);
+					if (!sharedValue.valid) return {
+						valid: false,
+						mergeErrorPath: [key, ...sharedValue.mergeErrorPath]
+					};
+					newObj[key] = sharedValue.data;
+				}
+				return {
+					valid: true,
+					data: newObj
+				};
+			}
+			if (Array.isArray(a) && Array.isArray(b)) {
+				if (a.length !== b.length) return {
+					valid: false,
+					mergeErrorPath: []
+				};
+				const newArray = [];
+				for (let index = 0; index < a.length; index++) {
+					const itemA = a[index];
+					const itemB = b[index];
+					const sharedValue = mergeValues(itemA, itemB);
+					if (!sharedValue.valid) return {
+						valid: false,
+						mergeErrorPath: [index, ...sharedValue.mergeErrorPath]
+					};
+					newArray.push(sharedValue.data);
+				}
+				return {
+					valid: true,
+					data: newArray
+				};
+			}
+			return {
+				valid: false,
+				mergeErrorPath: []
+			};
+		}
+		function handleIntersectionResults(result, left, right) {
+			const unrecKeys = /* @__PURE__ */ new Map();
+			let unrecIssue;
+			for (const iss of left.issues) if (iss.code === "unrecognized_keys") {
+				unrecIssue ?? (unrecIssue = iss);
+				for (const k of iss.keys) {
+					if (!unrecKeys.has(k)) unrecKeys.set(k, {});
+					unrecKeys.get(k).l = true;
+				}
+			} else result.issues.push(iss);
+			for (const iss of right.issues) if (iss.code === "unrecognized_keys") for (const k of iss.keys) {
+				if (!unrecKeys.has(k)) unrecKeys.set(k, {});
+				unrecKeys.get(k).r = true;
+			}
+			else result.issues.push(iss);
+			const bothKeys = [...unrecKeys].filter(([, f]) => f.l && f.r).map(([k]) => k);
+			if (bothKeys.length && unrecIssue) result.issues.push({
+				...unrecIssue,
+				keys: bothKeys
+			});
+			if (aborted(result)) return result;
+			const merged = mergeValues(left.value, right.value);
+			if (!merged.valid) throw new Error(`Unmergable intersection. Error path: ${JSON.stringify(merged.mergeErrorPath)}`);
+			result.value = merged.data;
+			return result;
+		}
+		const $ZodRecord = /*@__PURE__*/ $constructor("$ZodRecord", (inst, def) => {
+			$ZodType.init(inst, def);
+			inst._zod.parse = (payload, ctx) => {
+				const input = payload.value;
+				if (!isPlainObject(input)) {
+					payload.issues.push({
+						expected: "record",
+						code: "invalid_type",
+						input,
+						inst
+					});
+					return payload;
+				}
+				const proms = [];
+				const values = def.keyType._zod.values;
+				if (values) {
+					payload.value = {};
+					const recordKeys = /* @__PURE__ */ new Set();
+					for (const key of values) if (typeof key === "string" || typeof key === "number" || typeof key === "symbol") {
+						recordKeys.add(typeof key === "number" ? key.toString() : key);
+						const keyResult = def.keyType._zod.run({
+							value: key,
+							issues: []
+						}, ctx);
+						if (keyResult instanceof Promise) throw new Error("Async schemas not supported in object keys currently");
+						if (keyResult.issues.length) {
+							payload.issues.push({
+								code: "invalid_key",
+								origin: "record",
+								issues: keyResult.issues.map((iss) => finalizeIssue(iss, ctx, config())),
+								input: key,
+								path: [key],
+								inst
+							});
+							continue;
+						}
+						const outKey = keyResult.value;
+						const result = def.valueType._zod.run({
+							value: input[key],
+							issues: []
+						}, ctx);
+						if (result instanceof Promise) proms.push(result.then((result) => {
+							if (result.issues.length) payload.issues.push(...prefixIssues(key, result.issues));
+							payload.value[outKey] = result.value;
+						}));
+						else {
+							if (result.issues.length) payload.issues.push(...prefixIssues(key, result.issues));
+							payload.value[outKey] = result.value;
+						}
+					}
+					let unrecognized;
+					for (const key in input) if (!recordKeys.has(key)) {
+						unrecognized = unrecognized ?? [];
+						unrecognized.push(key);
+					}
+					if (unrecognized && unrecognized.length > 0) payload.issues.push({
+						code: "unrecognized_keys",
+						input,
+						inst,
+						keys: unrecognized
+					});
+				} else {
+					payload.value = {};
+					for (const key of Reflect.ownKeys(input)) {
+						if (key === "__proto__") continue;
+						if (!Object.prototype.propertyIsEnumerable.call(input, key)) continue;
+						let keyResult = def.keyType._zod.run({
+							value: key,
+							issues: []
+						}, ctx);
+						if (keyResult instanceof Promise) throw new Error("Async schemas not supported in object keys currently");
+						if (typeof key === "string" && number$1.test(key) && keyResult.issues.length) {
+							const retryResult = def.keyType._zod.run({
+								value: Number(key),
+								issues: []
+							}, ctx);
+							if (retryResult instanceof Promise) throw new Error("Async schemas not supported in object keys currently");
+							if (retryResult.issues.length === 0) keyResult = retryResult;
+						}
+						if (keyResult.issues.length) {
+							if (def.mode === "loose") payload.value[key] = input[key];
+							else payload.issues.push({
+								code: "invalid_key",
+								origin: "record",
+								issues: keyResult.issues.map((iss) => finalizeIssue(iss, ctx, config())),
+								input: key,
+								path: [key],
+								inst
+							});
+							continue;
+						}
+						const result = def.valueType._zod.run({
+							value: input[key],
+							issues: []
+						}, ctx);
+						if (result instanceof Promise) proms.push(result.then((result) => {
+							if (result.issues.length) payload.issues.push(...prefixIssues(key, result.issues));
+							payload.value[keyResult.value] = result.value;
+						}));
+						else {
+							if (result.issues.length) payload.issues.push(...prefixIssues(key, result.issues));
+							payload.value[keyResult.value] = result.value;
+						}
+					}
+				}
+				if (proms.length) return Promise.all(proms).then(() => payload);
+				return payload;
+			};
+		});
+		const $ZodEnum = /*@__PURE__*/ $constructor("$ZodEnum", (inst, def) => {
+			$ZodType.init(inst, def);
+			const values = getEnumValues(def.entries);
+			const valuesSet = new Set(values);
+			inst._zod.values = valuesSet;
+			inst._zod.pattern = new RegExp(`^(${values.filter((k) => propertyKeyTypes.has(typeof k)).map((o) => typeof o === "string" ? escapeRegex(o) : o.toString()).join("|")})$`);
+			inst._zod.parse = (payload, _ctx) => {
+				const input = payload.value;
+				if (valuesSet.has(input)) return payload;
+				payload.issues.push({
+					code: "invalid_value",
+					values,
+					input,
+					inst
+				});
+				return payload;
+			};
+		});
+		const $ZodLiteral = /*@__PURE__*/ $constructor("$ZodLiteral", (inst, def) => {
+			$ZodType.init(inst, def);
+			if (def.values.length === 0) throw new Error("Cannot create literal schema with no valid values");
+			const values = new Set(def.values);
+			inst._zod.values = values;
+			inst._zod.pattern = new RegExp(`^(${def.values.map((o) => typeof o === "string" ? escapeRegex(o) : o ? escapeRegex(o.toString()) : String(o)).join("|")})$`);
+			inst._zod.parse = (payload, _ctx) => {
+				const input = payload.value;
+				if (values.has(input)) return payload;
+				payload.issues.push({
+					code: "invalid_value",
+					values: def.values,
+					input,
+					inst
+				});
+				return payload;
+			};
+		});
+		const $ZodTransform = /*@__PURE__*/ $constructor("$ZodTransform", (inst, def) => {
+			$ZodType.init(inst, def);
+			inst._zod.optin = "optional";
+			inst._zod.parse = (payload, ctx) => {
+				if (ctx.direction === "backward") throw new $ZodEncodeError(inst.constructor.name);
+				const _out = def.transform(payload.value, payload);
+				if (ctx.async) return (_out instanceof Promise ? _out : Promise.resolve(_out)).then((output) => {
+					payload.value = output;
+					payload.fallback = true;
+					return payload;
+				});
+				if (_out instanceof Promise) throw new $ZodAsyncError();
+				payload.value = _out;
+				payload.fallback = true;
+				return payload;
+			};
+		});
+		function handleOptionalResult(result, input) {
+			if (input === void 0 && (result.issues.length || result.fallback)) return {
+				issues: [],
+				value: void 0
+			};
+			return result;
+		}
+		const $ZodOptional = /*@__PURE__*/ $constructor("$ZodOptional", (inst, def) => {
+			$ZodType.init(inst, def);
+			inst._zod.optin = "optional";
+			inst._zod.optout = "optional";
+			defineLazy(inst._zod, "values", () => {
+				return def.innerType._zod.values ? new Set([...def.innerType._zod.values, void 0]) : void 0;
+			});
+			defineLazy(inst._zod, "pattern", () => {
+				const pattern = def.innerType._zod.pattern;
+				return pattern ? new RegExp(`^(${cleanRegex(pattern.source)})?$`) : void 0;
+			});
+			inst._zod.parse = (payload, ctx) => {
+				if (def.innerType._zod.optin === "optional") {
+					const input = payload.value;
+					const result = def.innerType._zod.run(payload, ctx);
+					if (result instanceof Promise) return result.then((r) => handleOptionalResult(r, input));
+					return handleOptionalResult(result, input);
+				}
+				if (payload.value === void 0) return payload;
+				return def.innerType._zod.run(payload, ctx);
+			};
+		});
+		const $ZodExactOptional = /*@__PURE__*/ $constructor("$ZodExactOptional", (inst, def) => {
+			$ZodOptional.init(inst, def);
+			defineLazy(inst._zod, "values", () => def.innerType._zod.values);
+			defineLazy(inst._zod, "pattern", () => def.innerType._zod.pattern);
+			inst._zod.parse = (payload, ctx) => {
+				return def.innerType._zod.run(payload, ctx);
+			};
+		});
+		const $ZodNullable = /*@__PURE__*/ $constructor("$ZodNullable", (inst, def) => {
+			$ZodType.init(inst, def);
+			defineLazy(inst._zod, "optin", () => def.innerType._zod.optin);
+			defineLazy(inst._zod, "optout", () => def.innerType._zod.optout);
+			defineLazy(inst._zod, "pattern", () => {
+				const pattern = def.innerType._zod.pattern;
+				return pattern ? new RegExp(`^(${cleanRegex(pattern.source)}|null)$`) : void 0;
+			});
+			defineLazy(inst._zod, "values", () => {
+				return def.innerType._zod.values ? new Set([...def.innerType._zod.values, null]) : void 0;
+			});
+			inst._zod.parse = (payload, ctx) => {
+				if (payload.value === null) return payload;
+				return def.innerType._zod.run(payload, ctx);
+			};
+		});
+		const $ZodDefault = /*@__PURE__*/ $constructor("$ZodDefault", (inst, def) => {
+			$ZodType.init(inst, def);
+			inst._zod.optin = "optional";
+			defineLazy(inst._zod, "values", () => def.innerType._zod.values);
+			inst._zod.parse = (payload, ctx) => {
+				if (ctx.direction === "backward") return def.innerType._zod.run(payload, ctx);
+				if (payload.value === void 0) {
+					payload.value = def.defaultValue;
+					/**
+					* $ZodDefault returns the default value immediately in forward direction.
+					* It doesn't pass the default value into the validator ("prefault"). There's no reason to pass the default value through validation. The validity of the default is enforced by TypeScript statically. Otherwise, it's the responsibility of the user to ensure the default is valid. In the case of pipes with divergent in/out types, you can specify the default on the `in` schema of your ZodPipe to set a "prefault" for the pipe.   */
+					return payload;
+				}
+				const result = def.innerType._zod.run(payload, ctx);
+				if (result instanceof Promise) return result.then((result) => handleDefaultResult(result, def));
+				return handleDefaultResult(result, def);
+			};
+		});
+		function handleDefaultResult(payload, def) {
+			if (payload.value === void 0) payload.value = def.defaultValue;
+			return payload;
+		}
+		const $ZodPrefault = /*@__PURE__*/ $constructor("$ZodPrefault", (inst, def) => {
+			$ZodType.init(inst, def);
+			inst._zod.optin = "optional";
+			defineLazy(inst._zod, "values", () => def.innerType._zod.values);
+			inst._zod.parse = (payload, ctx) => {
+				if (ctx.direction === "backward") return def.innerType._zod.run(payload, ctx);
+				if (payload.value === void 0) payload.value = def.defaultValue;
+				return def.innerType._zod.run(payload, ctx);
+			};
+		});
+		const $ZodNonOptional = /*@__PURE__*/ $constructor("$ZodNonOptional", (inst, def) => {
+			$ZodType.init(inst, def);
+			defineLazy(inst._zod, "values", () => {
+				const v = def.innerType._zod.values;
+				return v ? new Set([...v].filter((x) => x !== void 0)) : void 0;
+			});
+			inst._zod.parse = (payload, ctx) => {
+				const result = def.innerType._zod.run(payload, ctx);
+				if (result instanceof Promise) return result.then((result) => handleNonOptionalResult(result, inst));
+				return handleNonOptionalResult(result, inst);
+			};
+		});
+		function handleNonOptionalResult(payload, inst) {
+			if (!payload.issues.length && payload.value === void 0) payload.issues.push({
+				code: "invalid_type",
+				expected: "nonoptional",
+				input: payload.value,
+				inst
+			});
+			return payload;
+		}
+		const $ZodCatch = /*@__PURE__*/ $constructor("$ZodCatch", (inst, def) => {
+			$ZodType.init(inst, def);
+			inst._zod.optin = "optional";
+			defineLazy(inst._zod, "optout", () => def.innerType._zod.optout);
+			defineLazy(inst._zod, "values", () => def.innerType._zod.values);
+			inst._zod.parse = (payload, ctx) => {
+				if (ctx.direction === "backward") return def.innerType._zod.run(payload, ctx);
+				const result = def.innerType._zod.run(payload, ctx);
+				if (result instanceof Promise) return result.then((result) => {
+					payload.value = result.value;
+					if (result.issues.length) {
+						payload.value = def.catchValue({
+							...payload,
+							error: { issues: result.issues.map((iss) => finalizeIssue(iss, ctx, config())) },
+							input: payload.value
+						});
+						payload.issues = [];
+						payload.fallback = true;
+					}
+					return payload;
+				});
+				payload.value = result.value;
+				if (result.issues.length) {
+					payload.value = def.catchValue({
+						...payload,
+						error: { issues: result.issues.map((iss) => finalizeIssue(iss, ctx, config())) },
+						input: payload.value
+					});
+					payload.issues = [];
+					payload.fallback = true;
+				}
+				return payload;
+			};
+		});
+		const $ZodPipe = /*@__PURE__*/ $constructor("$ZodPipe", (inst, def) => {
+			$ZodType.init(inst, def);
+			defineLazy(inst._zod, "values", () => def.in._zod.values);
+			defineLazy(inst._zod, "optin", () => def.in._zod.optin);
+			defineLazy(inst._zod, "optout", () => def.out._zod.optout);
+			defineLazy(inst._zod, "propValues", () => def.in._zod.propValues);
+			inst._zod.parse = (payload, ctx) => {
+				if (ctx.direction === "backward") {
+					const right = def.out._zod.run(payload, ctx);
+					if (right instanceof Promise) return right.then((right) => handlePipeResult(right, def.in, ctx));
+					return handlePipeResult(right, def.in, ctx);
+				}
+				const left = def.in._zod.run(payload, ctx);
+				if (left instanceof Promise) return left.then((left) => handlePipeResult(left, def.out, ctx));
+				return handlePipeResult(left, def.out, ctx);
+			};
+		});
+		function handlePipeResult(left, next, ctx) {
+			if (left.issues.length) {
+				left.aborted = true;
+				return left;
+			}
+			return next._zod.run({
+				value: left.value,
+				issues: left.issues,
+				fallback: left.fallback
+			}, ctx);
+		}
+		const $ZodReadonly = /*@__PURE__*/ $constructor("$ZodReadonly", (inst, def) => {
+			$ZodType.init(inst, def);
+			defineLazy(inst._zod, "propValues", () => def.innerType._zod.propValues);
+			defineLazy(inst._zod, "values", () => def.innerType._zod.values);
+			defineLazy(inst._zod, "optin", () => def.innerType?._zod?.optin);
+			defineLazy(inst._zod, "optout", () => def.innerType?._zod?.optout);
+			inst._zod.parse = (payload, ctx) => {
+				if (ctx.direction === "backward") return def.innerType._zod.run(payload, ctx);
+				const result = def.innerType._zod.run(payload, ctx);
+				if (result instanceof Promise) return result.then(handleReadonlyResult);
+				return handleReadonlyResult(result);
+			};
+		});
+		function handleReadonlyResult(payload) {
+			payload.value = Object.freeze(payload.value);
+			return payload;
+		}
+		const $ZodLazy = /*@__PURE__*/ $constructor("$ZodLazy", (inst, def) => {
+			$ZodType.init(inst, def);
+			defineLazy(inst._zod, "innerType", () => {
+				const d = def;
+				if (!d._cachedInner) d._cachedInner = def.getter();
+				return d._cachedInner;
+			});
+			defineLazy(inst._zod, "pattern", () => inst._zod.innerType?._zod?.pattern);
+			defineLazy(inst._zod, "propValues", () => inst._zod.innerType?._zod?.propValues);
+			defineLazy(inst._zod, "optin", () => inst._zod.innerType?._zod?.optin ?? void 0);
+			defineLazy(inst._zod, "optout", () => inst._zod.innerType?._zod?.optout ?? void 0);
+			inst._zod.parse = (payload, ctx) => {
+				return inst._zod.innerType._zod.run(payload, ctx);
+			};
+		});
+		const $ZodCustom = /*@__PURE__*/ $constructor("$ZodCustom", (inst, def) => {
+			$ZodCheck.init(inst, def);
+			$ZodType.init(inst, def);
+			inst._zod.parse = (payload, _) => {
+				return payload;
+			};
+			inst._zod.check = (payload) => {
+				const input = payload.value;
+				const r = def.fn(input);
+				if (r instanceof Promise) return r.then((r) => handleRefineResult(r, payload, input, inst));
+				handleRefineResult(r, payload, input, inst);
+			};
+		});
+		function handleRefineResult(result, payload, input, inst) {
+			if (!result) {
+				const _iss = {
+					code: "custom",
+					input,
+					inst,
+					path: [...inst._zod.def.path ?? []],
+					continue: !inst._zod.def.abort
+				};
+				if (inst._zod.def.params) _iss.params = inst._zod.def.params;
+				payload.issues.push(issue(_iss));
+			}
+		}
+		//#endregion
+		//#region ../../../node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/core/registries.js
+		var _a;
+		var $ZodRegistry = class {
+			constructor() {
+				this._map = /* @__PURE__ */ new WeakMap();
+				this._idmap = /* @__PURE__ */ new Map();
+			}
+			add(schema, ..._meta) {
+				const meta = _meta[0];
+				this._map.set(schema, meta);
+				if (meta && typeof meta === "object" && "id" in meta) this._idmap.set(meta.id, schema);
+				return this;
+			}
+			clear() {
+				this._map = /* @__PURE__ */ new WeakMap();
+				this._idmap = /* @__PURE__ */ new Map();
+				return this;
+			}
+			remove(schema) {
+				const meta = this._map.get(schema);
+				if (meta && typeof meta === "object" && "id" in meta) this._idmap.delete(meta.id);
+				this._map.delete(schema);
+				return this;
+			}
+			get(schema) {
+				const p = schema._zod.parent;
+				if (p) {
+					const pm = { ...this.get(p) ?? {} };
+					delete pm.id;
+					const f = {
+						...pm,
+						...this._map.get(schema)
+					};
+					return Object.keys(f).length ? f : void 0;
+				}
+				return this._map.get(schema);
+			}
+			has(schema) {
+				return this._map.has(schema);
+			}
+		};
+		function registry() {
+			return new $ZodRegistry();
+		}
+		(_a = globalThis).__zod_globalRegistry ?? (_a.__zod_globalRegistry = registry());
+		const globalRegistry = globalThis.__zod_globalRegistry;
+		//#endregion
+		//#region ../../../node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/core/api.js
+		// @__NO_SIDE_EFFECTS__
+		function _string(Class, params) {
+			return new Class({
+				type: "string",
+				...normalizeParams(params)
+			});
+		}
+		// @__NO_SIDE_EFFECTS__
+		function _email(Class, params) {
+			return new Class({
+				type: "string",
+				format: "email",
+				check: "string_format",
+				abort: false,
+				...normalizeParams(params)
+			});
+		}
+		// @__NO_SIDE_EFFECTS__
+		function _guid(Class, params) {
+			return new Class({
+				type: "string",
+				format: "guid",
+				check: "string_format",
+				abort: false,
+				...normalizeParams(params)
+			});
+		}
+		// @__NO_SIDE_EFFECTS__
+		function _uuid(Class, params) {
+			return new Class({
+				type: "string",
+				format: "uuid",
+				check: "string_format",
+				abort: false,
+				...normalizeParams(params)
+			});
+		}
+		// @__NO_SIDE_EFFECTS__
+		function _uuidv4(Class, params) {
+			return new Class({
+				type: "string",
+				format: "uuid",
+				check: "string_format",
+				abort: false,
+				version: "v4",
+				...normalizeParams(params)
+			});
+		}
+		// @__NO_SIDE_EFFECTS__
+		function _uuidv6(Class, params) {
+			return new Class({
+				type: "string",
+				format: "uuid",
+				check: "string_format",
+				abort: false,
+				version: "v6",
+				...normalizeParams(params)
+			});
+		}
+		// @__NO_SIDE_EFFECTS__
+		function _uuidv7(Class, params) {
+			return new Class({
+				type: "string",
+				format: "uuid",
+				check: "string_format",
+				abort: false,
+				version: "v7",
+				...normalizeParams(params)
+			});
+		}
+		// @__NO_SIDE_EFFECTS__
+		function _url(Class, params) {
+			return new Class({
+				type: "string",
+				format: "url",
+				check: "string_format",
+				abort: false,
+				...normalizeParams(params)
+			});
+		}
+		// @__NO_SIDE_EFFECTS__
+		function _emoji(Class, params) {
+			return new Class({
+				type: "string",
+				format: "emoji",
+				check: "string_format",
+				abort: false,
+				...normalizeParams(params)
+			});
+		}
+		// @__NO_SIDE_EFFECTS__
+		function _nanoid(Class, params) {
+			return new Class({
+				type: "string",
+				format: "nanoid",
+				check: "string_format",
+				abort: false,
+				...normalizeParams(params)
+			});
 		}
 		/**
-		* Declare the review tab's store; the registration declares it as an
-		* exclusive store, so the framework mints one instance per session.
-		* @returns the store handle to declare on the registration.
+		* @deprecated CUID v1 is deprecated by its authors due to information leakage
+		* (timestamps embedded in the id). Use {@link _cuid2} instead.
+		* See https://github.com/paralleldrive/cuid.
 		*/
-		function createReviewStore() {
-			return (0, _deepseek_ai_dsh_client_store.defineStore)({
-				init: () => ({ byTab: {} }),
-				actions: {
-					/**
-					* Apply a navigation: seed a side-by-side, unwrapped tab on its first one, then show the navigated file.
-					* @param d - draft state.
-					* @param tabId - the tab being drawn.
-					* @param revision - the navigation revision being applied.
-					* @param index - the file index the navigation named, or the current one.
-					*/
-					navigated: (d, tabId, revision, index) => {
-						const tab = d.byTab[tabId];
-						if (tab === void 0) d.byTab[tabId] = {
-							index,
-							split: true,
-							wrap: false,
-							navigated: revision
-						};
-						else {
-							tab.index = index;
-							tab.navigated = revision;
+		// @__NO_SIDE_EFFECTS__
+		function _cuid(Class, params) {
+			return new Class({
+				type: "string",
+				format: "cuid",
+				check: "string_format",
+				abort: false,
+				...normalizeParams(params)
+			});
+		}
+		// @__NO_SIDE_EFFECTS__
+		function _cuid2(Class, params) {
+			return new Class({
+				type: "string",
+				format: "cuid2",
+				check: "string_format",
+				abort: false,
+				...normalizeParams(params)
+			});
+		}
+		// @__NO_SIDE_EFFECTS__
+		function _ulid(Class, params) {
+			return new Class({
+				type: "string",
+				format: "ulid",
+				check: "string_format",
+				abort: false,
+				...normalizeParams(params)
+			});
+		}
+		// @__NO_SIDE_EFFECTS__
+		function _xid(Class, params) {
+			return new Class({
+				type: "string",
+				format: "xid",
+				check: "string_format",
+				abort: false,
+				...normalizeParams(params)
+			});
+		}
+		// @__NO_SIDE_EFFECTS__
+		function _ksuid(Class, params) {
+			return new Class({
+				type: "string",
+				format: "ksuid",
+				check: "string_format",
+				abort: false,
+				...normalizeParams(params)
+			});
+		}
+		// @__NO_SIDE_EFFECTS__
+		function _ipv4(Class, params) {
+			return new Class({
+				type: "string",
+				format: "ipv4",
+				check: "string_format",
+				abort: false,
+				...normalizeParams(params)
+			});
+		}
+		// @__NO_SIDE_EFFECTS__
+		function _ipv6(Class, params) {
+			return new Class({
+				type: "string",
+				format: "ipv6",
+				check: "string_format",
+				abort: false,
+				...normalizeParams(params)
+			});
+		}
+		// @__NO_SIDE_EFFECTS__
+		function _cidrv4(Class, params) {
+			return new Class({
+				type: "string",
+				format: "cidrv4",
+				check: "string_format",
+				abort: false,
+				...normalizeParams(params)
+			});
+		}
+		// @__NO_SIDE_EFFECTS__
+		function _cidrv6(Class, params) {
+			return new Class({
+				type: "string",
+				format: "cidrv6",
+				check: "string_format",
+				abort: false,
+				...normalizeParams(params)
+			});
+		}
+		// @__NO_SIDE_EFFECTS__
+		function _base64(Class, params) {
+			return new Class({
+				type: "string",
+				format: "base64",
+				check: "string_format",
+				abort: false,
+				...normalizeParams(params)
+			});
+		}
+		// @__NO_SIDE_EFFECTS__
+		function _base64url(Class, params) {
+			return new Class({
+				type: "string",
+				format: "base64url",
+				check: "string_format",
+				abort: false,
+				...normalizeParams(params)
+			});
+		}
+		// @__NO_SIDE_EFFECTS__
+		function _e164(Class, params) {
+			return new Class({
+				type: "string",
+				format: "e164",
+				check: "string_format",
+				abort: false,
+				...normalizeParams(params)
+			});
+		}
+		// @__NO_SIDE_EFFECTS__
+		function _jwt(Class, params) {
+			return new Class({
+				type: "string",
+				format: "jwt",
+				check: "string_format",
+				abort: false,
+				...normalizeParams(params)
+			});
+		}
+		// @__NO_SIDE_EFFECTS__
+		function _isoDateTime(Class, params) {
+			return new Class({
+				type: "string",
+				format: "datetime",
+				check: "string_format",
+				offset: false,
+				local: false,
+				precision: null,
+				...normalizeParams(params)
+			});
+		}
+		// @__NO_SIDE_EFFECTS__
+		function _isoDate(Class, params) {
+			return new Class({
+				type: "string",
+				format: "date",
+				check: "string_format",
+				...normalizeParams(params)
+			});
+		}
+		// @__NO_SIDE_EFFECTS__
+		function _isoTime(Class, params) {
+			return new Class({
+				type: "string",
+				format: "time",
+				check: "string_format",
+				precision: null,
+				...normalizeParams(params)
+			});
+		}
+		// @__NO_SIDE_EFFECTS__
+		function _isoDuration(Class, params) {
+			return new Class({
+				type: "string",
+				format: "duration",
+				check: "string_format",
+				...normalizeParams(params)
+			});
+		}
+		// @__NO_SIDE_EFFECTS__
+		function _number(Class, params) {
+			return new Class({
+				type: "number",
+				checks: [],
+				...normalizeParams(params)
+			});
+		}
+		// @__NO_SIDE_EFFECTS__
+		function _int(Class, params) {
+			return new Class({
+				type: "number",
+				check: "number_format",
+				abort: false,
+				format: "safeint",
+				...normalizeParams(params)
+			});
+		}
+		// @__NO_SIDE_EFFECTS__
+		function _boolean(Class, params) {
+			return new Class({
+				type: "boolean",
+				...normalizeParams(params)
+			});
+		}
+		// @__NO_SIDE_EFFECTS__
+		function _undefined$1(Class, params) {
+			return new Class({
+				type: "undefined",
+				...normalizeParams(params)
+			});
+		}
+		// @__NO_SIDE_EFFECTS__
+		function _unknown(Class) {
+			return new Class({ type: "unknown" });
+		}
+		// @__NO_SIDE_EFFECTS__
+		function _never(Class, params) {
+			return new Class({
+				type: "never",
+				...normalizeParams(params)
+			});
+		}
+		// @__NO_SIDE_EFFECTS__
+		function _void$1(Class, params) {
+			return new Class({
+				type: "void",
+				...normalizeParams(params)
+			});
+		}
+		// @__NO_SIDE_EFFECTS__
+		function _lt(value, params) {
+			return new $ZodCheckLessThan({
+				check: "less_than",
+				...normalizeParams(params),
+				value,
+				inclusive: false
+			});
+		}
+		// @__NO_SIDE_EFFECTS__
+		function _lte(value, params) {
+			return new $ZodCheckLessThan({
+				check: "less_than",
+				...normalizeParams(params),
+				value,
+				inclusive: true
+			});
+		}
+		// @__NO_SIDE_EFFECTS__
+		function _gt(value, params) {
+			return new $ZodCheckGreaterThan({
+				check: "greater_than",
+				...normalizeParams(params),
+				value,
+				inclusive: false
+			});
+		}
+		// @__NO_SIDE_EFFECTS__
+		function _gte(value, params) {
+			return new $ZodCheckGreaterThan({
+				check: "greater_than",
+				...normalizeParams(params),
+				value,
+				inclusive: true
+			});
+		}
+		// @__NO_SIDE_EFFECTS__
+		function _multipleOf(value, params) {
+			return new $ZodCheckMultipleOf({
+				check: "multiple_of",
+				...normalizeParams(params),
+				value
+			});
+		}
+		// @__NO_SIDE_EFFECTS__
+		function _maxLength(maximum, params) {
+			return new $ZodCheckMaxLength({
+				check: "max_length",
+				...normalizeParams(params),
+				maximum
+			});
+		}
+		// @__NO_SIDE_EFFECTS__
+		function _minLength(minimum, params) {
+			return new $ZodCheckMinLength({
+				check: "min_length",
+				...normalizeParams(params),
+				minimum
+			});
+		}
+		// @__NO_SIDE_EFFECTS__
+		function _length(length, params) {
+			return new $ZodCheckLengthEquals({
+				check: "length_equals",
+				...normalizeParams(params),
+				length
+			});
+		}
+		// @__NO_SIDE_EFFECTS__
+		function _regex(pattern, params) {
+			return new $ZodCheckRegex({
+				check: "string_format",
+				format: "regex",
+				...normalizeParams(params),
+				pattern
+			});
+		}
+		// @__NO_SIDE_EFFECTS__
+		function _lowercase(params) {
+			return new $ZodCheckLowerCase({
+				check: "string_format",
+				format: "lowercase",
+				...normalizeParams(params)
+			});
+		}
+		// @__NO_SIDE_EFFECTS__
+		function _uppercase(params) {
+			return new $ZodCheckUpperCase({
+				check: "string_format",
+				format: "uppercase",
+				...normalizeParams(params)
+			});
+		}
+		// @__NO_SIDE_EFFECTS__
+		function _includes(includes, params) {
+			return new $ZodCheckIncludes({
+				check: "string_format",
+				format: "includes",
+				...normalizeParams(params),
+				includes
+			});
+		}
+		// @__NO_SIDE_EFFECTS__
+		function _startsWith(prefix, params) {
+			return new $ZodCheckStartsWith({
+				check: "string_format",
+				format: "starts_with",
+				...normalizeParams(params),
+				prefix
+			});
+		}
+		// @__NO_SIDE_EFFECTS__
+		function _endsWith(suffix, params) {
+			return new $ZodCheckEndsWith({
+				check: "string_format",
+				format: "ends_with",
+				...normalizeParams(params),
+				suffix
+			});
+		}
+		// @__NO_SIDE_EFFECTS__
+		function _overwrite(tx) {
+			return new $ZodCheckOverwrite({
+				check: "overwrite",
+				tx
+			});
+		}
+		// @__NO_SIDE_EFFECTS__
+		function _normalize(form) {
+			return /* @__PURE__ */ _overwrite((input) => input.normalize(form));
+		}
+		// @__NO_SIDE_EFFECTS__
+		function _trim() {
+			return /* @__PURE__ */ _overwrite((input) => input.trim());
+		}
+		// @__NO_SIDE_EFFECTS__
+		function _toLowerCase() {
+			return /* @__PURE__ */ _overwrite((input) => input.toLowerCase());
+		}
+		// @__NO_SIDE_EFFECTS__
+		function _toUpperCase() {
+			return /* @__PURE__ */ _overwrite((input) => input.toUpperCase());
+		}
+		// @__NO_SIDE_EFFECTS__
+		function _slugify() {
+			return /* @__PURE__ */ _overwrite((input) => slugify(input));
+		}
+		// @__NO_SIDE_EFFECTS__
+		function _array(Class, element, params) {
+			return new Class({
+				type: "array",
+				element,
+				...normalizeParams(params)
+			});
+		}
+		// @__NO_SIDE_EFFECTS__
+		function _refine(Class, fn, _params) {
+			return new Class({
+				type: "custom",
+				check: "custom",
+				fn,
+				...normalizeParams(_params)
+			});
+		}
+		// @__NO_SIDE_EFFECTS__
+		function _superRefine(fn, params) {
+			const ch = /* @__PURE__ */ _check((payload) => {
+				payload.addIssue = (issue$2) => {
+					if (typeof issue$2 === "string") payload.issues.push(issue(issue$2, payload.value, ch._zod.def));
+					else {
+						const _issue = issue$2;
+						if (_issue.fatal) _issue.continue = false;
+						_issue.code ?? (_issue.code = "custom");
+						_issue.input ?? (_issue.input = payload.value);
+						_issue.inst ?? (_issue.inst = ch);
+						_issue.continue ?? (_issue.continue = !ch._zod.def.abort);
+						payload.issues.push(issue(_issue));
+					}
+				};
+				return fn(payload.value, payload);
+			}, params);
+			return ch;
+		}
+		// @__NO_SIDE_EFFECTS__
+		function _check(fn, params) {
+			const ch = new $ZodCheck({
+				check: "custom",
+				...normalizeParams(params)
+			});
+			ch._zod.check = fn;
+			return ch;
+		}
+		//#endregion
+		//#region ../../../node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/core/to-json-schema.js
+		function initializeContext(params) {
+			let target = params?.target ?? "draft-2020-12";
+			if (target === "draft-4") target = "draft-04";
+			if (target === "draft-7") target = "draft-07";
+			return {
+				processors: params.processors ?? {},
+				metadataRegistry: params?.metadata ?? globalRegistry,
+				target,
+				unrepresentable: params?.unrepresentable ?? "throw",
+				override: params?.override ?? (() => {}),
+				io: params?.io ?? "output",
+				counter: 0,
+				seen: /* @__PURE__ */ new Map(),
+				cycles: params?.cycles ?? "ref",
+				reused: params?.reused ?? "inline",
+				external: params?.external ?? void 0
+			};
+		}
+		function process(schema, ctx, _params = {
+			path: [],
+			schemaPath: []
+		}) {
+			var _a;
+			const def = schema._zod.def;
+			const seen = ctx.seen.get(schema);
+			if (seen) {
+				seen.count++;
+				if (_params.schemaPath.includes(schema)) seen.cycle = _params.path;
+				return seen.schema;
+			}
+			const result = {
+				schema: {},
+				count: 1,
+				cycle: void 0,
+				path: _params.path
+			};
+			ctx.seen.set(schema, result);
+			const overrideSchema = schema._zod.toJSONSchema?.();
+			if (overrideSchema) result.schema = overrideSchema;
+			else {
+				const params = {
+					..._params,
+					schemaPath: [..._params.schemaPath, schema],
+					path: _params.path
+				};
+				if (schema._zod.processJSONSchema) schema._zod.processJSONSchema(ctx, result.schema, params);
+				else {
+					const _json = result.schema;
+					const processor = ctx.processors[def.type];
+					if (!processor) throw new Error(`[toJSONSchema]: Non-representable type encountered: ${def.type}`);
+					processor(schema, ctx, _json, params);
+				}
+				const parent = schema._zod.parent;
+				if (parent) {
+					if (!result.ref) result.ref = parent;
+					process(parent, ctx, params);
+					ctx.seen.get(parent).isParent = true;
+				}
+			}
+			const meta = ctx.metadataRegistry.get(schema);
+			if (meta) Object.assign(result.schema, meta);
+			if (ctx.io === "input" && isTransforming(schema)) {
+				delete result.schema.examples;
+				delete result.schema.default;
+			}
+			if (ctx.io === "input" && "_prefault" in result.schema) (_a = result.schema).default ?? (_a.default = result.schema._prefault);
+			delete result.schema._prefault;
+			return ctx.seen.get(schema).schema;
+		}
+		function extractDefs(ctx, schema) {
+			const root = ctx.seen.get(schema);
+			if (!root) throw new Error("Unprocessed schema. This is a bug in Zod.");
+			const idToSchema = /* @__PURE__ */ new Map();
+			for (const entry of ctx.seen.entries()) {
+				const id = ctx.metadataRegistry.get(entry[0])?.id;
+				if (id) {
+					const existing = idToSchema.get(id);
+					if (existing && existing !== entry[0]) throw new Error(`Duplicate schema id "${id}" detected during JSON Schema conversion. Two different schemas cannot share the same id when converted together.`);
+					idToSchema.set(id, entry[0]);
+				}
+			}
+			const makeURI = (entry) => {
+				const defsSegment = ctx.target === "draft-2020-12" ? "$defs" : "definitions";
+				if (ctx.external) {
+					const externalId = ctx.external.registry.get(entry[0])?.id;
+					const uriGenerator = ctx.external.uri ?? ((id) => id);
+					if (externalId) return { ref: uriGenerator(externalId) };
+					const id = entry[1].defId ?? entry[1].schema.id ?? `schema${ctx.counter++}`;
+					entry[1].defId = id;
+					return {
+						defId: id,
+						ref: `${uriGenerator("__shared")}#/${defsSegment}/${id}`
+					};
+				}
+				if (entry[1] === root) return { ref: "#" };
+				const defUriPrefix = `#/${defsSegment}/`;
+				const defId = entry[1].schema.id ?? `__schema${ctx.counter++}`;
+				return {
+					defId,
+					ref: defUriPrefix + defId
+				};
+			};
+			const extractToDef = (entry) => {
+				if (entry[1].schema.$ref) return;
+				const seen = entry[1];
+				const { ref, defId } = makeURI(entry);
+				seen.def = { ...seen.schema };
+				if (defId) seen.defId = defId;
+				const schema = seen.schema;
+				for (const key in schema) delete schema[key];
+				schema.$ref = ref;
+			};
+			if (ctx.cycles === "throw") for (const entry of ctx.seen.entries()) {
+				const seen = entry[1];
+				if (seen.cycle) throw new Error(`Cycle detected: #/${seen.cycle?.join("/")}/<root>
+
+Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.`);
+			}
+			for (const entry of ctx.seen.entries()) {
+				const seen = entry[1];
+				if (schema === entry[0]) {
+					extractToDef(entry);
+					continue;
+				}
+				if (ctx.external) {
+					const ext = ctx.external.registry.get(entry[0])?.id;
+					if (schema !== entry[0] && ext) {
+						extractToDef(entry);
+						continue;
+					}
+				}
+				if (ctx.metadataRegistry.get(entry[0])?.id) {
+					extractToDef(entry);
+					continue;
+				}
+				if (seen.cycle) {
+					extractToDef(entry);
+					continue;
+				}
+				if (seen.count > 1) {
+					if (ctx.reused === "ref") {
+						extractToDef(entry);
+						continue;
+					}
+				}
+			}
+		}
+		function finalize(ctx, schema) {
+			const root = ctx.seen.get(schema);
+			if (!root) throw new Error("Unprocessed schema. This is a bug in Zod.");
+			const flattenRef = (zodSchema) => {
+				const seen = ctx.seen.get(zodSchema);
+				if (seen.ref === null) return;
+				const schema = seen.def ?? seen.schema;
+				const _cached = { ...schema };
+				const ref = seen.ref;
+				seen.ref = null;
+				if (ref) {
+					flattenRef(ref);
+					const refSeen = ctx.seen.get(ref);
+					const refSchema = refSeen.schema;
+					if (refSchema.$ref && (ctx.target === "draft-07" || ctx.target === "draft-04" || ctx.target === "openapi-3.0")) {
+						schema.allOf = schema.allOf ?? [];
+						schema.allOf.push(refSchema);
+					} else Object.assign(schema, refSchema);
+					Object.assign(schema, _cached);
+					if (zodSchema._zod.parent === ref) for (const key in schema) {
+						if (key === "$ref" || key === "allOf") continue;
+						if (!(key in _cached)) delete schema[key];
+					}
+					if (refSchema.$ref && refSeen.def) for (const key in schema) {
+						if (key === "$ref" || key === "allOf") continue;
+						if (key in refSeen.def && JSON.stringify(schema[key]) === JSON.stringify(refSeen.def[key])) delete schema[key];
+					}
+				}
+				const parent = zodSchema._zod.parent;
+				if (parent && parent !== ref) {
+					flattenRef(parent);
+					const parentSeen = ctx.seen.get(parent);
+					if (parentSeen?.schema.$ref) {
+						schema.$ref = parentSeen.schema.$ref;
+						if (parentSeen.def) for (const key in schema) {
+							if (key === "$ref" || key === "allOf") continue;
+							if (key in parentSeen.def && JSON.stringify(schema[key]) === JSON.stringify(parentSeen.def[key])) delete schema[key];
+						}
+					}
+				}
+				ctx.override({
+					zodSchema,
+					jsonSchema: schema,
+					path: seen.path ?? []
+				});
+			};
+			for (const entry of [...ctx.seen.entries()].reverse()) flattenRef(entry[0]);
+			const result = {};
+			if (ctx.target === "draft-2020-12") result.$schema = "https://json-schema.org/draft/2020-12/schema";
+			else if (ctx.target === "draft-07") result.$schema = "http://json-schema.org/draft-07/schema#";
+			else if (ctx.target === "draft-04") result.$schema = "http://json-schema.org/draft-04/schema#";
+			else if (ctx.target === "openapi-3.0") {}
+			if (ctx.external?.uri) {
+				const id = ctx.external.registry.get(schema)?.id;
+				if (!id) throw new Error("Schema is missing an `id` property");
+				result.$id = ctx.external.uri(id);
+			}
+			Object.assign(result, root.def ?? root.schema);
+			const rootMetaId = ctx.metadataRegistry.get(schema)?.id;
+			if (rootMetaId !== void 0 && result.id === rootMetaId) delete result.id;
+			const defs = ctx.external?.defs ?? {};
+			for (const entry of ctx.seen.entries()) {
+				const seen = entry[1];
+				if (seen.def && seen.defId) {
+					if (seen.def.id === seen.defId) delete seen.def.id;
+					defs[seen.defId] = seen.def;
+				}
+			}
+			if (ctx.external) {} else if (Object.keys(defs).length > 0) if (ctx.target === "draft-2020-12") result.$defs = defs;
+			else result.definitions = defs;
+			try {
+				const finalized = JSON.parse(JSON.stringify(result));
+				Object.defineProperty(finalized, "~standard", {
+					value: {
+						...schema["~standard"],
+						jsonSchema: {
+							input: createStandardJSONSchemaMethod(schema, "input", ctx.processors),
+							output: createStandardJSONSchemaMethod(schema, "output", ctx.processors)
 						}
 					},
-					/**
-					* Show another listed file.
-					* @param d - draft state.
-					* @param tabId - the tab being drawn.
-					* @param index - original index in the summary's files array.
-					*/
-					selected: (d, tabId, index) => {
-						bucket(d, tabId).index = index;
+					enumerable: false,
+					writable: false
+				});
+				return finalized;
+			} catch (_err) {
+				throw new Error("Error converting schema to JSON.");
+			}
+		}
+		function isTransforming(_schema, _ctx) {
+			const ctx = _ctx ?? { seen: /* @__PURE__ */ new Set() };
+			if (ctx.seen.has(_schema)) return false;
+			ctx.seen.add(_schema);
+			const def = _schema._zod.def;
+			if (def.type === "transform") return true;
+			if (def.type === "array") return isTransforming(def.element, ctx);
+			if (def.type === "set") return isTransforming(def.valueType, ctx);
+			if (def.type === "lazy") return isTransforming(def.getter(), ctx);
+			if (def.type === "promise" || def.type === "optional" || def.type === "nonoptional" || def.type === "nullable" || def.type === "readonly" || def.type === "default" || def.type === "prefault") return isTransforming(def.innerType, ctx);
+			if (def.type === "intersection") return isTransforming(def.left, ctx) || isTransforming(def.right, ctx);
+			if (def.type === "record" || def.type === "map") return isTransforming(def.keyType, ctx) || isTransforming(def.valueType, ctx);
+			if (def.type === "pipe") {
+				if (_schema._zod.traits.has("$ZodCodec")) return true;
+				return isTransforming(def.in, ctx) || isTransforming(def.out, ctx);
+			}
+			if (def.type === "object") {
+				for (const key in def.shape) if (isTransforming(def.shape[key], ctx)) return true;
+				return false;
+			}
+			if (def.type === "union") {
+				for (const option of def.options) if (isTransforming(option, ctx)) return true;
+				return false;
+			}
+			if (def.type === "tuple") {
+				for (const item of def.items) if (isTransforming(item, ctx)) return true;
+				if (def.rest && isTransforming(def.rest, ctx)) return true;
+				return false;
+			}
+			return false;
+		}
+		/**
+		* Creates a toJSONSchema method for a schema instance.
+		* This encapsulates the logic of initializing context, processing, extracting defs, and finalizing.
+		*/
+		const createToJSONSchemaMethod = (schema, processors = {}) => (params) => {
+			const ctx = initializeContext({
+				...params,
+				processors
+			});
+			process(schema, ctx);
+			extractDefs(ctx, schema);
+			return finalize(ctx, schema);
+		};
+		const createStandardJSONSchemaMethod = (schema, io, processors = {}) => (params) => {
+			const { libraryOptions, target } = params ?? {};
+			const ctx = initializeContext({
+				...libraryOptions ?? {},
+				target,
+				io,
+				processors
+			});
+			process(schema, ctx);
+			extractDefs(ctx, schema);
+			return finalize(ctx, schema);
+		};
+		//#endregion
+		//#region ../../../node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/core/json-schema-processors.js
+		const formatMap = {
+			guid: "uuid",
+			url: "uri",
+			datetime: "date-time",
+			json_string: "json-string",
+			regex: ""
+		};
+		const stringProcessor = (schema, ctx, _json, _params) => {
+			const json = _json;
+			json.type = "string";
+			const { minimum, maximum, format, patterns, contentEncoding } = schema._zod.bag;
+			if (typeof minimum === "number") json.minLength = minimum;
+			if (typeof maximum === "number") json.maxLength = maximum;
+			if (format) {
+				json.format = formatMap[format] ?? format;
+				if (json.format === "") delete json.format;
+				if (format === "time") delete json.format;
+			}
+			if (contentEncoding) json.contentEncoding = contentEncoding;
+			if (patterns && patterns.size > 0) {
+				const regexes = [...patterns];
+				if (regexes.length === 1) json.pattern = regexes[0].source;
+				else if (regexes.length > 1) json.allOf = [...regexes.map((regex) => ({
+					...ctx.target === "draft-07" || ctx.target === "draft-04" || ctx.target === "openapi-3.0" ? { type: "string" } : {},
+					pattern: regex.source
+				}))];
+			}
+		};
+		const numberProcessor = (schema, ctx, _json, _params) => {
+			const json = _json;
+			const { minimum, maximum, format, multipleOf, exclusiveMaximum, exclusiveMinimum } = schema._zod.bag;
+			if (typeof format === "string" && format.includes("int")) json.type = "integer";
+			else json.type = "number";
+			const exMin = typeof exclusiveMinimum === "number" && exclusiveMinimum >= (minimum ?? Number.NEGATIVE_INFINITY);
+			const exMax = typeof exclusiveMaximum === "number" && exclusiveMaximum <= (maximum ?? Number.POSITIVE_INFINITY);
+			const legacy = ctx.target === "draft-04" || ctx.target === "openapi-3.0";
+			if (exMin) if (legacy) {
+				json.minimum = exclusiveMinimum;
+				json.exclusiveMinimum = true;
+			} else json.exclusiveMinimum = exclusiveMinimum;
+			else if (typeof minimum === "number") json.minimum = minimum;
+			if (exMax) if (legacy) {
+				json.maximum = exclusiveMaximum;
+				json.exclusiveMaximum = true;
+			} else json.exclusiveMaximum = exclusiveMaximum;
+			else if (typeof maximum === "number") json.maximum = maximum;
+			if (typeof multipleOf === "number") json.multipleOf = multipleOf;
+		};
+		const booleanProcessor = (_schema, _ctx, json, _params) => {
+			json.type = "boolean";
+		};
+		const undefinedProcessor = (_schema, ctx, _json, _params) => {
+			if (ctx.unrepresentable === "throw") throw new Error("Undefined cannot be represented in JSON Schema");
+		};
+		const voidProcessor = (_schema, ctx, _json, _params) => {
+			if (ctx.unrepresentable === "throw") throw new Error("Void cannot be represented in JSON Schema");
+		};
+		const neverProcessor = (_schema, _ctx, json, _params) => {
+			json.not = {};
+		};
+		const enumProcessor = (schema, _ctx, json, _params) => {
+			const def = schema._zod.def;
+			const values = getEnumValues(def.entries);
+			if (values.every((v) => typeof v === "number")) json.type = "number";
+			if (values.every((v) => typeof v === "string")) json.type = "string";
+			json.enum = values;
+		};
+		const literalProcessor = (schema, ctx, json, _params) => {
+			const def = schema._zod.def;
+			const vals = [];
+			for (const val of def.values) if (val === void 0) {
+				if (ctx.unrepresentable === "throw") throw new Error("Literal `undefined` cannot be represented in JSON Schema");
+			} else if (typeof val === "bigint") if (ctx.unrepresentable === "throw") throw new Error("BigInt literals cannot be represented in JSON Schema");
+			else vals.push(Number(val));
+			else vals.push(val);
+			if (vals.length === 0) {} else if (vals.length === 1) {
+				const val = vals[0];
+				json.type = val === null ? "null" : typeof val;
+				if (ctx.target === "draft-04" || ctx.target === "openapi-3.0") json.enum = [val];
+				else json.const = val;
+			} else {
+				if (vals.every((v) => typeof v === "number")) json.type = "number";
+				if (vals.every((v) => typeof v === "string")) json.type = "string";
+				if (vals.every((v) => typeof v === "boolean")) json.type = "boolean";
+				if (vals.every((v) => v === null)) json.type = "null";
+				json.enum = vals;
+			}
+		};
+		const customProcessor = (_schema, ctx, _json, _params) => {
+			if (ctx.unrepresentable === "throw") throw new Error("Custom types cannot be represented in JSON Schema");
+		};
+		const transformProcessor = (_schema, ctx, _json, _params) => {
+			if (ctx.unrepresentable === "throw") throw new Error("Transforms cannot be represented in JSON Schema");
+		};
+		const arrayProcessor = (schema, ctx, _json, params) => {
+			const json = _json;
+			const def = schema._zod.def;
+			const { minimum, maximum } = schema._zod.bag;
+			if (typeof minimum === "number") json.minItems = minimum;
+			if (typeof maximum === "number") json.maxItems = maximum;
+			json.type = "array";
+			json.items = process(def.element, ctx, {
+				...params,
+				path: [...params.path, "items"]
+			});
+		};
+		const objectProcessor = (schema, ctx, _json, params) => {
+			const json = _json;
+			const def = schema._zod.def;
+			json.type = "object";
+			json.properties = {};
+			const shape = def.shape;
+			for (const key in shape) json.properties[key] = process(shape[key], ctx, {
+				...params,
+				path: [
+					...params.path,
+					"properties",
+					key
+				]
+			});
+			const allKeys = new Set(Object.keys(shape));
+			const requiredKeys = new Set([...allKeys].filter((key) => {
+				const v = def.shape[key]._zod;
+				if (ctx.io === "input") return v.optin === void 0;
+				else return v.optout === void 0;
+			}));
+			if (requiredKeys.size > 0) json.required = Array.from(requiredKeys);
+			if (def.catchall?._zod.def.type === "never") json.additionalProperties = false;
+			else if (!def.catchall) {
+				if (ctx.io === "output") json.additionalProperties = false;
+			} else if (def.catchall) json.additionalProperties = process(def.catchall, ctx, {
+				...params,
+				path: [...params.path, "additionalProperties"]
+			});
+		};
+		const unionProcessor = (schema, ctx, json, params) => {
+			const def = schema._zod.def;
+			const isExclusive = def.inclusive === false;
+			const options = def.options.map((x, i) => process(x, ctx, {
+				...params,
+				path: [
+					...params.path,
+					isExclusive ? "oneOf" : "anyOf",
+					i
+				]
+			}));
+			if (isExclusive) json.oneOf = options;
+			else json.anyOf = options;
+		};
+		const intersectionProcessor = (schema, ctx, json, params) => {
+			const def = schema._zod.def;
+			const a = process(def.left, ctx, {
+				...params,
+				path: [
+					...params.path,
+					"allOf",
+					0
+				]
+			});
+			const b = process(def.right, ctx, {
+				...params,
+				path: [
+					...params.path,
+					"allOf",
+					1
+				]
+			});
+			const isSimpleIntersection = (val) => "allOf" in val && Object.keys(val).length === 1;
+			json.allOf = [...isSimpleIntersection(a) ? a.allOf : [a], ...isSimpleIntersection(b) ? b.allOf : [b]];
+		};
+		const recordProcessor = (schema, ctx, _json, params) => {
+			const json = _json;
+			const def = schema._zod.def;
+			json.type = "object";
+			const keyType = def.keyType;
+			const patterns = keyType._zod.bag?.patterns;
+			if (def.mode === "loose" && patterns && patterns.size > 0) {
+				const valueSchema = process(def.valueType, ctx, {
+					...params,
+					path: [
+						...params.path,
+						"patternProperties",
+						"*"
+					]
+				});
+				json.patternProperties = {};
+				for (const pattern of patterns) json.patternProperties[pattern.source] = valueSchema;
+			} else {
+				if (ctx.target === "draft-07" || ctx.target === "draft-2020-12") json.propertyNames = process(def.keyType, ctx, {
+					...params,
+					path: [...params.path, "propertyNames"]
+				});
+				json.additionalProperties = process(def.valueType, ctx, {
+					...params,
+					path: [...params.path, "additionalProperties"]
+				});
+			}
+			const keyValues = keyType._zod.values;
+			if (keyValues) {
+				const validKeyValues = [...keyValues].filter((v) => typeof v === "string" || typeof v === "number");
+				if (validKeyValues.length > 0) json.required = validKeyValues;
+			}
+		};
+		const nullableProcessor = (schema, ctx, json, params) => {
+			const def = schema._zod.def;
+			const inner = process(def.innerType, ctx, params);
+			const seen = ctx.seen.get(schema);
+			if (ctx.target === "openapi-3.0") {
+				seen.ref = def.innerType;
+				json.nullable = true;
+			} else json.anyOf = [inner, { type: "null" }];
+		};
+		const nonoptionalProcessor = (schema, ctx, _json, params) => {
+			const def = schema._zod.def;
+			process(def.innerType, ctx, params);
+			const seen = ctx.seen.get(schema);
+			seen.ref = def.innerType;
+		};
+		const defaultProcessor = (schema, ctx, json, params) => {
+			const def = schema._zod.def;
+			process(def.innerType, ctx, params);
+			const seen = ctx.seen.get(schema);
+			seen.ref = def.innerType;
+			json.default = JSON.parse(JSON.stringify(def.defaultValue));
+		};
+		const prefaultProcessor = (schema, ctx, json, params) => {
+			const def = schema._zod.def;
+			process(def.innerType, ctx, params);
+			const seen = ctx.seen.get(schema);
+			seen.ref = def.innerType;
+			if (ctx.io === "input") json._prefault = JSON.parse(JSON.stringify(def.defaultValue));
+		};
+		const catchProcessor = (schema, ctx, json, params) => {
+			const def = schema._zod.def;
+			process(def.innerType, ctx, params);
+			const seen = ctx.seen.get(schema);
+			seen.ref = def.innerType;
+			let catchValue;
+			try {
+				catchValue = def.catchValue(void 0);
+			} catch {
+				throw new Error("Dynamic catch values are not supported in JSON Schema");
+			}
+			json.default = catchValue;
+		};
+		const pipeProcessor = (schema, ctx, _json, params) => {
+			const def = schema._zod.def;
+			const inIsTransform = def.in._zod.traits.has("$ZodTransform");
+			const innerType = ctx.io === "input" ? inIsTransform ? def.out : def.in : def.out;
+			process(innerType, ctx, params);
+			const seen = ctx.seen.get(schema);
+			seen.ref = innerType;
+		};
+		const readonlyProcessor = (schema, ctx, json, params) => {
+			const def = schema._zod.def;
+			process(def.innerType, ctx, params);
+			const seen = ctx.seen.get(schema);
+			seen.ref = def.innerType;
+			json.readOnly = true;
+		};
+		const optionalProcessor = (schema, ctx, _json, params) => {
+			const def = schema._zod.def;
+			process(def.innerType, ctx, params);
+			const seen = ctx.seen.get(schema);
+			seen.ref = def.innerType;
+		};
+		const lazyProcessor = (schema, ctx, _json, params) => {
+			const innerType = schema._zod.innerType;
+			process(innerType, ctx, params);
+			const seen = ctx.seen.get(schema);
+			seen.ref = innerType;
+		};
+		//#endregion
+		//#region ../../../node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/classic/iso.js
+		const ZodISODateTime = /*@__PURE__*/ $constructor("ZodISODateTime", (inst, def) => {
+			$ZodISODateTime.init(inst, def);
+			ZodStringFormat.init(inst, def);
+		});
+		function datetime(params) {
+			return /* @__PURE__ */ _isoDateTime(ZodISODateTime, params);
+		}
+		const ZodISODate = /*@__PURE__*/ $constructor("ZodISODate", (inst, def) => {
+			$ZodISODate.init(inst, def);
+			ZodStringFormat.init(inst, def);
+		});
+		function date(params) {
+			return /* @__PURE__ */ _isoDate(ZodISODate, params);
+		}
+		const ZodISOTime = /*@__PURE__*/ $constructor("ZodISOTime", (inst, def) => {
+			$ZodISOTime.init(inst, def);
+			ZodStringFormat.init(inst, def);
+		});
+		function time(params) {
+			return /* @__PURE__ */ _isoTime(ZodISOTime, params);
+		}
+		const ZodISODuration = /*@__PURE__*/ $constructor("ZodISODuration", (inst, def) => {
+			$ZodISODuration.init(inst, def);
+			ZodStringFormat.init(inst, def);
+		});
+		function duration(params) {
+			return /* @__PURE__ */ _isoDuration(ZodISODuration, params);
+		}
+		//#endregion
+		//#region ../../../node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/classic/errors.js
+		const initializer = (inst, issues) => {
+			$ZodError.init(inst, issues);
+			inst.name = "ZodError";
+			Object.defineProperties(inst, {
+				format: { value: (mapper) => formatError(inst, mapper) },
+				flatten: { value: (mapper) => flattenError(inst, mapper) },
+				addIssue: { value: (issue) => {
+					inst.issues.push(issue);
+					inst.message = JSON.stringify(inst.issues, jsonStringifyReplacer, 2);
+				} },
+				addIssues: { value: (issues) => {
+					inst.issues.push(...issues);
+					inst.message = JSON.stringify(inst.issues, jsonStringifyReplacer, 2);
+				} },
+				isEmpty: { get() {
+					return inst.issues.length === 0;
+				} }
+			});
+		};
+		const ZodRealError = /*@__PURE__*/ $constructor("ZodError", initializer, { Parent: Error });
+		//#endregion
+		//#region ../../../node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/classic/parse.js
+		const parse = /* @__PURE__ */ _parse(ZodRealError);
+		const parseAsync = /* @__PURE__ */ _parseAsync(ZodRealError);
+		const safeParse = /* @__PURE__ */ _safeParse(ZodRealError);
+		const safeParseAsync = /* @__PURE__ */ _safeParseAsync(ZodRealError);
+		const encode = /* @__PURE__ */ _encode(ZodRealError);
+		const decode = /* @__PURE__ */ _decode(ZodRealError);
+		const encodeAsync = /* @__PURE__ */ _encodeAsync(ZodRealError);
+		const decodeAsync = /* @__PURE__ */ _decodeAsync(ZodRealError);
+		const safeEncode = /* @__PURE__ */ _safeEncode(ZodRealError);
+		const safeDecode = /* @__PURE__ */ _safeDecode(ZodRealError);
+		const safeEncodeAsync = /* @__PURE__ */ _safeEncodeAsync(ZodRealError);
+		const safeDecodeAsync = /* @__PURE__ */ _safeDecodeAsync(ZodRealError);
+		//#endregion
+		//#region ../../../node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/classic/schemas.js
+		const _installedGroups = /* @__PURE__ */ new WeakMap();
+		function _installLazyMethods(inst, group, methods) {
+			const proto = Object.getPrototypeOf(inst);
+			let installed = _installedGroups.get(proto);
+			if (!installed) {
+				installed = /* @__PURE__ */ new Set();
+				_installedGroups.set(proto, installed);
+			}
+			if (installed.has(group)) return;
+			installed.add(group);
+			for (const key in methods) {
+				const fn = methods[key];
+				Object.defineProperty(proto, key, {
+					configurable: true,
+					enumerable: false,
+					get() {
+						const bound = fn.bind(this);
+						Object.defineProperty(this, key, {
+							configurable: true,
+							writable: true,
+							enumerable: true,
+							value: bound
+						});
+						return bound;
 					},
-					/**
-					* Switch between the unified and the side-by-side view.
-					* @param d - draft state.
-					* @param tabId - the tab being drawn.
-					*/
-					toggledSplit: (d, tabId) => {
-						const tab = bucket(d, tabId);
-						tab.split = !tab.split;
-					},
-					/**
-					* Switch line wrapping.
-					* @param d - draft state.
-					* @param tabId - the tab being drawn.
-					*/
-					toggledWrap: (d, tabId) => {
-						const tab = bucket(d, tabId);
-						tab.wrap = !tab.wrap;
-					},
-					/**
-					* Drop a tab's bucket once its record is gone.
-					* @param d - draft state.
-					* @param tabId - the tab that ended.
-					*/
-					forget: (d, tabId) => {
-						d.byTab = Object.fromEntries(Object.entries(d.byTab).filter(([id]) => id !== tabId));
+					set(v) {
+						Object.defineProperty(this, key, {
+							configurable: true,
+							writable: true,
+							enumerable: true,
+							value: v
+						});
 					}
+				});
+			}
+		}
+		const ZodType = /*@__PURE__*/ $constructor("ZodType", (inst, def) => {
+			$ZodType.init(inst, def);
+			Object.assign(inst["~standard"], { jsonSchema: {
+				input: createStandardJSONSchemaMethod(inst, "input"),
+				output: createStandardJSONSchemaMethod(inst, "output")
+			} });
+			inst.toJSONSchema = createToJSONSchemaMethod(inst, {});
+			inst.def = def;
+			inst.type = def.type;
+			Object.defineProperty(inst, "_def", { value: def });
+			inst.parse = (data, params) => parse(inst, data, params, { callee: inst.parse });
+			inst.safeParse = (data, params) => safeParse(inst, data, params);
+			inst.parseAsync = async (data, params) => parseAsync(inst, data, params, { callee: inst.parseAsync });
+			inst.safeParseAsync = async (data, params) => safeParseAsync(inst, data, params);
+			inst.spa = inst.safeParseAsync;
+			inst.encode = (data, params) => encode(inst, data, params);
+			inst.decode = (data, params) => decode(inst, data, params);
+			inst.encodeAsync = async (data, params) => encodeAsync(inst, data, params);
+			inst.decodeAsync = async (data, params) => decodeAsync(inst, data, params);
+			inst.safeEncode = (data, params) => safeEncode(inst, data, params);
+			inst.safeDecode = (data, params) => safeDecode(inst, data, params);
+			inst.safeEncodeAsync = async (data, params) => safeEncodeAsync(inst, data, params);
+			inst.safeDecodeAsync = async (data, params) => safeDecodeAsync(inst, data, params);
+			_installLazyMethods(inst, "ZodType", {
+				check(...chks) {
+					const def = this.def;
+					return this.clone(mergeDefs(def, { checks: [...def.checks ?? [], ...chks.map((ch) => typeof ch === "function" ? { _zod: {
+						check: ch,
+						def: { check: "custom" },
+						onattach: []
+					} } : ch)] }), { parent: true });
+				},
+				with(...chks) {
+					return this.check(...chks);
+				},
+				clone(def, params) {
+					return clone(this, def, params);
+				},
+				brand() {
+					return this;
+				},
+				register(reg, meta) {
+					reg.add(this, meta);
+					return this;
+				},
+				refine(check, params) {
+					return this.check(refine(check, params));
+				},
+				superRefine(refinement, params) {
+					return this.check(superRefine(refinement, params));
+				},
+				overwrite(fn) {
+					return this.check(/* @__PURE__ */ _overwrite(fn));
+				},
+				optional() {
+					return optional(this);
+				},
+				exactOptional() {
+					return exactOptional(this);
+				},
+				nullable() {
+					return nullable(this);
+				},
+				nullish() {
+					return optional(nullable(this));
+				},
+				nonoptional(params) {
+					return nonoptional(this, params);
+				},
+				array() {
+					return array(this);
+				},
+				or(arg) {
+					return union([this, arg]);
+				},
+				and(arg) {
+					return intersection(this, arg);
+				},
+				transform(tx) {
+					return pipe(this, transform(tx));
+				},
+				default(d) {
+					return _default(this, d);
+				},
+				prefault(d) {
+					return prefault(this, d);
+				},
+				catch(params) {
+					return _catch(this, params);
+				},
+				pipe(target) {
+					return pipe(this, target);
+				},
+				readonly() {
+					return readonly(this);
+				},
+				describe(description) {
+					const cl = this.clone();
+					globalRegistry.add(cl, { description });
+					return cl;
+				},
+				meta(...args) {
+					if (args.length === 0) return globalRegistry.get(this);
+					const cl = this.clone();
+					globalRegistry.add(cl, args[0]);
+					return cl;
+				},
+				isOptional() {
+					return this.safeParse(void 0).success;
+				},
+				isNullable() {
+					return this.safeParse(null).success;
+				},
+				apply(fn) {
+					return fn(this);
+				}
+			});
+			Object.defineProperty(inst, "description", {
+				get() {
+					return globalRegistry.get(inst)?.description;
+				},
+				configurable: true
+			});
+			return inst;
+		});
+		/** @internal */
+		const _ZodString = /*@__PURE__*/ $constructor("_ZodString", (inst, def) => {
+			$ZodString.init(inst, def);
+			ZodType.init(inst, def);
+			inst._zod.processJSONSchema = (ctx, json, params) => stringProcessor(inst, ctx, json, params);
+			const bag = inst._zod.bag;
+			inst.format = bag.format ?? null;
+			inst.minLength = bag.minimum ?? null;
+			inst.maxLength = bag.maximum ?? null;
+			_installLazyMethods(inst, "_ZodString", {
+				regex(...args) {
+					return this.check(/* @__PURE__ */ _regex(...args));
+				},
+				includes(...args) {
+					return this.check(/* @__PURE__ */ _includes(...args));
+				},
+				startsWith(...args) {
+					return this.check(/* @__PURE__ */ _startsWith(...args));
+				},
+				endsWith(...args) {
+					return this.check(/* @__PURE__ */ _endsWith(...args));
+				},
+				min(...args) {
+					return this.check(/* @__PURE__ */ _minLength(...args));
+				},
+				max(...args) {
+					return this.check(/* @__PURE__ */ _maxLength(...args));
+				},
+				length(...args) {
+					return this.check(/* @__PURE__ */ _length(...args));
+				},
+				nonempty(...args) {
+					return this.check(/* @__PURE__ */ _minLength(1, ...args));
+				},
+				lowercase(params) {
+					return this.check(/* @__PURE__ */ _lowercase(params));
+				},
+				uppercase(params) {
+					return this.check(/* @__PURE__ */ _uppercase(params));
+				},
+				trim() {
+					return this.check(/* @__PURE__ */ _trim());
+				},
+				normalize(...args) {
+					return this.check(/* @__PURE__ */ _normalize(...args));
+				},
+				toLowerCase() {
+					return this.check(/* @__PURE__ */ _toLowerCase());
+				},
+				toUpperCase() {
+					return this.check(/* @__PURE__ */ _toUpperCase());
+				},
+				slugify() {
+					return this.check(/* @__PURE__ */ _slugify());
+				}
+			});
+		});
+		const ZodString = /*@__PURE__*/ $constructor("ZodString", (inst, def) => {
+			$ZodString.init(inst, def);
+			_ZodString.init(inst, def);
+			inst.email = (params) => inst.check(/* @__PURE__ */ _email(ZodEmail, params));
+			inst.url = (params) => inst.check(/* @__PURE__ */ _url(ZodURL, params));
+			inst.jwt = (params) => inst.check(/* @__PURE__ */ _jwt(ZodJWT, params));
+			inst.emoji = (params) => inst.check(/* @__PURE__ */ _emoji(ZodEmoji, params));
+			inst.guid = (params) => inst.check(/* @__PURE__ */ _guid(ZodGUID, params));
+			inst.uuid = (params) => inst.check(/* @__PURE__ */ _uuid(ZodUUID, params));
+			inst.uuidv4 = (params) => inst.check(/* @__PURE__ */ _uuidv4(ZodUUID, params));
+			inst.uuidv6 = (params) => inst.check(/* @__PURE__ */ _uuidv6(ZodUUID, params));
+			inst.uuidv7 = (params) => inst.check(/* @__PURE__ */ _uuidv7(ZodUUID, params));
+			inst.nanoid = (params) => inst.check(/* @__PURE__ */ _nanoid(ZodNanoID, params));
+			inst.guid = (params) => inst.check(/* @__PURE__ */ _guid(ZodGUID, params));
+			inst.cuid = (params) => inst.check(/* @__PURE__ */ _cuid(ZodCUID, params));
+			inst.cuid2 = (params) => inst.check(/* @__PURE__ */ _cuid2(ZodCUID2, params));
+			inst.ulid = (params) => inst.check(/* @__PURE__ */ _ulid(ZodULID, params));
+			inst.base64 = (params) => inst.check(/* @__PURE__ */ _base64(ZodBase64, params));
+			inst.base64url = (params) => inst.check(/* @__PURE__ */ _base64url(ZodBase64URL, params));
+			inst.xid = (params) => inst.check(/* @__PURE__ */ _xid(ZodXID, params));
+			inst.ksuid = (params) => inst.check(/* @__PURE__ */ _ksuid(ZodKSUID, params));
+			inst.ipv4 = (params) => inst.check(/* @__PURE__ */ _ipv4(ZodIPv4, params));
+			inst.ipv6 = (params) => inst.check(/* @__PURE__ */ _ipv6(ZodIPv6, params));
+			inst.cidrv4 = (params) => inst.check(/* @__PURE__ */ _cidrv4(ZodCIDRv4, params));
+			inst.cidrv6 = (params) => inst.check(/* @__PURE__ */ _cidrv6(ZodCIDRv6, params));
+			inst.e164 = (params) => inst.check(/* @__PURE__ */ _e164(ZodE164, params));
+			inst.datetime = (params) => inst.check(datetime(params));
+			inst.date = (params) => inst.check(date(params));
+			inst.time = (params) => inst.check(time(params));
+			inst.duration = (params) => inst.check(duration(params));
+		});
+		function string(params) {
+			return /* @__PURE__ */ _string(ZodString, params);
+		}
+		const ZodStringFormat = /*@__PURE__*/ $constructor("ZodStringFormat", (inst, def) => {
+			$ZodStringFormat.init(inst, def);
+			_ZodString.init(inst, def);
+		});
+		const ZodEmail = /*@__PURE__*/ $constructor("ZodEmail", (inst, def) => {
+			$ZodEmail.init(inst, def);
+			ZodStringFormat.init(inst, def);
+		});
+		const ZodGUID = /*@__PURE__*/ $constructor("ZodGUID", (inst, def) => {
+			$ZodGUID.init(inst, def);
+			ZodStringFormat.init(inst, def);
+		});
+		const ZodUUID = /*@__PURE__*/ $constructor("ZodUUID", (inst, def) => {
+			$ZodUUID.init(inst, def);
+			ZodStringFormat.init(inst, def);
+		});
+		const ZodURL = /*@__PURE__*/ $constructor("ZodURL", (inst, def) => {
+			$ZodURL.init(inst, def);
+			ZodStringFormat.init(inst, def);
+		});
+		const ZodEmoji = /*@__PURE__*/ $constructor("ZodEmoji", (inst, def) => {
+			$ZodEmoji.init(inst, def);
+			ZodStringFormat.init(inst, def);
+		});
+		const ZodNanoID = /*@__PURE__*/ $constructor("ZodNanoID", (inst, def) => {
+			$ZodNanoID.init(inst, def);
+			ZodStringFormat.init(inst, def);
+		});
+		/**
+		* @deprecated CUID v1 is deprecated by its authors due to information leakage
+		* (timestamps embedded in the id). Use {@link ZodCUID2} instead.
+		* See https://github.com/paralleldrive/cuid.
+		*/
+		const ZodCUID = /*@__PURE__*/ $constructor("ZodCUID", (inst, def) => {
+			$ZodCUID.init(inst, def);
+			ZodStringFormat.init(inst, def);
+		});
+		const ZodCUID2 = /*@__PURE__*/ $constructor("ZodCUID2", (inst, def) => {
+			$ZodCUID2.init(inst, def);
+			ZodStringFormat.init(inst, def);
+		});
+		const ZodULID = /*@__PURE__*/ $constructor("ZodULID", (inst, def) => {
+			$ZodULID.init(inst, def);
+			ZodStringFormat.init(inst, def);
+		});
+		const ZodXID = /*@__PURE__*/ $constructor("ZodXID", (inst, def) => {
+			$ZodXID.init(inst, def);
+			ZodStringFormat.init(inst, def);
+		});
+		const ZodKSUID = /*@__PURE__*/ $constructor("ZodKSUID", (inst, def) => {
+			$ZodKSUID.init(inst, def);
+			ZodStringFormat.init(inst, def);
+		});
+		const ZodIPv4 = /*@__PURE__*/ $constructor("ZodIPv4", (inst, def) => {
+			$ZodIPv4.init(inst, def);
+			ZodStringFormat.init(inst, def);
+		});
+		const ZodIPv6 = /*@__PURE__*/ $constructor("ZodIPv6", (inst, def) => {
+			$ZodIPv6.init(inst, def);
+			ZodStringFormat.init(inst, def);
+		});
+		const ZodCIDRv4 = /*@__PURE__*/ $constructor("ZodCIDRv4", (inst, def) => {
+			$ZodCIDRv4.init(inst, def);
+			ZodStringFormat.init(inst, def);
+		});
+		const ZodCIDRv6 = /*@__PURE__*/ $constructor("ZodCIDRv6", (inst, def) => {
+			$ZodCIDRv6.init(inst, def);
+			ZodStringFormat.init(inst, def);
+		});
+		const ZodBase64 = /*@__PURE__*/ $constructor("ZodBase64", (inst, def) => {
+			$ZodBase64.init(inst, def);
+			ZodStringFormat.init(inst, def);
+		});
+		const ZodBase64URL = /*@__PURE__*/ $constructor("ZodBase64URL", (inst, def) => {
+			$ZodBase64URL.init(inst, def);
+			ZodStringFormat.init(inst, def);
+		});
+		const ZodE164 = /*@__PURE__*/ $constructor("ZodE164", (inst, def) => {
+			$ZodE164.init(inst, def);
+			ZodStringFormat.init(inst, def);
+		});
+		const ZodJWT = /*@__PURE__*/ $constructor("ZodJWT", (inst, def) => {
+			$ZodJWT.init(inst, def);
+			ZodStringFormat.init(inst, def);
+		});
+		const ZodNumber = /*@__PURE__*/ $constructor("ZodNumber", (inst, def) => {
+			$ZodNumber.init(inst, def);
+			ZodType.init(inst, def);
+			inst._zod.processJSONSchema = (ctx, json, params) => numberProcessor(inst, ctx, json, params);
+			_installLazyMethods(inst, "ZodNumber", {
+				gt(value, params) {
+					return this.check(/* @__PURE__ */ _gt(value, params));
+				},
+				gte(value, params) {
+					return this.check(/* @__PURE__ */ _gte(value, params));
+				},
+				min(value, params) {
+					return this.check(/* @__PURE__ */ _gte(value, params));
+				},
+				lt(value, params) {
+					return this.check(/* @__PURE__ */ _lt(value, params));
+				},
+				lte(value, params) {
+					return this.check(/* @__PURE__ */ _lte(value, params));
+				},
+				max(value, params) {
+					return this.check(/* @__PURE__ */ _lte(value, params));
+				},
+				int(params) {
+					return this.check(int(params));
+				},
+				safe(params) {
+					return this.check(int(params));
+				},
+				positive(params) {
+					return this.check(/* @__PURE__ */ _gt(0, params));
+				},
+				nonnegative(params) {
+					return this.check(/* @__PURE__ */ _gte(0, params));
+				},
+				negative(params) {
+					return this.check(/* @__PURE__ */ _lt(0, params));
+				},
+				nonpositive(params) {
+					return this.check(/* @__PURE__ */ _lte(0, params));
+				},
+				multipleOf(value, params) {
+					return this.check(/* @__PURE__ */ _multipleOf(value, params));
+				},
+				step(value, params) {
+					return this.check(/* @__PURE__ */ _multipleOf(value, params));
+				},
+				finite() {
+					return this;
+				}
+			});
+			const bag = inst._zod.bag;
+			inst.minValue = Math.max(bag.minimum ?? Number.NEGATIVE_INFINITY, bag.exclusiveMinimum ?? Number.NEGATIVE_INFINITY) ?? null;
+			inst.maxValue = Math.min(bag.maximum ?? Number.POSITIVE_INFINITY, bag.exclusiveMaximum ?? Number.POSITIVE_INFINITY) ?? null;
+			inst.isInt = (bag.format ?? "").includes("int") || Number.isSafeInteger(bag.multipleOf ?? .5);
+			inst.isFinite = true;
+			inst.format = bag.format ?? null;
+		});
+		function number(params) {
+			return /* @__PURE__ */ _number(ZodNumber, params);
+		}
+		const ZodNumberFormat = /*@__PURE__*/ $constructor("ZodNumberFormat", (inst, def) => {
+			$ZodNumberFormat.init(inst, def);
+			ZodNumber.init(inst, def);
+		});
+		function int(params) {
+			return /* @__PURE__ */ _int(ZodNumberFormat, params);
+		}
+		const ZodBoolean = /*@__PURE__*/ $constructor("ZodBoolean", (inst, def) => {
+			$ZodBoolean.init(inst, def);
+			ZodType.init(inst, def);
+			inst._zod.processJSONSchema = (ctx, json, params) => booleanProcessor(inst, ctx, json, params);
+		});
+		function boolean(params) {
+			return /* @__PURE__ */ _boolean(ZodBoolean, params);
+		}
+		const ZodUndefined = /*@__PURE__*/ $constructor("ZodUndefined", (inst, def) => {
+			$ZodUndefined.init(inst, def);
+			ZodType.init(inst, def);
+			inst._zod.processJSONSchema = (ctx, json, params) => undefinedProcessor(inst, ctx, json, params);
+		});
+		function _undefined(params) {
+			return /* @__PURE__ */ _undefined$1(ZodUndefined, params);
+		}
+		const ZodUnknown = /*@__PURE__*/ $constructor("ZodUnknown", (inst, def) => {
+			$ZodUnknown.init(inst, def);
+			ZodType.init(inst, def);
+			inst._zod.processJSONSchema = (ctx, json, params) => void 0;
+		});
+		function unknown() {
+			return /* @__PURE__ */ _unknown(ZodUnknown);
+		}
+		const ZodNever = /*@__PURE__*/ $constructor("ZodNever", (inst, def) => {
+			$ZodNever.init(inst, def);
+			ZodType.init(inst, def);
+			inst._zod.processJSONSchema = (ctx, json, params) => neverProcessor(inst, ctx, json, params);
+		});
+		function never(params) {
+			return /* @__PURE__ */ _never(ZodNever, params);
+		}
+		const ZodVoid = /*@__PURE__*/ $constructor("ZodVoid", (inst, def) => {
+			$ZodVoid.init(inst, def);
+			ZodType.init(inst, def);
+			inst._zod.processJSONSchema = (ctx, json, params) => voidProcessor(inst, ctx, json, params);
+		});
+		function _void(params) {
+			return /* @__PURE__ */ _void$1(ZodVoid, params);
+		}
+		const ZodArray = /*@__PURE__*/ $constructor("ZodArray", (inst, def) => {
+			$ZodArray.init(inst, def);
+			ZodType.init(inst, def);
+			inst._zod.processJSONSchema = (ctx, json, params) => arrayProcessor(inst, ctx, json, params);
+			inst.element = def.element;
+			_installLazyMethods(inst, "ZodArray", {
+				min(n, params) {
+					return this.check(/* @__PURE__ */ _minLength(n, params));
+				},
+				nonempty(params) {
+					return this.check(/* @__PURE__ */ _minLength(1, params));
+				},
+				max(n, params) {
+					return this.check(/* @__PURE__ */ _maxLength(n, params));
+				},
+				length(n, params) {
+					return this.check(/* @__PURE__ */ _length(n, params));
+				},
+				unwrap() {
+					return this.element;
+				}
+			});
+		});
+		function array(element, params) {
+			return /* @__PURE__ */ _array(ZodArray, element, params);
+		}
+		const ZodObject = /*@__PURE__*/ $constructor("ZodObject", (inst, def) => {
+			$ZodObjectJIT.init(inst, def);
+			ZodType.init(inst, def);
+			inst._zod.processJSONSchema = (ctx, json, params) => objectProcessor(inst, ctx, json, params);
+			defineLazy(inst, "shape", () => {
+				return def.shape;
+			});
+			_installLazyMethods(inst, "ZodObject", {
+				keyof() {
+					return _enum(Object.keys(this._zod.def.shape));
+				},
+				catchall(catchall) {
+					return this.clone({
+						...this._zod.def,
+						catchall
+					});
+				},
+				passthrough() {
+					return this.clone({
+						...this._zod.def,
+						catchall: unknown()
+					});
+				},
+				loose() {
+					return this.clone({
+						...this._zod.def,
+						catchall: unknown()
+					});
+				},
+				strict() {
+					return this.clone({
+						...this._zod.def,
+						catchall: never()
+					});
+				},
+				strip() {
+					return this.clone({
+						...this._zod.def,
+						catchall: void 0
+					});
+				},
+				extend(incoming) {
+					return extend(this, incoming);
+				},
+				safeExtend(incoming) {
+					return safeExtend(this, incoming);
+				},
+				merge(other) {
+					return merge(this, other);
+				},
+				pick(mask) {
+					return pick(this, mask);
+				},
+				omit(mask) {
+					return omit(this, mask);
+				},
+				partial(...args) {
+					return partial(ZodOptional, this, args[0]);
+				},
+				required(...args) {
+					return required(ZodNonOptional, this, args[0]);
+				}
+			});
+		});
+		function object(shape, params) {
+			return new ZodObject({
+				type: "object",
+				shape: shape ?? {},
+				...normalizeParams(params)
+			});
+		}
+		const ZodUnion = /*@__PURE__*/ $constructor("ZodUnion", (inst, def) => {
+			$ZodUnion.init(inst, def);
+			ZodType.init(inst, def);
+			inst._zod.processJSONSchema = (ctx, json, params) => unionProcessor(inst, ctx, json, params);
+			inst.options = def.options;
+		});
+		function union(options, params) {
+			return new ZodUnion({
+				type: "union",
+				options,
+				...normalizeParams(params)
+			});
+		}
+		const ZodIntersection = /*@__PURE__*/ $constructor("ZodIntersection", (inst, def) => {
+			$ZodIntersection.init(inst, def);
+			ZodType.init(inst, def);
+			inst._zod.processJSONSchema = (ctx, json, params) => intersectionProcessor(inst, ctx, json, params);
+		});
+		function intersection(left, right) {
+			return new ZodIntersection({
+				type: "intersection",
+				left,
+				right
+			});
+		}
+		const ZodRecord = /*@__PURE__*/ $constructor("ZodRecord", (inst, def) => {
+			$ZodRecord.init(inst, def);
+			ZodType.init(inst, def);
+			inst._zod.processJSONSchema = (ctx, json, params) => recordProcessor(inst, ctx, json, params);
+			inst.keyType = def.keyType;
+			inst.valueType = def.valueType;
+		});
+		function record(keyType, valueType, params) {
+			if (!valueType || !valueType._zod) return new ZodRecord({
+				type: "record",
+				keyType: string(),
+				valueType: keyType,
+				...normalizeParams(valueType)
+			});
+			return new ZodRecord({
+				type: "record",
+				keyType,
+				valueType,
+				...normalizeParams(params)
+			});
+		}
+		const ZodEnum = /*@__PURE__*/ $constructor("ZodEnum", (inst, def) => {
+			$ZodEnum.init(inst, def);
+			ZodType.init(inst, def);
+			inst._zod.processJSONSchema = (ctx, json, params) => enumProcessor(inst, ctx, json, params);
+			inst.enum = def.entries;
+			inst.options = Object.values(def.entries);
+			const keys = new Set(Object.keys(def.entries));
+			inst.extract = (values, params) => {
+				const newEntries = {};
+				for (const value of values) if (keys.has(value)) newEntries[value] = def.entries[value];
+				else throw new Error(`Key ${value} not found in enum`);
+				return new ZodEnum({
+					...def,
+					checks: [],
+					...normalizeParams(params),
+					entries: newEntries
+				});
+			};
+			inst.exclude = (values, params) => {
+				const newEntries = { ...def.entries };
+				for (const value of values) if (keys.has(value)) delete newEntries[value];
+				else throw new Error(`Key ${value} not found in enum`);
+				return new ZodEnum({
+					...def,
+					checks: [],
+					...normalizeParams(params),
+					entries: newEntries
+				});
+			};
+		});
+		function _enum(values, params) {
+			return new ZodEnum({
+				type: "enum",
+				entries: Array.isArray(values) ? Object.fromEntries(values.map((v) => [v, v])) : values,
+				...normalizeParams(params)
+			});
+		}
+		const ZodLiteral = /*@__PURE__*/ $constructor("ZodLiteral", (inst, def) => {
+			$ZodLiteral.init(inst, def);
+			ZodType.init(inst, def);
+			inst._zod.processJSONSchema = (ctx, json, params) => literalProcessor(inst, ctx, json, params);
+			inst.values = new Set(def.values);
+			Object.defineProperty(inst, "value", { get() {
+				if (def.values.length > 1) throw new Error("This schema contains multiple valid literal values. Use `.values` instead.");
+				return def.values[0];
+			} });
+		});
+		function literal(value, params) {
+			return new ZodLiteral({
+				type: "literal",
+				values: Array.isArray(value) ? value : [value],
+				...normalizeParams(params)
+			});
+		}
+		const ZodTransform = /*@__PURE__*/ $constructor("ZodTransform", (inst, def) => {
+			$ZodTransform.init(inst, def);
+			ZodType.init(inst, def);
+			inst._zod.processJSONSchema = (ctx, json, params) => transformProcessor(inst, ctx, json, params);
+			inst._zod.parse = (payload, _ctx) => {
+				if (_ctx.direction === "backward") throw new $ZodEncodeError(inst.constructor.name);
+				payload.addIssue = (issue$1) => {
+					if (typeof issue$1 === "string") payload.issues.push(issue(issue$1, payload.value, def));
+					else {
+						const _issue = issue$1;
+						if (_issue.fatal) _issue.continue = false;
+						_issue.code ?? (_issue.code = "custom");
+						_issue.input ?? (_issue.input = payload.value);
+						_issue.inst ?? (_issue.inst = inst);
+						payload.issues.push(issue(_issue));
+					}
+				};
+				const output = def.transform(payload.value, payload);
+				if (output instanceof Promise) return output.then((output) => {
+					payload.value = output;
+					payload.fallback = true;
+					return payload;
+				});
+				payload.value = output;
+				payload.fallback = true;
+				return payload;
+			};
+		});
+		function transform(fn) {
+			return new ZodTransform({
+				type: "transform",
+				transform: fn
+			});
+		}
+		const ZodOptional = /*@__PURE__*/ $constructor("ZodOptional", (inst, def) => {
+			$ZodOptional.init(inst, def);
+			ZodType.init(inst, def);
+			inst._zod.processJSONSchema = (ctx, json, params) => optionalProcessor(inst, ctx, json, params);
+			inst.unwrap = () => inst._zod.def.innerType;
+		});
+		function optional(innerType) {
+			return new ZodOptional({
+				type: "optional",
+				innerType
+			});
+		}
+		const ZodExactOptional = /*@__PURE__*/ $constructor("ZodExactOptional", (inst, def) => {
+			$ZodExactOptional.init(inst, def);
+			ZodType.init(inst, def);
+			inst._zod.processJSONSchema = (ctx, json, params) => optionalProcessor(inst, ctx, json, params);
+			inst.unwrap = () => inst._zod.def.innerType;
+		});
+		function exactOptional(innerType) {
+			return new ZodExactOptional({
+				type: "optional",
+				innerType
+			});
+		}
+		const ZodNullable = /*@__PURE__*/ $constructor("ZodNullable", (inst, def) => {
+			$ZodNullable.init(inst, def);
+			ZodType.init(inst, def);
+			inst._zod.processJSONSchema = (ctx, json, params) => nullableProcessor(inst, ctx, json, params);
+			inst.unwrap = () => inst._zod.def.innerType;
+		});
+		function nullable(innerType) {
+			return new ZodNullable({
+				type: "nullable",
+				innerType
+			});
+		}
+		const ZodDefault = /*@__PURE__*/ $constructor("ZodDefault", (inst, def) => {
+			$ZodDefault.init(inst, def);
+			ZodType.init(inst, def);
+			inst._zod.processJSONSchema = (ctx, json, params) => defaultProcessor(inst, ctx, json, params);
+			inst.unwrap = () => inst._zod.def.innerType;
+			inst.removeDefault = inst.unwrap;
+		});
+		function _default(innerType, defaultValue) {
+			return new ZodDefault({
+				type: "default",
+				innerType,
+				get defaultValue() {
+					return typeof defaultValue === "function" ? defaultValue() : shallowClone(defaultValue);
 				}
 			});
 		}
+		const ZodPrefault = /*@__PURE__*/ $constructor("ZodPrefault", (inst, def) => {
+			$ZodPrefault.init(inst, def);
+			ZodType.init(inst, def);
+			inst._zod.processJSONSchema = (ctx, json, params) => prefaultProcessor(inst, ctx, json, params);
+			inst.unwrap = () => inst._zod.def.innerType;
+		});
+		function prefault(innerType, defaultValue) {
+			return new ZodPrefault({
+				type: "prefault",
+				innerType,
+				get defaultValue() {
+					return typeof defaultValue === "function" ? defaultValue() : shallowClone(defaultValue);
+				}
+			});
+		}
+		const ZodNonOptional = /*@__PURE__*/ $constructor("ZodNonOptional", (inst, def) => {
+			$ZodNonOptional.init(inst, def);
+			ZodType.init(inst, def);
+			inst._zod.processJSONSchema = (ctx, json, params) => nonoptionalProcessor(inst, ctx, json, params);
+			inst.unwrap = () => inst._zod.def.innerType;
+		});
+		function nonoptional(innerType, params) {
+			return new ZodNonOptional({
+				type: "nonoptional",
+				innerType,
+				...normalizeParams(params)
+			});
+		}
+		const ZodCatch = /*@__PURE__*/ $constructor("ZodCatch", (inst, def) => {
+			$ZodCatch.init(inst, def);
+			ZodType.init(inst, def);
+			inst._zod.processJSONSchema = (ctx, json, params) => catchProcessor(inst, ctx, json, params);
+			inst.unwrap = () => inst._zod.def.innerType;
+			inst.removeCatch = inst.unwrap;
+		});
+		function _catch(innerType, catchValue) {
+			return new ZodCatch({
+				type: "catch",
+				innerType,
+				catchValue: typeof catchValue === "function" ? catchValue : () => catchValue
+			});
+		}
+		const ZodPipe = /*@__PURE__*/ $constructor("ZodPipe", (inst, def) => {
+			$ZodPipe.init(inst, def);
+			ZodType.init(inst, def);
+			inst._zod.processJSONSchema = (ctx, json, params) => pipeProcessor(inst, ctx, json, params);
+			inst.in = def.in;
+			inst.out = def.out;
+		});
+		function pipe(in_, out) {
+			return new ZodPipe({
+				type: "pipe",
+				in: in_,
+				out
+			});
+		}
+		const ZodReadonly = /*@__PURE__*/ $constructor("ZodReadonly", (inst, def) => {
+			$ZodReadonly.init(inst, def);
+			ZodType.init(inst, def);
+			inst._zod.processJSONSchema = (ctx, json, params) => readonlyProcessor(inst, ctx, json, params);
+			inst.unwrap = () => inst._zod.def.innerType;
+		});
+		function readonly(innerType) {
+			return new ZodReadonly({
+				type: "readonly",
+				innerType
+			});
+		}
+		const ZodLazy = /*@__PURE__*/ $constructor("ZodLazy", (inst, def) => {
+			$ZodLazy.init(inst, def);
+			ZodType.init(inst, def);
+			inst._zod.processJSONSchema = (ctx, json, params) => lazyProcessor(inst, ctx, json, params);
+			inst.unwrap = () => inst._zod.def.getter();
+		});
+		function lazy(getter) {
+			return new ZodLazy({
+				type: "lazy",
+				getter
+			});
+		}
+		const ZodCustom = /*@__PURE__*/ $constructor("ZodCustom", (inst, def) => {
+			$ZodCustom.init(inst, def);
+			ZodType.init(inst, def);
+			inst._zod.processJSONSchema = (ctx, json, params) => customProcessor(inst, ctx, json, params);
+		});
+		function refine(fn, _params = {}) {
+			return /* @__PURE__ */ _refine(ZodCustom, fn, _params);
+		}
+		function superRefine(fn, params) {
+			return /* @__PURE__ */ _superRefine(fn, params);
+		}
+		function _instanceof(cls, params = {}) {
+			const inst = new ZodCustom({
+				type: "custom",
+				check: "custom",
+				fn: (data) => data instanceof cls,
+				abort: true,
+				...normalizeParams(params)
+			});
+			inst._zod.bag.Class = cls;
+			inst._zod.check = (payload) => {
+				if (!(payload.value instanceof cls)) payload.issues.push({
+					code: "invalid_type",
+					expected: cls.name,
+					input: payload.value,
+					inst,
+					path: [...inst._zod.def.path ?? []]
+				});
+			};
+			return inst;
+		}
 		//#endregion
-		//#region lib/types/client/locales.js
-		/** `deliverables` namespace dictionaries: cards, comparison tab, and file-mention copy. */
-		/** Dictionary namespace owned by this plugin. */
-		const NS = "deliverables";
-		/** Simplified Chinese dictionary (the key-set source of truth). */
-		const zh = {
-			"presented.nativeUnavailable": "此文件没有可用的主机路径，请在侧边栏预览",
-			"presented.revealError": "无法在文件管理器中显示，请重试",
-			"presented.directoryError": "无法打开所在文件夹，请重试",
-			"presented.directoryOpening": "正在打开所在文件夹…",
-			"presented.directoryOpened": "已请求打开所在文件夹",
-			"presented.revealed": "已请求在文件管理器中显示",
-			"presented.revealing": "正在文件管理器中显示…",
-			"presented.unavailable": "此主机没有可用的桌面，无法使用外部程序打开文件或文件夹；文件仍可在侧边栏预览",
-			"presented.retry": "重试",
-			"presented.hostError": "无法读取主机桌面信息",
-			"presented.preview": "在侧边栏预览",
-			"presented.previewButton": "在侧边栏打开 {name}",
-			"presented.previewCard": "在侧边栏预览 {name}",
-			"presented.all": "全部 {count} 个文件",
-			"presented.expandAria": "展开全部 {count} 个交付文件",
-			"presented.collapse": "收起",
-			"presented.collapseAria": "收起交付文件列表",
-			"presented.opening": "正在打开…",
-			"presented.opened": "已请求打开",
-			"presented.error": "打开失败，点击重试",
-			"presented.file": "文件",
-			"row.title": "交付文件",
-			"row.running": "正在交付",
-			"row.preparing": "准备交付",
-			"row.ok": "已交付",
-			"row.error": "交付失败",
-			"row.stopped": "已中断",
-			"row.inspect": "查看调用",
-			"changes.title": "已编辑 {count} 个文件",
-			"changes.singleTitle": "已编辑 {name}",
-			"changes.added": "+{count}",
-			"changes.deleted": "-{count}",
-			"changes.binary": "二进制",
-			"changes.openReview": "在侧边栏查看本轮改动",
-			"changes.all": "全部 {count} 个文件",
-			"changes.expandAria": "展开全部 {count} 个改动文件",
-			"changes.collapse": "收起",
-			"changes.collapseAria": "收起改动文件列表",
-			"changes.oversized": "过大",
-			"changes.viewDiff": "查看 {name} 的改动",
-			"review.title": "第 {turn} 轮改动",
-			"review.selectFile": "选择要查看的文件",
-			"review.split": "切换为左右对比",
-			"review.unified": "切换为单栏对比",
-			"review.splitAria": "左右对比",
-			"review.wrap": "开启自动换行",
-			"review.nowrap": "关闭自动换行",
-			"review.wrapAria": "自动换行",
-			"review.openFile": "在侧边栏打开整个文件",
-			"review.openFileAria": "在侧边栏打开 {name}",
-			"diff.loading": "正在读取改动…",
-			"diff.missing": "这轮改动的内容已不可用",
-			"diff.error": "无法读取改动",
-			"diff.binary": "二进制文件，无法显示改动",
-			"diff.oversized": "文件过大，无法显示改动",
-			"diff.created": "本轮新建的文件",
-			"diff.deleted": "本轮删除的文件",
-			"diff.unchanged": "两侧内容相同",
-			"diff.coarse": "逐行对比超时，按整个文件替换显示",
-			"diff.truncated": "只显示前 {count} 行"
+		//#region ../../client/product-analytics/lib/typert.remote-client.js
+		let _deepseek_ai_dsh_client_product_analytics_productAnalytics_enabled_result$schema$value;
+		const _deepseek_ai_dsh_client_product_analytics_productAnalytics_enabled_result$schema = () => _deepseek_ai_dsh_client_product_analytics_productAnalytics_enabled_result$schema$value ??= boolean();
+		let _deepseek_ai_dsh_client_product_analytics_productAnalytics_report_parameter_0$schema$value;
+		const _deepseek_ai_dsh_client_product_analytics_productAnalytics_report_parameter_0$schema = () => _deepseek_ai_dsh_client_product_analytics_productAnalytics_report_parameter_0$schema$value ??= union([
+			object({
+				"eventName": literal("desktop_app_launch"),
+				"attributes": record(string(), never()),
+				"timestamp": number()
+			}),
+			object({
+				"eventName": literal("auth_page_view"),
+				"attributes": record(string(), never()),
+				"timestamp": number()
+			}),
+			object({
+				"eventName": literal("auth_page_click"),
+				"attributes": object({ "button_name": union([literal("sign_in"), literal("api-key")]) }),
+				"timestamp": number()
+			}),
+			object({
+				"eventName": literal("api_key_save_click"),
+				"attributes": record(string(), never()),
+				"timestamp": number()
+			}),
+			object({
+				"eventName": literal("onboarding_page_view"),
+				"attributes": object({ "page_name": union([
+					literal("onboarding_welcome"),
+					literal("onboarding_recharge"),
+					literal("onboarding_use_case"),
+					literal("onboarding_process")
+				]) }),
+				"timestamp": number()
+			}),
+			object({
+				"eventName": literal("onboarding_page_click"),
+				"attributes": object({
+					"page_name": union([
+						literal("onboarding_welcome"),
+						literal("onboarding_recharge"),
+						literal("onboarding_use_case"),
+						literal("onboarding_process")
+					]),
+					"button_name": union([
+						literal("next"),
+						literal("back"),
+						literal("skip"),
+						literal("charge"),
+						literal("later"),
+						literal("continue")
+					]),
+					"selected_content": union([
+						literal("office"),
+						literal("code"),
+						literal("code_office"),
+						literal("focus_result"),
+						literal("key_detail"),
+						literal("full_process")
+					]).optional()
+				}),
+				"timestamp": number()
+			}),
+			object({
+				"eventName": literal("onboarding_popup_view"),
+				"attributes": object({ "popup_name": union([literal("skip_charge"), literal("skip_setting")]) }),
+				"timestamp": number()
+			}),
+			object({
+				"eventName": literal("onboarding_popup_click"),
+				"attributes": object({
+					"popup_name": union([literal("skip_charge"), literal("skip_setting")]),
+					"button_name": union([
+						literal("charge"),
+						literal("know"),
+						literal("enter"),
+						literal("setting"),
+						literal("close")
+					])
+				}),
+				"timestamp": number()
+			}),
+			object({
+				"eventName": literal("desktop_upgrade_click"),
+				"attributes": record(string(), never()),
+				"timestamp": number()
+			}),
+			object({
+				"eventName": literal("desktop_upgrade_download_result"),
+				"attributes": object({
+					"is_success": boolean(),
+					"error_reason": string().optional()
+				}),
+				"timestamp": number()
+			}),
+			object({
+				"eventName": literal("desktop_upgrade_install_restart_click"),
+				"attributes": record(string(), never()),
+				"timestamp": number()
+			}),
+			object({
+				"eventName": literal("send_button_click"),
+				"attributes": object({
+					"session_id": intersection(string(), unknown()).optional(),
+					"model_name": string().optional(),
+					"thinking_effort": string().optional(),
+					"run_mode": union([
+						literal("goal"),
+						literal("plan"),
+						literal("default")
+					]),
+					"msg_type": union([
+						literal("queue"),
+						literal("steer"),
+						literal("default")
+					])
+				}),
+				"timestamp": number()
+			}),
+			object({
+				"eventName": literal("model_switch"),
+				"attributes": object({
+					"session_id": intersection(string(), unknown()).optional(),
+					"switch_from": string(),
+					"switch_to": string()
+				}),
+				"timestamp": number()
+			}),
+			object({
+				"eventName": literal("thinking_level_switch"),
+				"attributes": object({
+					"session_id": intersection(string(), unknown()).optional(),
+					"switch_from": string(),
+					"switch_to": string(),
+					"model_name": string()
+				}),
+				"timestamp": number()
+			}),
+			object({
+				"eventName": literal("context_compression"),
+				"attributes": object({
+					"session_id": intersection(string(), unknown()),
+					"trigger_type": union([literal("auto"), literal("manual")])
+				}),
+				"timestamp": number()
+			}),
+			object({
+				"eventName": literal("branch_session_click"),
+				"attributes": object({
+					"session_id": intersection(string(), unknown()),
+					"parent_session_id": intersection(string(), unknown()),
+					"parent_message_id": intersection(string(), unknown()).optional(),
+					"click_position": union([literal("footer"), literal("sidebar")])
+				}),
+				"timestamp": number()
+			}),
+			object({
+				"eventName": literal("sidebar_menu_click"),
+				"attributes": object({ "menu_name": union([literal("plugin"), literal("cron")]) }),
+				"timestamp": number()
+			}),
+			object({
+				"eventName": literal("plugin_toggle"),
+				"attributes": object({
+					"plugin_name": string(),
+					"plugin_type": union([literal("plugin"), literal("bundle")]),
+					"is_enabled": boolean(),
+					"is_builtin": boolean()
+				}),
+				"timestamp": number()
+			}),
+			object({
+				"eventName": literal("plugin_add_button_click"),
+				"attributes": record(string(), never()),
+				"timestamp": number()
+			}),
+			object({
+				"eventName": literal("plugin_install_click"),
+				"attributes": object({ "input_value": string() }),
+				"timestamp": number()
+			}),
+			object({
+				"eventName": literal("install_plugin_result"),
+				"attributes": object({
+					"input_value": string(),
+					"is_success": boolean(),
+					"error_reason": string().optional(),
+					"duration": number(),
+					"plugin_name": string().optional()
+				}),
+				"timestamp": number()
+			}),
+			object({
+				"eventName": literal("confirm_uninstall_plugin"),
+				"attributes": object({ "plugin_name": string() }),
+				"timestamp": number()
+			})
+		]);
+		let _deepseek_ai_dsh_client_product_analytics_productAnalytics_report_result$schema$value;
+		const _deepseek_ai_dsh_client_product_analytics_productAnalytics_report_result$schema = () => _deepseek_ai_dsh_client_product_analytics_productAnalytics_report_result$schema$value ??= _void();
+		let _deepseek_ai_dsh_client_product_analytics_productAnalytics_watchPolicy_result$schema$value;
+		const _deepseek_ai_dsh_client_product_analytics_productAnalytics_watchPolicy_result$schema = () => _deepseek_ai_dsh_client_product_analytics_productAnalytics_watchPolicy_result$schema$value ??= boolean();
+		const TYPERT_REMOTE$23 = {
+			package: "@deepseek-ai/dsh-client-product-analytics",
+			descriptors: [
+				{
+					id: "@deepseek-ai/dsh-client-product-analytics#productAnalytics/enabled",
+					service: "productAnalytics",
+					namespace: "productAnalytics",
+					method: "enabled",
+					invocation: { kind: "direct" },
+					parameters: [],
+					result: {
+						mode: "strict",
+						typeSymbol: "@deepseek-ai/dsh-client-product-analytics#productAnalytics/enabled:result",
+						create: _deepseek_ai_dsh_client_product_analytics_productAnalytics_enabled_result$schema
+					},
+					sourceLocation: {
+						"file": "packages/client/product-analytics/src/index.ts",
+						"line": 51,
+						"column": 3
+					}
+				},
+				{
+					id: "@deepseek-ai/dsh-client-product-analytics#productAnalytics/report",
+					service: "productAnalytics",
+					namespace: "productAnalytics",
+					method: "report",
+					invocation: { kind: "direct" },
+					parameters: [{
+						name: "event",
+						wire: "event",
+						source: "json",
+						codec: {
+							mode: "strict",
+							typeSymbol: "@deepseek-ai/dsh-client-product-analytics/types#ProductEvent",
+							create: _deepseek_ai_dsh_client_product_analytics_productAnalytics_report_parameter_0$schema
+						}
+					}],
+					result: {
+						mode: "strict",
+						typeSymbol: "@deepseek-ai/dsh-client-product-analytics#productAnalytics/report:result",
+						create: _deepseek_ai_dsh_client_product_analytics_productAnalytics_report_result$schema
+					},
+					sourceLocation: {
+						"file": "packages/client/product-analytics/src/index.ts",
+						"line": 82,
+						"column": 9
+					}
+				},
+				{
+					id: "@deepseek-ai/dsh-client-product-analytics#productAnalytics/watchPolicy",
+					service: "productAnalytics",
+					namespace: "productAnalytics",
+					method: "watchPolicy",
+					mode: "stream",
+					invocation: { kind: "direct" },
+					parameters: [],
+					cancellation: { parameter: "signal" },
+					result: {
+						mode: "strict",
+						typeSymbol: "@deepseek-ai/dsh-client-product-analytics#productAnalytics/watchPolicy:result",
+						create: _deepseek_ai_dsh_client_product_analytics_productAnalytics_watchPolicy_result$schema
+					},
+					sourceLocation: {
+						"file": "packages/client/product-analytics/src/index.ts",
+						"line": 59,
+						"column": 10
+					}
+				}
+			]
 		};
-		/** English dictionary (same key set). */
-		const en = {
-			"presented.nativeUnavailable": "This file has no available Host path. Preview it in the sidebar.",
-			"presented.revealError": "Could not show in file manager. Try again.",
-			"presented.directoryError": "Could not open containing folder. Try again.",
-			"presented.directoryOpening": "Opening containing folder…",
-			"presented.directoryOpened": "Requested opening containing folder",
-			"presented.revealed": "Requested display in file manager",
-			"presented.revealing": "Showing in file manager…",
-			"presented.unavailable": "This Host has no desktop available to open files or folders in external apps. Files can still be previewed in the sidebar.",
-			"presented.retry": "Retry",
-			"presented.hostError": "Could not read the Host desktop information",
-			"presented.preview": "Preview in sidebar",
-			"presented.previewButton": "Open {name} in sidebar",
-			"presented.previewCard": "Preview {name} in sidebar",
-			"presented.all": "All {count} files",
-			"presented.expandAria": "Show all {count} delivered files",
-			"presented.collapse": "Collapse",
-			"presented.collapseAria": "Collapse delivered files",
-			"presented.opening": "Opening…",
-			"presented.opened": "Open requested",
-			"presented.error": "Could not open. Click to retry.",
-			"presented.file": "File",
-			"row.title": "Present files",
-			"row.running": "Delivering",
-			"row.preparing": "Preparing deliverables",
-			"row.ok": "Delivered",
-			"row.error": "Delivery failed",
-			"row.stopped": "Interrupted",
-			"row.inspect": "Inspect call",
-			"changes.title": "Edited {count} files",
-			"changes.singleTitle": "Edited {name}",
-			"changes.added": "+{count}",
-			"changes.deleted": "-{count}",
-			"changes.binary": "binary",
-			"changes.openReview": "Review this turn’s changes in the sidebar",
-			"changes.all": "All {count} files",
-			"changes.expandAria": "Show all {count} changed files",
-			"changes.collapse": "Collapse",
-			"changes.collapseAria": "Collapse changed files",
-			"changes.oversized": "too large",
-			"changes.viewDiff": "View changes to {name}",
-			"review.title": "Review · turn {turn}",
-			"review.selectFile": "Choose the file to review",
-			"review.split": "Switch to split view",
-			"review.unified": "Switch to unified view",
-			"review.splitAria": "Split view",
-			"review.wrap": "Enable line wrap",
-			"review.nowrap": "Disable line wrap",
-			"review.wrapAria": "Line wrap",
-			"review.openFile": "Open the whole file in the sidebar",
-			"review.openFileAria": "Open {name} in sidebar",
-			"diff.loading": "Reading changes…",
-			"diff.missing": "The contents of this turn’s changes are no longer available",
-			"diff.error": "Could not read the changes",
-			"diff.binary": "Binary file; changes cannot be shown",
-			"diff.oversized": "File too large; changes cannot be shown",
-			"diff.created": "Created in this turn",
-			"diff.deleted": "Deleted in this turn",
-			"diff.unchanged": "Both sides hold the same lines",
-			"diff.coarse": "Line comparison timed out; shown as a whole-file replacement",
-			"diff.truncated": "Showing the first {count} lines"
+		//#endregion
+		//#region ../../preset/agent-preset-registry/lib/typert.remote-client.js
+		let _deepseek_ai_dsh_agent_preset_registry_agentPresets_list_result$schema$value;
+		const _deepseek_ai_dsh_agent_preset_registry_agentPresets_list_result$schema = () => _deepseek_ai_dsh_agent_preset_registry_agentPresets_list_result$schema$value ??= object({ "presets": array(object({
+			"id": string().readonly(),
+			"isDefault": boolean().readonly(),
+			"name": string().readonly().optional(),
+			"description": string().readonly().optional(),
+			"broken": string().readonly().optional()
+		})).readonly() });
+		let _deepseek_ai_dsh_agent_preset_registry_agentPresets_read_parameter_0$schema$value;
+		const _deepseek_ai_dsh_agent_preset_registry_agentPresets_read_parameter_0$schema = () => _deepseek_ai_dsh_agent_preset_registry_agentPresets_read_parameter_0$schema$value ??= string();
+		let _deepseek_ai_dsh_agent_preset_registry_agentPresets_read_result$schema$value;
+		const _deepseek_ai_dsh_agent_preset_registry_agentPresets_read_result$schema = () => _deepseek_ai_dsh_agent_preset_registry_agentPresets_read_result$schema$value ??= object({
+			"agentPreset": string().readonly(),
+			"content": string().readonly(),
+			"name": string().readonly().optional(),
+			"description": string().readonly().optional()
+		});
+		let _deepseek_ai_dsh_agent_preset_registry_agentPresets_select_parameter_0$schema$value;
+		const _deepseek_ai_dsh_agent_preset_registry_agentPresets_select_parameter_0$schema = () => _deepseek_ai_dsh_agent_preset_registry_agentPresets_select_parameter_0$schema$value ??= intersection(string(), unknown());
+		let _deepseek_ai_dsh_agent_preset_registry_agentPresets_select_parameter_1$schema$value;
+		const _deepseek_ai_dsh_agent_preset_registry_agentPresets_select_parameter_1$schema = () => _deepseek_ai_dsh_agent_preset_registry_agentPresets_select_parameter_1$schema$value ??= string();
+		let _deepseek_ai_dsh_agent_preset_registry_agentPresets_select_result$schema$value;
+		const _deepseek_ai_dsh_agent_preset_registry_agentPresets_select_result$schema = () => _deepseek_ai_dsh_agent_preset_registry_agentPresets_select_result$schema$value ??= string();
+		const TYPERT_REMOTE$22 = {
+			package: "@deepseek-ai/dsh-agent-preset-registry",
+			descriptors: [
+				{
+					id: "@deepseek-ai/dsh-agent-preset-registry#agentPresets/list",
+					service: "agentPresets",
+					namespace: "agentPresets",
+					method: "list",
+					implementation: "remoteExportList",
+					invocation: { kind: "direct" },
+					parameters: [],
+					result: {
+						mode: "strict",
+						typeSymbol: "@deepseek-ai/dsh-agent-preset-registry/types#AgentPresetRoster",
+						create: _deepseek_ai_dsh_agent_preset_registry_agentPresets_list_result$schema
+					},
+					sourceLocation: {
+						"file": "packages/preset/agent-preset-registry/src/index.ts",
+						"line": 171,
+						"column": 9
+					}
+				},
+				{
+					id: "@deepseek-ai/dsh-agent-preset-registry#agentPresets/read",
+					service: "agentPresets",
+					namespace: "agentPresets",
+					method: "read",
+					implementation: "readDocument",
+					invocation: { kind: "direct" },
+					parameters: [{
+						name: "agentPreset",
+						wire: "agentPreset",
+						source: "json",
+						codec: {
+							mode: "strict",
+							typeSymbol: "@deepseek-ai/dsh-agent-preset-registry#agentPresets/read:agentPreset",
+							create: _deepseek_ai_dsh_agent_preset_registry_agentPresets_read_parameter_0$schema
+						}
+					}],
+					result: {
+						mode: "strict",
+						typeSymbol: "@deepseek-ai/dsh-agent-preset-registry/types#AgentPresetDocument",
+						create: _deepseek_ai_dsh_agent_preset_registry_agentPresets_read_result$schema
+					},
+					sourceLocation: {
+						"file": "packages/preset/agent-preset-registry/src/index.ts",
+						"line": 194,
+						"column": 3
+					}
+				},
+				{
+					id: "@deepseek-ai/dsh-agent-preset-registry#agentPresets/select",
+					service: "agentPresets",
+					namespace: "agentPresets",
+					method: "select",
+					invocation: { kind: "direct" },
+					scope: {
+						context: "agent",
+						wire: "agentId"
+					},
+					parameters: [{
+						name: "agent",
+						wire: "agentId",
+						source: "lookup",
+						lookup: "agent",
+						codec: {
+							mode: "strict",
+							typeSymbol: "@deepseek-ai/dsh-session/types#SessionId",
+							create: _deepseek_ai_dsh_agent_preset_registry_agentPresets_select_parameter_0$schema
+						}
+					}, {
+						name: "agentPreset",
+						wire: "agentPreset",
+						source: "json",
+						codec: {
+							mode: "strict",
+							typeSymbol: "@deepseek-ai/dsh-agent-preset-registry#agentPresets/select:agentPreset",
+							create: _deepseek_ai_dsh_agent_preset_registry_agentPresets_select_parameter_1$schema
+						}
+					}],
+					result: {
+						mode: "strict",
+						typeSymbol: "@deepseek-ai/dsh-agent-preset-registry#agentPresets/select:result",
+						create: _deepseek_ai_dsh_agent_preset_registry_agentPresets_select_result$schema
+					},
+					sourceLocation: {
+						"file": "packages/preset/agent-preset-registry/src/index.ts",
+						"line": 319,
+						"column": 9
+					}
+				}
+			]
+		};
+		//#endregion
+		//#region ../../interaction/commands/lib/typert.remote-client.js
+		let _deepseek_ai_dsh_commands_commands_execute_parameter_0$schema$value;
+		const _deepseek_ai_dsh_commands_commands_execute_parameter_0$schema = () => _deepseek_ai_dsh_commands_commands_execute_parameter_0$schema$value ??= intersection(string(), unknown());
+		let _deepseek_ai_dsh_commands_commands_execute_parameter_1$schema$value;
+		const _deepseek_ai_dsh_commands_commands_execute_parameter_1$schema = () => _deepseek_ai_dsh_commands_commands_execute_parameter_1$schema$value ??= string();
+		let _deepseek_ai_dsh_commands_commands_execute_parameter_2$schema$value;
+		const _deepseek_ai_dsh_commands_commands_execute_parameter_2$schema = () => _deepseek_ai_dsh_commands_commands_execute_parameter_2$schema$value ??= array(union([intersection(object({ "type": literal("image").readonly() }), object({
+			"mediaType": union([
+				literal("image/png"),
+				literal("image/jpeg"),
+				literal("image/webp"),
+				literal("image/gif")
+			]),
+			"data": string(),
+			"name": string().optional()
+		})), object({
+			"type": literal("file").readonly(),
+			"receiptId": string().readonly()
+		})]));
+		let _deepseek_ai_dsh_commands_commands_execute_result$schema$value;
+		const _deepseek_ai_dsh_commands_commands_execute_result$schema = () => _deepseek_ai_dsh_commands_commands_execute_result$schema$value ??= union([_undefined(), object({
+			"commandId": intersection(string(), unknown()).readonly(),
+			"result": union([object({
+				"kind": literal("success").readonly(),
+				"text": string().readonly().optional(),
+				"sourceEventSeq": intersection(number(), unknown()).readonly().optional()
+			}), object({
+				"kind": literal("error").readonly(),
+				"text": string().readonly()
+			})]).readonly()
+		})]);
+		let _deepseek_ai_dsh_commands_commands_list_parameter_0$schema$value;
+		const _deepseek_ai_dsh_commands_commands_list_parameter_0$schema = () => _deepseek_ai_dsh_commands_commands_list_parameter_0$schema$value ??= intersection(string(), unknown());
+		let _deepseek_ai_dsh_commands_commands_list_result$schema$value;
+		const _deepseek_ai_dsh_commands_commands_list_result$schema = () => _deepseek_ai_dsh_commands_commands_list_result$schema$value ??= array(object({
+			"definitionId": intersection(string(), unknown()).readonly().optional(),
+			"name": string().readonly(),
+			"description": string().readonly(),
+			"input": object({
+				"hint": string().readonly(),
+				"attachments": boolean().readonly().optional()
+			}).readonly().optional()
+		}));
+		const TYPERT_REMOTE$21 = {
+			package: "@deepseek-ai/dsh-commands",
+			descriptors: [{
+				id: "@deepseek-ai/dsh-commands#commands/execute",
+				service: "commands",
+				namespace: "commands",
+				method: "execute",
+				invocation: { kind: "direct" },
+				scope: {
+					context: "agent",
+					wire: "agentId"
+				},
+				parameters: [
+					{
+						name: "agent",
+						wire: "agentId",
+						source: "lookup",
+						lookup: "agent",
+						codec: {
+							mode: "strict",
+							typeSymbol: "@deepseek-ai/dsh-session/types#SessionId",
+							create: _deepseek_ai_dsh_commands_commands_execute_parameter_0$schema
+						}
+					},
+					{
+						name: "line",
+						wire: "line",
+						source: "json",
+						codec: {
+							mode: "strict",
+							typeSymbol: "@deepseek-ai/dsh-commands#commands/execute:line",
+							create: _deepseek_ai_dsh_commands_commands_execute_parameter_1$schema
+						}
+					},
+					{
+						name: "submittedAttachments",
+						wire: "submittedAttachments",
+						source: "json",
+						codec: {
+							mode: "strict",
+							typeSymbol: "@deepseek-ai/dsh-commands#commands/execute:submittedAttachments",
+							create: _deepseek_ai_dsh_commands_commands_execute_parameter_2$schema
+						}
+					}
+				],
+				cancellation: { parameter: "signal" },
+				result: {
+					mode: "strict",
+					typeSymbol: "@deepseek-ai/dsh-commands#commands/execute:result",
+					create: _deepseek_ai_dsh_commands_commands_execute_result$schema
+				},
+				sourceLocation: {
+					"file": "packages/interaction/commands/src/index.ts",
+					"line": 361,
+					"column": 9
+				}
+			}, {
+				id: "@deepseek-ai/dsh-commands#commands/list",
+				service: "commands",
+				namespace: "commands",
+				method: "list",
+				invocation: { kind: "direct" },
+				scope: {
+					context: "agent",
+					wire: "agentId"
+				},
+				parameters: [{
+					name: "agent",
+					wire: "agentId",
+					source: "lookup",
+					lookup: "agent",
+					codec: {
+						mode: "strict",
+						typeSymbol: "@deepseek-ai/dsh-session/types#SessionId",
+						create: _deepseek_ai_dsh_commands_commands_list_parameter_0$schema
+					}
+				}],
+				result: {
+					mode: "strict",
+					typeSymbol: "@deepseek-ai/dsh-commands#commands/list:result",
+					create: _deepseek_ai_dsh_commands_commands_list_result$schema
+				},
+				sourceLocation: {
+					"file": "packages/interaction/commands/src/index.ts",
+					"line": 315,
+					"column": 3
+				}
+			}]
+		};
+		//#endregion
+		//#region ../account-controller/lib/typert.remote-client.js
+		let _deepseek_ai_dsh_api_account_controller_account_ackBonusNotified_parameter_0$schema$value;
+		const _deepseek_ai_dsh_api_account_controller_account_ackBonusNotified_parameter_0$schema = () => _deepseek_ai_dsh_api_account_controller_account_ackBonusNotified_parameter_0$schema$value ??= intersection(string(), unknown());
+		let _deepseek_ai_dsh_api_account_controller_account_ackBonusNotified_parameter_1$schema$value;
+		const _deepseek_ai_dsh_api_account_controller_account_ackBonusNotified_parameter_1$schema = () => _deepseek_ai_dsh_api_account_controller_account_ackBonusNotified_parameter_1$schema$value ??= intersection(string(), unknown());
+		let _deepseek_ai_dsh_api_account_controller_account_ackBonusNotified_parameter_2$schema$value;
+		const _deepseek_ai_dsh_api_account_controller_account_ackBonusNotified_parameter_2$schema = () => _deepseek_ai_dsh_api_account_controller_account_ackBonusNotified_parameter_2$schema$value ??= object({
+			"version": string().readonly(),
+			"locale": string().readonly(),
+			"timezoneOffsetSeconds": number().readonly()
+		});
+		let _deepseek_ai_dsh_api_account_controller_account_ackBonusNotified_result$schema$value;
+		const _deepseek_ai_dsh_api_account_controller_account_ackBonusNotified_result$schema = () => _deepseek_ai_dsh_api_account_controller_account_ackBonusNotified_result$schema$value ??= boolean();
+		let _deepseek_ai_dsh_api_account_controller_account_cancelSignIn_parameter_0$schema$value;
+		const _deepseek_ai_dsh_api_account_controller_account_cancelSignIn_parameter_0$schema = () => _deepseek_ai_dsh_api_account_controller_account_cancelSignIn_parameter_0$schema$value ??= intersection(string(), unknown());
+		let _deepseek_ai_dsh_api_account_controller_account_cancelSignIn_result$schema$value;
+		const _deepseek_ai_dsh_api_account_controller_account_cancelSignIn_result$schema = () => _deepseek_ai_dsh_api_account_controller_account_cancelSignIn_result$schema$value ??= object({
+			"status": union([literal("signed-out"), literal("credential-stored")]).readonly(),
+			"links": object({
+				"usageUrl": string().readonly(),
+				"topUpUrl": string().readonly()
+			}).readonly(),
+			"attempt": union([literal(null), object({
+				"id": intersection(string(), unknown()).readonly(),
+				"phase": union([
+					literal("initializing"),
+					literal("waiting-browser"),
+					literal("exchanging"),
+					literal("committing"),
+					literal("succeeded"),
+					literal("cancelled"),
+					literal("expired"),
+					literal("failed")
+				]).readonly(),
+				"authorizeUrl": string().readonly().optional(),
+				"expiresAt": number().readonly().optional(),
+				"errorCode": union([
+					literal("expired"),
+					literal("network"),
+					literal("protocol"),
+					literal("storage")
+				]).readonly().optional()
+			})]).readonly()
+		});
+		let _deepseek_ai_dsh_api_account_controller_account_getBalance_parameter_0$schema$value;
+		const _deepseek_ai_dsh_api_account_controller_account_getBalance_parameter_0$schema = () => _deepseek_ai_dsh_api_account_controller_account_getBalance_parameter_0$schema$value ??= object({
+			"version": string().readonly(),
+			"locale": string().readonly(),
+			"timezoneOffsetSeconds": number().readonly()
+		});
+		let _deepseek_ai_dsh_api_account_controller_account_getBalance_result$schema$value;
+		const _deepseek_ai_dsh_api_account_controller_account_getBalance_result$schema = () => _deepseek_ai_dsh_api_account_controller_account_getBalance_result$schema$value ??= union([
+			literal(null),
+			object({
+				"status": literal("ready").readonly(),
+				"value": array(object({
+					"currency": union([literal("CNY"), literal("USD")]).readonly(),
+					"balance": string().readonly()
+				})).readonly(),
+				"bonusWallets": array(object({
+					"currency": union([literal("CNY"), literal("USD")]).readonly(),
+					"balance": string().readonly()
+				})).readonly()
+			}),
+			object({ "status": literal("failed").readonly() })
+		]);
+		let _deepseek_ai_dsh_api_account_controller_account_getProfile_parameter_0$schema$value;
+		const _deepseek_ai_dsh_api_account_controller_account_getProfile_parameter_0$schema = () => _deepseek_ai_dsh_api_account_controller_account_getProfile_parameter_0$schema$value ??= object({
+			"version": string().readonly(),
+			"locale": string().readonly(),
+			"timezoneOffsetSeconds": number().readonly()
+		});
+		let _deepseek_ai_dsh_api_account_controller_account_getProfile_result$schema$value;
+		const _deepseek_ai_dsh_api_account_controller_account_getProfile_result$schema = () => _deepseek_ai_dsh_api_account_controller_account_getProfile_result$schema$value ??= union([
+			literal(null),
+			object({
+				"status": literal("ready").readonly(),
+				"value": object({
+					"id": union([literal(null), intersection(string(), unknown())]).readonly(),
+					"name": union([literal(null), string()]).readonly(),
+					"contact": union([literal(null), string()]).readonly(),
+					"avatarUrl": union([literal(null), string()]).readonly().optional()
+				}).readonly()
+			}),
+			object({ "status": literal("failed").readonly() })
+		]);
+		let _deepseek_ai_dsh_api_account_controller_account_getState_result$schema$value;
+		const _deepseek_ai_dsh_api_account_controller_account_getState_result$schema = () => _deepseek_ai_dsh_api_account_controller_account_getState_result$schema$value ??= object({
+			"status": union([literal("signed-out"), literal("credential-stored")]).readonly(),
+			"links": object({
+				"usageUrl": string().readonly(),
+				"topUpUrl": string().readonly()
+			}).readonly(),
+			"attempt": union([literal(null), object({
+				"id": intersection(string(), unknown()).readonly(),
+				"phase": union([
+					literal("initializing"),
+					literal("waiting-browser"),
+					literal("exchanging"),
+					literal("committing"),
+					literal("succeeded"),
+					literal("cancelled"),
+					literal("expired"),
+					literal("failed")
+				]).readonly(),
+				"authorizeUrl": string().readonly().optional(),
+				"expiresAt": number().readonly().optional(),
+				"errorCode": union([
+					literal("expired"),
+					literal("network"),
+					literal("protocol"),
+					literal("storage")
+				]).readonly().optional()
+			})]).readonly()
+		});
+		let _deepseek_ai_dsh_api_account_controller_account_getUnnotifiedBonuses_parameter_0$schema$value;
+		const _deepseek_ai_dsh_api_account_controller_account_getUnnotifiedBonuses_parameter_0$schema = () => _deepseek_ai_dsh_api_account_controller_account_getUnnotifiedBonuses_parameter_0$schema$value ??= object({
+			"version": string().readonly(),
+			"locale": string().readonly(),
+			"timezoneOffsetSeconds": number().readonly()
+		});
+		let _deepseek_ai_dsh_api_account_controller_account_getUnnotifiedBonuses_result$schema$value;
+		const _deepseek_ai_dsh_api_account_controller_account_getUnnotifiedBonuses_result$schema = () => _deepseek_ai_dsh_api_account_controller_account_getUnnotifiedBonuses_result$schema$value ??= union([literal(null), object({
+			"accountId": intersection(string(), unknown()).readonly(),
+			"bonuses": array(object({
+				"orderId": intersection(string(), unknown()).readonly(),
+				"campaign": string().readonly(),
+				"amount": string().readonly(),
+				"currency": union([literal("CNY"), literal("USD")]).readonly(),
+				"grantedAt": string().readonly(),
+				"expiresAt": string().readonly(),
+				"message": string().readonly()
+			})).readonly()
+		})]);
+		let _deepseek_ai_dsh_api_account_controller_account_hasRunningAccountTasks_result$schema$value;
+		const _deepseek_ai_dsh_api_account_controller_account_hasRunningAccountTasks_result$schema = () => _deepseek_ai_dsh_api_account_controller_account_hasRunningAccountTasks_result$schema$value ??= boolean();
+		let _deepseek_ai_dsh_api_account_controller_account_signOut_parameter_0$schema$value;
+		const _deepseek_ai_dsh_api_account_controller_account_signOut_parameter_0$schema = () => _deepseek_ai_dsh_api_account_controller_account_signOut_parameter_0$schema$value ??= object({
+			"version": string().readonly(),
+			"locale": string().readonly(),
+			"timezoneOffsetSeconds": number().readonly()
+		});
+		let _deepseek_ai_dsh_api_account_controller_account_signOut_result$schema$value;
+		const _deepseek_ai_dsh_api_account_controller_account_signOut_result$schema = () => _deepseek_ai_dsh_api_account_controller_account_signOut_result$schema$value ??= object({
+			"status": union([literal("signed-out"), literal("credential-stored")]).readonly(),
+			"links": object({
+				"usageUrl": string().readonly(),
+				"topUpUrl": string().readonly()
+			}).readonly(),
+			"attempt": union([literal(null), object({
+				"id": intersection(string(), unknown()).readonly(),
+				"phase": union([
+					literal("initializing"),
+					literal("waiting-browser"),
+					literal("exchanging"),
+					literal("committing"),
+					literal("succeeded"),
+					literal("cancelled"),
+					literal("expired"),
+					literal("failed")
+				]).readonly(),
+				"authorizeUrl": string().readonly().optional(),
+				"expiresAt": number().readonly().optional(),
+				"errorCode": union([
+					literal("expired"),
+					literal("network"),
+					literal("protocol"),
+					literal("storage")
+				]).readonly().optional()
+			})]).readonly()
+		});
+		let _deepseek_ai_dsh_api_account_controller_account_startSignIn_parameter_0$schema$value;
+		const _deepseek_ai_dsh_api_account_controller_account_startSignIn_parameter_0$schema = () => _deepseek_ai_dsh_api_account_controller_account_startSignIn_parameter_0$schema$value ??= object({
+			"version": string().readonly(),
+			"locale": string().readonly(),
+			"timezoneOffsetSeconds": number().readonly()
+		});
+		let _deepseek_ai_dsh_api_account_controller_account_startSignIn_parameter_1$schema$value;
+		const _deepseek_ai_dsh_api_account_controller_account_startSignIn_parameter_1$schema = () => _deepseek_ai_dsh_api_account_controller_account_startSignIn_parameter_1$schema$value ??= string();
+		let _deepseek_ai_dsh_api_account_controller_account_startSignIn_parameter_2$schema$value;
+		const _deepseek_ai_dsh_api_account_controller_account_startSignIn_parameter_2$schema = () => _deepseek_ai_dsh_api_account_controller_account_startSignIn_parameter_2$schema$value ??= union([literal("web"), literal("desktop")]);
+		let _deepseek_ai_dsh_api_account_controller_account_startSignIn_result$schema$value;
+		const _deepseek_ai_dsh_api_account_controller_account_startSignIn_result$schema = () => _deepseek_ai_dsh_api_account_controller_account_startSignIn_result$schema$value ??= object({
+			"status": union([literal("signed-out"), literal("credential-stored")]).readonly(),
+			"links": object({
+				"usageUrl": string().readonly(),
+				"topUpUrl": string().readonly()
+			}).readonly(),
+			"attempt": union([literal(null), object({
+				"id": intersection(string(), unknown()).readonly(),
+				"phase": union([
+					literal("initializing"),
+					literal("waiting-browser"),
+					literal("exchanging"),
+					literal("committing"),
+					literal("succeeded"),
+					literal("cancelled"),
+					literal("expired"),
+					literal("failed")
+				]).readonly(),
+				"authorizeUrl": string().readonly().optional(),
+				"expiresAt": number().readonly().optional(),
+				"errorCode": union([
+					literal("expired"),
+					literal("network"),
+					literal("protocol"),
+					literal("storage")
+				]).readonly().optional()
+			})]).readonly()
+		});
+		let _deepseek_ai_dsh_api_account_controller_account_watch_result$schema$value;
+		const _deepseek_ai_dsh_api_account_controller_account_watch_result$schema = () => _deepseek_ai_dsh_api_account_controller_account_watch_result$schema$value ??= object({
+			"status": union([literal("signed-out"), literal("credential-stored")]).readonly(),
+			"links": object({
+				"usageUrl": string().readonly(),
+				"topUpUrl": string().readonly()
+			}).readonly(),
+			"attempt": union([literal(null), object({
+				"id": intersection(string(), unknown()).readonly(),
+				"phase": union([
+					literal("initializing"),
+					literal("waiting-browser"),
+					literal("exchanging"),
+					literal("committing"),
+					literal("succeeded"),
+					literal("cancelled"),
+					literal("expired"),
+					literal("failed")
+				]).readonly(),
+				"authorizeUrl": string().readonly().optional(),
+				"expiresAt": number().readonly().optional(),
+				"errorCode": union([
+					literal("expired"),
+					literal("network"),
+					literal("protocol"),
+					literal("storage")
+				]).readonly().optional()
+			})]).readonly()
+		});
+		let _deepseek_ai_dsh_api_account_controller_account_watchExpiry_result$schema$value;
+		const _deepseek_ai_dsh_api_account_controller_account_watchExpiry_result$schema = () => _deepseek_ai_dsh_api_account_controller_account_watchExpiry_result$schema$value ??= literal("session-expired");
+		const TYPERT_REMOTE$20 = {
+			package: "@deepseek-ai/dsh-api-account-controller",
+			descriptors: [
+				{
+					id: "@deepseek-ai/dsh-api-account-controller#account/ackBonusNotified",
+					service: "accountController",
+					namespace: "account",
+					method: "ackBonusNotified",
+					invocation: { kind: "direct" },
+					parameters: [
+						{
+							name: "accountId",
+							wire: "accountId",
+							source: "json",
+							codec: {
+								mode: "strict",
+								typeSymbol: "@deepseek-ai/dsh-deepseek-account/types#AccountUserId",
+								create: _deepseek_ai_dsh_api_account_controller_account_ackBonusNotified_parameter_0$schema
+							}
+						},
+						{
+							name: "orderId",
+							wire: "orderId",
+							source: "json",
+							codec: {
+								mode: "strict",
+								typeSymbol: "@deepseek-ai/dsh-deepseek-account/types#AccountBonusOrderId",
+								create: _deepseek_ai_dsh_api_account_controller_account_ackBonusNotified_parameter_1$schema
+							}
+						},
+						{
+							name: "client",
+							wire: "client",
+							source: "json",
+							codec: {
+								mode: "strict",
+								typeSymbol: "@deepseek-ai/dsh-deepseek-account/types#AccountClientMetadata",
+								create: _deepseek_ai_dsh_api_account_controller_account_ackBonusNotified_parameter_2$schema
+							}
+						}
+					],
+					result: {
+						mode: "strict",
+						typeSymbol: "@deepseek-ai/dsh-api-account-controller#account/ackBonusNotified:result",
+						create: _deepseek_ai_dsh_api_account_controller_account_ackBonusNotified_result$schema
+					},
+					sourceLocation: {
+						"file": "packages/api/account-controller/src/index.ts",
+						"line": 55,
+						"column": 3
+					}
+				},
+				{
+					id: "@deepseek-ai/dsh-api-account-controller#account/cancelSignIn",
+					service: "accountController",
+					namespace: "account",
+					method: "cancelSignIn",
+					invocation: { kind: "direct" },
+					parameters: [{
+						name: "attemptId",
+						wire: "attemptId",
+						source: "json",
+						codec: {
+							mode: "strict",
+							typeSymbol: "@deepseek-ai/dsh-deepseek-account/types#SignInAttemptId",
+							create: _deepseek_ai_dsh_api_account_controller_account_cancelSignIn_parameter_0$schema
+						}
+					}],
+					result: {
+						mode: "strict",
+						typeSymbol: "@deepseek-ai/dsh-deepseek-account/types#AccountView",
+						create: _deepseek_ai_dsh_api_account_controller_account_cancelSignIn_result$schema
+					},
+					sourceLocation: {
+						"file": "packages/api/account-controller/src/index.ts",
+						"line": 75,
+						"column": 3
+					}
+				},
+				{
+					id: "@deepseek-ai/dsh-api-account-controller#account/getBalance",
+					service: "accountController",
+					namespace: "account",
+					method: "getBalance",
+					invocation: { kind: "direct" },
+					parameters: [{
+						name: "client",
+						wire: "client",
+						source: "json",
+						codec: {
+							mode: "strict",
+							typeSymbol: "@deepseek-ai/dsh-deepseek-account/types#AccountClientMetadata",
+							create: _deepseek_ai_dsh_api_account_controller_account_getBalance_parameter_0$schema
+						}
+					}],
+					result: {
+						mode: "strict",
+						typeSymbol: "@deepseek-ai/dsh-api-account-controller#account/getBalance:result",
+						create: _deepseek_ai_dsh_api_account_controller_account_getBalance_result$schema
+					},
+					sourceLocation: {
+						"file": "packages/api/account-controller/src/index.ts",
+						"line": 35,
+						"column": 3
+					}
+				},
+				{
+					id: "@deepseek-ai/dsh-api-account-controller#account/getProfile",
+					service: "accountController",
+					namespace: "account",
+					method: "getProfile",
+					invocation: { kind: "direct" },
+					parameters: [{
+						name: "client",
+						wire: "client",
+						source: "json",
+						codec: {
+							mode: "strict",
+							typeSymbol: "@deepseek-ai/dsh-deepseek-account/types#AccountClientMetadata",
+							create: _deepseek_ai_dsh_api_account_controller_account_getProfile_parameter_0$schema
+						}
+					}],
+					result: {
+						mode: "strict",
+						typeSymbol: "@deepseek-ai/dsh-api-account-controller#account/getProfile:result",
+						create: _deepseek_ai_dsh_api_account_controller_account_getProfile_result$schema
+					},
+					sourceLocation: {
+						"file": "packages/api/account-controller/src/index.ts",
+						"line": 26,
+						"column": 3
+					}
+				},
+				{
+					id: "@deepseek-ai/dsh-api-account-controller#account/getState",
+					service: "accountController",
+					namespace: "account",
+					method: "getState",
+					invocation: { kind: "direct" },
+					parameters: [],
+					result: {
+						mode: "strict",
+						typeSymbol: "@deepseek-ai/dsh-deepseek-account/types#AccountView",
+						create: _deepseek_ai_dsh_api_account_controller_account_getState_result$schema
+					},
+					sourceLocation: {
+						"file": "packages/api/account-controller/src/index.ts",
+						"line": 19,
+						"column": 3
+					}
+				},
+				{
+					id: "@deepseek-ai/dsh-api-account-controller#account/getUnnotifiedBonuses",
+					service: "accountController",
+					namespace: "account",
+					method: "getUnnotifiedBonuses",
+					invocation: { kind: "direct" },
+					parameters: [{
+						name: "client",
+						wire: "client",
+						source: "json",
+						codec: {
+							mode: "strict",
+							typeSymbol: "@deepseek-ai/dsh-deepseek-account/types#AccountClientMetadata",
+							create: _deepseek_ai_dsh_api_account_controller_account_getUnnotifiedBonuses_parameter_0$schema
+						}
+					}],
+					result: {
+						mode: "strict",
+						typeSymbol: "@deepseek-ai/dsh-api-account-controller#account/getUnnotifiedBonuses:result",
+						create: _deepseek_ai_dsh_api_account_controller_account_getUnnotifiedBonuses_result$schema
+					},
+					sourceLocation: {
+						"file": "packages/api/account-controller/src/index.ts",
+						"line": 44,
+						"column": 3
+					}
+				},
+				{
+					id: "@deepseek-ai/dsh-api-account-controller#account/hasRunningAccountTasks",
+					service: "accountController",
+					namespace: "account",
+					method: "hasRunningAccountTasks",
+					invocation: { kind: "direct" },
+					parameters: [],
+					result: {
+						mode: "strict",
+						typeSymbol: "@deepseek-ai/dsh-api-account-controller#account/hasRunningAccountTasks:result",
+						create: _deepseek_ai_dsh_api_account_controller_account_hasRunningAccountTasks_result$schema
+					},
+					sourceLocation: {
+						"file": "packages/api/account-controller/src/index.ts",
+						"line": 81,
+						"column": 3
+					}
+				},
+				{
+					id: "@deepseek-ai/dsh-api-account-controller#account/signOut",
+					service: "accountController",
+					namespace: "account",
+					method: "signOut",
+					invocation: { kind: "direct" },
+					parameters: [{
+						name: "client",
+						wire: "client",
+						source: "json",
+						codec: {
+							mode: "strict",
+							typeSymbol: "@deepseek-ai/dsh-deepseek-account/types#AccountClientMetadata",
+							create: _deepseek_ai_dsh_api_account_controller_account_signOut_parameter_0$schema
+						}
+					}],
+					result: {
+						mode: "strict",
+						typeSymbol: "@deepseek-ai/dsh-deepseek-account/types#AccountView",
+						create: _deepseek_ai_dsh_api_account_controller_account_signOut_result$schema
+					},
+					sourceLocation: {
+						"file": "packages/api/account-controller/src/index.ts",
+						"line": 90,
+						"column": 3
+					}
+				},
+				{
+					id: "@deepseek-ai/dsh-api-account-controller#account/startSignIn",
+					service: "accountController",
+					namespace: "account",
+					method: "startSignIn",
+					invocation: { kind: "direct" },
+					parameters: [
+						{
+							name: "client",
+							wire: "client",
+							source: "json",
+							codec: {
+								mode: "strict",
+								typeSymbol: "@deepseek-ai/dsh-deepseek-account/types#AccountClientMetadata",
+								create: _deepseek_ai_dsh_api_account_controller_account_startSignIn_parameter_0$schema
+							}
+						},
+						{
+							name: "callbackOrigin",
+							wire: "callbackOrigin",
+							source: "json",
+							codec: {
+								mode: "strict",
+								typeSymbol: "@deepseek-ai/dsh-api-account-controller#account/startSignIn:callbackOrigin",
+								create: _deepseek_ai_dsh_api_account_controller_account_startSignIn_parameter_1$schema
+							}
+						},
+						{
+							name: "loginSource",
+							wire: "loginSource",
+							source: "json",
+							codec: {
+								mode: "strict",
+								typeSymbol: "@deepseek-ai/dsh-api-account-controller#account/startSignIn:loginSource",
+								create: _deepseek_ai_dsh_api_account_controller_account_startSignIn_parameter_2$schema
+							}
+						}
+					],
+					result: {
+						mode: "strict",
+						typeSymbol: "@deepseek-ai/dsh-deepseek-account/types#AccountView",
+						create: _deepseek_ai_dsh_api_account_controller_account_startSignIn_result$schema
+					},
+					sourceLocation: {
+						"file": "packages/api/account-controller/src/index.ts",
+						"line": 66,
+						"column": 3
+					}
+				},
+				{
+					id: "@deepseek-ai/dsh-api-account-controller#account/watch",
+					service: "accountController",
+					namespace: "account",
+					method: "watch",
+					mode: "stream",
+					invocation: { kind: "direct" },
+					parameters: [],
+					cancellation: { parameter: "signal" },
+					result: {
+						mode: "strict",
+						typeSymbol: "@deepseek-ai/dsh-deepseek-account/types#AccountView",
+						create: _deepseek_ai_dsh_api_account_controller_account_watch_result$schema
+					},
+					sourceLocation: {
+						"file": "packages/api/account-controller/src/index.ts",
+						"line": 119,
+						"column": 3
+					}
+				},
+				{
+					id: "@deepseek-ai/dsh-api-account-controller#account/watchExpiry",
+					service: "accountController",
+					namespace: "account",
+					method: "watchExpiry",
+					mode: "stream",
+					invocation: { kind: "direct" },
+					parameters: [],
+					cancellation: { parameter: "signal" },
+					result: {
+						mode: "strict",
+						typeSymbol: "@deepseek-ai/dsh-api-account-controller#account/watchExpiry:result",
+						create: _deepseek_ai_dsh_api_account_controller_account_watchExpiry_result$schema
+					},
+					sourceLocation: {
+						"file": "packages/api/account-controller/src/index.ts",
+						"line": 97,
+						"column": 10
+					}
+				}
+			]
+		};
+		//#endregion
+		//#region ../settings-controller/lib/typert.remote-client.js
+		let JsonValueRemoteCodec$schema$value$2;
+		const JsonValueRemoteCodec$schema$2 = () => JsonValueRemoteCodec$schema$value$2 ??= union([
+			literal(null),
+			string(),
+			number(),
+			literal(false),
+			literal(true),
+			array(lazy(() => JsonValueRemoteCodec$schema$2())),
+			record(string(), lazy(() => JsonValueRemoteCodec$schema$2()))
+		]);
+		let JsonValueRemoteCodec$schema2$value$2;
+		const JsonValueRemoteCodec$schema2$2 = () => JsonValueRemoteCodec$schema2$value$2 ??= union([
+			literal(null),
+			string(),
+			number(),
+			literal(false),
+			literal(true),
+			array(lazy(() => JsonValueRemoteCodec$schema2$2())),
+			record(string(), lazy(() => JsonValueRemoteCodec$schema2$2()))
+		]);
+		let JsonValueRemoteCodec$schema3$value$2;
+		const JsonValueRemoteCodec$schema3$2 = () => JsonValueRemoteCodec$schema3$value$2 ??= union([
+			literal(null),
+			string(),
+			number(),
+			literal(false),
+			literal(true),
+			array(lazy(() => JsonValueRemoteCodec$schema3$2())),
+			record(string(), lazy(() => JsonValueRemoteCodec$schema3$2()))
+		]);
+		let JsonValueRemoteCodec$schema4$value$2;
+		const JsonValueRemoteCodec$schema4$2 = () => JsonValueRemoteCodec$schema4$value$2 ??= union([
+			literal(null),
+			string(),
+			number(),
+			literal(false),
+			literal(true),
+			array(lazy(() => JsonValueRemoteCodec$schema4$2())),
+			record(string(), lazy(() => JsonValueRemoteCodec$schema4$2()))
+		]);
+		let JsonValueRemoteCodec$schema5$value$1;
+		const JsonValueRemoteCodec$schema5$1 = () => JsonValueRemoteCodec$schema5$value$1 ??= union([
+			literal(null),
+			string(),
+			number(),
+			literal(false),
+			literal(true),
+			array(lazy(() => JsonValueRemoteCodec$schema5$1())),
+			record(string(), lazy(() => JsonValueRemoteCodec$schema5$1()))
+		]);
+		let JsonValueRemoteCodec$schema6$value;
+		const JsonValueRemoteCodec$schema6 = () => JsonValueRemoteCodec$schema6$value ??= union([
+			literal(null),
+			string(),
+			number(),
+			literal(false),
+			literal(true),
+			array(lazy(() => JsonValueRemoteCodec$schema6())),
+			record(string(), lazy(() => JsonValueRemoteCodec$schema6()))
+		]);
+		let JsonValueRemoteCodec$schema7$value;
+		const JsonValueRemoteCodec$schema7 = () => JsonValueRemoteCodec$schema7$value ??= union([
+			literal(null),
+			string(),
+			number(),
+			literal(false),
+			literal(true),
+			array(lazy(() => JsonValueRemoteCodec$schema7())),
+			record(string(), lazy(() => JsonValueRemoteCodec$schema7()))
+		]);
+		let _deepseek_ai_dsh_api_settings_controller_credentials_describe_parameter_0$schema$value;
+		const _deepseek_ai_dsh_api_settings_controller_credentials_describe_parameter_0$schema = () => _deepseek_ai_dsh_api_settings_controller_credentials_describe_parameter_0$schema$value ??= array(string());
+		let _deepseek_ai_dsh_api_settings_controller_credentials_describe_result$schema$value;
+		const _deepseek_ai_dsh_api_settings_controller_credentials_describe_result$schema = () => _deepseek_ai_dsh_api_settings_controller_credentials_describe_result$schema$value ??= record(string(), object({
+			"configured": boolean(),
+			"source": string().optional(),
+			"writable": boolean()
+		}));
+		let _deepseek_ai_dsh_api_settings_controller_credentials_set_parameter_0$schema$value;
+		const _deepseek_ai_dsh_api_settings_controller_credentials_set_parameter_0$schema = () => _deepseek_ai_dsh_api_settings_controller_credentials_set_parameter_0$schema$value ??= string();
+		let _deepseek_ai_dsh_api_settings_controller_credentials_set_parameter_1$schema$value;
+		const _deepseek_ai_dsh_api_settings_controller_credentials_set_parameter_1$schema = () => _deepseek_ai_dsh_api_settings_controller_credentials_set_parameter_1$schema$value ??= string();
+		let _deepseek_ai_dsh_api_settings_controller_credentials_set_result$schema$value;
+		const _deepseek_ai_dsh_api_settings_controller_credentials_set_result$schema = () => _deepseek_ai_dsh_api_settings_controller_credentials_set_result$schema$value ??= _void();
+		let _deepseek_ai_dsh_api_settings_controller_credentials_unset_parameter_0$schema$value;
+		const _deepseek_ai_dsh_api_settings_controller_credentials_unset_parameter_0$schema = () => _deepseek_ai_dsh_api_settings_controller_credentials_unset_parameter_0$schema$value ??= string();
+		let _deepseek_ai_dsh_api_settings_controller_credentials_unset_result$schema$value;
+		const _deepseek_ai_dsh_api_settings_controller_credentials_unset_result$schema = () => _deepseek_ai_dsh_api_settings_controller_credentials_unset_result$schema$value ??= _void();
+		let _deepseek_ai_dsh_api_settings_controller_settings_describe_result$schema$value;
+		const _deepseek_ai_dsh_api_settings_controller_settings_describe_result$schema = () => _deepseek_ai_dsh_api_settings_controller_settings_describe_result$schema$value ??= object({
+			"writable": boolean(),
+			"hasDocument": boolean(),
+			"namespaces": array(object({
+				"autoGenerate": boolean(),
+				"ns": string(),
+				"schema": union([
+					literal(null),
+					string(),
+					number(),
+					literal(false),
+					literal(true),
+					array(lazy(() => JsonValueRemoteCodec$schema7())),
+					record(string(), lazy(() => JsonValueRemoteCodec$schema7()))
+				]),
+				"value": union([
+					literal(null),
+					string(),
+					number(),
+					literal(false),
+					literal(true),
+					array(lazy(() => JsonValueRemoteCodec$schema7())),
+					record(string(), lazy(() => JsonValueRemoteCodec$schema7()))
+				]),
+				"base": union([
+					literal(null),
+					string(),
+					number(),
+					literal(false),
+					literal(true),
+					array(lazy(() => JsonValueRemoteCodec$schema7())),
+					record(string(), lazy(() => JsonValueRemoteCodec$schema7()))
+				]).optional(),
+				"user": union([
+					literal(null),
+					string(),
+					number(),
+					literal(false),
+					literal(true),
+					array(lazy(() => JsonValueRemoteCodec$schema7())),
+					record(string(), lazy(() => JsonValueRemoteCodec$schema7()))
+				]).optional(),
+				"applies": literal("live"),
+				"secrets": array(object({
+					"path": array(string()),
+					"set": boolean()
+				})),
+				"revision": number()
+			}))
+		});
+		let _deepseek_ai_dsh_api_settings_controller_settings_mutate_parameter_0$schema$value;
+		const _deepseek_ai_dsh_api_settings_controller_settings_mutate_parameter_0$schema = () => _deepseek_ai_dsh_api_settings_controller_settings_mutate_parameter_0$schema$value ??= string();
+		let _deepseek_ai_dsh_api_settings_controller_settings_mutate_parameter_1$schema$value;
+		const _deepseek_ai_dsh_api_settings_controller_settings_mutate_parameter_1$schema = () => _deepseek_ai_dsh_api_settings_controller_settings_mutate_parameter_1$schema$value ??= array(union([object({
+			"op": literal("set"),
+			"path": array(string()),
+			"value": union([
+				literal(null),
+				string(),
+				number(),
+				literal(false),
+				literal(true),
+				array(lazy(() => JsonValueRemoteCodec$schema5$1())),
+				record(string(), lazy(() => JsonValueRemoteCodec$schema5$1()))
+			])
+		}), object({
+			"op": literal("unset"),
+			"path": array(string())
+		})]));
+		let _deepseek_ai_dsh_api_settings_controller_settings_mutate_parameter_2$schema$value;
+		const _deepseek_ai_dsh_api_settings_controller_settings_mutate_parameter_2$schema = () => _deepseek_ai_dsh_api_settings_controller_settings_mutate_parameter_2$schema$value ??= union([_undefined(), number()]);
+		let _deepseek_ai_dsh_api_settings_controller_settings_mutate_result$schema$value;
+		const _deepseek_ai_dsh_api_settings_controller_settings_mutate_result$schema = () => _deepseek_ai_dsh_api_settings_controller_settings_mutate_result$schema$value ??= object({
+			"autoGenerate": boolean(),
+			"ns": string(),
+			"schema": union([
+				literal(null),
+				string(),
+				number(),
+				literal(false),
+				literal(true),
+				array(lazy(() => JsonValueRemoteCodec$schema6())),
+				record(string(), lazy(() => JsonValueRemoteCodec$schema6()))
+			]),
+			"value": union([
+				literal(null),
+				string(),
+				number(),
+				literal(false),
+				literal(true),
+				array(lazy(() => JsonValueRemoteCodec$schema6())),
+				record(string(), lazy(() => JsonValueRemoteCodec$schema6()))
+			]),
+			"base": union([
+				literal(null),
+				string(),
+				number(),
+				literal(false),
+				literal(true),
+				array(lazy(() => JsonValueRemoteCodec$schema6())),
+				record(string(), lazy(() => JsonValueRemoteCodec$schema6()))
+			]).optional(),
+			"user": union([
+				literal(null),
+				string(),
+				number(),
+				literal(false),
+				literal(true),
+				array(lazy(() => JsonValueRemoteCodec$schema6())),
+				record(string(), lazy(() => JsonValueRemoteCodec$schema6()))
+			]).optional(),
+			"applies": literal("live"),
+			"secrets": array(object({
+				"path": array(string()),
+				"set": boolean()
+			})),
+			"revision": number()
+		});
+		let _deepseek_ai_dsh_api_settings_controller_settings_openSettingsDocument_result$schema$value;
+		const _deepseek_ai_dsh_api_settings_controller_settings_openSettingsDocument_result$schema = () => _deepseek_ai_dsh_api_settings_controller_settings_openSettingsDocument_result$schema$value ??= object({ "opened": literal(true).readonly() });
+		let _deepseek_ai_dsh_api_settings_controller_settings_replace_parameter_0$schema$value;
+		const _deepseek_ai_dsh_api_settings_controller_settings_replace_parameter_0$schema = () => _deepseek_ai_dsh_api_settings_controller_settings_replace_parameter_0$schema$value ??= string();
+		let _deepseek_ai_dsh_api_settings_controller_settings_replace_parameter_1$schema$value;
+		const _deepseek_ai_dsh_api_settings_controller_settings_replace_parameter_1$schema = () => _deepseek_ai_dsh_api_settings_controller_settings_replace_parameter_1$schema$value ??= record(string(), union([
+			literal(null),
+			string(),
+			number(),
+			literal(false),
+			literal(true),
+			array(lazy(() => JsonValueRemoteCodec$schema3$2())),
+			record(string(), lazy(() => JsonValueRemoteCodec$schema3$2()))
+		]));
+		let _deepseek_ai_dsh_api_settings_controller_settings_replace_parameter_2$schema$value;
+		const _deepseek_ai_dsh_api_settings_controller_settings_replace_parameter_2$schema = () => _deepseek_ai_dsh_api_settings_controller_settings_replace_parameter_2$schema$value ??= union([_undefined(), number()]);
+		let _deepseek_ai_dsh_api_settings_controller_settings_replace_result$schema$value;
+		const _deepseek_ai_dsh_api_settings_controller_settings_replace_result$schema = () => _deepseek_ai_dsh_api_settings_controller_settings_replace_result$schema$value ??= object({
+			"autoGenerate": boolean(),
+			"ns": string(),
+			"schema": union([
+				literal(null),
+				string(),
+				number(),
+				literal(false),
+				literal(true),
+				array(lazy(() => JsonValueRemoteCodec$schema4$2())),
+				record(string(), lazy(() => JsonValueRemoteCodec$schema4$2()))
+			]),
+			"value": union([
+				literal(null),
+				string(),
+				number(),
+				literal(false),
+				literal(true),
+				array(lazy(() => JsonValueRemoteCodec$schema4$2())),
+				record(string(), lazy(() => JsonValueRemoteCodec$schema4$2()))
+			]),
+			"base": union([
+				literal(null),
+				string(),
+				number(),
+				literal(false),
+				literal(true),
+				array(lazy(() => JsonValueRemoteCodec$schema4$2())),
+				record(string(), lazy(() => JsonValueRemoteCodec$schema4$2()))
+			]).optional(),
+			"user": union([
+				literal(null),
+				string(),
+				number(),
+				literal(false),
+				literal(true),
+				array(lazy(() => JsonValueRemoteCodec$schema4$2())),
+				record(string(), lazy(() => JsonValueRemoteCodec$schema4$2()))
+			]).optional(),
+			"applies": literal("live"),
+			"secrets": array(object({
+				"path": array(string()),
+				"set": boolean()
+			})),
+			"revision": number()
+		});
+		let _deepseek_ai_dsh_api_settings_controller_settings_update_parameter_0$schema$value;
+		const _deepseek_ai_dsh_api_settings_controller_settings_update_parameter_0$schema = () => _deepseek_ai_dsh_api_settings_controller_settings_update_parameter_0$schema$value ??= string();
+		let _deepseek_ai_dsh_api_settings_controller_settings_update_parameter_1$schema$value;
+		const _deepseek_ai_dsh_api_settings_controller_settings_update_parameter_1$schema = () => _deepseek_ai_dsh_api_settings_controller_settings_update_parameter_1$schema$value ??= record(string(), union([
+			literal(null),
+			string(),
+			number(),
+			literal(false),
+			literal(true),
+			array(lazy(() => JsonValueRemoteCodec$schema$2())),
+			record(string(), lazy(() => JsonValueRemoteCodec$schema$2()))
+		]));
+		let _deepseek_ai_dsh_api_settings_controller_settings_update_parameter_2$schema$value;
+		const _deepseek_ai_dsh_api_settings_controller_settings_update_parameter_2$schema = () => _deepseek_ai_dsh_api_settings_controller_settings_update_parameter_2$schema$value ??= union([_undefined(), number()]);
+		let _deepseek_ai_dsh_api_settings_controller_settings_update_result$schema$value;
+		const _deepseek_ai_dsh_api_settings_controller_settings_update_result$schema = () => _deepseek_ai_dsh_api_settings_controller_settings_update_result$schema$value ??= object({
+			"autoGenerate": boolean(),
+			"ns": string(),
+			"schema": union([
+				literal(null),
+				string(),
+				number(),
+				literal(false),
+				literal(true),
+				array(lazy(() => JsonValueRemoteCodec$schema2$2())),
+				record(string(), lazy(() => JsonValueRemoteCodec$schema2$2()))
+			]),
+			"value": union([
+				literal(null),
+				string(),
+				number(),
+				literal(false),
+				literal(true),
+				array(lazy(() => JsonValueRemoteCodec$schema2$2())),
+				record(string(), lazy(() => JsonValueRemoteCodec$schema2$2()))
+			]),
+			"base": union([
+				literal(null),
+				string(),
+				number(),
+				literal(false),
+				literal(true),
+				array(lazy(() => JsonValueRemoteCodec$schema2$2())),
+				record(string(), lazy(() => JsonValueRemoteCodec$schema2$2()))
+			]).optional(),
+			"user": union([
+				literal(null),
+				string(),
+				number(),
+				literal(false),
+				literal(true),
+				array(lazy(() => JsonValueRemoteCodec$schema2$2())),
+				record(string(), lazy(() => JsonValueRemoteCodec$schema2$2()))
+			]).optional(),
+			"applies": literal("live"),
+			"secrets": array(object({
+				"path": array(string()),
+				"set": boolean()
+			})),
+			"revision": number()
+		});
+		const TYPERT_REMOTE$19 = {
+			package: "@deepseek-ai/dsh-api-settings-controller",
+			descriptors: [
+				{
+					id: "@deepseek-ai/dsh-api-settings-controller#credentials/describe",
+					service: "credentialsController",
+					namespace: "credentials",
+					method: "describe",
+					invocation: { kind: "direct" },
+					parameters: [{
+						name: "refs",
+						wire: "refs",
+						source: "json",
+						codec: {
+							mode: "strict",
+							typeSymbol: "@deepseek-ai/dsh-api-settings-controller#credentials/describe:refs",
+							create: _deepseek_ai_dsh_api_settings_controller_credentials_describe_parameter_0$schema
+						}
+					}],
+					result: {
+						mode: "strict",
+						typeSymbol: "@deepseek-ai/dsh-api-settings-controller#credentials/describe:result",
+						create: _deepseek_ai_dsh_api_settings_controller_credentials_describe_result$schema
+					},
+					sourceLocation: {
+						"file": "packages/api/settings-controller/src/credentials.ts",
+						"line": 83,
+						"column": 9
+					}
+				},
+				{
+					id: "@deepseek-ai/dsh-api-settings-controller#credentials/set",
+					service: "credentialsController",
+					namespace: "credentials",
+					method: "set",
+					invocation: { kind: "direct" },
+					parameters: [{
+						name: "ref",
+						wire: "ref",
+						source: "json",
+						codec: {
+							mode: "strict",
+							typeSymbol: "@deepseek-ai/dsh-api-settings-controller#credentials/set:ref",
+							create: _deepseek_ai_dsh_api_settings_controller_credentials_set_parameter_0$schema
+						}
+					}, {
+						name: "value",
+						wire: "value",
+						source: "json",
+						codec: {
+							mode: "strict",
+							typeSymbol: "@deepseek-ai/dsh-api-settings-controller#credentials/set:value",
+							create: _deepseek_ai_dsh_api_settings_controller_credentials_set_parameter_1$schema
+						}
+					}],
+					result: {
+						mode: "strict",
+						typeSymbol: "@deepseek-ai/dsh-api-settings-controller#credentials/set:result",
+						create: _deepseek_ai_dsh_api_settings_controller_credentials_set_result$schema
+					},
+					sourceLocation: {
+						"file": "packages/api/settings-controller/src/credentials.ts",
+						"line": 100,
+						"column": 9
+					}
+				},
+				{
+					id: "@deepseek-ai/dsh-api-settings-controller#credentials/unset",
+					service: "credentialsController",
+					namespace: "credentials",
+					method: "unset",
+					invocation: { kind: "direct" },
+					parameters: [{
+						name: "ref",
+						wire: "ref",
+						source: "json",
+						codec: {
+							mode: "strict",
+							typeSymbol: "@deepseek-ai/dsh-api-settings-controller#credentials/unset:ref",
+							create: _deepseek_ai_dsh_api_settings_controller_credentials_unset_parameter_0$schema
+						}
+					}],
+					result: {
+						mode: "strict",
+						typeSymbol: "@deepseek-ai/dsh-api-settings-controller#credentials/unset:result",
+						create: _deepseek_ai_dsh_api_settings_controller_credentials_unset_result$schema
+					},
+					sourceLocation: {
+						"file": "packages/api/settings-controller/src/credentials.ts",
+						"line": 113,
+						"column": 9
+					}
+				},
+				{
+					id: "@deepseek-ai/dsh-api-settings-controller#settings/describe",
+					service: "settingsController",
+					namespace: "settings",
+					method: "describe",
+					invocation: { kind: "direct" },
+					parameters: [],
+					result: {
+						mode: "strict",
+						typeSymbol: "@deepseek-ai/dsh-settings/types#SettingsDescribeValue",
+						create: _deepseek_ai_dsh_api_settings_controller_settings_describe_result$schema
+					},
+					sourceLocation: {
+						"file": "packages/api/settings-controller/src/index.ts",
+						"line": 98,
+						"column": 3
+					}
+				},
+				{
+					id: "@deepseek-ai/dsh-api-settings-controller#settings/mutate",
+					service: "settingsController",
+					namespace: "settings",
+					method: "mutate",
+					invocation: { kind: "direct" },
+					parameters: [
+						{
+							name: "ns",
+							wire: "ns",
+							source: "json",
+							codec: {
+								mode: "strict",
+								typeSymbol: "@deepseek-ai/dsh-api-settings-controller#settings/mutate:ns",
+								create: _deepseek_ai_dsh_api_settings_controller_settings_mutate_parameter_0$schema
+							}
+						},
+						{
+							name: "ops",
+							wire: "ops",
+							source: "json",
+							codec: {
+								mode: "strict",
+								typeSymbol: "@deepseek-ai/dsh-api-settings-controller#settings/mutate:ops",
+								create: _deepseek_ai_dsh_api_settings_controller_settings_mutate_parameter_1$schema
+							}
+						},
+						{
+							name: "expectedRevision",
+							wire: "expectedRevision",
+							source: "json",
+							acceptsUndefined: true,
+							codec: {
+								mode: "strict",
+								typeSymbol: "@deepseek-ai/dsh-api-settings-controller#settings/mutate:expectedRevision",
+								create: _deepseek_ai_dsh_api_settings_controller_settings_mutate_parameter_2$schema
+							}
+						}
+					],
+					result: {
+						mode: "strict",
+						typeSymbol: "@deepseek-ai/dsh-settings/types#SettingsNamespaceView",
+						create: _deepseek_ai_dsh_api_settings_controller_settings_mutate_result$schema
+					},
+					sourceLocation: {
+						"file": "packages/api/settings-controller/src/index.ts",
+						"line": 152,
+						"column": 9
+					}
+				},
+				{
+					id: "@deepseek-ai/dsh-api-settings-controller#settings/openSettingsDocument",
+					service: "settingsController",
+					namespace: "settings",
+					method: "openSettingsDocument",
+					invocation: { kind: "direct" },
+					parameters: [],
+					cancellation: { parameter: "signal" },
+					result: {
+						mode: "strict",
+						typeSymbol: "@deepseek-ai/dsh-api-settings-controller/types#SettingsDocumentOpenValue",
+						create: _deepseek_ai_dsh_api_settings_controller_settings_openSettingsDocument_result$schema
+					},
+					sourceLocation: {
+						"file": "packages/api/settings-controller/src/index.ts",
+						"line": 167,
+						"column": 9
+					}
+				},
+				{
+					id: "@deepseek-ai/dsh-api-settings-controller#settings/replace",
+					service: "settingsController",
+					namespace: "settings",
+					method: "replace",
+					invocation: { kind: "direct" },
+					parameters: [
+						{
+							name: "ns",
+							wire: "ns",
+							source: "json",
+							codec: {
+								mode: "strict",
+								typeSymbol: "@deepseek-ai/dsh-api-settings-controller#settings/replace:ns",
+								create: _deepseek_ai_dsh_api_settings_controller_settings_replace_parameter_0$schema
+							}
+						},
+						{
+							name: "section",
+							wire: "section",
+							source: "json",
+							codec: {
+								mode: "strict",
+								typeSymbol: "@deepseek-ai/dsh-api-settings-controller#settings/replace:section",
+								create: _deepseek_ai_dsh_api_settings_controller_settings_replace_parameter_1$schema
+							}
+						},
+						{
+							name: "expectedRevision",
+							wire: "expectedRevision",
+							source: "json",
+							acceptsUndefined: true,
+							codec: {
+								mode: "strict",
+								typeSymbol: "@deepseek-ai/dsh-api-settings-controller#settings/replace:expectedRevision",
+								create: _deepseek_ai_dsh_api_settings_controller_settings_replace_parameter_2$schema
+							}
+						}
+					],
+					result: {
+						mode: "strict",
+						typeSymbol: "@deepseek-ai/dsh-settings/types#SettingsNamespaceView",
+						create: _deepseek_ai_dsh_api_settings_controller_settings_replace_result$schema
+					},
+					sourceLocation: {
+						"file": "packages/api/settings-controller/src/index.ts",
+						"line": 133,
+						"column": 3
+					}
+				},
+				{
+					id: "@deepseek-ai/dsh-api-settings-controller#settings/update",
+					service: "settingsController",
+					namespace: "settings",
+					method: "update",
+					invocation: { kind: "direct" },
+					parameters: [
+						{
+							name: "ns",
+							wire: "ns",
+							source: "json",
+							codec: {
+								mode: "strict",
+								typeSymbol: "@deepseek-ai/dsh-api-settings-controller#settings/update:ns",
+								create: _deepseek_ai_dsh_api_settings_controller_settings_update_parameter_0$schema
+							}
+						},
+						{
+							name: "patch",
+							wire: "patch",
+							source: "json",
+							codec: {
+								mode: "strict",
+								typeSymbol: "@deepseek-ai/dsh-api-settings-controller#settings/update:patch",
+								create: _deepseek_ai_dsh_api_settings_controller_settings_update_parameter_1$schema
+							}
+						},
+						{
+							name: "expectedRevision",
+							wire: "expectedRevision",
+							source: "json",
+							acceptsUndefined: true,
+							codec: {
+								mode: "strict",
+								typeSymbol: "@deepseek-ai/dsh-api-settings-controller#settings/update:expectedRevision",
+								create: _deepseek_ai_dsh_api_settings_controller_settings_update_parameter_2$schema
+							}
+						}
+					],
+					result: {
+						mode: "strict",
+						typeSymbol: "@deepseek-ai/dsh-settings/types#SettingsNamespaceView",
+						create: _deepseek_ai_dsh_api_settings_controller_settings_update_result$schema
+					},
+					sourceLocation: {
+						"file": "packages/api/settings-controller/src/index.ts",
+						"line": 116,
+						"column": 3
+					}
+				}
+			]
+		};
+		//#endregion
+		//#region ../../document/office-to-pdf/lib/typert.remote-client.js
+		let _deepseek_ai_dsh_office_to_pdf_officeToPdf_generation_result$schema$value;
+		const _deepseek_ai_dsh_office_to_pdf_officeToPdf_generation_result$schema = () => _deepseek_ai_dsh_office_to_pdf_officeToPdf_generation_result$schema$value ??= intersection(string(), unknown());
+		let _deepseek_ai_dsh_office_to_pdf_officeToPdf_render_parameter_0$schema$value;
+		const _deepseek_ai_dsh_office_to_pdf_officeToPdf_render_parameter_0$schema = () => _deepseek_ai_dsh_office_to_pdf_officeToPdf_render_parameter_0$schema$value ??= intersection(string(), unknown());
+		let _deepseek_ai_dsh_office_to_pdf_officeToPdf_render_parameter_1$schema$value;
+		const _deepseek_ai_dsh_office_to_pdf_officeToPdf_render_parameter_1$schema = () => _deepseek_ai_dsh_office_to_pdf_officeToPdf_render_parameter_1$schema$value ??= string();
+		let _deepseek_ai_dsh_office_to_pdf_officeToPdf_render_parameter_2$schema$value;
+		const _deepseek_ai_dsh_office_to_pdf_officeToPdf_render_parameter_2$schema = () => _deepseek_ai_dsh_office_to_pdf_officeToPdf_render_parameter_2$schema$value ??= union([literal("foreground"), literal("background")]);
+		let _deepseek_ai_dsh_office_to_pdf_officeToPdf_render_result$schema$value;
+		const _deepseek_ai_dsh_office_to_pdf_officeToPdf_render_result$schema = () => _deepseek_ai_dsh_office_to_pdf_officeToPdf_render_result$schema$value ??= object({
+			"missingFonts": array(string()).readonly(),
+			"generation": intersection(string(), unknown()).readonly(),
+			"offset": number().readonly(),
+			"data": _instanceof(Uint8Array),
+			"eof": boolean().readonly(),
+			"absolutePath": string().readonly(),
+			"version": string().readonly(),
+			"bytes": number().readonly().optional()
+		});
+		const $resultSnapshot$1 = (input, path) => {
+			if (input === null || typeof input !== "object" || input instanceof Uint8Array) return input;
+			const toJSON = input.toJSON;
+			const value = typeof toJSON === "function" ? toJSON.call(input, path.at(-1)?.toString() ?? "value") : input;
+			if (value === null || typeof value !== "object" || value instanceof Uint8Array) return value;
+			if (Array.isArray(value)) {
+				const items = [];
+				for (let index = 0, length = value.length; index < length; index++) items.push(value[index]);
+				return items;
+			}
+			const fields = {};
+			for (const key of Object.keys(value)) {
+				const item = key === "toJSON" && value === input ? toJSON : value[key];
+				if (key === "toJSON" && typeof item === "function") continue;
+				Object.defineProperty(fields, key, {
+					value: item,
+					enumerable: true,
+					writable: true,
+					configurable: true
+				});
+			}
+			return fields;
+		};
+		const $resultContainer$1 = (input, path, ancestors, project, snapshot) => {
+			if (input === null || typeof input !== "object") return project(input);
+			const owner = !ancestors.has(input);
+			if (!owner && ancestors.get(input) !== path.length) throw new TypeError("Remote result contains a circular object");
+			if (owner) ancestors.set(input, path.length);
+			try {
+				return project(snapshot ? $resultSnapshot$1(input, path) : input);
+			} finally {
+				if (owner) ancestors.delete(input);
+			}
+		};
+		const $encode1$1 = (value, writeBytes, path, ancestors) => {
+			return value instanceof Uint8Array ? writeBytes(value, path) : value;
+		};
+		const $encode0$1 = (value, writeBytes, path, ancestors) => {
+			return $resultContainer$1(value, path, ancestors, (value) => {
+				if (value === null || typeof value !== "object" || Array.isArray(value) || value instanceof Uint8Array) return value;
+				if (Object.hasOwn(value, "data")) value["data"] = $encode1$1(value["data"], writeBytes, [...path, "data"], ancestors);
+				return value;
+			}, true);
+		};
+		const TYPERT_REMOTE$18 = {
+			package: "@deepseek-ai/dsh-office-to-pdf",
+			descriptors: [{
+				id: "@deepseek-ai/dsh-office-to-pdf#officeToPdf/generation",
+				service: "officeToPdf",
+				namespace: "officeToPdf",
+				method: "generation",
+				implementation: "getGeneration",
+				invocation: { kind: "direct" },
+				parameters: [],
+				cancellation: { parameter: "signal" },
+				result: {
+					mode: "strict",
+					typeSymbol: "@deepseek-ai/dsh-office-to-pdf/types#OfficeToPdfGeneration",
+					create: _deepseek_ai_dsh_office_to_pdf_officeToPdf_generation_result$schema
+				},
+				sourceLocation: {
+					"file": "packages/document/office-to-pdf/src/index.ts",
+					"line": 175,
+					"column": 3
+				}
+			}, {
+				id: "@deepseek-ai/dsh-office-to-pdf#officeToPdf/render",
+				service: "officeToPdf",
+				namespace: "officeToPdf",
+				method: "render",
+				invocation: { kind: "direct" },
+				parameters: [
+					{
+						name: "workspaceFileScope",
+						wire: "workspaceFileScopeId",
+						source: "lookup",
+						lookup: "workspaceFileScope",
+						codec: {
+							mode: "strict",
+							typeSymbol: "@deepseek-ai/dsh-session/types#SessionId",
+							create: _deepseek_ai_dsh_office_to_pdf_officeToPdf_render_parameter_0$schema
+						}
+					},
+					{
+						name: "path",
+						wire: "path",
+						source: "json",
+						codec: {
+							mode: "strict",
+							typeSymbol: "@deepseek-ai/dsh-office-to-pdf#officeToPdf/render:path",
+							create: _deepseek_ai_dsh_office_to_pdf_officeToPdf_render_parameter_1$schema
+						}
+					},
+					{
+						name: "priority",
+						wire: "priority",
+						source: "json",
+						codec: {
+							mode: "strict",
+							typeSymbol: "@deepseek-ai/dsh-office-to-pdf/types#OfficeToPdfPriority",
+							create: _deepseek_ai_dsh_office_to_pdf_officeToPdf_render_parameter_2$schema
+						}
+					}
+				],
+				cancellation: { parameter: "signal" },
+				result: {
+					mode: "strict",
+					typeSymbol: "@deepseek-ai/dsh-office-to-pdf/types#RenderedDocumentBytes",
+					create: _deepseek_ai_dsh_office_to_pdf_officeToPdf_render_result$schema,
+					decode: (value) => _deepseek_ai_dsh_office_to_pdf_officeToPdf_render_result$schema().parse(value),
+					encode: (value, writeBytes) => $encode0$1(value, writeBytes, [], /* @__PURE__ */ new Map())
+				},
+				sourceLocation: {
+					"file": "packages/document/office-to-pdf/src/index.ts",
+					"line": 160,
+					"column": 9
+				}
+			}]
+		};
+		//#endregion
+		//#region ../../goal/goal/lib/typert.remote-client.js
+		let _deepseek_ai_dsh_goal_goals_clear_parameter_0$schema$value;
+		const _deepseek_ai_dsh_goal_goals_clear_parameter_0$schema = () => _deepseek_ai_dsh_goal_goals_clear_parameter_0$schema$value ??= intersection(string(), unknown());
+		let _deepseek_ai_dsh_goal_goals_clear_parameter_1$schema$value;
+		const _deepseek_ai_dsh_goal_goals_clear_parameter_1$schema = () => _deepseek_ai_dsh_goal_goals_clear_parameter_1$schema$value ??= object({
+			"id": intersection(string(), unknown()).readonly(),
+			"revision": number().readonly()
+		});
+		let _deepseek_ai_dsh_goal_goals_clear_result$schema$value;
+		const _deepseek_ai_dsh_goal_goals_clear_result$schema = () => _deepseek_ai_dsh_goal_goals_clear_result$schema$value ??= object({
+			"id": intersection(string(), unknown()).readonly(),
+			"revision": number().readonly()
+		});
+		let _deepseek_ai_dsh_goal_goals_complete_parameter_0$schema$value;
+		const _deepseek_ai_dsh_goal_goals_complete_parameter_0$schema = () => _deepseek_ai_dsh_goal_goals_complete_parameter_0$schema$value ??= intersection(string(), unknown());
+		let _deepseek_ai_dsh_goal_goals_complete_parameter_1$schema$value;
+		const _deepseek_ai_dsh_goal_goals_complete_parameter_1$schema = () => _deepseek_ai_dsh_goal_goals_complete_parameter_1$schema$value ??= object({
+			"id": intersection(string(), unknown()).readonly(),
+			"revision": number().readonly()
+		});
+		let _deepseek_ai_dsh_goal_goals_complete_result$schema$value;
+		const _deepseek_ai_dsh_goal_goals_complete_result$schema = () => _deepseek_ai_dsh_goal_goals_complete_result$schema$value ??= object({
+			"roundsStarted": number().readonly(),
+			"createdAt": number().readonly(),
+			"updatedAt": number().readonly(),
+			"activation": union([literal("armed"), literal("disarmed")]).readonly(),
+			"objective": string().readonly(),
+			"phase": union([
+				literal("active"),
+				literal("paused"),
+				literal("blocked"),
+				literal("complete")
+			]).readonly(),
+			"blockedReason": object({
+				"code": string().readonly(),
+				"message": string().readonly()
+			}).readonly().optional(),
+			"maxGoalRounds": number().readonly(),
+			"id": intersection(string(), unknown()).readonly(),
+			"revision": number().readonly()
+		});
+		let _deepseek_ai_dsh_goal_goals_create_parameter_0$schema$value;
+		const _deepseek_ai_dsh_goal_goals_create_parameter_0$schema = () => _deepseek_ai_dsh_goal_goals_create_parameter_0$schema$value ??= intersection(string(), unknown());
+		let _deepseek_ai_dsh_goal_goals_create_parameter_1$schema$value;
+		const _deepseek_ai_dsh_goal_goals_create_parameter_1$schema = () => _deepseek_ai_dsh_goal_goals_create_parameter_1$schema$value ??= object({
+			"objective": string().readonly(),
+			"maxGoalRounds": number().readonly().optional()
+		});
+		let _deepseek_ai_dsh_goal_goals_create_result$schema$value;
+		const _deepseek_ai_dsh_goal_goals_create_result$schema = () => _deepseek_ai_dsh_goal_goals_create_result$schema$value ??= object({ "ref": object({
+			"id": intersection(string(), unknown()).readonly(),
+			"revision": number().readonly()
+		}).readonly() });
+		let _deepseek_ai_dsh_goal_goals_edit_parameter_0$schema$value;
+		const _deepseek_ai_dsh_goal_goals_edit_parameter_0$schema = () => _deepseek_ai_dsh_goal_goals_edit_parameter_0$schema$value ??= intersection(string(), unknown());
+		let _deepseek_ai_dsh_goal_goals_edit_parameter_1$schema$value;
+		const _deepseek_ai_dsh_goal_goals_edit_parameter_1$schema = () => _deepseek_ai_dsh_goal_goals_edit_parameter_1$schema$value ??= object({
+			"id": intersection(string(), unknown()).readonly(),
+			"revision": number().readonly()
+		});
+		let _deepseek_ai_dsh_goal_goals_edit_parameter_2$schema$value;
+		const _deepseek_ai_dsh_goal_goals_edit_parameter_2$schema = () => _deepseek_ai_dsh_goal_goals_edit_parameter_2$schema$value ??= object({
+			"objective": string().readonly().optional(),
+			"maxGoalRounds": number().readonly().optional()
+		});
+		let _deepseek_ai_dsh_goal_goals_edit_result$schema$value;
+		const _deepseek_ai_dsh_goal_goals_edit_result$schema = () => _deepseek_ai_dsh_goal_goals_edit_result$schema$value ??= object({
+			"roundsStarted": number().readonly(),
+			"createdAt": number().readonly(),
+			"updatedAt": number().readonly(),
+			"activation": union([literal("armed"), literal("disarmed")]).readonly(),
+			"objective": string().readonly(),
+			"phase": union([
+				literal("active"),
+				literal("paused"),
+				literal("blocked"),
+				literal("complete")
+			]).readonly(),
+			"blockedReason": object({
+				"code": string().readonly(),
+				"message": string().readonly()
+			}).readonly().optional(),
+			"maxGoalRounds": number().readonly(),
+			"id": intersection(string(), unknown()).readonly(),
+			"revision": number().readonly()
+		});
+		let _deepseek_ai_dsh_goal_goals_get_parameter_0$schema$value;
+		const _deepseek_ai_dsh_goal_goals_get_parameter_0$schema = () => _deepseek_ai_dsh_goal_goals_get_parameter_0$schema$value ??= intersection(string(), unknown());
+		let _deepseek_ai_dsh_goal_goals_get_result$schema$value;
+		const _deepseek_ai_dsh_goal_goals_get_result$schema = () => _deepseek_ai_dsh_goal_goals_get_result$schema$value ??= union([_undefined(), object({
+			"roundsStarted": number().readonly(),
+			"createdAt": number().readonly(),
+			"updatedAt": number().readonly(),
+			"activation": union([literal("armed"), literal("disarmed")]).readonly(),
+			"objective": string().readonly(),
+			"phase": union([
+				literal("active"),
+				literal("paused"),
+				literal("blocked"),
+				literal("complete")
+			]).readonly(),
+			"blockedReason": object({
+				"code": string().readonly(),
+				"message": string().readonly()
+			}).readonly().optional(),
+			"maxGoalRounds": number().readonly(),
+			"id": intersection(string(), unknown()).readonly(),
+			"revision": number().readonly()
+		})]);
+		let _deepseek_ai_dsh_goal_goals_pause_parameter_0$schema$value;
+		const _deepseek_ai_dsh_goal_goals_pause_parameter_0$schema = () => _deepseek_ai_dsh_goal_goals_pause_parameter_0$schema$value ??= intersection(string(), unknown());
+		let _deepseek_ai_dsh_goal_goals_pause_parameter_1$schema$value;
+		const _deepseek_ai_dsh_goal_goals_pause_parameter_1$schema = () => _deepseek_ai_dsh_goal_goals_pause_parameter_1$schema$value ??= object({
+			"id": intersection(string(), unknown()).readonly(),
+			"revision": number().readonly()
+		});
+		let _deepseek_ai_dsh_goal_goals_pause_result$schema$value;
+		const _deepseek_ai_dsh_goal_goals_pause_result$schema = () => _deepseek_ai_dsh_goal_goals_pause_result$schema$value ??= object({
+			"roundsStarted": number().readonly(),
+			"createdAt": number().readonly(),
+			"updatedAt": number().readonly(),
+			"activation": union([literal("armed"), literal("disarmed")]).readonly(),
+			"objective": string().readonly(),
+			"phase": union([
+				literal("active"),
+				literal("paused"),
+				literal("blocked"),
+				literal("complete")
+			]).readonly(),
+			"blockedReason": object({
+				"code": string().readonly(),
+				"message": string().readonly()
+			}).readonly().optional(),
+			"maxGoalRounds": number().readonly(),
+			"id": intersection(string(), unknown()).readonly(),
+			"revision": number().readonly()
+		});
+		let _deepseek_ai_dsh_goal_goals_resume_parameter_0$schema$value;
+		const _deepseek_ai_dsh_goal_goals_resume_parameter_0$schema = () => _deepseek_ai_dsh_goal_goals_resume_parameter_0$schema$value ??= intersection(string(), unknown());
+		let _deepseek_ai_dsh_goal_goals_resume_parameter_1$schema$value;
+		const _deepseek_ai_dsh_goal_goals_resume_parameter_1$schema = () => _deepseek_ai_dsh_goal_goals_resume_parameter_1$schema$value ??= object({
+			"id": intersection(string(), unknown()).readonly(),
+			"revision": number().readonly()
+		});
+		let _deepseek_ai_dsh_goal_goals_resume_result$schema$value;
+		const _deepseek_ai_dsh_goal_goals_resume_result$schema = () => _deepseek_ai_dsh_goal_goals_resume_result$schema$value ??= object({
+			"roundsStarted": number().readonly(),
+			"createdAt": number().readonly(),
+			"updatedAt": number().readonly(),
+			"activation": union([literal("armed"), literal("disarmed")]).readonly(),
+			"objective": string().readonly(),
+			"phase": union([
+				literal("active"),
+				literal("paused"),
+				literal("blocked"),
+				literal("complete")
+			]).readonly(),
+			"blockedReason": object({
+				"code": string().readonly(),
+				"message": string().readonly()
+			}).readonly().optional(),
+			"maxGoalRounds": number().readonly(),
+			"id": intersection(string(), unknown()).readonly(),
+			"revision": number().readonly()
+		});
+		const TYPERT_REMOTE$17 = {
+			package: "@deepseek-ai/dsh-goal",
+			descriptors: [
+				{
+					id: "@deepseek-ai/dsh-goal#goals/clear",
+					service: "goals",
+					namespace: "goals",
+					method: "clear",
+					invocation: { kind: "direct" },
+					scope: {
+						context: "agent",
+						wire: "agentId"
+					},
+					parameters: [{
+						name: "agent",
+						wire: "agentId",
+						source: "lookup",
+						lookup: "agent",
+						codec: {
+							mode: "strict",
+							typeSymbol: "@deepseek-ai/dsh-session/types#SessionId",
+							create: _deepseek_ai_dsh_goal_goals_clear_parameter_0$schema
+						}
+					}, {
+						name: "ref",
+						wire: "ref",
+						source: "json",
+						codec: {
+							mode: "strict",
+							typeSymbol: "@deepseek-ai/dsh-goal/client#GoalRef",
+							create: _deepseek_ai_dsh_goal_goals_clear_parameter_1$schema
+						}
+					}],
+					result: {
+						mode: "strict",
+						typeSymbol: "@deepseek-ai/dsh-goal/client#GoalRef",
+						create: _deepseek_ai_dsh_goal_goals_clear_result$schema
+					},
+					sourceLocation: {
+						"file": "packages/goal/goal/src/index.ts",
+						"line": 433,
+						"column": 3
+					}
+				},
+				{
+					id: "@deepseek-ai/dsh-goal#goals/complete",
+					service: "goals",
+					namespace: "goals",
+					method: "complete",
+					invocation: { kind: "direct" },
+					scope: {
+						context: "agent",
+						wire: "agentId"
+					},
+					parameters: [{
+						name: "agent",
+						wire: "agentId",
+						source: "lookup",
+						lookup: "agent",
+						codec: {
+							mode: "strict",
+							typeSymbol: "@deepseek-ai/dsh-session/types#SessionId",
+							create: _deepseek_ai_dsh_goal_goals_complete_parameter_0$schema
+						}
+					}, {
+						name: "ref",
+						wire: "ref",
+						source: "json",
+						codec: {
+							mode: "strict",
+							typeSymbol: "@deepseek-ai/dsh-goal/client#GoalRef",
+							create: _deepseek_ai_dsh_goal_goals_complete_parameter_1$schema
+						}
+					}],
+					result: {
+						mode: "strict",
+						typeSymbol: "@deepseek-ai/dsh-goal/client#GoalView",
+						create: _deepseek_ai_dsh_goal_goals_complete_result$schema
+					},
+					sourceLocation: {
+						"file": "packages/goal/goal/src/index.ts",
+						"line": 391,
+						"column": 3
+					}
+				},
+				{
+					id: "@deepseek-ai/dsh-goal#goals/create",
+					service: "goals",
+					namespace: "goals",
+					method: "create",
+					implementation: "remoteExportCreate",
+					invocation: { kind: "direct" },
+					scope: {
+						context: "agent",
+						wire: "agentId"
+					},
+					parameters: [{
+						name: "agent",
+						wire: "agentId",
+						source: "lookup",
+						lookup: "agent",
+						codec: {
+							mode: "strict",
+							typeSymbol: "@deepseek-ai/dsh-session/types#SessionId",
+							create: _deepseek_ai_dsh_goal_goals_create_parameter_0$schema
+						}
+					}, {
+						name: "request",
+						wire: "request",
+						source: "json",
+						codec: {
+							mode: "strict",
+							typeSymbol: "@deepseek-ai/dsh-goal/client#CreateGoalRequest",
+							create: _deepseek_ai_dsh_goal_goals_create_parameter_1$schema
+						}
+					}],
+					result: {
+						mode: "strict",
+						typeSymbol: "@deepseek-ai/dsh-goal/client#CreateGoalResult",
+						create: _deepseek_ai_dsh_goal_goals_create_result$schema
+					},
+					sourceLocation: {
+						"file": "packages/goal/goal/src/index.ts",
+						"line": 647,
+						"column": 3
+					}
+				},
+				{
+					id: "@deepseek-ai/dsh-goal#goals/edit",
+					service: "goals",
+					namespace: "goals",
+					method: "edit",
+					invocation: { kind: "direct" },
+					scope: {
+						context: "agent",
+						wire: "agentId"
+					},
+					parameters: [
+						{
+							name: "agent",
+							wire: "agentId",
+							source: "lookup",
+							lookup: "agent",
+							codec: {
+								mode: "strict",
+								typeSymbol: "@deepseek-ai/dsh-session/types#SessionId",
+								create: _deepseek_ai_dsh_goal_goals_edit_parameter_0$schema
+							}
+						},
+						{
+							name: "ref",
+							wire: "ref",
+							source: "json",
+							codec: {
+								mode: "strict",
+								typeSymbol: "@deepseek-ai/dsh-goal/client#GoalRef",
+								create: _deepseek_ai_dsh_goal_goals_edit_parameter_1$schema
+							}
+						},
+						{
+							name: "request",
+							wire: "request",
+							source: "json",
+							codec: {
+								mode: "strict",
+								typeSymbol: "@deepseek-ai/dsh-goal/client#EditGoalRequest",
+								create: _deepseek_ai_dsh_goal_goals_edit_parameter_2$schema
+							}
+						}
+					],
+					result: {
+						mode: "strict",
+						typeSymbol: "@deepseek-ai/dsh-goal/client#GoalView",
+						create: _deepseek_ai_dsh_goal_goals_edit_result$schema
+					},
+					sourceLocation: {
+						"file": "packages/goal/goal/src/index.ts",
+						"line": 329,
+						"column": 3
+					}
+				},
+				{
+					id: "@deepseek-ai/dsh-goal#goals/get",
+					service: "goals",
+					namespace: "goals",
+					method: "get",
+					invocation: { kind: "direct" },
+					scope: {
+						context: "agent",
+						wire: "agentId"
+					},
+					parameters: [{
+						name: "agent",
+						wire: "agentId",
+						source: "lookup",
+						lookup: "agent",
+						codec: {
+							mode: "strict",
+							typeSymbol: "@deepseek-ai/dsh-session/types#SessionId",
+							create: _deepseek_ai_dsh_goal_goals_get_parameter_0$schema
+						}
+					}],
+					result: {
+						mode: "strict",
+						typeSymbol: "@deepseek-ai/dsh-goal#goals/get:result",
+						create: _deepseek_ai_dsh_goal_goals_get_result$schema
+					},
+					sourceLocation: {
+						"file": "packages/goal/goal/src/index.ts",
+						"line": 277,
+						"column": 3
+					}
+				},
+				{
+					id: "@deepseek-ai/dsh-goal#goals/pause",
+					service: "goals",
+					namespace: "goals",
+					method: "pause",
+					invocation: { kind: "direct" },
+					scope: {
+						context: "agent",
+						wire: "agentId"
+					},
+					parameters: [{
+						name: "agent",
+						wire: "agentId",
+						source: "lookup",
+						lookup: "agent",
+						codec: {
+							mode: "strict",
+							typeSymbol: "@deepseek-ai/dsh-session/types#SessionId",
+							create: _deepseek_ai_dsh_goal_goals_pause_parameter_0$schema
+						}
+					}, {
+						name: "ref",
+						wire: "ref",
+						source: "json",
+						codec: {
+							mode: "strict",
+							typeSymbol: "@deepseek-ai/dsh-goal/client#GoalRef",
+							create: _deepseek_ai_dsh_goal_goals_pause_parameter_1$schema
+						}
+					}],
+					result: {
+						mode: "strict",
+						typeSymbol: "@deepseek-ai/dsh-goal/client#GoalView",
+						create: _deepseek_ai_dsh_goal_goals_pause_result$schema
+					},
+					sourceLocation: {
+						"file": "packages/goal/goal/src/index.ts",
+						"line": 352,
+						"column": 3
+					}
+				},
+				{
+					id: "@deepseek-ai/dsh-goal#goals/resume",
+					service: "goals",
+					namespace: "goals",
+					method: "resume",
+					invocation: { kind: "direct" },
+					scope: {
+						context: "agent",
+						wire: "agentId"
+					},
+					parameters: [{
+						name: "agent",
+						wire: "agentId",
+						source: "lookup",
+						lookup: "agent",
+						codec: {
+							mode: "strict",
+							typeSymbol: "@deepseek-ai/dsh-session/types#SessionId",
+							create: _deepseek_ai_dsh_goal_goals_resume_parameter_0$schema
+						}
+					}, {
+						name: "ref",
+						wire: "ref",
+						source: "json",
+						codec: {
+							mode: "strict",
+							typeSymbol: "@deepseek-ai/dsh-goal/client#GoalRef",
+							create: _deepseek_ai_dsh_goal_goals_resume_parameter_1$schema
+						}
+					}],
+					result: {
+						mode: "strict",
+						typeSymbol: "@deepseek-ai/dsh-goal/client#GoalView",
+						create: _deepseek_ai_dsh_goal_goals_resume_result$schema
+					},
+					sourceLocation: {
+						"file": "packages/goal/goal/src/index.ts",
+						"line": 364,
+						"column": 3
+					}
+				}
+			]
+		};
+		//#endregion
+		//#region ../../schedule/schedule/lib/typert.remote-client.js
+		let _deepseek_ai_dsh_schedule_schedule_catalog_result$schema$value;
+		const _deepseek_ai_dsh_schedule_schedule_catalog_result$schema = () => _deepseek_ai_dsh_schedule_schedule_catalog_result$schema$value ??= array(union([
+			intersection(object({
+				"id": intersection(string(), unknown()).readonly(),
+				"kind": literal("after").readonly(),
+				"title": string().readonly(),
+				"prompt": string().readonly(),
+				"afterSeconds": number().readonly(),
+				"scheduledAt": string().readonly()
+			}), object({
+				"sessionId": intersection(string(), unknown()).readonly(),
+				"status": union([literal("active"), literal("inactive")]).readonly(),
+				"lastDelivery": object({
+					"scheduledAt": string().readonly(),
+					"deliveredAt": string().readonly(),
+					"messageId": intersection(string(), unknown()).readonly()
+				}).readonly().optional()
+			})),
+			intersection(object({
+				"id": intersection(string(), unknown()).readonly(),
+				"kind": literal("at").readonly(),
+				"title": string().readonly(),
+				"prompt": string().readonly(),
+				"scheduledAt": string().readonly()
+			}), object({
+				"sessionId": intersection(string(), unknown()).readonly(),
+				"status": union([literal("active"), literal("inactive")]).readonly(),
+				"lastDelivery": object({
+					"scheduledAt": string().readonly(),
+					"deliveredAt": string().readonly(),
+					"messageId": intersection(string(), unknown()).readonly()
+				}).readonly().optional()
+			})),
+			intersection(object({
+				"id": intersection(string(), unknown()).readonly(),
+				"kind": literal("every").readonly(),
+				"title": string().readonly(),
+				"prompt": string().readonly(),
+				"everySeconds": number().readonly(),
+				"scheduledAt": string().readonly()
+			}), object({
+				"sessionId": intersection(string(), unknown()).readonly(),
+				"status": union([literal("active"), literal("inactive")]).readonly(),
+				"lastDelivery": object({
+					"scheduledAt": string().readonly(),
+					"deliveredAt": string().readonly(),
+					"messageId": intersection(string(), unknown()).readonly()
+				}).readonly().optional()
+			})),
+			intersection(object({
+				"id": intersection(string(), unknown()).readonly(),
+				"kind": literal("daily").readonly(),
+				"title": string().readonly(),
+				"prompt": string().readonly(),
+				"time": string().readonly(),
+				"timeZone": string().readonly(),
+				"scheduledAt": string().readonly()
+			}), object({
+				"sessionId": intersection(string(), unknown()).readonly(),
+				"status": union([literal("active"), literal("inactive")]).readonly(),
+				"lastDelivery": object({
+					"scheduledAt": string().readonly(),
+					"deliveredAt": string().readonly(),
+					"messageId": intersection(string(), unknown()).readonly()
+				}).readonly().optional()
+			})),
+			intersection(object({
+				"id": intersection(string(), unknown()).readonly(),
+				"kind": literal("weekly").readonly(),
+				"title": string().readonly(),
+				"prompt": string().readonly(),
+				"time": string().readonly(),
+				"timeZone": string().readonly(),
+				"weekdays": array(number()).readonly(),
+				"scheduledAt": string().readonly()
+			}), object({
+				"sessionId": intersection(string(), unknown()).readonly(),
+				"status": union([literal("active"), literal("inactive")]).readonly(),
+				"lastDelivery": object({
+					"scheduledAt": string().readonly(),
+					"deliveredAt": string().readonly(),
+					"messageId": intersection(string(), unknown()).readonly()
+				}).readonly().optional()
+			})),
+			intersection(object({
+				"id": intersection(string(), unknown()).readonly(),
+				"kind": literal("cron").readonly(),
+				"title": string().readonly(),
+				"prompt": string().readonly(),
+				"expression": string().readonly(),
+				"timeZone": string().readonly(),
+				"scheduledAt": string().readonly()
+			}), object({
+				"sessionId": intersection(string(), unknown()).readonly(),
+				"status": union([literal("active"), literal("inactive")]).readonly(),
+				"lastDelivery": object({
+					"scheduledAt": string().readonly(),
+					"deliveredAt": string().readonly(),
+					"messageId": intersection(string(), unknown()).readonly()
+				}).readonly().optional()
+			}))
+		]));
+		let _deepseek_ai_dsh_schedule_schedule_delete_parameter_0$schema$value;
+		const _deepseek_ai_dsh_schedule_schedule_delete_parameter_0$schema = () => _deepseek_ai_dsh_schedule_schedule_delete_parameter_0$schema$value ??= object({
+			"id": intersection(string(), unknown()),
+			"sessionId": intersection(string(), unknown())
+		});
+		let _deepseek_ai_dsh_schedule_schedule_delete_result$schema$value;
+		const _deepseek_ai_dsh_schedule_schedule_delete_result$schema = () => _deepseek_ai_dsh_schedule_schedule_delete_result$schema$value ??= union([object({
+			"id": intersection(string(), unknown()).readonly(),
+			"deleted": literal(true).readonly()
+		}), object({
+			"id": intersection(string(), unknown()).readonly(),
+			"deleted": literal(false).readonly(),
+			"code": literal("schedule_not_found").readonly()
+		})]);
+		let _deepseek_ai_dsh_schedule_schedule_history_parameter_0$schema$value;
+		const _deepseek_ai_dsh_schedule_schedule_history_parameter_0$schema = () => _deepseek_ai_dsh_schedule_schedule_history_parameter_0$schema$value ??= object({
+			"limit": number(),
+			"before": intersection(string(), unknown()).optional(),
+			"id": intersection(string(), unknown()),
+			"sessionId": intersection(string(), unknown())
+		});
+		let _deepseek_ai_dsh_schedule_schedule_history_result$schema$value;
+		const _deepseek_ai_dsh_schedule_schedule_history_result$schema = () => _deepseek_ai_dsh_schedule_schedule_history_result$schema$value ??= union([object({
+			"id": intersection(string(), unknown()).readonly(),
+			"records": array(object({
+				"prompt": string().readonly().optional(),
+				"scheduledAt": string().readonly(),
+				"deliveredAt": string().readonly(),
+				"messageId": intersection(string(), unknown()).readonly()
+			})).readonly(),
+			"earlierRecordsUnavailable": boolean().readonly(),
+			"earlierRecordsPruned": boolean().readonly(),
+			"retention": object({
+				"days": number().readonly(),
+				"records": number().readonly()
+			}).readonly(),
+			"nextBefore": intersection(string(), unknown()).readonly().optional()
+		}), object({
+			"id": intersection(string(), unknown()).readonly(),
+			"code": union([literal("schedule_not_found"), literal("delivery_cursor_not_found")]).readonly()
+		})]);
+		let _deepseek_ai_dsh_schedule_schedule_list_parameter_0$schema$value;
+		const _deepseek_ai_dsh_schedule_schedule_list_parameter_0$schema = () => _deepseek_ai_dsh_schedule_schedule_list_parameter_0$schema$value ??= object({ "sessionId": intersection(string(), unknown()) });
+		let _deepseek_ai_dsh_schedule_schedule_list_result$schema$value;
+		const _deepseek_ai_dsh_schedule_schedule_list_result$schema = () => _deepseek_ai_dsh_schedule_schedule_list_result$schema$value ??= array(union([
+			object({
+				"id": intersection(string(), unknown()).readonly(),
+				"kind": literal("after").readonly(),
+				"title": string().readonly(),
+				"prompt": string().readonly(),
+				"afterSeconds": number().readonly(),
+				"scheduledAt": string().readonly()
+			}),
+			object({
+				"id": intersection(string(), unknown()).readonly(),
+				"kind": literal("at").readonly(),
+				"title": string().readonly(),
+				"prompt": string().readonly(),
+				"scheduledAt": string().readonly()
+			}),
+			object({
+				"id": intersection(string(), unknown()).readonly(),
+				"kind": literal("every").readonly(),
+				"title": string().readonly(),
+				"prompt": string().readonly(),
+				"everySeconds": number().readonly(),
+				"scheduledAt": string().readonly()
+			}),
+			object({
+				"id": intersection(string(), unknown()).readonly(),
+				"kind": literal("daily").readonly(),
+				"title": string().readonly(),
+				"prompt": string().readonly(),
+				"time": string().readonly(),
+				"timeZone": string().readonly(),
+				"scheduledAt": string().readonly()
+			}),
+			object({
+				"id": intersection(string(), unknown()).readonly(),
+				"kind": literal("weekly").readonly(),
+				"title": string().readonly(),
+				"prompt": string().readonly(),
+				"time": string().readonly(),
+				"timeZone": string().readonly(),
+				"weekdays": array(number()).readonly(),
+				"scheduledAt": string().readonly()
+			}),
+			object({
+				"id": intersection(string(), unknown()).readonly(),
+				"kind": literal("cron").readonly(),
+				"title": string().readonly(),
+				"prompt": string().readonly(),
+				"expression": string().readonly(),
+				"timeZone": string().readonly(),
+				"scheduledAt": string().readonly()
+			})
+		]));
+		let _deepseek_ai_dsh_schedule_schedule_update_parameter_0$schema$value;
+		const _deepseek_ai_dsh_schedule_schedule_update_parameter_0$schema = () => _deepseek_ai_dsh_schedule_schedule_update_parameter_0$schema$value ??= object({
+			"expected": union([
+				object({
+					"id": intersection(string(), unknown()).readonly(),
+					"kind": literal("after").readonly(),
+					"title": string().readonly(),
+					"prompt": string().readonly(),
+					"afterSeconds": number().readonly(),
+					"scheduledAt": string().readonly()
+				}),
+				object({
+					"id": intersection(string(), unknown()).readonly(),
+					"kind": literal("at").readonly(),
+					"title": string().readonly(),
+					"prompt": string().readonly(),
+					"scheduledAt": string().readonly()
+				}),
+				object({
+					"id": intersection(string(), unknown()).readonly(),
+					"kind": literal("every").readonly(),
+					"title": string().readonly(),
+					"prompt": string().readonly(),
+					"everySeconds": number().readonly(),
+					"scheduledAt": string().readonly()
+				}),
+				object({
+					"id": intersection(string(), unknown()).readonly(),
+					"kind": literal("daily").readonly(),
+					"title": string().readonly(),
+					"prompt": string().readonly(),
+					"time": string().readonly(),
+					"timeZone": string().readonly(),
+					"scheduledAt": string().readonly()
+				}),
+				object({
+					"id": intersection(string(), unknown()).readonly(),
+					"kind": literal("weekly").readonly(),
+					"title": string().readonly(),
+					"prompt": string().readonly(),
+					"time": string().readonly(),
+					"timeZone": string().readonly(),
+					"weekdays": array(number()).readonly(),
+					"scheduledAt": string().readonly()
+				}),
+				object({
+					"id": intersection(string(), unknown()).readonly(),
+					"kind": literal("cron").readonly(),
+					"title": string().readonly(),
+					"prompt": string().readonly(),
+					"expression": string().readonly(),
+					"timeZone": string().readonly(),
+					"scheduledAt": string().readonly()
+				})
+			]).readonly(),
+			"change": union([
+				object({
+					"kind": literal("at").readonly(),
+					"at": union([string(), object({
+						"date": string().readonly(),
+						"time": string().readonly(),
+						"time_zone": string().readonly()
+					})]).readonly()
+				}),
+				object({
+					"kind": literal("every").readonly(),
+					"every_seconds": number().readonly()
+				}),
+				object({
+					"kind": literal("daily").readonly(),
+					"daily": object({
+						"time": string().readonly(),
+						"time_zone": string().readonly()
+					}).readonly()
+				}),
+				object({
+					"kind": literal("weekly").readonly(),
+					"weekly": object({
+						"time": string().readonly(),
+						"time_zone": string().readonly(),
+						"weekdays": array(number()).readonly()
+					}).readonly()
+				}),
+				object({
+					"kind": literal("cron").readonly(),
+					"cron": object({
+						"expression": string().readonly(),
+						"time_zone": string().readonly()
+					}).readonly()
+				})
+			]).readonly().optional(),
+			"id": intersection(string(), unknown()),
+			"sessionId": intersection(string(), unknown()),
+			"title": string().readonly().optional(),
+			"prompt": string().readonly().optional()
+		});
+		let _deepseek_ai_dsh_schedule_schedule_update_result$schema$value;
+		const _deepseek_ai_dsh_schedule_schedule_update_result$schema = () => _deepseek_ai_dsh_schedule_schedule_update_result$schema$value ??= union([
+			object({
+				"id": intersection(string(), unknown()).readonly(),
+				"updated": boolean().readonly(),
+				"record": union([
+					object({
+						"id": intersection(string(), unknown()).readonly(),
+						"kind": literal("after").readonly(),
+						"title": string().readonly(),
+						"prompt": string().readonly(),
+						"afterSeconds": number().readonly(),
+						"scheduledAt": string().readonly()
+					}),
+					object({
+						"id": intersection(string(), unknown()).readonly(),
+						"kind": literal("at").readonly(),
+						"title": string().readonly(),
+						"prompt": string().readonly(),
+						"scheduledAt": string().readonly()
+					}),
+					object({
+						"id": intersection(string(), unknown()).readonly(),
+						"kind": literal("every").readonly(),
+						"title": string().readonly(),
+						"prompt": string().readonly(),
+						"everySeconds": number().readonly(),
+						"scheduledAt": string().readonly()
+					}),
+					object({
+						"id": intersection(string(), unknown()).readonly(),
+						"kind": literal("daily").readonly(),
+						"title": string().readonly(),
+						"prompt": string().readonly(),
+						"time": string().readonly(),
+						"timeZone": string().readonly(),
+						"scheduledAt": string().readonly()
+					}),
+					object({
+						"id": intersection(string(), unknown()).readonly(),
+						"kind": literal("weekly").readonly(),
+						"title": string().readonly(),
+						"prompt": string().readonly(),
+						"time": string().readonly(),
+						"timeZone": string().readonly(),
+						"weekdays": array(number()).readonly(),
+						"scheduledAt": string().readonly()
+					}),
+					object({
+						"id": intersection(string(), unknown()).readonly(),
+						"kind": literal("cron").readonly(),
+						"title": string().readonly(),
+						"prompt": string().readonly(),
+						"expression": string().readonly(),
+						"timeZone": string().readonly(),
+						"scheduledAt": string().readonly()
+					})
+				]).readonly()
+			}),
+			object({
+				"id": intersection(string(), unknown()).readonly(),
+				"updated": literal(false).readonly(),
+				"code": union([
+					literal("schedule_not_found"),
+					literal("schedule_ended"),
+					literal("schedule_conflict")
+				]).readonly()
+			}),
+			object({
+				"code": literal("invalid_prompt").readonly(),
+				"message": string().readonly()
+			}),
+			object({
+				"code": literal("invalid_selector").readonly(),
+				"message": string().readonly()
+			}),
+			object({
+				"code": literal("invalid_rule").readonly(),
+				"message": string().readonly()
+			}),
+			object({
+				"code": literal("invalid_time_zone").readonly(),
+				"message": string().readonly()
+			}),
+			object({
+				"code": literal("not_future").readonly(),
+				"message": string().readonly()
+			}),
+			object({
+				"code": literal("time_out_of_range").readonly(),
+				"message": string().readonly()
+			}),
+			object({
+				"code": literal("frequency_too_high").readonly(),
+				"message": string().readonly()
+			}),
+			object({
+				"code": literal("internal_error").readonly(),
+				"message": string().readonly()
+			})
+		]);
+		const TYPERT_REMOTE$16 = {
+			package: "@deepseek-ai/dsh-schedule",
+			descriptors: [
+				{
+					id: "@deepseek-ai/dsh-schedule#schedule/catalog",
+					service: "schedule",
+					namespace: "schedule",
+					method: "catalog",
+					invocation: { kind: "direct" },
+					parameters: [],
+					result: {
+						mode: "strict",
+						typeSymbol: "@deepseek-ai/dsh-schedule#schedule/catalog:result",
+						create: _deepseek_ai_dsh_schedule_schedule_catalog_result$schema
+					},
+					sourceLocation: {
+						"file": "packages/schedule/schedule/src/index.ts",
+						"line": 304,
+						"column": 9
+					}
+				},
+				{
+					id: "@deepseek-ai/dsh-schedule#schedule/delete",
+					service: "schedule",
+					namespace: "schedule",
+					method: "delete",
+					invocation: { kind: "direct" },
+					parameters: [{
+						name: "request",
+						wire: "request",
+						source: "json",
+						codec: {
+							mode: "strict",
+							typeSymbol: "@deepseek-ai/dsh-schedule/client#ScheduleDeleteRequest",
+							create: _deepseek_ai_dsh_schedule_schedule_delete_parameter_0$schema
+						}
+					}],
+					cancellation: { parameter: "signal" },
+					result: {
+						mode: "strict",
+						typeSymbol: "@deepseek-ai/dsh-schedule/client#ScheduleDeleteResult",
+						create: _deepseek_ai_dsh_schedule_schedule_delete_result$schema
+					},
+					sourceLocation: {
+						"file": "packages/schedule/schedule/src/index.ts",
+						"line": 343,
+						"column": 9
+					}
+				},
+				{
+					id: "@deepseek-ai/dsh-schedule#schedule/history",
+					service: "schedule",
+					namespace: "schedule",
+					method: "history",
+					invocation: { kind: "direct" },
+					parameters: [{
+						name: "request",
+						wire: "request",
+						source: "json",
+						codec: {
+							mode: "strict",
+							typeSymbol: "@deepseek-ai/dsh-schedule/client#ScheduleDeliveryHistoryRequest",
+							create: _deepseek_ai_dsh_schedule_schedule_history_parameter_0$schema
+						}
+					}],
+					result: {
+						mode: "strict",
+						typeSymbol: "@deepseek-ai/dsh-schedule/client#ScheduleDeliveryHistoryResult",
+						create: _deepseek_ai_dsh_schedule_schedule_history_result$schema
+					},
+					sourceLocation: {
+						"file": "packages/schedule/schedule/src/index.ts",
+						"line": 322,
+						"column": 9
+					}
+				},
+				{
+					id: "@deepseek-ai/dsh-schedule#schedule/list",
+					service: "schedule",
+					namespace: "schedule",
+					method: "list",
+					invocation: { kind: "direct" },
+					parameters: [{
+						name: "request",
+						wire: "request",
+						source: "json",
+						codec: {
+							mode: "strict",
+							typeSymbol: "@deepseek-ai/dsh-schedule/client#ScheduleListRequest",
+							create: _deepseek_ai_dsh_schedule_schedule_list_parameter_0$schema
+						}
+					}],
+					result: {
+						mode: "strict",
+						typeSymbol: "@deepseek-ai/dsh-schedule#schedule/list:result",
+						create: _deepseek_ai_dsh_schedule_schedule_list_result$schema
+					},
+					sourceLocation: {
+						"file": "packages/schedule/schedule/src/index.ts",
+						"line": 290,
+						"column": 9
+					}
+				},
+				{
+					id: "@deepseek-ai/dsh-schedule#schedule/update",
+					service: "schedule",
+					namespace: "schedule",
+					method: "update",
+					invocation: { kind: "direct" },
+					parameters: [{
+						name: "request",
+						wire: "request",
+						source: "json",
+						codec: {
+							mode: "strict",
+							typeSymbol: "@deepseek-ai/dsh-schedule/client#ScheduleUpdateRequest",
+							create: _deepseek_ai_dsh_schedule_schedule_update_parameter_0$schema
+						}
+					}],
+					cancellation: { parameter: "signal" },
+					result: {
+						mode: "strict",
+						typeSymbol: "@deepseek-ai/dsh-schedule/client#ScheduleUpdateResult",
+						create: _deepseek_ai_dsh_schedule_schedule_update_result$schema
+					},
+					sourceLocation: {
+						"file": "packages/schedule/schedule/src/index.ts",
+						"line": 370,
+						"column": 9
+					}
+				}
+			]
+		};
+		//#endregion
+		//#region ../../llm/llm/lib/typert.remote-client.js
+		let _deepseek_ai_dsh_llm_llm_discoverModels_parameter_0$schema$value;
+		const _deepseek_ai_dsh_llm_llm_discoverModels_parameter_0$schema = () => _deepseek_ai_dsh_llm_llm_discoverModels_parameter_0$schema$value ??= string();
+		let _deepseek_ai_dsh_llm_llm_discoverModels_parameter_1$schema$value;
+		const _deepseek_ai_dsh_llm_llm_discoverModels_parameter_1$schema = () => _deepseek_ai_dsh_llm_llm_discoverModels_parameter_1$schema$value ??= object({
+			"provider": string().optional(),
+			"baseURL": string().optional(),
+			"api": string().optional(),
+			"apiKey": string().optional()
+		});
+		let _deepseek_ai_dsh_llm_llm_discoverModels_result$schema$value;
+		const _deepseek_ai_dsh_llm_llm_discoverModels_result$schema = () => _deepseek_ai_dsh_llm_llm_discoverModels_result$schema$value ??= array(object({
+			"id": string(),
+			"name": string().optional(),
+			"contextWindow": number().optional(),
+			"maxTokens": number().optional(),
+			"inputModalities": array(union([literal("text"), literal("image")])).optional()
+		}));
+		let _deepseek_ai_dsh_llm_llm_listConfigurableProviders_result$schema$value;
+		const _deepseek_ai_dsh_llm_llm_listConfigurableProviders_result$schema = () => _deepseek_ai_dsh_llm_llm_listConfigurableProviders_result$schema$value ??= array(object({
+			"provider": string(),
+			"displayName": string(),
+			"settingsNs": string(),
+			"settingsPath": array(string()),
+			"declared": boolean().optional(),
+			"error": string().optional()
+		}));
+		let _deepseek_ai_dsh_llm_llm_listProviders_result$schema$value;
+		const _deepseek_ai_dsh_llm_llm_listProviders_result$schema = () => _deepseek_ai_dsh_llm_llm_listProviders_result$schema$value ??= array(object({
+			"id": string(),
+			"name": string()
+		}));
+		const TYPERT_REMOTE$15 = {
+			package: "@deepseek-ai/dsh-llm",
+			descriptors: [
+				{
+					id: "@deepseek-ai/dsh-llm#llm/discoverModels",
+					service: "llm",
+					namespace: "llm",
+					method: "discoverModels",
+					implementation: "remoteDiscoverModels",
+					invocation: { kind: "direct" },
+					parameters: [{
+						name: "settingsNs",
+						wire: "settingsNs",
+						source: "json",
+						codec: {
+							mode: "strict",
+							typeSymbol: "@deepseek-ai/dsh-llm#llm/discoverModels:settingsNs",
+							create: _deepseek_ai_dsh_llm_llm_discoverModels_parameter_0$schema
+						}
+					}, {
+						name: "request",
+						wire: "request",
+						source: "json",
+						codec: {
+							mode: "strict",
+							typeSymbol: "@deepseek-ai/dsh-llm/types#LlmModelDiscoveryRequest",
+							create: _deepseek_ai_dsh_llm_llm_discoverModels_parameter_1$schema
+						}
+					}],
+					cancellation: { parameter: "signal" },
+					result: {
+						mode: "strict",
+						typeSymbol: "@deepseek-ai/dsh-llm#llm/discoverModels:result",
+						create: _deepseek_ai_dsh_llm_llm_discoverModels_result$schema
+					},
+					sourceLocation: {
+						"file": "packages/llm/llm/src/index.ts",
+						"line": 638,
+						"column": 9
+					}
+				},
+				{
+					id: "@deepseek-ai/dsh-llm#llm/listConfigurableProviders",
+					service: "llm",
+					namespace: "llm",
+					method: "listConfigurableProviders",
+					invocation: { kind: "direct" },
+					parameters: [],
+					result: {
+						mode: "strict",
+						typeSymbol: "@deepseek-ai/dsh-llm#llm/listConfigurableProviders:result",
+						create: _deepseek_ai_dsh_llm_llm_listConfigurableProviders_result$schema
+					},
+					sourceLocation: {
+						"file": "packages/llm/llm/src/index.ts",
+						"line": 550,
+						"column": 3
+					}
+				},
+				{
+					id: "@deepseek-ai/dsh-llm#llm/listProviders",
+					service: "llm",
+					namespace: "llm",
+					method: "listProviders",
+					invocation: { kind: "direct" },
+					parameters: [],
+					result: {
+						mode: "strict",
+						typeSymbol: "@deepseek-ai/dsh-llm#llm/listProviders:result",
+						create: _deepseek_ai_dsh_llm_llm_listProviders_result$schema
+					},
+					sourceLocation: {
+						"file": "packages/llm/llm/src/index.ts",
+						"line": 478,
+						"column": 3
+					}
+				}
+			]
+		};
+		//#endregion
+		//#region ../../extensions/cordis-host-runner/lib/typert.remote-client.js
+		let JsonValueRemoteCodec$schema$value$1;
+		const JsonValueRemoteCodec$schema$1 = () => JsonValueRemoteCodec$schema$value$1 ??= union([
+			literal(null),
+			string(),
+			number(),
+			literal(false),
+			literal(true),
+			array(lazy(() => JsonValueRemoteCodec$schema$1())),
+			record(string(), lazy(() => JsonValueRemoteCodec$schema$1()))
+		]);
+		let JsonValueRemoteCodec$schema2$value$1;
+		const JsonValueRemoteCodec$schema2$1 = () => JsonValueRemoteCodec$schema2$value$1 ??= union([
+			literal(null),
+			string(),
+			number(),
+			literal(false),
+			literal(true),
+			array(lazy(() => JsonValueRemoteCodec$schema2$1())),
+			record(string(), lazy(() => JsonValueRemoteCodec$schema2$1()))
+		]);
+		let JsonValueRemoteCodec$schema3$value$1;
+		const JsonValueRemoteCodec$schema3$1 = () => JsonValueRemoteCodec$schema3$value$1 ??= union([
+			literal(null),
+			string(),
+			number(),
+			literal(false),
+			literal(true),
+			array(lazy(() => JsonValueRemoteCodec$schema3$1())),
+			record(string(), lazy(() => JsonValueRemoteCodec$schema3$1()))
+		]);
+		let JsonValueRemoteCodec$schema4$value$1;
+		const JsonValueRemoteCodec$schema4$1 = () => JsonValueRemoteCodec$schema4$value$1 ??= union([
+			literal(null),
+			string(),
+			number(),
+			literal(false),
+			literal(true),
+			array(lazy(() => JsonValueRemoteCodec$schema4$1())),
+			record(string(), lazy(() => JsonValueRemoteCodec$schema4$1()))
+		]);
+		let _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_getClientCode_parameter_0$schema$value;
+		const _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_getClientCode_parameter_0$schema = () => _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_getClientCode_parameter_0$schema$value ??= intersection(string(), unknown());
+		let _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_getClientCode_parameter_1$schema$value;
+		const _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_getClientCode_parameter_1$schema = () => _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_getClientCode_parameter_1$schema$value ??= intersection(string(), unknown());
+		let _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_getClientCode_parameter_2$schema$value;
+		const _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_getClientCode_parameter_2$schema = () => _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_getClientCode_parameter_2$schema$value ??= intersection(string(), unknown());
+		let _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_getClientCode_result$schema$value;
+		const _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_getClientCode_result$schema = () => _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_getClientCode_result$schema$value ??= object({
+			"code": string(),
+			"name": string(),
+			"pluginId": intersection(string(), unknown()),
+			"packageId": intersection(string(), unknown()),
+			"pluginRunId": intersection(string(), unknown())
+		});
+		let _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_inventory_result$schema$value;
+		const _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_inventory_result$schema = () => _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_inventory_result$schema$value ??= array(object({
+			"pluginId": intersection(string(), unknown()),
+			"agentId": intersection(string(), unknown()),
+			"packages": array(object({
+				"packageId": intersection(string(), unknown()),
+				"name": string(),
+				"purpose": string(),
+				"hasHostHalf": boolean(),
+				"hasClientHalf": boolean()
+			})),
+			"currentPackageId": intersection(string(), unknown()).optional(),
+			"nextPackageId": intersection(string(), unknown()).optional(),
+			"activeRun": object({
+				"pluginRunId": intersection(string(), unknown()),
+				"packageId": intersection(string(), unknown())
+			}).optional(),
+			"latestRun": object({
+				"pluginRunId": intersection(string(), unknown()),
+				"packageId": intersection(string(), unknown()),
+				"mode": union([literal("run"), literal("update")]),
+				"status": union([
+					literal("cancelled"),
+					literal("failed"),
+					literal("running"),
+					literal("rejected"),
+					literal("awaiting-approval"),
+					literal("starting-host"),
+					literal("client-pending"),
+					literal("waiting"),
+					literal("stopped")
+				]),
+				"approvalRequestId": intersection(string(), unknown()).optional(),
+				"requiresApproval": boolean().optional(),
+				"host": object({
+					"status": union([
+						literal("failed"),
+						literal("running"),
+						literal("pending"),
+						literal("waiting"),
+						literal("stopped"),
+						literal("absent")
+					]),
+					"waitingFor": array(string()),
+					"error": string().optional()
+				}),
+				"client": object({
+					"status": union([
+						literal("failed"),
+						literal("running"),
+						literal("pending"),
+						literal("waiting"),
+						literal("stopped"),
+						literal("absent")
+					]),
+					"waitingFor": array(string()),
+					"error": string().optional()
+				}),
+				"error": object({
+					"phase": union([
+						literal("approval"),
+						literal("host-load"),
+						literal("host-apply"),
+						literal("client-load"),
+						literal("client-apply"),
+						literal("client-render")
+					]),
+					"message": string(),
+					"stack": string().optional(),
+					"pluginId": intersection(string(), unknown()),
+					"packageId": intersection(string(), unknown()),
+					"pluginRunId": intersection(string(), unknown())
+				}).optional()
+			}).optional()
+		}));
+		let _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_invoke_parameter_0$schema$value;
+		const _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_invoke_parameter_0$schema = () => _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_invoke_parameter_0$schema$value ??= intersection(string(), unknown());
+		let _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_invoke_parameter_1$schema$value;
+		const _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_invoke_parameter_1$schema = () => _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_invoke_parameter_1$schema$value ??= intersection(string(), unknown());
+		let _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_invoke_parameter_2$schema$value;
+		const _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_invoke_parameter_2$schema = () => _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_invoke_parameter_2$schema$value ??= string();
+		let _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_invoke_parameter_3$schema$value;
+		const _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_invoke_parameter_3$schema = () => _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_invoke_parameter_3$schema$value ??= union([
+			literal(null),
+			string(),
+			number(),
+			literal(false),
+			literal(true),
+			array(lazy(() => JsonValueRemoteCodec$schema3$1())),
+			record(string(), lazy(() => JsonValueRemoteCodec$schema3$1()))
+		]);
+		let _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_invoke_result$schema$value;
+		const _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_invoke_result$schema = () => _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_invoke_result$schema$value ??= union([object({
+			"ok": literal(true),
+			"value": union([
+				literal(null),
+				string(),
+				number(),
+				literal(false),
+				literal(true),
+				array(lazy(() => JsonValueRemoteCodec$schema4$1())),
+				record(string(), lazy(() => JsonValueRemoteCodec$schema4$1()))
+			])
+		}), intersection(object({
+			"ok": literal(false),
+			"code": union([
+				literal("plugin-not-running"),
+				literal("stale-run"),
+				literal("method-not-found"),
+				literal("handler-error")
+			])
+		}), object({
+			"message": string(),
+			"stack": string().optional()
+		}))]);
+		let _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_reportClientGuardFailure_parameter_0$schema$value;
+		const _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_reportClientGuardFailure_parameter_0$schema = () => _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_reportClientGuardFailure_parameter_0$schema$value ??= intersection(string(), unknown());
+		let _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_reportClientGuardFailure_parameter_1$schema$value;
+		const _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_reportClientGuardFailure_parameter_1$schema = () => _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_reportClientGuardFailure_parameter_1$schema$value ??= intersection(string(), unknown());
+		let _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_reportClientGuardFailure_parameter_2$schema$value;
+		const _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_reportClientGuardFailure_parameter_2$schema = () => _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_reportClientGuardFailure_parameter_2$schema$value ??= intersection(string(), unknown());
+		let _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_reportClientGuardFailure_parameter_3$schema$value;
+		const _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_reportClientGuardFailure_parameter_3$schema = () => _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_reportClientGuardFailure_parameter_3$schema$value ??= object({
+			"message": string(),
+			"stack": string().optional()
+		});
+		let _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_reportClientGuardFailure_result$schema$value;
+		const _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_reportClientGuardFailure_result$schema = () => _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_reportClientGuardFailure_result$schema$value ??= literal(null);
+		let _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_reportRenderFailure_parameter_0$schema$value;
+		const _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_reportRenderFailure_parameter_0$schema = () => _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_reportRenderFailure_parameter_0$schema$value ??= intersection(string(), unknown());
+		let _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_reportRenderFailure_parameter_1$schema$value;
+		const _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_reportRenderFailure_parameter_1$schema = () => _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_reportRenderFailure_parameter_1$schema$value ??= intersection(string(), unknown());
+		let _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_reportRenderFailure_parameter_2$schema$value;
+		const _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_reportRenderFailure_parameter_2$schema = () => _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_reportRenderFailure_parameter_2$schema$value ??= intersection(string(), unknown());
+		let _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_reportRenderFailure_parameter_3$schema$value;
+		const _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_reportRenderFailure_parameter_3$schema = () => _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_reportRenderFailure_parameter_3$schema$value ??= object({
+			"slot": string(),
+			"message": string(),
+			"stack": string().optional(),
+			"abdicated": boolean()
+		});
+		let _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_reportRenderFailure_result$schema$value;
+		const _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_reportRenderFailure_result$schema = () => _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_reportRenderFailure_result$schema$value ??= literal(null);
+		let _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_resolveInspectQuery_parameter_0$schema$value;
+		const _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_resolveInspectQuery_parameter_0$schema = () => _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_resolveInspectQuery_parameter_0$schema$value ??= intersection(string(), unknown());
+		let _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_resolveInspectQuery_parameter_1$schema$value;
+		const _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_resolveInspectQuery_parameter_1$schema = () => _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_resolveInspectQuery_parameter_1$schema$value ??= intersection(string(), unknown());
+		let _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_resolveInspectQuery_parameter_2$schema$value;
+		const _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_resolveInspectQuery_parameter_2$schema = () => _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_resolveInspectQuery_parameter_2$schema$value ??= union([object({
+			"ok": literal(true),
+			"data": union([
+				literal(null),
+				string(),
+				number(),
+				literal(false),
+				literal(true),
+				array(lazy(() => JsonValueRemoteCodec$schema2$1())),
+				record(string(), lazy(() => JsonValueRemoteCodec$schema2$1()))
+			])
+		}), object({
+			"ok": literal(false),
+			"reason": union([
+				literal("cancelled"),
+				literal("provider-missing"),
+				literal("method-missing"),
+				literal("invalid-input"),
+				literal("provider-error")
+			]),
+			"message": string()
+		})]);
+		let _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_resolveInspectQuery_result$schema$value;
+		const _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_resolveInspectQuery_result$schema = () => _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_resolveInspectQuery_result$schema$value ??= object({ "accepted": boolean() });
+		let _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_resolveRequestRun_parameter_0$schema$value;
+		const _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_resolveRequestRun_parameter_0$schema = () => _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_resolveRequestRun_parameter_0$schema$value ??= intersection(string(), unknown());
+		let _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_resolveRequestRun_parameter_1$schema$value;
+		const _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_resolveRequestRun_parameter_1$schema = () => _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_resolveRequestRun_parameter_1$schema$value ??= union([object({
+			"ok": literal(true),
+			"pluginRunId": intersection(string(), unknown()),
+			"waitingFor": array(string()).optional()
+		}), object({
+			"ok": literal(false),
+			"reason": union([
+				literal("rejected"),
+				literal("host-half-failed"),
+				literal("client-half-failed")
+			]),
+			"pluginRunId": intersection(string(), unknown()).optional(),
+			"startedHere": boolean().optional(),
+			"message": string().optional(),
+			"stack": string().optional()
+		})]);
+		let _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_resolveRequestRun_result$schema$value;
+		const _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_resolveRequestRun_result$schema = () => _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_resolveRequestRun_result$schema$value ??= object({ "accepted": boolean() });
+		let _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_runHostHalf_parameter_0$schema$value;
+		const _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_runHostHalf_parameter_0$schema = () => _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_runHostHalf_parameter_0$schema$value ??= intersection(string(), unknown());
+		let _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_runHostHalf_parameter_1$schema$value;
+		const _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_runHostHalf_parameter_1$schema = () => _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_runHostHalf_parameter_1$schema$value ??= intersection(string(), unknown());
+		let _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_runHostHalf_parameter_2$schema$value;
+		const _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_runHostHalf_parameter_2$schema = () => _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_runHostHalf_parameter_2$schema$value ??= intersection(string(), unknown());
+		let _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_runHostHalf_parameter_3$schema$value;
+		const _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_runHostHalf_parameter_3$schema = () => _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_runHostHalf_parameter_3$schema$value ??= union([literal("run"), literal("update")]);
+		let _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_runHostHalf_parameter_4$schema$value;
+		const _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_runHostHalf_parameter_4$schema = () => _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_runHostHalf_parameter_4$schema$value ??= union([literal(null), intersection(string(), unknown())]);
+		let _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_runHostHalf_parameter_5$schema$value;
+		const _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_runHostHalf_parameter_5$schema = () => _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_runHostHalf_parameter_5$schema$value ??= boolean();
+		let _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_runHostHalf_result$schema$value;
+		const _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_runHostHalf_result$schema = () => _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_runHostHalf_result$schema$value ??= union([object({
+			"ok": literal(true),
+			"pluginId": intersection(string(), unknown()),
+			"packageId": intersection(string(), unknown()),
+			"pluginRunId": intersection(string(), unknown()),
+			"waitingFor": array(string()),
+			"startedHere": boolean()
+		}), intersection(object({ "ok": literal(false) }), object({
+			"message": string(),
+			"stack": string().optional()
+		}))]);
+		let _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_settleUserRun_parameter_0$schema$value;
+		const _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_settleUserRun_parameter_0$schema = () => _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_settleUserRun_parameter_0$schema$value ??= intersection(string(), unknown());
+		let _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_settleUserRun_parameter_1$schema$value;
+		const _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_settleUserRun_parameter_1$schema = () => _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_settleUserRun_parameter_1$schema$value ??= intersection(string(), unknown());
+		let _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_settleUserRun_parameter_2$schema$value;
+		const _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_settleUserRun_parameter_2$schema = () => _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_settleUserRun_parameter_2$schema$value ??= union([object({
+			"ok": literal(true),
+			"pluginRunId": intersection(string(), unknown()),
+			"waitingFor": array(string()).optional()
+		}), object({
+			"ok": literal(false),
+			"reason": union([
+				literal("rejected"),
+				literal("host-half-failed"),
+				literal("client-half-failed")
+			]),
+			"pluginRunId": intersection(string(), unknown()).optional(),
+			"startedHere": boolean().optional(),
+			"message": string().optional(),
+			"stack": string().optional()
+		})]);
+		let _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_settleUserRun_result$schema$value;
+		const _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_settleUserRun_result$schema = () => _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_settleUserRun_result$schema$value ??= union([object({
+			"ok": literal(true),
+			"status": union([
+				literal("running"),
+				literal("awaiting-approval"),
+				literal("starting")
+			]),
+			"pluginId": intersection(string(), unknown()),
+			"packageId": intersection(string(), unknown()),
+			"pluginRunId": intersection(string(), unknown()),
+			"waitingFor": array(string()),
+			"clientWaitingFor": array(string()).optional(),
+			"currentPackageId": intersection(string(), unknown()).optional(),
+			"nextPackageId": intersection(string(), unknown()).optional(),
+			"mode": union([literal("run"), literal("update")])
+		}), object({
+			"ok": literal(false),
+			"reason": union([
+				literal("cancelled"),
+				literal("plugin-missing"),
+				literal("rejected"),
+				literal("host-half-failed"),
+				literal("client-half-failed"),
+				literal("package-missing"),
+				literal("invalid-mode"),
+				literal("transition-in-flight"),
+				literal("not-running")
+			]),
+			"message": string(),
+			"stack": string().optional()
+		})]);
+		let _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_stopFromPanel_parameter_0$schema$value;
+		const _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_stopFromPanel_parameter_0$schema = () => _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_stopFromPanel_parameter_0$schema$value ??= intersection(string(), unknown());
+		let _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_stopFromPanel_parameter_1$schema$value;
+		const _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_stopFromPanel_parameter_1$schema = () => _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_stopFromPanel_parameter_1$schema$value ??= intersection(string(), unknown());
+		let _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_stopFromPanel_result$schema$value;
+		const _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_stopFromPanel_result$schema = () => _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_stopFromPanel_result$schema$value ??= union([object({ "ok": literal(true) }), object({
+			"ok": literal(false),
+			"reason": union([literal("plugin-missing"), literal("not-running")]),
+			"message": string()
+		})]);
+		let _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_syncInspectManifest_parameter_0$schema$value;
+		const _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_syncInspectManifest_parameter_0$schema = () => _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_syncInspectManifest_parameter_0$schema$value ??= array(object({
+			"id": string(),
+			"description": string(),
+			"methods": array(object({
+				"name": string(),
+				"description": string(),
+				"inputSchema": union([
+					literal(null),
+					string(),
+					number(),
+					literal(false),
+					literal(true),
+					array(lazy(() => JsonValueRemoteCodec$schema$1())),
+					record(string(), lazy(() => JsonValueRemoteCodec$schema$1()))
+				]),
+				"outputSchema": union([
+					literal(null),
+					string(),
+					number(),
+					literal(false),
+					literal(true),
+					array(lazy(() => JsonValueRemoteCodec$schema$1())),
+					record(string(), lazy(() => JsonValueRemoteCodec$schema$1()))
+				])
+			}))
+		}));
+		let _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_syncInspectManifest_result$schema$value;
+		const _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_syncInspectManifest_result$schema = () => _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_syncInspectManifest_result$schema$value ??= literal(null);
+		let _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_undefineFromPanel_parameter_0$schema$value;
+		const _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_undefineFromPanel_parameter_0$schema = () => _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_undefineFromPanel_parameter_0$schema$value ??= intersection(string(), unknown());
+		let _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_undefineFromPanel_parameter_1$schema$value;
+		const _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_undefineFromPanel_parameter_1$schema = () => _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_undefineFromPanel_parameter_1$schema$value ??= intersection(string(), unknown());
+		let _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_undefineFromPanel_result$schema$value;
+		const _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_undefineFromPanel_result$schema = () => _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_undefineFromPanel_result$schema$value ??= union([object({
+			"ok": literal(true),
+			"wasRunning": boolean()
+		}), object({
+			"ok": literal(false),
+			"reason": literal("plugin-missing"),
+			"message": string()
+		})]);
+		const TYPERT_REMOTE$14 = {
+			package: "@deepseek-ai/dsh-cordis-host-runner",
+			descriptors: [
+				{
+					id: "@deepseek-ai/dsh-cordis-host-runner#dynamicCordisRunner/getClientCode",
+					service: "dynamicCordisRunner",
+					namespace: "dynamicCordisRunner",
+					method: "getClientCode",
+					invocation: { kind: "direct" },
+					scope: {
+						context: "agent",
+						wire: "agentId"
+					},
+					parameters: [
+						{
+							name: "agent",
+							wire: "agentId",
+							source: "lookup",
+							lookup: "agent",
+							codec: {
+								mode: "strict",
+								typeSymbol: "@deepseek-ai/dsh-session/types#SessionId",
+								create: _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_getClientCode_parameter_0$schema
+							}
+						},
+						{
+							name: "pluginId",
+							wire: "pluginId",
+							source: "json",
+							codec: {
+								mode: "strict",
+								typeSymbol: "@deepseek-ai/dsh-cordis-host-runner/types#CordisDynamicPluginId",
+								create: _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_getClientCode_parameter_1$schema
+							}
+						},
+						{
+							name: "pluginRunId",
+							wire: "pluginRunId",
+							source: "json",
+							codec: {
+								mode: "strict",
+								typeSymbol: "@deepseek-ai/dsh-cordis-host-runner/types#CordisDynamicPluginRunId",
+								create: _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_getClientCode_parameter_2$schema
+							}
+						}
+					],
+					result: {
+						mode: "strict",
+						typeSymbol: "@deepseek-ai/dsh-cordis-host-runner/types#DynamicCordisClientSource",
+						create: _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_getClientCode_result$schema
+					},
+					sourceLocation: {
+						"file": "packages/extensions/cordis-host-runner/src/index.ts",
+						"line": 389,
+						"column": 3
+					}
+				},
+				{
+					id: "@deepseek-ai/dsh-cordis-host-runner#dynamicCordisRunner/inventory",
+					service: "dynamicCordisRunner",
+					namespace: "dynamicCordisRunner",
+					method: "inventory",
+					invocation: { kind: "direct" },
+					parameters: [],
+					result: {
+						mode: "strict",
+						typeSymbol: "@deepseek-ai/dsh-cordis-host-runner#dynamicCordisRunner/inventory:result",
+						create: _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_inventory_result$schema
+					},
+					sourceLocation: {
+						"file": "packages/extensions/cordis-host-runner/src/index.ts",
+						"line": 530,
+						"column": 3
+					}
+				},
+				{
+					id: "@deepseek-ai/dsh-cordis-host-runner#dynamicCordisRunner/invoke",
+					service: "dynamicCordisRunner",
+					namespace: "dynamicCordisRunner",
+					method: "invoke",
+					invocation: { kind: "direct" },
+					parameters: [
+						{
+							name: "pluginId",
+							wire: "pluginId",
+							source: "json",
+							codec: {
+								mode: "strict",
+								typeSymbol: "@deepseek-ai/dsh-cordis-host-runner/types#CordisDynamicPluginId",
+								create: _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_invoke_parameter_0$schema
+							}
+						},
+						{
+							name: "pluginRunId",
+							wire: "pluginRunId",
+							source: "json",
+							codec: {
+								mode: "strict",
+								typeSymbol: "@deepseek-ai/dsh-cordis-host-runner/types#CordisDynamicPluginRunId",
+								create: _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_invoke_parameter_1$schema
+							}
+						},
+						{
+							name: "method",
+							wire: "method",
+							source: "json",
+							codec: {
+								mode: "strict",
+								typeSymbol: "@deepseek-ai/dsh-cordis-host-runner#dynamicCordisRunner/invoke:method",
+								create: _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_invoke_parameter_2$schema
+							}
+						},
+						{
+							name: "args",
+							wire: "args",
+							source: "json",
+							codec: {
+								mode: "strict",
+								typeSymbol: "@deepseek-ai/dsh-util-values#JsonValue",
+								create: _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_invoke_parameter_3$schema
+							}
+						}
+					],
+					result: {
+						mode: "strict",
+						typeSymbol: "@deepseek-ai/dsh-cordis-host-runner/types#DynamicCordisInvokeResult",
+						create: _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_invoke_result$schema
+					},
+					sourceLocation: {
+						"file": "packages/extensions/cordis-host-runner/src/index.ts",
+						"line": 746,
+						"column": 9
+					}
+				},
+				{
+					id: "@deepseek-ai/dsh-cordis-host-runner#dynamicCordisRunner/reportClientGuardFailure",
+					service: "dynamicCordisRunner",
+					namespace: "dynamicCordisRunner",
+					method: "reportClientGuardFailure",
+					invocation: { kind: "direct" },
+					scope: {
+						context: "agent",
+						wire: "agentId"
+					},
+					parameters: [
+						{
+							name: "agent",
+							wire: "agentId",
+							source: "lookup",
+							lookup: "agent",
+							codec: {
+								mode: "strict",
+								typeSymbol: "@deepseek-ai/dsh-session/types#SessionId",
+								create: _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_reportClientGuardFailure_parameter_0$schema
+							}
+						},
+						{
+							name: "pluginId",
+							wire: "pluginId",
+							source: "json",
+							codec: {
+								mode: "strict",
+								typeSymbol: "@deepseek-ai/dsh-cordis-host-runner/types#CordisDynamicPluginId",
+								create: _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_reportClientGuardFailure_parameter_1$schema
+							}
+						},
+						{
+							name: "pluginRunId",
+							wire: "pluginRunId",
+							source: "json",
+							codec: {
+								mode: "strict",
+								typeSymbol: "@deepseek-ai/dsh-cordis-host-runner/types#CordisDynamicPluginRunId",
+								create: _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_reportClientGuardFailure_parameter_2$schema
+							}
+						},
+						{
+							name: "failure",
+							wire: "failure",
+							source: "json",
+							codec: {
+								mode: "strict",
+								typeSymbol: "@deepseek-ai/dsh-cordis-host-runner/types#CordisErrorDetails",
+								create: _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_reportClientGuardFailure_parameter_3$schema
+							}
+						}
+					],
+					result: {
+						mode: "strict",
+						typeSymbol: "@deepseek-ai/dsh-cordis-host-runner#dynamicCordisRunner/reportClientGuardFailure:result",
+						create: _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_reportClientGuardFailure_result$schema
+					},
+					sourceLocation: {
+						"file": "packages/extensions/cordis-host-runner/src/index.ts",
+						"line": 723,
+						"column": 9
+					}
+				},
+				{
+					id: "@deepseek-ai/dsh-cordis-host-runner#dynamicCordisRunner/reportRenderFailure",
+					service: "dynamicCordisRunner",
+					namespace: "dynamicCordisRunner",
+					method: "reportRenderFailure",
+					invocation: { kind: "direct" },
+					scope: {
+						context: "agent",
+						wire: "agentId"
+					},
+					parameters: [
+						{
+							name: "agent",
+							wire: "agentId",
+							source: "lookup",
+							lookup: "agent",
+							codec: {
+								mode: "strict",
+								typeSymbol: "@deepseek-ai/dsh-session/types#SessionId",
+								create: _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_reportRenderFailure_parameter_0$schema
+							}
+						},
+						{
+							name: "pluginId",
+							wire: "pluginId",
+							source: "json",
+							codec: {
+								mode: "strict",
+								typeSymbol: "@deepseek-ai/dsh-cordis-host-runner/types#CordisDynamicPluginId",
+								create: _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_reportRenderFailure_parameter_1$schema
+							}
+						},
+						{
+							name: "pluginRunId",
+							wire: "pluginRunId",
+							source: "json",
+							codec: {
+								mode: "strict",
+								typeSymbol: "@deepseek-ai/dsh-cordis-host-runner/types#CordisDynamicPluginRunId",
+								create: _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_reportRenderFailure_parameter_2$schema
+							}
+						},
+						{
+							name: "failure",
+							wire: "failure",
+							source: "json",
+							codec: {
+								mode: "strict",
+								typeSymbol: "@deepseek-ai/dsh-cordis-host-runner/types#DynamicCordisRenderFailure",
+								create: _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_reportRenderFailure_parameter_3$schema
+							}
+						}
+					],
+					result: {
+						mode: "strict",
+						typeSymbol: "@deepseek-ai/dsh-cordis-host-runner#dynamicCordisRunner/reportRenderFailure:result",
+						create: _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_reportRenderFailure_result$schema
+					},
+					sourceLocation: {
+						"file": "packages/extensions/cordis-host-runner/src/index.ts",
+						"line": 689,
+						"column": 9
+					}
+				},
+				{
+					id: "@deepseek-ai/dsh-cordis-host-runner#dynamicCordisRunner/resolveInspectQuery",
+					service: "dynamicCordisRunner",
+					namespace: "dynamicCordisRunner",
+					method: "resolveInspectQuery",
+					invocation: { kind: "direct" },
+					scope: {
+						context: "agent",
+						wire: "agentId"
+					},
+					parameters: [
+						{
+							name: "agent",
+							wire: "agentId",
+							source: "lookup",
+							lookup: "agent",
+							codec: {
+								mode: "strict",
+								typeSymbol: "@deepseek-ai/dsh-session/types#SessionId",
+								create: _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_resolveInspectQuery_parameter_0$schema
+							}
+						},
+						{
+							name: "requestId",
+							wire: "requestId",
+							source: "json",
+							codec: {
+								mode: "strict",
+								typeSymbol: "@deepseek-ai/dsh-cordis-host-runner/types#CordisInspectRequestId",
+								create: _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_resolveInspectQuery_parameter_1$schema
+							}
+						},
+						{
+							name: "resolution",
+							wire: "resolution",
+							source: "json",
+							codec: {
+								mode: "strict",
+								typeSymbol: "@deepseek-ai/dsh-cordis-host-runner/types#CordisInspectQueryResolution",
+								create: _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_resolveInspectQuery_parameter_2$schema
+							}
+						}
+					],
+					result: {
+						mode: "strict",
+						typeSymbol: "@deepseek-ai/dsh-cordis-host-runner/types#CordisInspectResolveAck",
+						create: _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_resolveInspectQuery_result$schema
+					},
+					sourceLocation: {
+						"file": "packages/extensions/cordis-host-runner/src/index.ts",
+						"line": 516,
+						"column": 3
+					}
+				},
+				{
+					id: "@deepseek-ai/dsh-cordis-host-runner#dynamicCordisRunner/resolveRequestRun",
+					service: "dynamicCordisRunner",
+					namespace: "dynamicCordisRunner",
+					method: "resolveRequestRun",
+					invocation: { kind: "direct" },
+					parameters: [{
+						name: "requestId",
+						wire: "requestId",
+						source: "json",
+						codec: {
+							mode: "strict",
+							typeSymbol: "@deepseek-ai/dsh-cordis-host-runner/types#ApprovalRequestId",
+							create: _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_resolveRequestRun_parameter_0$schema
+						}
+					}, {
+						name: "resolution",
+						wire: "resolution",
+						source: "json",
+						codec: {
+							mode: "strict",
+							typeSymbol: "@deepseek-ai/dsh-cordis-host-runner/types#DynamicCordisRunResolution",
+							create: _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_resolveRequestRun_parameter_1$schema
+						}
+					}],
+					result: {
+						mode: "strict",
+						typeSymbol: "@deepseek-ai/dsh-cordis-host-runner/types#DynamicCordisResolveAck",
+						create: _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_resolveRequestRun_result$schema
+					},
+					sourceLocation: {
+						"file": "packages/extensions/cordis-host-runner/src/index.ts",
+						"line": 418,
+						"column": 9
+					}
+				},
+				{
+					id: "@deepseek-ai/dsh-cordis-host-runner#dynamicCordisRunner/runHostHalf",
+					service: "dynamicCordisRunner",
+					namespace: "dynamicCordisRunner",
+					method: "runHostHalf",
+					invocation: { kind: "direct" },
+					scope: {
+						context: "agent",
+						wire: "agentId"
+					},
+					parameters: [
+						{
+							name: "agent",
+							wire: "agentId",
+							source: "lookup",
+							lookup: "agent",
+							codec: {
+								mode: "strict",
+								typeSymbol: "@deepseek-ai/dsh-session/types#SessionId",
+								create: _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_runHostHalf_parameter_0$schema
+							}
+						},
+						{
+							name: "pluginId",
+							wire: "pluginId",
+							source: "json",
+							codec: {
+								mode: "strict",
+								typeSymbol: "@deepseek-ai/dsh-cordis-host-runner/types#CordisDynamicPluginId",
+								create: _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_runHostHalf_parameter_1$schema
+							}
+						},
+						{
+							name: "packageId",
+							wire: "packageId",
+							source: "json",
+							codec: {
+								mode: "strict",
+								typeSymbol: "@deepseek-ai/dsh-cordis-host-runner/types#CordisDynamicPackageId",
+								create: _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_runHostHalf_parameter_2$schema
+							}
+						},
+						{
+							name: "mode",
+							wire: "mode",
+							source: "json",
+							codec: {
+								mode: "strict",
+								typeSymbol: "@deepseek-ai/dsh-cordis-host-runner/types#CordisDynamicRunMode",
+								create: _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_runHostHalf_parameter_3$schema
+							}
+						},
+						{
+							name: "requestId",
+							wire: "requestId",
+							source: "json",
+							codec: {
+								mode: "strict",
+								typeSymbol: "@deepseek-ai/dsh-cordis-host-runner#dynamicCordisRunner/runHostHalf:requestId",
+								create: _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_runHostHalf_parameter_4$schema
+							}
+						},
+						{
+							name: "approveFutureVersions",
+							wire: "approveFutureVersions",
+							source: "json",
+							codec: {
+								mode: "strict",
+								typeSymbol: "@deepseek-ai/dsh-cordis-host-runner#dynamicCordisRunner/runHostHalf:approveFutureVersions",
+								create: _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_runHostHalf_parameter_5$schema
+							}
+						}
+					],
+					result: {
+						mode: "strict",
+						typeSymbol: "@deepseek-ai/dsh-cordis-host-runner/types#DynamicCordisHostHalfResult",
+						create: _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_runHostHalf_result$schema
+					},
+					sourceLocation: {
+						"file": "packages/extensions/cordis-host-runner/src/index.ts",
+						"line": 330,
+						"column": 9
+					}
+				},
+				{
+					id: "@deepseek-ai/dsh-cordis-host-runner#dynamicCordisRunner/settleUserRun",
+					service: "dynamicCordisRunner",
+					namespace: "dynamicCordisRunner",
+					method: "settleUserRun",
+					invocation: { kind: "direct" },
+					scope: {
+						context: "agent",
+						wire: "agentId"
+					},
+					parameters: [
+						{
+							name: "agent",
+							wire: "agentId",
+							source: "lookup",
+							lookup: "agent",
+							codec: {
+								mode: "strict",
+								typeSymbol: "@deepseek-ai/dsh-session/types#SessionId",
+								create: _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_settleUserRun_parameter_0$schema
+							}
+						},
+						{
+							name: "pluginId",
+							wire: "pluginId",
+							source: "json",
+							codec: {
+								mode: "strict",
+								typeSymbol: "@deepseek-ai/dsh-cordis-host-runner/types#CordisDynamicPluginId",
+								create: _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_settleUserRun_parameter_1$schema
+							}
+						},
+						{
+							name: "resolution",
+							wire: "resolution",
+							source: "json",
+							codec: {
+								mode: "strict",
+								typeSymbol: "@deepseek-ai/dsh-cordis-host-runner/types#DynamicCordisRunResolution",
+								create: _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_settleUserRun_parameter_2$schema
+							}
+						}
+					],
+					result: {
+						mode: "strict",
+						typeSymbol: "@deepseek-ai/dsh-cordis-host-runner/types#DynamicCordisRunResponse",
+						create: _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_settleUserRun_result$schema
+					},
+					sourceLocation: {
+						"file": "packages/extensions/cordis-host-runner/src/index.ts",
+						"line": 443,
+						"column": 9
+					}
+				},
+				{
+					id: "@deepseek-ai/dsh-cordis-host-runner#dynamicCordisRunner/stopFromPanel",
+					service: "dynamicCordisRunner",
+					namespace: "dynamicCordisRunner",
+					method: "stopFromPanel",
+					invocation: { kind: "direct" },
+					scope: {
+						context: "agent",
+						wire: "agentId"
+					},
+					parameters: [{
+						name: "agent",
+						wire: "agentId",
+						source: "lookup",
+						lookup: "agent",
+						codec: {
+							mode: "strict",
+							typeSymbol: "@deepseek-ai/dsh-session/types#SessionId",
+							create: _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_stopFromPanel_parameter_0$schema
+						}
+					}, {
+						name: "pluginId",
+						wire: "pluginId",
+						source: "json",
+						codec: {
+							mode: "strict",
+							typeSymbol: "@deepseek-ai/dsh-cordis-host-runner/types#CordisDynamicPluginId",
+							create: _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_stopFromPanel_parameter_1$schema
+						}
+					}],
+					result: {
+						mode: "strict",
+						typeSymbol: "@deepseek-ai/dsh-cordis-host-runner/types#DynamicCordisStopResponse",
+						create: _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_stopFromPanel_result$schema
+					},
+					sourceLocation: {
+						"file": "packages/extensions/cordis-host-runner/src/index.ts",
+						"line": 485,
+						"column": 9
+					}
+				},
+				{
+					id: "@deepseek-ai/dsh-cordis-host-runner#dynamicCordisRunner/syncInspectManifest",
+					service: "dynamicCordisRunner",
+					namespace: "dynamicCordisRunner",
+					method: "syncInspectManifest",
+					invocation: { kind: "direct" },
+					parameters: [{
+						name: "providers",
+						wire: "providers",
+						source: "json",
+						codec: {
+							mode: "strict",
+							typeSymbol: "@deepseek-ai/dsh-cordis-host-runner#dynamicCordisRunner/syncInspectManifest:providers",
+							create: _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_syncInspectManifest_parameter_0$schema
+						}
+					}],
+					result: {
+						mode: "strict",
+						typeSymbol: "@deepseek-ai/dsh-cordis-host-runner#dynamicCordisRunner/syncInspectManifest:result",
+						create: _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_syncInspectManifest_result$schema
+					},
+					sourceLocation: {
+						"file": "packages/extensions/cordis-host-runner/src/index.ts",
+						"line": 503,
+						"column": 3
+					}
+				},
+				{
+					id: "@deepseek-ai/dsh-cordis-host-runner#dynamicCordisRunner/undefineFromPanel",
+					service: "dynamicCordisRunner",
+					namespace: "dynamicCordisRunner",
+					method: "undefineFromPanel",
+					invocation: { kind: "direct" },
+					scope: {
+						context: "agent",
+						wire: "agentId"
+					},
+					parameters: [{
+						name: "agent",
+						wire: "agentId",
+						source: "lookup",
+						lookup: "agent",
+						codec: {
+							mode: "strict",
+							typeSymbol: "@deepseek-ai/dsh-session/types#SessionId",
+							create: _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_undefineFromPanel_parameter_0$schema
+						}
+					}, {
+						name: "pluginId",
+						wire: "pluginId",
+						source: "json",
+						codec: {
+							mode: "strict",
+							typeSymbol: "@deepseek-ai/dsh-cordis-host-runner/types#CordisDynamicPluginId",
+							create: _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_undefineFromPanel_parameter_1$schema
+						}
+					}],
+					result: {
+						mode: "strict",
+						typeSymbol: "@deepseek-ai/dsh-cordis-host-runner/types#DynamicCordisUndefineReceipt",
+						create: _deepseek_ai_dsh_cordis_host_runner_dynamicCordisRunner_undefineFromPanel_result$schema
+					},
+					sourceLocation: {
+						"file": "packages/extensions/cordis-host-runner/src/index.ts",
+						"line": 232,
+						"column": 9
+					}
+				}
+			]
+		};
+		//#endregion
+		//#region ../../boot/plugin-manager/lib/typert.remote-client.js
+		let _deepseek_ai_dsh_plugin_manager_pluginManager_cancelInstall_parameter_0$schema$value;
+		const _deepseek_ai_dsh_plugin_manager_pluginManager_cancelInstall_parameter_0$schema = () => _deepseek_ai_dsh_plugin_manager_pluginManager_cancelInstall_parameter_0$schema$value ??= intersection(string(), unknown());
+		let _deepseek_ai_dsh_plugin_manager_pluginManager_cancelInstall_result$schema$value;
+		const _deepseek_ai_dsh_plugin_manager_pluginManager_cancelInstall_result$schema = () => _deepseek_ai_dsh_plugin_manager_pluginManager_cancelInstall_result$schema$value ??= object({ "status": union([
+			literal("cancelled"),
+			literal("not-running"),
+			literal("too-late")
+		]).readonly() });
+		let _deepseek_ai_dsh_plugin_manager_pluginManager_inspect_parameter_0$schema$value;
+		const _deepseek_ai_dsh_plugin_manager_pluginManager_inspect_parameter_0$schema = () => _deepseek_ai_dsh_plugin_manager_pluginManager_inspect_parameter_0$schema$value ??= string();
+		let _deepseek_ai_dsh_plugin_manager_pluginManager_inspect_parameter_1$schema$value;
+		const _deepseek_ai_dsh_plugin_manager_pluginManager_inspect_parameter_1$schema = () => _deepseek_ai_dsh_plugin_manager_pluginManager_inspect_parameter_1$schema$value ??= union([_undefined(), object({ "registry": union([literal(null), string()]).readonly().optional() })]);
+		let _deepseek_ai_dsh_plugin_manager_pluginManager_inspect_result$schema$value;
+		const _deepseek_ai_dsh_plugin_manager_pluginManager_inspect_result$schema = () => _deepseek_ai_dsh_plugin_manager_pluginManager_inspect_result$schema$value ??= union([object({
+			"status": literal("accepted").readonly(),
+			"kind": union([
+				literal("registry"),
+				literal("path"),
+				literal("git"),
+				literal("tarball")
+			]).readonly(),
+			"name": string().readonly().optional(),
+			"version": string().readonly().optional(),
+			"description": string().readonly().optional(),
+			"bundle": union([
+				literal(null),
+				literal(false),
+				literal(true)
+			]).readonly(),
+			"registry": union([literal(null), string()]).readonly(),
+			"host": string().readonly().optional()
+		}), object({
+			"status": literal("refused").readonly(),
+			"problem": union([
+				literal("network"),
+				literal("unknown"),
+				literal("invalid-spec"),
+				literal("not-found"),
+				literal("already-installed"),
+				literal("not-a-package"),
+				literal("not-a-bundle")
+			]).readonly(),
+			"reason": string().readonly(),
+			"registries": array(union([literal(null), string()])).readonly().optional()
+		})]);
+		let _deepseek_ai_dsh_plugin_manager_pluginManager_installBundle_parameter_0$schema$value;
+		const _deepseek_ai_dsh_plugin_manager_pluginManager_installBundle_parameter_0$schema = () => _deepseek_ai_dsh_plugin_manager_pluginManager_installBundle_parameter_0$schema$value ??= string();
+		let _deepseek_ai_dsh_plugin_manager_pluginManager_installBundle_parameter_1$schema$value;
+		const _deepseek_ai_dsh_plugin_manager_pluginManager_installBundle_parameter_1$schema = () => _deepseek_ai_dsh_plugin_manager_pluginManager_installBundle_parameter_1$schema$value ??= union([_undefined(), object({
+			"enabled": boolean().optional(),
+			"requestId": intersection(string(), unknown()).optional(),
+			"approvedBuilds": array(string()).optional(),
+			"registry": union([literal(null), string()]).optional()
+		})]);
+		let _deepseek_ai_dsh_plugin_manager_pluginManager_installBundle_result$schema$value;
+		const _deepseek_ai_dsh_plugin_manager_pluginManager_installBundle_result$schema = () => _deepseek_ai_dsh_plugin_manager_pluginManager_installBundle_result$schema$value ??= object({
+			"changed": boolean(),
+			"application": union([
+				literal("cancelled"),
+				literal("failed"),
+				literal("applied"),
+				literal("restart-required"),
+				literal("overridden")
+			]),
+			"stage": union([
+				literal("remove"),
+				literal("install"),
+				literal("enable")
+			]),
+			"target": string(),
+			"enabled": boolean().optional(),
+			"error": object({
+				"code": union([
+					literal("management-required"),
+					literal("unaddressable"),
+					literal("unknown-plugin"),
+					literal("invalid-spec"),
+					literal("ambiguous-install"),
+					literal("not-bundle"),
+					literal("not-removable"),
+					literal("stop-profile"),
+					literal("bundle-in-use"),
+					literal("stale-approval"),
+					literal("incompatible-version"),
+					literal("operation-error")
+				]),
+				"diagnostic": string().optional(),
+				"incompatible": array(object({
+					"name": string(),
+					"version": string(),
+					"runtimeVersion": string(),
+					"peers": record(string(), string())
+				})).optional()
+			}).optional(),
+			"warnings": array(string()).optional(),
+			"packageResult": object({
+				"exitCode": number(),
+				"output": string(),
+				"truncated": boolean(),
+				"logPath": string(),
+				"kind": union([
+					literal("network"),
+					literal("unknown"),
+					literal("timeout"),
+					literal("integrity"),
+					literal("pnpm-missing"),
+					literal("not-found"),
+					literal("no-matching-version"),
+					literal("disk-full"),
+					literal("permission"),
+					literal("build-blocked")
+				]).optional(),
+				"timedOut": boolean().optional(),
+				"incompatible": array(object({
+					"name": string(),
+					"version": string(),
+					"runtimeVersion": string(),
+					"peers": record(string(), string())
+				})).optional()
+			}).optional(),
+			"bundle": string().optional(),
+			"pendingBuilds": array(string()).optional(),
+			"approvedBuilds": array(string()).optional(),
+			"registries": array(union([literal(null), string()])).optional(),
+			"failedAt": union([literal("registry"), literal("spec-host")]).optional()
+		});
+		let _deepseek_ai_dsh_plugin_manager_pluginManager_listBundles_result$schema$value;
+		const _deepseek_ai_dsh_plugin_manager_pluginManager_listBundles_result$schema = () => _deepseek_ai_dsh_plugin_manager_pluginManager_listBundles_result$schema$value ??= array(object({
+			"name": string(),
+			"version": string().optional(),
+			"meta": object({
+				"title": union([string(), intersection(object({ "en": string().readonly() }), record(string(), string()).readonly())]).readonly().optional(),
+				"description": union([string(), intersection(object({ "en": string().readonly() }), record(string(), string()).readonly())]).readonly().optional(),
+				"icon": string().readonly().optional(),
+				"error": string().readonly().optional()
+			}).optional(),
+			"description": string().optional(),
+			"enabled": boolean(),
+			"installed": boolean(),
+			"optional": boolean(),
+			"removable": boolean(),
+			"readOnlyReason": union([literal("management-required"), literal("unaddressable")]).optional(),
+			"error": object({
+				"code": union([
+					literal("management-required"),
+					literal("unaddressable"),
+					literal("unknown-plugin"),
+					literal("invalid-spec"),
+					literal("ambiguous-install"),
+					literal("not-bundle"),
+					literal("not-removable"),
+					literal("stop-profile"),
+					literal("bundle-in-use"),
+					literal("stale-approval"),
+					literal("incompatible-version"),
+					literal("operation-error")
+				]),
+				"diagnostic": string().optional(),
+				"incompatible": array(object({
+					"name": string(),
+					"version": string(),
+					"runtimeVersion": string(),
+					"peers": record(string(), string())
+				})).optional()
+			}).optional(),
+			"rows": array(object({
+				"rowId": string(),
+				"moduleName": string(),
+				"meta": object({
+					"title": union([string(), intersection(object({ "en": string().readonly() }), record(string(), string()).readonly())]).readonly().optional(),
+					"description": union([string(), intersection(object({ "en": string().readonly() }), record(string(), string()).readonly())]).readonly().optional(),
+					"icon": string().readonly().optional(),
+					"error": string().readonly().optional()
+				}).optional(),
+				"entryId": intersection(string(), unknown()).optional()
+			})),
+			"overrides": array(string())
+		}));
+		let _deepseek_ai_dsh_plugin_manager_pluginManager_listPlugins_result$schema$value;
+		const _deepseek_ai_dsh_plugin_manager_pluginManager_listPlugins_result$schema = () => _deepseek_ai_dsh_plugin_manager_pluginManager_listPlugins_result$schema$value ??= array(union([intersection(object({
+			"entryId": intersection(string(), unknown()).readonly(),
+			"moduleName": string().readonly(),
+			"meta": object({
+				"title": union([string(), intersection(object({ "en": string().readonly() }), record(string(), string()).readonly())]).readonly().optional(),
+				"description": union([string(), intersection(object({ "en": string().readonly() }), record(string(), string()).readonly())]).readonly().optional(),
+				"icon": string().readonly().optional(),
+				"error": string().readonly().optional()
+			}).readonly().optional(),
+			"enabled": boolean().readonly(),
+			"fiberPhase": union([
+				literal(null),
+				literal("failed"),
+				literal("pending"),
+				literal("active"),
+				literal("loading"),
+				literal("unloading")
+			]).readonly()
+		}), object({
+			"patchId": string(),
+			"readOnlyReason": never().optional()
+		})), intersection(object({
+			"entryId": intersection(string(), unknown()).readonly(),
+			"moduleName": string().readonly(),
+			"meta": object({
+				"title": union([string(), intersection(object({ "en": string().readonly() }), record(string(), string()).readonly())]).readonly().optional(),
+				"description": union([string(), intersection(object({ "en": string().readonly() }), record(string(), string()).readonly())]).readonly().optional(),
+				"icon": string().readonly().optional(),
+				"error": string().readonly().optional()
+			}).readonly().optional(),
+			"enabled": boolean().readonly(),
+			"fiberPhase": union([
+				literal(null),
+				literal("failed"),
+				literal("pending"),
+				literal("active"),
+				literal("loading"),
+				literal("unloading")
+			]).readonly()
+		}), object({
+			"patchId": never().optional(),
+			"readOnlyReason": union([literal("management-required"), literal("unaddressable")])
+		}))]));
+		let _deepseek_ai_dsh_plugin_manager_pluginManager_listVersionExemptions_result$schema$value;
+		const _deepseek_ai_dsh_plugin_manager_pluginManager_listVersionExemptions_result$schema = () => _deepseek_ai_dsh_plugin_manager_pluginManager_listVersionExemptions_result$schema$value ??= object({
+			"exemptions": record(string(), array(string())),
+			"warnings": array(string())
+		});
+		let _deepseek_ai_dsh_plugin_manager_pluginManager_registries_result$schema$value;
+		const _deepseek_ai_dsh_plugin_manager_pluginManager_registries_result$schema = () => _deepseek_ai_dsh_plugin_manager_pluginManager_registries_result$schema$value ??= object({
+			"registry": union([literal(null), string()]).readonly(),
+			"fallbackRegistries": array(string()).readonly(),
+			"resolved": union([literal(null), string()]).readonly()
+		});
+		let _deepseek_ai_dsh_plugin_manager_pluginManager_removeBundle_parameter_0$schema$value;
+		const _deepseek_ai_dsh_plugin_manager_pluginManager_removeBundle_parameter_0$schema = () => _deepseek_ai_dsh_plugin_manager_pluginManager_removeBundle_parameter_0$schema$value ??= string();
+		let _deepseek_ai_dsh_plugin_manager_pluginManager_removeBundle_result$schema$value;
+		const _deepseek_ai_dsh_plugin_manager_pluginManager_removeBundle_result$schema = () => _deepseek_ai_dsh_plugin_manager_pluginManager_removeBundle_result$schema$value ??= object({
+			"changed": boolean(),
+			"application": union([
+				literal("cancelled"),
+				literal("failed"),
+				literal("applied"),
+				literal("restart-required"),
+				literal("overridden")
+			]),
+			"stage": union([
+				literal("remove"),
+				literal("install"),
+				literal("enable")
+			]),
+			"target": string(),
+			"enabled": boolean().optional(),
+			"error": object({
+				"code": union([
+					literal("management-required"),
+					literal("unaddressable"),
+					literal("unknown-plugin"),
+					literal("invalid-spec"),
+					literal("ambiguous-install"),
+					literal("not-bundle"),
+					literal("not-removable"),
+					literal("stop-profile"),
+					literal("bundle-in-use"),
+					literal("stale-approval"),
+					literal("incompatible-version"),
+					literal("operation-error")
+				]),
+				"diagnostic": string().optional(),
+				"incompatible": array(object({
+					"name": string(),
+					"version": string(),
+					"runtimeVersion": string(),
+					"peers": record(string(), string())
+				})).optional()
+			}).optional(),
+			"warnings": array(string()).optional(),
+			"packageResult": object({
+				"exitCode": number(),
+				"output": string(),
+				"truncated": boolean(),
+				"logPath": string(),
+				"kind": union([
+					literal("network"),
+					literal("unknown"),
+					literal("timeout"),
+					literal("integrity"),
+					literal("pnpm-missing"),
+					literal("not-found"),
+					literal("no-matching-version"),
+					literal("disk-full"),
+					literal("permission"),
+					literal("build-blocked")
+				]).optional(),
+				"timedOut": boolean().optional(),
+				"incompatible": array(object({
+					"name": string(),
+					"version": string(),
+					"runtimeVersion": string(),
+					"peers": record(string(), string())
+				})).optional()
+			}).optional(),
+			"bundle": string().optional(),
+			"pendingBuilds": array(string()).optional(),
+			"approvedBuilds": array(string()).optional(),
+			"registries": array(union([literal(null), string()])).optional(),
+			"failedAt": union([literal("registry"), literal("spec-host")]).optional()
+		});
+		let _deepseek_ai_dsh_plugin_manager_pluginManager_setBundleEnabled_parameter_0$schema$value;
+		const _deepseek_ai_dsh_plugin_manager_pluginManager_setBundleEnabled_parameter_0$schema = () => _deepseek_ai_dsh_plugin_manager_pluginManager_setBundleEnabled_parameter_0$schema$value ??= string();
+		let _deepseek_ai_dsh_plugin_manager_pluginManager_setBundleEnabled_parameter_1$schema$value;
+		const _deepseek_ai_dsh_plugin_manager_pluginManager_setBundleEnabled_parameter_1$schema = () => _deepseek_ai_dsh_plugin_manager_pluginManager_setBundleEnabled_parameter_1$schema$value ??= boolean();
+		let _deepseek_ai_dsh_plugin_manager_pluginManager_setBundleEnabled_result$schema$value;
+		const _deepseek_ai_dsh_plugin_manager_pluginManager_setBundleEnabled_result$schema = () => _deepseek_ai_dsh_plugin_manager_pluginManager_setBundleEnabled_result$schema$value ??= object({
+			"changed": boolean(),
+			"application": union([
+				literal("cancelled"),
+				literal("failed"),
+				literal("applied"),
+				literal("restart-required"),
+				literal("overridden")
+			]),
+			"stage": union([
+				literal("remove"),
+				literal("install"),
+				literal("enable")
+			]),
+			"target": string(),
+			"enabled": boolean().optional(),
+			"error": object({
+				"code": union([
+					literal("management-required"),
+					literal("unaddressable"),
+					literal("unknown-plugin"),
+					literal("invalid-spec"),
+					literal("ambiguous-install"),
+					literal("not-bundle"),
+					literal("not-removable"),
+					literal("stop-profile"),
+					literal("bundle-in-use"),
+					literal("stale-approval"),
+					literal("incompatible-version"),
+					literal("operation-error")
+				]),
+				"diagnostic": string().optional(),
+				"incompatible": array(object({
+					"name": string(),
+					"version": string(),
+					"runtimeVersion": string(),
+					"peers": record(string(), string())
+				})).optional()
+			}).optional(),
+			"warnings": array(string()).optional(),
+			"packageResult": object({
+				"exitCode": number(),
+				"output": string(),
+				"truncated": boolean(),
+				"logPath": string(),
+				"kind": union([
+					literal("network"),
+					literal("unknown"),
+					literal("timeout"),
+					literal("integrity"),
+					literal("pnpm-missing"),
+					literal("not-found"),
+					literal("no-matching-version"),
+					literal("disk-full"),
+					literal("permission"),
+					literal("build-blocked")
+				]).optional(),
+				"timedOut": boolean().optional(),
+				"incompatible": array(object({
+					"name": string(),
+					"version": string(),
+					"runtimeVersion": string(),
+					"peers": record(string(), string())
+				})).optional()
+			}).optional(),
+			"bundle": string().optional(),
+			"pendingBuilds": array(string()).optional(),
+			"approvedBuilds": array(string()).optional(),
+			"registries": array(union([literal(null), string()])).optional(),
+			"failedAt": union([literal("registry"), literal("spec-host")]).optional()
+		});
+		let _deepseek_ai_dsh_plugin_manager_pluginManager_setPluginEnabled_parameter_0$schema$value;
+		const _deepseek_ai_dsh_plugin_manager_pluginManager_setPluginEnabled_parameter_0$schema = () => _deepseek_ai_dsh_plugin_manager_pluginManager_setPluginEnabled_parameter_0$schema$value ??= intersection(string(), unknown());
+		let _deepseek_ai_dsh_plugin_manager_pluginManager_setPluginEnabled_parameter_1$schema$value;
+		const _deepseek_ai_dsh_plugin_manager_pluginManager_setPluginEnabled_parameter_1$schema = () => _deepseek_ai_dsh_plugin_manager_pluginManager_setPluginEnabled_parameter_1$schema$value ??= boolean();
+		let _deepseek_ai_dsh_plugin_manager_pluginManager_setPluginEnabled_result$schema$value;
+		const _deepseek_ai_dsh_plugin_manager_pluginManager_setPluginEnabled_result$schema = () => _deepseek_ai_dsh_plugin_manager_pluginManager_setPluginEnabled_result$schema$value ??= object({
+			"changed": boolean(),
+			"application": union([
+				literal("cancelled"),
+				literal("failed"),
+				literal("applied"),
+				literal("restart-required"),
+				literal("overridden")
+			]),
+			"stage": union([
+				literal("remove"),
+				literal("install"),
+				literal("enable")
+			]),
+			"target": string(),
+			"enabled": boolean().optional(),
+			"error": object({
+				"code": union([
+					literal("management-required"),
+					literal("unaddressable"),
+					literal("unknown-plugin"),
+					literal("invalid-spec"),
+					literal("ambiguous-install"),
+					literal("not-bundle"),
+					literal("not-removable"),
+					literal("stop-profile"),
+					literal("bundle-in-use"),
+					literal("stale-approval"),
+					literal("incompatible-version"),
+					literal("operation-error")
+				]),
+				"diagnostic": string().optional(),
+				"incompatible": array(object({
+					"name": string(),
+					"version": string(),
+					"runtimeVersion": string(),
+					"peers": record(string(), string())
+				})).optional()
+			}).optional(),
+			"warnings": array(string()).optional(),
+			"packageResult": object({
+				"exitCode": number(),
+				"output": string(),
+				"truncated": boolean(),
+				"logPath": string(),
+				"kind": union([
+					literal("network"),
+					literal("unknown"),
+					literal("timeout"),
+					literal("integrity"),
+					literal("pnpm-missing"),
+					literal("not-found"),
+					literal("no-matching-version"),
+					literal("disk-full"),
+					literal("permission"),
+					literal("build-blocked")
+				]).optional(),
+				"timedOut": boolean().optional(),
+				"incompatible": array(object({
+					"name": string(),
+					"version": string(),
+					"runtimeVersion": string(),
+					"peers": record(string(), string())
+				})).optional()
+			}).optional(),
+			"bundle": string().optional(),
+			"pendingBuilds": array(string()).optional(),
+			"approvedBuilds": array(string()).optional(),
+			"registries": array(union([literal(null), string()])).optional(),
+			"failedAt": union([literal("registry"), literal("spec-host")]).optional()
+		});
+		let _deepseek_ai_dsh_plugin_manager_pluginManager_setVersionExemption_parameter_0$schema$value;
+		const _deepseek_ai_dsh_plugin_manager_pluginManager_setVersionExemption_parameter_0$schema = () => _deepseek_ai_dsh_plugin_manager_pluginManager_setVersionExemption_parameter_0$schema$value ??= string();
+		let _deepseek_ai_dsh_plugin_manager_pluginManager_setVersionExemption_parameter_1$schema$value;
+		const _deepseek_ai_dsh_plugin_manager_pluginManager_setVersionExemption_parameter_1$schema = () => _deepseek_ai_dsh_plugin_manager_pluginManager_setVersionExemption_parameter_1$schema$value ??= string();
+		let _deepseek_ai_dsh_plugin_manager_pluginManager_setVersionExemption_parameter_2$schema$value;
+		const _deepseek_ai_dsh_plugin_manager_pluginManager_setVersionExemption_parameter_2$schema = () => _deepseek_ai_dsh_plugin_manager_pluginManager_setVersionExemption_parameter_2$schema$value ??= boolean();
+		let _deepseek_ai_dsh_plugin_manager_pluginManager_setVersionExemption_parameter_3$schema$value;
+		const _deepseek_ai_dsh_plugin_manager_pluginManager_setVersionExemption_parameter_3$schema = () => _deepseek_ai_dsh_plugin_manager_pluginManager_setVersionExemption_parameter_3$schema$value ??= union([
+			_undefined(),
+			literal(false),
+			literal(true)
+		]);
+		let _deepseek_ai_dsh_plugin_manager_pluginManager_setVersionExemption_result$schema$value;
+		const _deepseek_ai_dsh_plugin_manager_pluginManager_setVersionExemption_result$schema = () => _deepseek_ai_dsh_plugin_manager_pluginManager_setVersionExemption_result$schema$value ??= object({
+			"changed": boolean(),
+			"application": union([
+				literal("cancelled"),
+				literal("failed"),
+				literal("applied"),
+				literal("restart-required"),
+				literal("overridden")
+			]),
+			"stage": union([
+				literal("remove"),
+				literal("install"),
+				literal("enable")
+			]),
+			"target": string(),
+			"enabled": boolean().optional(),
+			"error": object({
+				"code": union([
+					literal("management-required"),
+					literal("unaddressable"),
+					literal("unknown-plugin"),
+					literal("invalid-spec"),
+					literal("ambiguous-install"),
+					literal("not-bundle"),
+					literal("not-removable"),
+					literal("stop-profile"),
+					literal("bundle-in-use"),
+					literal("stale-approval"),
+					literal("incompatible-version"),
+					literal("operation-error")
+				]),
+				"diagnostic": string().optional(),
+				"incompatible": array(object({
+					"name": string(),
+					"version": string(),
+					"runtimeVersion": string(),
+					"peers": record(string(), string())
+				})).optional()
+			}).optional(),
+			"warnings": array(string()).optional(),
+			"packageResult": object({
+				"exitCode": number(),
+				"output": string(),
+				"truncated": boolean(),
+				"logPath": string(),
+				"kind": union([
+					literal("network"),
+					literal("unknown"),
+					literal("timeout"),
+					literal("integrity"),
+					literal("pnpm-missing"),
+					literal("not-found"),
+					literal("no-matching-version"),
+					literal("disk-full"),
+					literal("permission"),
+					literal("build-blocked")
+				]).optional(),
+				"timedOut": boolean().optional(),
+				"incompatible": array(object({
+					"name": string(),
+					"version": string(),
+					"runtimeVersion": string(),
+					"peers": record(string(), string())
+				})).optional()
+			}).optional(),
+			"bundle": string().optional(),
+			"pendingBuilds": array(string()).optional(),
+			"approvedBuilds": array(string()).optional(),
+			"registries": array(union([literal(null), string()])).optional(),
+			"failedAt": union([literal("registry"), literal("spec-host")]).optional()
+		});
+		let _deepseek_ai_dsh_plugin_manager_pluginManager_waitForInstall_parameter_0$schema$value;
+		const _deepseek_ai_dsh_plugin_manager_pluginManager_waitForInstall_parameter_0$schema = () => _deepseek_ai_dsh_plugin_manager_pluginManager_waitForInstall_parameter_0$schema$value ??= intersection(string(), unknown());
+		let _deepseek_ai_dsh_plugin_manager_pluginManager_waitForInstall_result$schema$value;
+		const _deepseek_ai_dsh_plugin_manager_pluginManager_waitForInstall_result$schema = () => _deepseek_ai_dsh_plugin_manager_pluginManager_waitForInstall_result$schema$value ??= union([literal(null), object({
+			"changed": boolean(),
+			"application": union([
+				literal("cancelled"),
+				literal("failed"),
+				literal("applied"),
+				literal("restart-required"),
+				literal("overridden")
+			]),
+			"stage": union([
+				literal("remove"),
+				literal("install"),
+				literal("enable")
+			]),
+			"target": string(),
+			"enabled": boolean().optional(),
+			"error": object({
+				"code": union([
+					literal("management-required"),
+					literal("unaddressable"),
+					literal("unknown-plugin"),
+					literal("invalid-spec"),
+					literal("ambiguous-install"),
+					literal("not-bundle"),
+					literal("not-removable"),
+					literal("stop-profile"),
+					literal("bundle-in-use"),
+					literal("stale-approval"),
+					literal("incompatible-version"),
+					literal("operation-error")
+				]),
+				"diagnostic": string().optional(),
+				"incompatible": array(object({
+					"name": string(),
+					"version": string(),
+					"runtimeVersion": string(),
+					"peers": record(string(), string())
+				})).optional()
+			}).optional(),
+			"warnings": array(string()).optional(),
+			"packageResult": object({
+				"exitCode": number(),
+				"output": string(),
+				"truncated": boolean(),
+				"logPath": string(),
+				"kind": union([
+					literal("network"),
+					literal("unknown"),
+					literal("timeout"),
+					literal("integrity"),
+					literal("pnpm-missing"),
+					literal("not-found"),
+					literal("no-matching-version"),
+					literal("disk-full"),
+					literal("permission"),
+					literal("build-blocked")
+				]).optional(),
+				"timedOut": boolean().optional(),
+				"incompatible": array(object({
+					"name": string(),
+					"version": string(),
+					"runtimeVersion": string(),
+					"peers": record(string(), string())
+				})).optional()
+			}).optional(),
+			"bundle": string().optional(),
+			"pendingBuilds": array(string()).optional(),
+			"approvedBuilds": array(string()).optional(),
+			"registries": array(union([literal(null), string()])).optional(),
+			"failedAt": union([literal("registry"), literal("spec-host")]).optional()
+		})]);
+		const TYPERT_REMOTE$13 = {
+			package: "@deepseek-ai/dsh-plugin-manager",
+			descriptors: [
+				{
+					id: "@deepseek-ai/dsh-plugin-manager#pluginManager/cancelInstall",
+					service: "pluginManager",
+					namespace: "pluginManager",
+					method: "cancelInstall",
+					invocation: { kind: "direct" },
+					parameters: [{
+						name: "requestId",
+						wire: "requestId",
+						source: "json",
+						codec: {
+							mode: "strict",
+							typeSymbol: "@deepseek-ai/dsh-plugin-manager/types#PluginInstallRequestId",
+							create: _deepseek_ai_dsh_plugin_manager_pluginManager_cancelInstall_parameter_0$schema
+						}
+					}],
+					result: {
+						mode: "strict",
+						typeSymbol: "@deepseek-ai/dsh-plugin-manager/types#PluginInstallCancellation",
+						create: _deepseek_ai_dsh_plugin_manager_pluginManager_cancelInstall_result$schema
+					},
+					sourceLocation: {
+						"file": "packages/boot/plugin-manager/src/index.ts",
+						"line": 585,
+						"column": 9
+					}
+				},
+				{
+					id: "@deepseek-ai/dsh-plugin-manager#pluginManager/inspect",
+					service: "pluginManager",
+					namespace: "pluginManager",
+					method: "inspect",
+					invocation: { kind: "direct" },
+					parameters: [{
+						name: "spec",
+						wire: "spec",
+						source: "json",
+						codec: {
+							mode: "strict",
+							typeSymbol: "@deepseek-ai/dsh-plugin-manager#pluginManager/inspect:spec",
+							create: _deepseek_ai_dsh_plugin_manager_pluginManager_inspect_parameter_0$schema
+						}
+					}, {
+						name: "options",
+						wire: "options",
+						source: "json",
+						acceptsUndefined: true,
+						codec: {
+							mode: "strict",
+							typeSymbol: "@deepseek-ai/dsh-plugin-manager/types#InspectOptions",
+							create: _deepseek_ai_dsh_plugin_manager_pluginManager_inspect_parameter_1$schema
+						}
+					}],
+					cancellation: { parameter: "signal" },
+					result: {
+						mode: "strict",
+						typeSymbol: "@deepseek-ai/dsh-plugin-manager/types#PluginSpecInspection",
+						create: _deepseek_ai_dsh_plugin_manager_pluginManager_inspect_result$schema
+					},
+					sourceLocation: {
+						"file": "packages/boot/plugin-manager/src/index.ts",
+						"line": 341,
+						"column": 9
+					}
+				},
+				{
+					id: "@deepseek-ai/dsh-plugin-manager#pluginManager/installBundle",
+					service: "pluginManager",
+					namespace: "pluginManager",
+					method: "installBundle",
+					invocation: { kind: "direct" },
+					parameters: [{
+						name: "spec",
+						wire: "spec",
+						source: "json",
+						codec: {
+							mode: "strict",
+							typeSymbol: "@deepseek-ai/dsh-plugin-manager#pluginManager/installBundle:spec",
+							create: _deepseek_ai_dsh_plugin_manager_pluginManager_installBundle_parameter_0$schema
+						}
+					}, {
+						name: "options",
+						wire: "options",
+						source: "json",
+						acceptsUndefined: true,
+						codec: {
+							mode: "strict",
+							typeSymbol: "@deepseek-ai/dsh-plugin-manager/types#InstallBundleOptions",
+							create: _deepseek_ai_dsh_plugin_manager_pluginManager_installBundle_parameter_1$schema
+						}
+					}],
+					result: {
+						mode: "strict",
+						typeSymbol: "@deepseek-ai/dsh-plugin-manager/types#ChangeResult",
+						create: _deepseek_ai_dsh_plugin_manager_pluginManager_installBundle_result$schema
+					},
+					sourceLocation: {
+						"file": "packages/boot/plugin-manager/src/index.ts",
+						"line": 462,
+						"column": 3
+					}
+				},
+				{
+					id: "@deepseek-ai/dsh-plugin-manager#pluginManager/listBundles",
+					service: "pluginManager",
+					namespace: "pluginManager",
+					method: "listBundles",
+					invocation: { kind: "direct" },
+					parameters: [],
+					result: {
+						mode: "strict",
+						typeSymbol: "@deepseek-ai/dsh-plugin-manager#pluginManager/listBundles:result",
+						create: _deepseek_ai_dsh_plugin_manager_pluginManager_listBundles_result$schema
+					},
+					sourceLocation: {
+						"file": "packages/boot/plugin-manager/src/index.ts",
+						"line": 280,
+						"column": 3
+					}
+				},
+				{
+					id: "@deepseek-ai/dsh-plugin-manager#pluginManager/listPlugins",
+					service: "pluginManager",
+					namespace: "pluginManager",
+					method: "listPlugins",
+					invocation: { kind: "direct" },
+					parameters: [],
+					result: {
+						mode: "strict",
+						typeSymbol: "@deepseek-ai/dsh-plugin-manager#pluginManager/listPlugins:result",
+						create: _deepseek_ai_dsh_plugin_manager_pluginManager_listPlugins_result$schema
+					},
+					sourceLocation: {
+						"file": "packages/boot/plugin-manager/src/index.ts",
+						"line": 256,
+						"column": 9
+					}
+				},
+				{
+					id: "@deepseek-ai/dsh-plugin-manager#pluginManager/listVersionExemptions",
+					service: "pluginManager",
+					namespace: "pluginManager",
+					method: "listVersionExemptions",
+					invocation: { kind: "direct" },
+					parameters: [],
+					result: {
+						mode: "strict",
+						typeSymbol: "@deepseek-ai/dsh-plugin-manager#pluginManager/listVersionExemptions:result",
+						create: _deepseek_ai_dsh_plugin_manager_pluginManager_listVersionExemptions_result$schema
+					},
+					sourceLocation: {
+						"file": "packages/boot/plugin-manager/src/index.ts",
+						"line": 232,
+						"column": 3
+					}
+				},
+				{
+					id: "@deepseek-ai/dsh-plugin-manager#pluginManager/registries",
+					service: "pluginManager",
+					namespace: "pluginManager",
+					method: "registries",
+					invocation: { kind: "direct" },
+					parameters: [],
+					result: {
+						mode: "strict",
+						typeSymbol: "@deepseek-ai/dsh-plugin-manager/types#PluginRegistries",
+						create: _deepseek_ai_dsh_plugin_manager_pluginManager_registries_result$schema
+					},
+					sourceLocation: {
+						"file": "packages/boot/plugin-manager/src/index.ts",
+						"line": 325,
+						"column": 9
+					}
+				},
+				{
+					id: "@deepseek-ai/dsh-plugin-manager#pluginManager/removeBundle",
+					service: "pluginManager",
+					namespace: "pluginManager",
+					method: "removeBundle",
+					invocation: { kind: "direct" },
+					parameters: [{
+						name: "name",
+						wire: "name",
+						source: "json",
+						codec: {
+							mode: "strict",
+							typeSymbol: "@deepseek-ai/dsh-plugin-manager#pluginManager/removeBundle:name",
+							create: _deepseek_ai_dsh_plugin_manager_pluginManager_removeBundle_parameter_0$schema
+						}
+					}],
+					result: {
+						mode: "strict",
+						typeSymbol: "@deepseek-ai/dsh-plugin-manager/types#ChangeResult",
+						create: _deepseek_ai_dsh_plugin_manager_pluginManager_removeBundle_result$schema
+					},
+					sourceLocation: {
+						"file": "packages/boot/plugin-manager/src/index.ts",
+						"line": 601,
+						"column": 3
+					}
+				},
+				{
+					id: "@deepseek-ai/dsh-plugin-manager#pluginManager/setBundleEnabled",
+					service: "pluginManager",
+					namespace: "pluginManager",
+					method: "setBundleEnabled",
+					invocation: { kind: "direct" },
+					parameters: [{
+						name: "name",
+						wire: "name",
+						source: "json",
+						codec: {
+							mode: "strict",
+							typeSymbol: "@deepseek-ai/dsh-plugin-manager#pluginManager/setBundleEnabled:name",
+							create: _deepseek_ai_dsh_plugin_manager_pluginManager_setBundleEnabled_parameter_0$schema
+						}
+					}, {
+						name: "enabled",
+						wire: "enabled",
+						source: "json",
+						codec: {
+							mode: "strict",
+							typeSymbol: "@deepseek-ai/dsh-plugin-manager#pluginManager/setBundleEnabled:enabled",
+							create: _deepseek_ai_dsh_plugin_manager_pluginManager_setBundleEnabled_parameter_1$schema
+						}
+					}],
+					result: {
+						mode: "strict",
+						typeSymbol: "@deepseek-ai/dsh-plugin-manager/types#ChangeResult",
+						create: _deepseek_ai_dsh_plugin_manager_pluginManager_setBundleEnabled_result$schema
+					},
+					sourceLocation: {
+						"file": "packages/boot/plugin-manager/src/index.ts",
+						"line": 443,
+						"column": 3
+					}
+				},
+				{
+					id: "@deepseek-ai/dsh-plugin-manager#pluginManager/setPluginEnabled",
+					service: "pluginManager",
+					namespace: "pluginManager",
+					method: "setPluginEnabled",
+					invocation: { kind: "direct" },
+					parameters: [{
+						name: "id",
+						wire: "id",
+						source: "json",
+						codec: {
+							mode: "strict",
+							typeSymbol: "@deepseek-ai/dsh-host-plugin-inventory/types#PluginEntryId",
+							create: _deepseek_ai_dsh_plugin_manager_pluginManager_setPluginEnabled_parameter_0$schema
+						}
+					}, {
+						name: "enabled",
+						wire: "enabled",
+						source: "json",
+						codec: {
+							mode: "strict",
+							typeSymbol: "@deepseek-ai/dsh-plugin-manager#pluginManager/setPluginEnabled:enabled",
+							create: _deepseek_ai_dsh_plugin_manager_pluginManager_setPluginEnabled_parameter_1$schema
+						}
+					}],
+					result: {
+						mode: "strict",
+						typeSymbol: "@deepseek-ai/dsh-plugin-manager/types#ChangeResult",
+						create: _deepseek_ai_dsh_plugin_manager_pluginManager_setPluginEnabled_result$schema
+					},
+					sourceLocation: {
+						"file": "packages/boot/plugin-manager/src/index.ts",
+						"line": 425,
+						"column": 3
+					}
+				},
+				{
+					id: "@deepseek-ai/dsh-plugin-manager#pluginManager/setVersionExemption",
+					service: "pluginManager",
+					namespace: "pluginManager",
+					method: "setVersionExemption",
+					invocation: { kind: "direct" },
+					parameters: [
+						{
+							name: "packageVersion",
+							wire: "packageVersion",
+							source: "json",
+							codec: {
+								mode: "strict",
+								typeSymbol: "@deepseek-ai/dsh-plugin-manager#pluginManager/setVersionExemption:packageVersion",
+								create: _deepseek_ai_dsh_plugin_manager_pluginManager_setVersionExemption_parameter_0$schema
+							}
+						},
+						{
+							name: "runtimeVersion",
+							wire: "runtimeVersion",
+							source: "json",
+							codec: {
+								mode: "strict",
+								typeSymbol: "@deepseek-ai/dsh-plugin-manager#pluginManager/setVersionExemption:runtimeVersion",
+								create: _deepseek_ai_dsh_plugin_manager_pluginManager_setVersionExemption_parameter_1$schema
+							}
+						},
+						{
+							name: "enabled",
+							wire: "enabled",
+							source: "json",
+							codec: {
+								mode: "strict",
+								typeSymbol: "@deepseek-ai/dsh-plugin-manager#pluginManager/setVersionExemption:enabled",
+								create: _deepseek_ai_dsh_plugin_manager_pluginManager_setVersionExemption_parameter_2$schema
+							}
+						},
+						{
+							name: "acceptRisk",
+							wire: "acceptRisk",
+							source: "json",
+							acceptsUndefined: true,
+							codec: {
+								mode: "strict",
+								typeSymbol: "@deepseek-ai/dsh-plugin-manager#pluginManager/setVersionExemption:acceptRisk",
+								create: _deepseek_ai_dsh_plugin_manager_pluginManager_setVersionExemption_parameter_3$schema
+							}
+						}
+					],
+					result: {
+						mode: "strict",
+						typeSymbol: "@deepseek-ai/dsh-plugin-manager/types#ChangeResult",
+						create: _deepseek_ai_dsh_plugin_manager_pluginManager_setVersionExemption_result$schema
+					},
+					sourceLocation: {
+						"file": "packages/boot/plugin-manager/src/index.ts",
+						"line": 245,
+						"column": 3
+					}
+				},
+				{
+					id: "@deepseek-ai/dsh-plugin-manager#pluginManager/waitForInstall",
+					service: "pluginManager",
+					namespace: "pluginManager",
+					method: "waitForInstall",
+					invocation: { kind: "direct" },
+					parameters: [{
+						name: "requestId",
+						wire: "requestId",
+						source: "json",
+						codec: {
+							mode: "strict",
+							typeSymbol: "@deepseek-ai/dsh-plugin-manager/types#PluginInstallRequestId",
+							create: _deepseek_ai_dsh_plugin_manager_pluginManager_waitForInstall_parameter_0$schema
+						}
+					}],
+					result: {
+						mode: "strict",
+						typeSymbol: "@deepseek-ai/dsh-plugin-manager#pluginManager/waitForInstall:result",
+						create: _deepseek_ai_dsh_plugin_manager_pluginManager_waitForInstall_result$schema
+					},
+					sourceLocation: {
+						"file": "packages/boot/plugin-manager/src/index.ts",
+						"line": 575,
+						"column": 9
+					}
+				}
+			]
+		};
+		//#endregion
+		//#region ../../client/ui-plugin-manager/lib/typert.remote-client.js
+		let _deepseek_ai_dsh_client_ui_plugin_manager_pluginRegistryProbe_fastest_result$schema$value;
+		const _deepseek_ai_dsh_client_ui_plugin_manager_pluginRegistryProbe_fastest_result$schema = () => _deepseek_ai_dsh_client_ui_plugin_manager_pluginRegistryProbe_fastest_result$schema$value ??= union([literal(null), string()]);
+		const TYPERT_REMOTE$12 = {
+			package: "@deepseek-ai/dsh-client-ui-plugin-manager",
+			descriptors: [{
+				id: "@deepseek-ai/dsh-client-ui-plugin-manager#pluginRegistryProbe/fastest",
+				service: "pluginRegistryProbe",
+				namespace: "pluginRegistryProbe",
+				method: "fastest",
+				invocation: { kind: "direct" },
+				parameters: [],
+				result: {
+					mode: "strict",
+					typeSymbol: "@deepseek-ai/dsh-client-ui-plugin-manager#pluginRegistryProbe/fastest:result",
+					create: _deepseek_ai_dsh_client_ui_plugin_manager_pluginRegistryProbe_fastest_result$schema
+				},
+				sourceLocation: {
+					"file": "packages/client/ui-plugin-manager/src/index.ts",
+					"line": 51,
+					"column": 9
+				}
+			}]
+		};
+		//#endregion
+		//#region ../../host/plugin-inventory/lib/typert.remote-client.js
+		let _deepseek_ai_dsh_host_plugin_inventory_pluginInventory_list_result$schema$value;
+		const _deepseek_ai_dsh_host_plugin_inventory_pluginInventory_list_result$schema = () => _deepseek_ai_dsh_host_plugin_inventory_pluginInventory_list_result$schema$value ??= object({
+			"managementAvailable": boolean().readonly().optional(),
+			"entries": array(object({
+				"entryId": intersection(string(), unknown()).readonly(),
+				"moduleName": string().readonly(),
+				"meta": object({
+					"title": union([string(), intersection(object({ "en": string().readonly() }), record(string(), string()).readonly())]).readonly().optional(),
+					"description": union([string(), intersection(object({ "en": string().readonly() }), record(string(), string()).readonly())]).readonly().optional(),
+					"icon": string().readonly().optional(),
+					"error": string().readonly().optional()
+				}).readonly().optional(),
+				"enabled": boolean().readonly(),
+				"fiberPhase": union([
+					literal(null),
+					literal("failed"),
+					literal("pending"),
+					literal("active"),
+					literal("loading"),
+					literal("unloading")
+				]).readonly()
+			})).readonly(),
+			"agentPresets": array(object({
+				"id": string().readonly(),
+				"name": string().readonly().optional(),
+				"isDefault": boolean().readonly(),
+				"broken": string().readonly().optional(),
+				"rows": array(object({
+					"entryId": union([literal(null), string()]).readonly(),
+					"moduleName": string().readonly(),
+					"meta": object({
+						"title": union([string(), intersection(object({ "en": string().readonly() }), record(string(), string()).readonly())]).readonly().optional(),
+						"description": union([string(), intersection(object({ "en": string().readonly() }), record(string(), string()).readonly())]).readonly().optional(),
+						"icon": string().readonly().optional(),
+						"error": string().readonly().optional()
+					}).readonly().optional(),
+					"enabled": union([
+						literal(false),
+						literal(true),
+						literal("conditional")
+					]).readonly(),
+					"condition": string().readonly().optional(),
+					"fiberPhase": union([
+						literal(null),
+						literal("failed"),
+						literal("pending"),
+						literal("active"),
+						literal("loading"),
+						literal("unloading")
+					]).readonly()
+				})).readonly()
+			})).readonly().optional()
+		});
+		const TYPERT_REMOTE$11 = {
+			package: "@deepseek-ai/dsh-host-plugin-inventory",
+			descriptors: [{
+				id: "@deepseek-ai/dsh-host-plugin-inventory#pluginInventory/list",
+				service: "pluginInventory",
+				namespace: "pluginInventory",
+				method: "list",
+				invocation: { kind: "direct" },
+				parameters: [],
+				result: {
+					mode: "strict",
+					typeSymbol: "@deepseek-ai/dsh-host-plugin-inventory/types#PluginInventorySnapshot",
+					create: _deepseek_ai_dsh_host_plugin_inventory_pluginInventory_list_result$schema
+				},
+				sourceLocation: {
+					"file": "packages/host/plugin-inventory/src/index.ts",
+					"line": 71,
+					"column": 9
+				}
+			}]
+		};
+		//#endregion
+		//#region ../../feedback/message-feedback/lib/typert.remote-client.js
+		let _deepseek_ai_dsh_message_feedback_messageFeedback_delete_parameter_0$schema$value;
+		const _deepseek_ai_dsh_message_feedback_messageFeedback_delete_parameter_0$schema = () => _deepseek_ai_dsh_message_feedback_messageFeedback_delete_parameter_0$schema$value ??= object({
+			"sessionId": intersection(string(), unknown()).readonly(),
+			"messageId": intersection(string(), unknown()).readonly(),
+			"ifVersion": intersection(string(), unknown()).readonly()
+		});
+		let _deepseek_ai_dsh_message_feedback_messageFeedback_delete_result$schema$value;
+		const _deepseek_ai_dsh_message_feedback_messageFeedback_delete_result$schema = () => _deepseek_ai_dsh_message_feedback_messageFeedback_delete_result$schema$value ??= union([object({
+			"ok": literal(true).readonly(),
+			"value": object({ "absent": literal(true).readonly() }).readonly()
+		}), object({
+			"ok": literal(false).readonly(),
+			"error": union([object({
+				"code": literal("session-not-found").readonly(),
+				"sessionId": intersection(string(), unknown()).readonly()
+			}), object({
+				"code": literal("version-conflict").readonly(),
+				"current": union([literal(null), object({
+					"messageId": intersection(string(), unknown()).readonly(),
+					"rating": union([literal("positive"), literal("negative")]).readonly(),
+					"note": string().readonly().optional(),
+					"category": union([
+						literal("other"),
+						literal("task-result"),
+						literal("instruction-following"),
+						literal("product-interaction"),
+						literal("service-stability"),
+						literal("resource-cost"),
+						literal("security-privacy-permission")
+					]).readonly().optional(),
+					"version": intersection(string(), unknown()).readonly(),
+					"createdAt": number().readonly(),
+					"updatedAt": number().readonly()
+				})]).readonly()
+			})]).readonly()
+		})]);
+		let _deepseek_ai_dsh_message_feedback_messageFeedback_list_parameter_0$schema$value;
+		const _deepseek_ai_dsh_message_feedback_messageFeedback_list_parameter_0$schema = () => _deepseek_ai_dsh_message_feedback_messageFeedback_list_parameter_0$schema$value ??= object({ "sessionId": intersection(string(), unknown()).readonly() });
+		let _deepseek_ai_dsh_message_feedback_messageFeedback_list_result$schema$value;
+		const _deepseek_ai_dsh_message_feedback_messageFeedback_list_result$schema = () => _deepseek_ai_dsh_message_feedback_messageFeedback_list_result$schema$value ??= union([object({
+			"ok": literal(true).readonly(),
+			"value": object({ "items": array(object({
+				"messageId": intersection(string(), unknown()).readonly(),
+				"rating": union([literal("positive"), literal("negative")]).readonly(),
+				"note": string().readonly().optional(),
+				"category": union([
+					literal("other"),
+					literal("task-result"),
+					literal("instruction-following"),
+					literal("product-interaction"),
+					literal("service-stability"),
+					literal("resource-cost"),
+					literal("security-privacy-permission")
+				]).readonly().optional(),
+				"version": intersection(string(), unknown()).readonly(),
+				"createdAt": number().readonly(),
+				"updatedAt": number().readonly()
+			})).readonly() }).readonly()
+		}), object({
+			"ok": literal(false).readonly(),
+			"error": object({
+				"code": literal("session-not-found").readonly(),
+				"sessionId": intersection(string(), unknown()).readonly()
+			}).readonly()
+		})]);
+		let _deepseek_ai_dsh_message_feedback_messageFeedback_put_parameter_0$schema$value;
+		const _deepseek_ai_dsh_message_feedback_messageFeedback_put_parameter_0$schema = () => _deepseek_ai_dsh_message_feedback_messageFeedback_put_parameter_0$schema$value ??= object({
+			"sessionId": intersection(string(), unknown()).readonly(),
+			"messageId": intersection(string(), unknown()).readonly(),
+			"rating": union([literal("positive"), literal("negative")]).readonly(),
+			"note": string().readonly().optional(),
+			"category": union([
+				literal("other"),
+				literal("task-result"),
+				literal("instruction-following"),
+				literal("product-interaction"),
+				literal("service-stability"),
+				literal("resource-cost"),
+				literal("security-privacy-permission")
+			]).readonly().optional(),
+			"ifVersion": union([literal(null), intersection(string(), unknown())]).readonly()
+		});
+		let _deepseek_ai_dsh_message_feedback_messageFeedback_put_result$schema$value;
+		const _deepseek_ai_dsh_message_feedback_messageFeedback_put_result$schema = () => _deepseek_ai_dsh_message_feedback_messageFeedback_put_result$schema$value ??= union([object({
+			"ok": literal(true).readonly(),
+			"value": object({
+				"messageId": intersection(string(), unknown()).readonly(),
+				"rating": union([literal("positive"), literal("negative")]).readonly(),
+				"note": string().readonly().optional(),
+				"category": union([
+					literal("other"),
+					literal("task-result"),
+					literal("instruction-following"),
+					literal("product-interaction"),
+					literal("service-stability"),
+					literal("resource-cost"),
+					literal("security-privacy-permission")
+				]).readonly().optional(),
+				"version": intersection(string(), unknown()).readonly(),
+				"createdAt": number().readonly(),
+				"updatedAt": number().readonly()
+			}).readonly()
+		}), object({
+			"ok": literal(false).readonly(),
+			"error": union([
+				object({
+					"code": literal("session-not-found").readonly(),
+					"sessionId": intersection(string(), unknown()).readonly()
+				}),
+				object({
+					"code": literal("target-not-found").readonly(),
+					"sessionId": intersection(string(), unknown()).readonly(),
+					"messageId": intersection(string(), unknown()).readonly()
+				}),
+				object({
+					"code": literal("version-conflict").readonly(),
+					"current": union([literal(null), object({
+						"messageId": intersection(string(), unknown()).readonly(),
+						"rating": union([literal("positive"), literal("negative")]).readonly(),
+						"note": string().readonly().optional(),
+						"category": union([
+							literal("other"),
+							literal("task-result"),
+							literal("instruction-following"),
+							literal("product-interaction"),
+							literal("service-stability"),
+							literal("resource-cost"),
+							literal("security-privacy-permission")
+						]).readonly().optional(),
+						"version": intersection(string(), unknown()).readonly(),
+						"createdAt": number().readonly(),
+						"updatedAt": number().readonly()
+					})]).readonly()
+				}),
+				object({ "code": literal("note-blank").readonly() }),
+				object({
+					"code": literal("note-too-large").readonly(),
+					"maxBytes": number().readonly(),
+					"actualBytes": number().readonly()
+				})
+			]).readonly()
+		})]);
+		const TYPERT_REMOTE$10 = {
+			package: "@deepseek-ai/dsh-message-feedback",
+			descriptors: [
+				{
+					id: "@deepseek-ai/dsh-message-feedback#messageFeedback/delete",
+					service: "messageFeedback",
+					namespace: "messageFeedback",
+					method: "delete",
+					invocation: { kind: "direct" },
+					parameters: [{
+						name: "request",
+						wire: "request",
+						source: "json",
+						codec: {
+							mode: "strict",
+							typeSymbol: "@deepseek-ai/dsh-message-feedback/types#MessageFeedbackDeleteRequest",
+							create: _deepseek_ai_dsh_message_feedback_messageFeedback_delete_parameter_0$schema
+						}
+					}],
+					result: {
+						mode: "strict",
+						typeSymbol: "@deepseek-ai/dsh-message-feedback/types#MessageFeedbackDeleteResult",
+						create: _deepseek_ai_dsh_message_feedback_messageFeedback_delete_result$schema
+					},
+					sourceLocation: {
+						"file": "packages/feedback/message-feedback/src/index.ts",
+						"line": 207,
+						"column": 3
+					}
+				},
+				{
+					id: "@deepseek-ai/dsh-message-feedback#messageFeedback/list",
+					service: "messageFeedback",
+					namespace: "messageFeedback",
+					method: "list",
+					invocation: { kind: "direct" },
+					parameters: [{
+						name: "request",
+						wire: "request",
+						source: "json",
+						codec: {
+							mode: "strict",
+							typeSymbol: "@deepseek-ai/dsh-message-feedback/types#MessageFeedbackListRequest",
+							create: _deepseek_ai_dsh_message_feedback_messageFeedback_list_parameter_0$schema
+						}
+					}],
+					result: {
+						mode: "strict",
+						typeSymbol: "@deepseek-ai/dsh-message-feedback/types#MessageFeedbackListResult",
+						create: _deepseek_ai_dsh_message_feedback_messageFeedback_list_result$schema
+					},
+					sourceLocation: {
+						"file": "packages/feedback/message-feedback/src/index.ts",
+						"line": 155,
+						"column": 3
+					}
+				},
+				{
+					id: "@deepseek-ai/dsh-message-feedback#messageFeedback/put",
+					service: "messageFeedback",
+					namespace: "messageFeedback",
+					method: "put",
+					invocation: { kind: "direct" },
+					parameters: [{
+						name: "request",
+						wire: "request",
+						source: "json",
+						codec: {
+							mode: "strict",
+							typeSymbol: "@deepseek-ai/dsh-message-feedback/types#MessageFeedbackPutRequest",
+							create: _deepseek_ai_dsh_message_feedback_messageFeedback_put_parameter_0$schema
+						}
+					}],
+					result: {
+						mode: "strict",
+						typeSymbol: "@deepseek-ai/dsh-message-feedback/types#MessageFeedbackPutResult",
+						create: _deepseek_ai_dsh_message_feedback_messageFeedback_put_result$schema
+					},
+					sourceLocation: {
+						"file": "packages/feedback/message-feedback/src/index.ts",
+						"line": 167,
+						"column": 3
+					}
+				}
+			]
+		};
+		//#endregion
+		//#region ../../interaction/permission-presets/lib/typert.remote-client.js
+		let _deepseek_ai_dsh_permission_presets_permissionPresets_catalog_result$schema$value;
+		const _deepseek_ai_dsh_permission_presets_permissionPresets_catalog_result$schema = () => _deepseek_ai_dsh_permission_presets_permissionPresets_catalog_result$schema$value ??= object({
+			"options": array(object({
+				"value": string(),
+				"name": string(),
+				"description": string().optional()
+			})),
+			"defaultOptions": array(object({
+				"value": string(),
+				"name": string(),
+				"description": string().optional()
+			})),
+			"defaultPreset": string()
+		});
+		const TYPERT_REMOTE$9 = {
+			package: "@deepseek-ai/dsh-permission-presets",
+			descriptors: [{
+				id: "@deepseek-ai/dsh-permission-presets#permissionPresets/catalog",
+				service: "permissionPresets",
+				namespace: "permissionPresets",
+				method: "catalog",
+				invocation: { kind: "direct" },
+				parameters: [],
+				result: {
+					mode: "strict",
+					typeSymbol: "@deepseek-ai/dsh-permission-presets/client#PermissionCatalog",
+					create: _deepseek_ai_dsh_permission_presets_permissionPresets_catalog_result$schema
+				},
+				sourceLocation: {
+					"file": "packages/interaction/permission-presets/src/index.ts",
+					"line": 293,
+					"column": 3
+				}
+			}]
+		};
+		//#endregion
+		//#region ../../feedback/command-feedback/lib/typert.remote-client.js
+		let _deepseek_ai_dsh_command_feedback_sessionFeedback_record_parameter_0$schema$value;
+		const _deepseek_ai_dsh_command_feedback_sessionFeedback_record_parameter_0$schema = () => _deepseek_ai_dsh_command_feedback_sessionFeedback_record_parameter_0$schema$value ??= object({
+			"sessionId": intersection(string(), unknown()).readonly(),
+			"text": string().readonly().optional(),
+			"category": union([
+				literal("other"),
+				literal("task-result"),
+				literal("instruction-following"),
+				literal("product-interaction"),
+				literal("service-stability"),
+				literal("resource-cost"),
+				literal("security-privacy-permission")
+			]).readonly().optional()
+		});
+		let _deepseek_ai_dsh_command_feedback_sessionFeedback_record_result$schema$value;
+		const _deepseek_ai_dsh_command_feedback_sessionFeedback_record_result$schema = () => _deepseek_ai_dsh_command_feedback_sessionFeedback_record_result$schema$value ??= union([object({
+			"ok": literal(true).readonly(),
+			"value": object({ "recorded": literal(true).readonly() }).readonly()
+		}), object({
+			"ok": literal(false).readonly(),
+			"error": object({
+				"code": literal("session-not-found").readonly(),
+				"sessionId": intersection(string(), unknown()).readonly()
+			}).readonly()
+		})]);
+		const TYPERT_REMOTE$8 = {
+			package: "@deepseek-ai/dsh-command-feedback",
+			descriptors: [{
+				id: "@deepseek-ai/dsh-command-feedback#sessionFeedback/record",
+				service: "sessionFeedback",
+				namespace: "sessionFeedback",
+				method: "record",
+				invocation: { kind: "direct" },
+				parameters: [{
+					name: "request",
+					wire: "request",
+					source: "json",
+					codec: {
+						mode: "strict",
+						typeSymbol: "@deepseek-ai/dsh-command-feedback/types#SessionFeedbackRecordRequest",
+						create: _deepseek_ai_dsh_command_feedback_sessionFeedback_record_parameter_0$schema
+					}
+				}],
+				result: {
+					mode: "strict",
+					typeSymbol: "@deepseek-ai/dsh-command-feedback/types#SessionFeedbackRecordResult",
+					create: _deepseek_ai_dsh_command_feedback_sessionFeedback_record_result$schema
+				},
+				sourceLocation: {
+					"file": "packages/feedback/command-feedback/src/index.ts",
+					"line": 102,
+					"column": 3
+				}
+			}]
+		};
+		//#endregion
+		//#region ../../client/file-upload/lib/typert.remote-client.js
+		let _deepseek_ai_dsh_client_file_upload_fileUploads_upload_parameter_0$schema$value;
+		const _deepseek_ai_dsh_client_file_upload_fileUploads_upload_parameter_0$schema = () => _deepseek_ai_dsh_client_file_upload_fileUploads_upload_parameter_0$schema$value ??= intersection(string(), unknown());
+		let _deepseek_ai_dsh_client_file_upload_fileUploads_upload_parameter_1$schema$value;
+		const _deepseek_ai_dsh_client_file_upload_fileUploads_upload_parameter_1$schema = () => _deepseek_ai_dsh_client_file_upload_fileUploads_upload_parameter_1$schema$value ??= object({
+			"data": string().readonly(),
+			"name": string().readonly().optional()
+		});
+		let _deepseek_ai_dsh_client_file_upload_fileUploads_upload_result$schema$value;
+		const _deepseek_ai_dsh_client_file_upload_fileUploads_upload_result$schema = () => _deepseek_ai_dsh_client_file_upload_fileUploads_upload_result$schema$value ??= object({
+			"receiptId": intersection(string(), unknown()).readonly(),
+			"file": object({
+				"attachmentId": intersection(string(), unknown()),
+				"name": string(),
+				"bytes": number()
+			}).readonly()
+		});
+		const TYPERT_REMOTE$7 = {
+			package: "@deepseek-ai/dsh-client-file-upload",
+			descriptors: [{
+				id: "@deepseek-ai/dsh-client-file-upload#fileUploads/upload",
+				service: "fileUploads",
+				namespace: "fileUploads",
+				method: "upload",
+				invocation: { kind: "direct" },
+				scope: {
+					context: "agent",
+					wire: "agentId"
+				},
+				parameters: [{
+					name: "agent",
+					wire: "agentId",
+					source: "lookup",
+					lookup: "agent",
+					codec: {
+						mode: "strict",
+						typeSymbol: "@deepseek-ai/dsh-session/types#SessionId",
+						create: _deepseek_ai_dsh_client_file_upload_fileUploads_upload_parameter_0$schema
+					}
+				}, {
+					name: "request",
+					wire: "request",
+					source: "json",
+					codec: {
+						mode: "strict",
+						typeSymbol: "@deepseek-ai/dsh-client-file-upload/types#EncodedFileUploadRequest",
+						create: _deepseek_ai_dsh_client_file_upload_fileUploads_upload_parameter_1$schema
+					}
+				}],
+				cancellation: { parameter: "signal" },
+				result: {
+					mode: "strict",
+					typeSymbol: "@deepseek-ai/dsh-client-file-upload/types#FileUploadValue",
+					create: _deepseek_ai_dsh_client_file_upload_fileUploads_upload_result$schema
+				},
+				sourceLocation: {
+					"file": "packages/client/file-upload/src/index.ts",
+					"line": 106,
+					"column": 3
+				}
+			}]
+		};
+		//#endregion
+		//#region ../../context/session-reference/lib/typert.remote-client.js
+		let _deepseek_ai_dsh_session_reference_sessionReferenceResolver_candidates_parameter_0$schema$value;
+		const _deepseek_ai_dsh_session_reference_sessionReferenceResolver_candidates_parameter_0$schema = () => _deepseek_ai_dsh_session_reference_sessionReferenceResolver_candidates_parameter_0$schema$value ??= intersection(string(), unknown());
+		let _deepseek_ai_dsh_session_reference_sessionReferenceResolver_candidates_parameter_1$schema$value;
+		const _deepseek_ai_dsh_session_reference_sessionReferenceResolver_candidates_parameter_1$schema = () => _deepseek_ai_dsh_session_reference_sessionReferenceResolver_candidates_parameter_1$schema$value ??= string();
+		let _deepseek_ai_dsh_session_reference_sessionReferenceResolver_candidates_result$schema$value;
+		const _deepseek_ai_dsh_session_reference_sessionReferenceResolver_candidates_result$schema = () => _deepseek_ai_dsh_session_reference_sessionReferenceResolver_candidates_result$schema$value ??= array(object({
+			"mention": string(),
+			"sessionId": intersection(string(), unknown()),
+			"label": string(),
+			"displayTitle": string().optional(),
+			"cwd": string().optional(),
+			"sameWorkspace": boolean(),
+			"createdAt": number()
+		}));
+		const TYPERT_REMOTE$6 = {
+			package: "@deepseek-ai/dsh-session-reference",
+			descriptors: [{
+				id: "@deepseek-ai/dsh-session-reference#sessionReferenceResolver/candidates",
+				service: "sessionReferenceResolver",
+				namespace: "sessionReferenceResolver",
+				method: "candidates",
+				implementation: "remoteExportCandidates",
+				invocation: { kind: "direct" },
+				scope: {
+					context: "agent",
+					wire: "agentId"
+				},
+				parameters: [{
+					name: "agent",
+					wire: "agentId",
+					source: "lookup",
+					lookup: "agent",
+					codec: {
+						mode: "strict",
+						typeSymbol: "@deepseek-ai/dsh-session/types#SessionId",
+						create: _deepseek_ai_dsh_session_reference_sessionReferenceResolver_candidates_parameter_0$schema
+					}
+				}, {
+					name: "query",
+					wire: "query",
+					source: "json",
+					codec: {
+						mode: "strict",
+						typeSymbol: "@deepseek-ai/dsh-session-reference#sessionReferenceResolver/candidates:query",
+						create: _deepseek_ai_dsh_session_reference_sessionReferenceResolver_candidates_parameter_1$schema
+					}
+				}],
+				cancellation: { parameter: "signal" },
+				result: {
+					mode: "strict",
+					typeSymbol: "@deepseek-ai/dsh-session-reference#sessionReferenceResolver/candidates:result",
+					create: _deepseek_ai_dsh_session_reference_sessionReferenceResolver_candidates_result$schema
+				},
+				sourceLocation: {
+					"file": "packages/context/session-reference/src/index.ts",
+					"line": 272,
+					"column": 9
+				}
+			}]
+		};
+		//#endregion
+		//#region ../../subagent/subagent/lib/typert.remote-client.js
+		let _deepseek_ai_dsh_subagent_subagents_interruptByParent_parameter_0$schema$value;
+		const _deepseek_ai_dsh_subagent_subagents_interruptByParent_parameter_0$schema = () => _deepseek_ai_dsh_subagent_subagents_interruptByParent_parameter_0$schema$value ??= intersection(string(), unknown());
+		let _deepseek_ai_dsh_subagent_subagents_interruptByParent_parameter_1$schema$value;
+		const _deepseek_ai_dsh_subagent_subagents_interruptByParent_parameter_1$schema = () => _deepseek_ai_dsh_subagent_subagents_interruptByParent_parameter_1$schema$value ??= intersection(string(), unknown());
+		let _deepseek_ai_dsh_subagent_subagents_interruptByParent_parameter_2$schema$value;
+		const _deepseek_ai_dsh_subagent_subagents_interruptByParent_parameter_2$schema = () => _deepseek_ai_dsh_subagent_subagents_interruptByParent_parameter_2$schema$value ??= literal("continuable");
+		let _deepseek_ai_dsh_subagent_subagents_interruptByParent_result$schema$value;
+		const _deepseek_ai_dsh_subagent_subagents_interruptByParent_result$schema = () => _deepseek_ai_dsh_subagent_subagents_interruptByParent_result$schema$value ??= object({ "accepted": literal(true).readonly() });
+		let _deepseek_ai_dsh_subagent_subagents_prompt_parameter_0$schema$value;
+		const _deepseek_ai_dsh_subagent_subagents_prompt_parameter_0$schema = () => _deepseek_ai_dsh_subagent_subagents_prompt_parameter_0$schema$value ??= object({
+			"requestId": intersection(string(), unknown()).readonly(),
+			"parentSessionId": intersection(string(), unknown()).readonly(),
+			"childSessionId": intersection(string(), unknown()).readonly(),
+			"mode": literal("continuable").readonly(),
+			"delivery": union([literal("queue"), literal("steer")]).readonly(),
+			"content": array(union([object({
+				"type": literal("text").readonly(),
+				"text": string().readonly()
+			}), object({
+				"type": literal("image").readonly(),
+				"mediaType": union([
+					literal("image/png"),
+					literal("image/jpeg"),
+					literal("image/webp"),
+					literal("image/gif")
+				]).readonly(),
+				"data": string().readonly(),
+				"name": string().readonly().optional()
+			})])).readonly(),
+			"clientTimeZone": string().readonly().optional()
+		});
+		let _deepseek_ai_dsh_subagent_subagents_prompt_result$schema$value;
+		const _deepseek_ai_dsh_subagent_subagents_prompt_result$schema = () => _deepseek_ai_dsh_subagent_subagents_prompt_result$schema$value ??= object({ "messageId": intersection(string(), unknown()).readonly() });
+		const TYPERT_REMOTE$5 = {
+			package: "@deepseek-ai/dsh-subagent",
+			descriptors: [{
+				id: "@deepseek-ai/dsh-subagent#subagents/interruptByParent",
+				service: "subagents",
+				namespace: "subagents",
+				method: "interruptByParent",
+				invocation: { kind: "direct" },
+				parameters: [
+					{
+						name: "childSessionId",
+						wire: "childSessionId",
+						source: "json",
+						codec: {
+							mode: "strict",
+							typeSymbol: "@deepseek-ai/dsh-session/types#SessionId",
+							create: _deepseek_ai_dsh_subagent_subagents_interruptByParent_parameter_0$schema
+						}
+					},
+					{
+						name: "parentSessionId",
+						wire: "parentSessionId",
+						source: "json",
+						codec: {
+							mode: "strict",
+							typeSymbol: "@deepseek-ai/dsh-session/types#SessionId",
+							create: _deepseek_ai_dsh_subagent_subagents_interruptByParent_parameter_1$schema
+						}
+					},
+					{
+						name: "mode",
+						wire: "mode",
+						source: "json",
+						codec: {
+							mode: "strict",
+							typeSymbol: "@deepseek-ai/dsh-subagent#subagents/interruptByParent:mode",
+							create: _deepseek_ai_dsh_subagent_subagents_interruptByParent_parameter_2$schema
+						}
+					}
+				],
+				result: {
+					mode: "strict",
+					typeSymbol: "@deepseek-ai/dsh-subagent/client#SubagentInterruptReceipt",
+					create: _deepseek_ai_dsh_subagent_subagents_interruptByParent_result$schema
+				},
+				sourceLocation: {
+					"file": "packages/subagent/subagent/src/index.ts",
+					"line": 483,
+					"column": 3
+				}
+			}, {
+				id: "@deepseek-ai/dsh-subagent#subagents/prompt",
+				service: "subagents",
+				namespace: "subagents",
+				method: "prompt",
+				invocation: { kind: "direct" },
+				parameters: [{
+					name: "request",
+					wire: "request",
+					source: "json",
+					codec: {
+						mode: "strict",
+						typeSymbol: "@deepseek-ai/dsh-subagent/client#SubagentPromptRequest",
+						create: _deepseek_ai_dsh_subagent_subagents_prompt_parameter_0$schema
+					}
+				}],
+				cancellation: { parameter: "signal" },
+				result: {
+					mode: "strict",
+					typeSymbol: "@deepseek-ai/dsh-subagent/client#SubagentPromptReceipt",
+					create: _deepseek_ai_dsh_subagent_subagents_prompt_result$schema
+				},
+				sourceLocation: {
+					"file": "packages/subagent/subagent/src/index.ts",
+					"line": 416,
+					"column": 9
+				}
+			}]
+		};
+		//#endregion
+		//#region ../session-controller/lib/typert.remote-client.js
+		let JsonValueRemoteCodec$schema$value;
+		const JsonValueRemoteCodec$schema = () => JsonValueRemoteCodec$schema$value ??= union([
+			literal(null),
+			string(),
+			number(),
+			literal(false),
+			literal(true),
+			array(lazy(() => JsonValueRemoteCodec$schema())),
+			record(string(), lazy(() => JsonValueRemoteCodec$schema()))
+		]);
+		let JsonValueRemoteCodec$schema2$value;
+		const JsonValueRemoteCodec$schema2 = () => JsonValueRemoteCodec$schema2$value ??= union([
+			literal(null),
+			string(),
+			number(),
+			literal(false),
+			literal(true),
+			array(lazy(() => JsonValueRemoteCodec$schema2())),
+			record(string(), lazy(() => JsonValueRemoteCodec$schema2()))
+		]);
+		let JsonValueRemoteCodec$schema3$value;
+		const JsonValueRemoteCodec$schema3 = () => JsonValueRemoteCodec$schema3$value ??= union([
+			literal(null),
+			string(),
+			number(),
+			literal(false),
+			literal(true),
+			array(lazy(() => JsonValueRemoteCodec$schema3())),
+			record(string(), lazy(() => JsonValueRemoteCodec$schema3()))
+		]);
+		let JsonValueRemoteCodec$schema4$value;
+		const JsonValueRemoteCodec$schema4 = () => JsonValueRemoteCodec$schema4$value ??= union([
+			literal(null),
+			string(),
+			number(),
+			literal(false),
+			literal(true),
+			array(lazy(() => JsonValueRemoteCodec$schema4())),
+			record(string(), lazy(() => JsonValueRemoteCodec$schema4()))
+		]);
+		let JsonValueRemoteCodec$schema5$value;
+		const JsonValueRemoteCodec$schema5 = () => JsonValueRemoteCodec$schema5$value ??= union([
+			literal(null),
+			string(),
+			number(),
+			literal(false),
+			literal(true),
+			array(lazy(() => JsonValueRemoteCodec$schema5())),
+			record(string(), lazy(() => JsonValueRemoteCodec$schema5()))
+		]);
+		let _deepseek_ai_dsh_api_session_controller_fileReferences_list_parameter_0$schema$value;
+		const _deepseek_ai_dsh_api_session_controller_fileReferences_list_parameter_0$schema = () => _deepseek_ai_dsh_api_session_controller_fileReferences_list_parameter_0$schema$value ??= intersection(string(), unknown());
+		let _deepseek_ai_dsh_api_session_controller_fileReferences_list_parameter_1$schema$value;
+		const _deepseek_ai_dsh_api_session_controller_fileReferences_list_parameter_1$schema = () => _deepseek_ai_dsh_api_session_controller_fileReferences_list_parameter_1$schema$value ??= string();
+		let _deepseek_ai_dsh_api_session_controller_fileReferences_list_result$schema$value;
+		const _deepseek_ai_dsh_api_session_controller_fileReferences_list_result$schema = () => _deepseek_ai_dsh_api_session_controller_fileReferences_list_result$schema$value ??= array(object({
+			"path": string(),
+			"kind": union([literal("file"), literal("directory")])
+		}));
+		let _deepseek_ai_dsh_api_session_controller_session_attachment_parameter_0$schema$value;
+		const _deepseek_ai_dsh_api_session_controller_session_attachment_parameter_0$schema = () => _deepseek_ai_dsh_api_session_controller_session_attachment_parameter_0$schema$value ??= object({
+			"sessionId": intersection(string(), unknown()).readonly(),
+			"attachmentId": intersection(string(), unknown()).readonly()
+		});
+		let _deepseek_ai_dsh_api_session_controller_session_attachment_result$schema$value;
+		const _deepseek_ai_dsh_api_session_controller_session_attachment_result$schema = () => _deepseek_ai_dsh_api_session_controller_session_attachment_result$schema$value ??= object({
+			"attachment": object({
+				"attachmentId": intersection(string(), unknown()),
+				"mediaType": union([
+					literal("image/png"),
+					literal("image/jpeg"),
+					literal("image/webp"),
+					literal("image/gif")
+				]),
+				"bytes": number(),
+				"width": number(),
+				"height": number(),
+				"name": string().optional(),
+				"originalDimensions": object({
+					"width": number(),
+					"height": number()
+				}).optional()
+			}).readonly(),
+			"data": string().readonly()
+		});
+		let _deepseek_ai_dsh_api_session_controller_session_cancel_parameter_0$schema$value;
+		const _deepseek_ai_dsh_api_session_controller_session_cancel_parameter_0$schema = () => _deepseek_ai_dsh_api_session_controller_session_cancel_parameter_0$schema$value ??= object({ "sessionId": intersection(string(), unknown()).readonly() });
+		let _deepseek_ai_dsh_api_session_controller_session_cancel_result$schema$value;
+		const _deepseek_ai_dsh_api_session_controller_session_cancel_result$schema = () => _deepseek_ai_dsh_api_session_controller_session_cancel_result$schema$value ??= object({ "accepted": literal(true).readonly() });
+		let _deepseek_ai_dsh_api_session_controller_session_canOpenWorkspacePath_result$schema$value;
+		const _deepseek_ai_dsh_api_session_controller_session_canOpenWorkspacePath_result$schema = () => _deepseek_ai_dsh_api_session_controller_session_canOpenWorkspacePath_result$schema$value ??= boolean();
+		let _deepseek_ai_dsh_api_session_controller_session_control_result$schema$value;
+		const _deepseek_ai_dsh_api_session_controller_session_control_result$schema = () => _deepseek_ai_dsh_api_session_controller_session_control_result$schema$value ??= union([object({
+			"type": literal("baseline").readonly(),
+			"value": object({ "projections": record(intersection(string(), unknown()), object({
+				"asOfSeq": number().readonly(),
+				"values": intersection(object({
+					"inbox": object({
+						"next-turn": array(union([
+							literal(null),
+							string(),
+							number(),
+							literal(false),
+							literal(true),
+							array(lazy(() => JsonValueRemoteCodec$schema5())),
+							record(string(), lazy(() => JsonValueRemoteCodec$schema5()))
+						])).readonly(),
+						"next-step": array(union([
+							literal(null),
+							string(),
+							number(),
+							literal(false),
+							literal(true),
+							array(lazy(() => JsonValueRemoteCodec$schema5())),
+							record(string(), lazy(() => JsonValueRemoteCodec$schema5()))
+						])).readonly()
+					}).optional(),
+					"agentPreset": union([literal(null), string()]).optional(),
+					"title": union([literal(null), string()]).optional(),
+					"todos": union([literal(null), array(object({
+						"content": string(),
+						"status": union([
+							literal("completed"),
+							literal("pending"),
+							literal("in_progress")
+						])
+					}))]).optional(),
+					"sessionListMetadata": object({
+						"blank": boolean().readonly(),
+						"lastPromptAt": union([literal(null), number()]).readonly()
+					}).optional(),
+					"imageLimits": object({
+						"maxImageBytes": number(),
+						"maxImagesPerMessage": number(),
+						"maxMessageImageBytes": number(),
+						"maxImagePixels": number(),
+						"maxImageDimension": number(),
+						"mediaTypes": array(union([
+							literal("image/png"),
+							literal("image/jpeg"),
+							literal("image/webp"),
+							literal("image/gif")
+						]))
+					}).optional(),
+					"modelSelection": object({
+						"lastUsed": union([literal(null), object({
+							"provider": string().readonly(),
+							"model": string().readonly(),
+							"reasoningEffort": string().readonly().optional()
+						})]).readonly(),
+						"next": union([literal(null), object({
+							"provider": string().readonly(),
+							"model": string().readonly(),
+							"reasoningEffort": string().readonly().optional()
+						})]).readonly()
+					}).optional(),
+					"permissions": object({ "currentValue": string() }).optional(),
+					"subagentCatalog": array(union([
+						intersection(object({
+							"id": intersection(string(), unknown()).readonly(),
+							"createdAt": number().readonly()
+						}), object({
+							"mode": literal("one-shot").readonly(),
+							"label": string().readonly().optional()
+						})),
+						intersection(object({
+							"id": intersection(string(), unknown()).readonly(),
+							"createdAt": number().readonly()
+						}), object({
+							"mode": literal("continuable").readonly(),
+							"label": string().readonly()
+						})),
+						intersection(object({
+							"id": intersection(string(), unknown()).readonly(),
+							"createdAt": number().readonly()
+						}), object({
+							"mode": literal("unknown").readonly(),
+							"label": string().readonly().optional()
+						}))
+					])).optional(),
+					"subagentTiming": object({
+						"settledMs": number(),
+						"active": object({
+							"since": number(),
+							"through": number()
+						}).optional(),
+						"lastTurnCompleted": boolean().optional()
+					}).optional(),
+					"subagent": union([
+						literal(null),
+						object({
+							"mode": literal("one-shot"),
+							"label": string().optional(),
+							"seq": intersection(number(), unknown())
+						}),
+						object({
+							"mode": literal("continuable"),
+							"label": string(),
+							"seq": intersection(number(), unknown())
+						})
+					]).optional(),
+					"goal": union([literal(null), object({
+						"goal": object({
+							"objective": string().readonly(),
+							"phase": union([
+								literal("active"),
+								literal("paused"),
+								literal("blocked"),
+								literal("complete")
+							]).readonly(),
+							"blockedReason": object({
+								"code": string().readonly(),
+								"message": string().readonly()
+							}).readonly().optional(),
+							"maxGoalRounds": number().readonly(),
+							"id": intersection(string(), unknown()).readonly(),
+							"revision": number().readonly()
+						}).readonly(),
+						"roundsStarted": number().readonly(),
+						"createdAt": number().readonly(),
+						"updatedAt": number().readonly()
+					})]).optional()
+				}), record(string(), union([
+					literal(null),
+					string(),
+					number(),
+					literal(false),
+					literal(true),
+					array(lazy(() => JsonValueRemoteCodec$schema5())),
+					record(string(), lazy(() => JsonValueRemoteCodec$schema5()))
+				])).readonly()).readonly()
+			})).readonly().readonly() }).readonly()
+		}), intersection(object({ "type": literal("projection").readonly() }), object({
+			"sessionId": intersection(string(), unknown()).readonly(),
+			"key": string().readonly(),
+			"value": union([
+				literal(null),
+				string(),
+				number(),
+				literal(false),
+				literal(true),
+				array(lazy(() => JsonValueRemoteCodec$schema5())),
+				record(string(), lazy(() => JsonValueRemoteCodec$schema5()))
+			]).readonly(),
+			"seq": number().readonly()
+		}))]);
+		let _deepseek_ai_dsh_api_session_controller_session_create_parameter_0$schema$value;
+		const _deepseek_ai_dsh_api_session_controller_session_create_parameter_0$schema = () => _deepseek_ai_dsh_api_session_controller_session_create_parameter_0$schema$value ??= object({
+			"workspaceId": intersection(string(), unknown()).readonly().optional(),
+			"cwd": string().readonly().optional(),
+			"sessionId": intersection(string(), unknown()).readonly().optional(),
+			"agentPreset": string().readonly().optional()
+		});
+		let _deepseek_ai_dsh_api_session_controller_session_create_result$schema$value;
+		const _deepseek_ai_dsh_api_session_controller_session_create_result$schema = () => _deepseek_ai_dsh_api_session_controller_session_create_result$schema$value ??= object({
+			"sessionId": intersection(string(), unknown()).readonly(),
+			"agentPreset": string().readonly().optional()
+		});
+		let _deepseek_ai_dsh_api_session_controller_session_follow_parameter_0$schema$value;
+		const _deepseek_ai_dsh_api_session_controller_session_follow_parameter_0$schema = () => _deepseek_ai_dsh_api_session_controller_session_follow_parameter_0$schema$value ??= object({
+			"address": union([object({
+				"kind": literal("session").readonly(),
+				"sessionId": intersection(string(), unknown()).readonly()
+			}), object({
+				"kind": literal("subagent").readonly(),
+				"parentSessionId": intersection(string(), unknown()).readonly(),
+				"childSessionId": intersection(string(), unknown()).readonly(),
+				"mode": union([
+					literal("one-shot"),
+					literal("continuable"),
+					literal("unknown")
+				]).readonly()
+			})]).readonly(),
+			"assistantStream": literal(true).readonly().optional(),
+			"maxMessages": number().readonly().optional(),
+			"turnWindow": object({
+				"minMessages": number().readonly(),
+				"minTurns": number().readonly()
+			}).readonly().optional()
+		});
+		let _deepseek_ai_dsh_api_session_controller_session_follow_result$schema$value;
+		const _deepseek_ai_dsh_api_session_controller_session_follow_result$schema = () => _deepseek_ai_dsh_api_session_controller_session_follow_result$schema$value ??= union([
+			object({
+				"type": literal("event").readonly(),
+				"event": object({
+					"type": string().readonly(),
+					"seq": number().readonly(),
+					"time": number().readonly(),
+					"data": union([
+						literal(null),
+						string(),
+						number(),
+						literal(false),
+						literal(true),
+						array(lazy(() => JsonValueRemoteCodec$schema3())),
+						record(string(), lazy(() => JsonValueRemoteCodec$schema3()))
+					]).readonly(),
+					"ignorable": literal(true).readonly().optional(),
+					"sourceEventSeqs": union([
+						literal(null),
+						string(),
+						number(),
+						literal(false),
+						literal(true),
+						array(lazy(() => JsonValueRemoteCodec$schema3())),
+						record(string(), lazy(() => JsonValueRemoteCodec$schema3()))
+					]).readonly().optional(),
+					"surfaceOp": union([
+						literal(null),
+						string(),
+						number(),
+						literal(false),
+						literal(true),
+						array(lazy(() => JsonValueRemoteCodec$schema3())),
+						record(string(), lazy(() => JsonValueRemoteCodec$schema3()))
+					]).readonly().optional()
+				}).readonly()
+			}),
+			object({
+				"type": literal("snapshot").readonly(),
+				"header": object({
+					"version": number().readonly(),
+					"id": intersection(string(), unknown()).readonly(),
+					"createdAt": number().readonly(),
+					"cwd": string().readonly().optional(),
+					"parentSession": intersection(string(), unknown()).readonly().optional(),
+					"isSeeded": boolean().readonly(),
+					"origin": literal("subagent").readonly().optional(),
+					"delegationDepth": number().readonly().optional(),
+					"agentPreset": string().readonly().optional()
+				}).readonly(),
+				"cursor": number().readonly(),
+				"records": array(object({
+					"type": literal("event").readonly(),
+					"event": object({
+						"type": string().readonly(),
+						"seq": number().readonly(),
+						"time": number().readonly(),
+						"data": union([
+							literal(null),
+							string(),
+							number(),
+							literal(false),
+							literal(true),
+							array(lazy(() => JsonValueRemoteCodec$schema3())),
+							record(string(), lazy(() => JsonValueRemoteCodec$schema3()))
+						]).readonly(),
+						"ignorable": literal(true).readonly().optional(),
+						"sourceEventSeqs": union([
+							literal(null),
+							string(),
+							number(),
+							literal(false),
+							literal(true),
+							array(lazy(() => JsonValueRemoteCodec$schema3())),
+							record(string(), lazy(() => JsonValueRemoteCodec$schema3()))
+						]).readonly().optional(),
+						"surfaceOp": union([
+							literal(null),
+							string(),
+							number(),
+							literal(false),
+							literal(true),
+							array(lazy(() => JsonValueRemoteCodec$schema3())),
+							record(string(), lazy(() => JsonValueRemoteCodec$schema3()))
+						]).readonly().optional()
+					}).readonly()
+				})).readonly(),
+				"hasMore": boolean().readonly(),
+				"projections": object({
+					"asOfSeq": number().readonly(),
+					"values": intersection(object({
+						"inbox": object({
+							"next-turn": array(union([
+								literal(null),
+								string(),
+								number(),
+								literal(false),
+								literal(true),
+								array(lazy(() => JsonValueRemoteCodec$schema3())),
+								record(string(), lazy(() => JsonValueRemoteCodec$schema3()))
+							])).readonly(),
+							"next-step": array(union([
+								literal(null),
+								string(),
+								number(),
+								literal(false),
+								literal(true),
+								array(lazy(() => JsonValueRemoteCodec$schema3())),
+								record(string(), lazy(() => JsonValueRemoteCodec$schema3()))
+							])).readonly()
+						}).optional(),
+						"agentPreset": union([literal(null), string()]).optional(),
+						"title": union([literal(null), string()]).optional(),
+						"todos": union([literal(null), array(object({
+							"content": string(),
+							"status": union([
+								literal("completed"),
+								literal("pending"),
+								literal("in_progress")
+							])
+						}))]).optional(),
+						"sessionListMetadata": object({
+							"blank": boolean().readonly(),
+							"lastPromptAt": union([literal(null), number()]).readonly()
+						}).optional(),
+						"imageLimits": object({
+							"maxImageBytes": number(),
+							"maxImagesPerMessage": number(),
+							"maxMessageImageBytes": number(),
+							"maxImagePixels": number(),
+							"maxImageDimension": number(),
+							"mediaTypes": array(union([
+								literal("image/png"),
+								literal("image/jpeg"),
+								literal("image/webp"),
+								literal("image/gif")
+							]))
+						}).optional(),
+						"modelSelection": object({
+							"lastUsed": union([literal(null), object({
+								"provider": string().readonly(),
+								"model": string().readonly(),
+								"reasoningEffort": string().readonly().optional()
+							})]).readonly(),
+							"next": union([literal(null), object({
+								"provider": string().readonly(),
+								"model": string().readonly(),
+								"reasoningEffort": string().readonly().optional()
+							})]).readonly()
+						}).optional(),
+						"permissions": object({ "currentValue": string() }).optional(),
+						"subagentCatalog": array(union([
+							intersection(object({
+								"id": intersection(string(), unknown()).readonly(),
+								"createdAt": number().readonly()
+							}), object({
+								"mode": literal("one-shot").readonly(),
+								"label": string().readonly().optional()
+							})),
+							intersection(object({
+								"id": intersection(string(), unknown()).readonly(),
+								"createdAt": number().readonly()
+							}), object({
+								"mode": literal("continuable").readonly(),
+								"label": string().readonly()
+							})),
+							intersection(object({
+								"id": intersection(string(), unknown()).readonly(),
+								"createdAt": number().readonly()
+							}), object({
+								"mode": literal("unknown").readonly(),
+								"label": string().readonly().optional()
+							}))
+						])).optional(),
+						"subagentTiming": object({
+							"settledMs": number(),
+							"active": object({
+								"since": number(),
+								"through": number()
+							}).optional(),
+							"lastTurnCompleted": boolean().optional()
+						}).optional(),
+						"subagent": union([
+							literal(null),
+							object({
+								"mode": literal("one-shot"),
+								"label": string().optional(),
+								"seq": intersection(number(), unknown())
+							}),
+							object({
+								"mode": literal("continuable"),
+								"label": string(),
+								"seq": intersection(number(), unknown())
+							})
+						]).optional(),
+						"goal": union([literal(null), object({
+							"goal": object({
+								"objective": string().readonly(),
+								"phase": union([
+									literal("active"),
+									literal("paused"),
+									literal("blocked"),
+									literal("complete")
+								]).readonly(),
+								"blockedReason": object({
+									"code": string().readonly(),
+									"message": string().readonly()
+								}).readonly().optional(),
+								"maxGoalRounds": number().readonly(),
+								"id": intersection(string(), unknown()).readonly(),
+								"revision": number().readonly()
+							}).readonly(),
+							"roundsStarted": number().readonly(),
+							"createdAt": number().readonly(),
+							"updatedAt": number().readonly()
+						})]).optional()
+					}), record(string(), union([
+						literal(null),
+						string(),
+						number(),
+						literal(false),
+						literal(true),
+						array(lazy(() => JsonValueRemoteCodec$schema3())),
+						record(string(), lazy(() => JsonValueRemoteCodec$schema3()))
+					])).readonly()).readonly()
+				}).readonly(),
+				"assistantStream": object({
+					"revision": number().readonly(),
+					"activeAttempt": object({
+						"attemptId": intersection(string(), unknown()).readonly(),
+						"startedAfterSeq": union([intersection(number(), unknown()), literal(-1)]).readonly(),
+						"turn": number().readonly(),
+						"step": number().readonly(),
+						"nextIndex": number().readonly(),
+						"stream": array(union([
+							literal(null),
+							string(),
+							number(),
+							literal(false),
+							literal(true),
+							array(lazy(() => JsonValueRemoteCodec$schema3())),
+							record(string(), lazy(() => JsonValueRemoteCodec$schema3()))
+						])).readonly()
+					}).readonly().optional()
+				}).readonly().optional()
+			}),
+			object({
+				"type": literal("assistant-stream").readonly(),
+				"frame": union([
+					object({
+						"type": literal("start").readonly(),
+						"attemptId": intersection(string(), unknown()).readonly(),
+						"revision": number().readonly(),
+						"startedAfterSeq": union([intersection(number(), unknown()), literal(-1)]).readonly(),
+						"turn": number().readonly(),
+						"step": number().readonly()
+					}),
+					object({
+						"type": literal("chunk").readonly(),
+						"attemptId": intersection(string(), unknown()).readonly(),
+						"revision": number().readonly(),
+						"index": number().readonly(),
+						"time": number().readonly(),
+						"chunk": union([
+							literal(null),
+							string(),
+							number(),
+							literal(false),
+							literal(true),
+							array(lazy(() => JsonValueRemoteCodec$schema3())),
+							record(string(), lazy(() => JsonValueRemoteCodec$schema3()))
+						]).readonly()
+					}),
+					object({
+						"type": literal("end").readonly(),
+						"attemptId": intersection(string(), unknown()).readonly(),
+						"revision": number().readonly(),
+						"index": number().readonly(),
+						"outcome": union([object({
+							"kind": literal("committed").readonly(),
+							"eventType": union([literal("assistant/message"), literal("assistant/attempt")]).readonly(),
+							"seq": number().readonly()
+						}), object({ "kind": literal("abandoned").readonly() })]).readonly()
+					})
+				]).readonly()
+			})
+		]);
+		let _deepseek_ai_dsh_api_session_controller_session_fork_parameter_0$schema$value;
+		const _deepseek_ai_dsh_api_session_controller_session_fork_parameter_0$schema = () => _deepseek_ai_dsh_api_session_controller_session_fork_parameter_0$schema$value ??= object({
+			"sessionId": intersection(string(), unknown()).readonly(),
+			"atSeq": number().readonly().optional()
+		});
+		let _deepseek_ai_dsh_api_session_controller_session_fork_result$schema$value;
+		const _deepseek_ai_dsh_api_session_controller_session_fork_result$schema = () => _deepseek_ai_dsh_api_session_controller_session_fork_result$schema$value ??= object({ "sessionId": intersection(string(), unknown()).readonly() });
+		let _deepseek_ai_dsh_api_session_controller_session_initializeDefaultModel_result$schema$value;
+		const _deepseek_ai_dsh_api_session_controller_session_initializeDefaultModel_result$schema = () => _deepseek_ai_dsh_api_session_controller_session_initializeDefaultModel_result$schema$value ??= _void();
+		let _deepseek_ai_dsh_api_session_controller_session_list_parameter_0$schema$value;
+		const _deepseek_ai_dsh_api_session_controller_session_list_parameter_0$schema = () => _deepseek_ai_dsh_api_session_controller_session_list_parameter_0$schema$value ??= object({ "cursor": string().readonly().optional() });
+		let _deepseek_ai_dsh_api_session_controller_session_list_result$schema$value;
+		const _deepseek_ai_dsh_api_session_controller_session_list_result$schema = () => _deepseek_ai_dsh_api_session_controller_session_list_result$schema$value ??= object({ "items": array(object({
+			"agentAvailable": boolean().readonly(),
+			"sessionId": intersection(string(), unknown()).readonly(),
+			"updatedAt": number().readonly(),
+			"running": boolean().readonly(),
+			"blank": boolean().readonly(),
+			"parentSessionId": intersection(string(), unknown()).readonly().optional(),
+			"origin": literal("subagent").readonly().optional(),
+			"cwd": string().readonly().optional(),
+			"projections": object({
+				"kind": union([literal("cached"), literal("sequenced")]).readonly(),
+				"asOfSeq": number().readonly(),
+				"values": intersection(object({
+					"inbox": object({
+						"next-turn": array(union([
+							literal(null),
+							string(),
+							number(),
+							literal(false),
+							literal(true),
+							array(lazy(() => JsonValueRemoteCodec$schema())),
+							record(string(), lazy(() => JsonValueRemoteCodec$schema()))
+						])).readonly(),
+						"next-step": array(union([
+							literal(null),
+							string(),
+							number(),
+							literal(false),
+							literal(true),
+							array(lazy(() => JsonValueRemoteCodec$schema())),
+							record(string(), lazy(() => JsonValueRemoteCodec$schema()))
+						])).readonly()
+					}).optional(),
+					"agentPreset": union([literal(null), string()]).optional(),
+					"title": union([literal(null), string()]).optional(),
+					"todos": union([literal(null), array(object({
+						"content": string(),
+						"status": union([
+							literal("completed"),
+							literal("pending"),
+							literal("in_progress")
+						])
+					}))]).optional(),
+					"sessionListMetadata": object({
+						"blank": boolean().readonly(),
+						"lastPromptAt": union([literal(null), number()]).readonly()
+					}).optional(),
+					"imageLimits": object({
+						"maxImageBytes": number(),
+						"maxImagesPerMessage": number(),
+						"maxMessageImageBytes": number(),
+						"maxImagePixels": number(),
+						"maxImageDimension": number(),
+						"mediaTypes": array(union([
+							literal("image/png"),
+							literal("image/jpeg"),
+							literal("image/webp"),
+							literal("image/gif")
+						]))
+					}).optional(),
+					"modelSelection": object({
+						"lastUsed": union([literal(null), object({
+							"provider": string().readonly(),
+							"model": string().readonly(),
+							"reasoningEffort": string().readonly().optional()
+						})]).readonly(),
+						"next": union([literal(null), object({
+							"provider": string().readonly(),
+							"model": string().readonly(),
+							"reasoningEffort": string().readonly().optional()
+						})]).readonly()
+					}).optional(),
+					"permissions": object({ "currentValue": string() }).optional(),
+					"subagentCatalog": array(union([
+						intersection(object({
+							"id": intersection(string(), unknown()).readonly(),
+							"createdAt": number().readonly()
+						}), object({
+							"mode": literal("one-shot").readonly(),
+							"label": string().readonly().optional()
+						})),
+						intersection(object({
+							"id": intersection(string(), unknown()).readonly(),
+							"createdAt": number().readonly()
+						}), object({
+							"mode": literal("continuable").readonly(),
+							"label": string().readonly()
+						})),
+						intersection(object({
+							"id": intersection(string(), unknown()).readonly(),
+							"createdAt": number().readonly()
+						}), object({
+							"mode": literal("unknown").readonly(),
+							"label": string().readonly().optional()
+						}))
+					])).optional(),
+					"subagentTiming": object({
+						"settledMs": number(),
+						"active": object({
+							"since": number(),
+							"through": number()
+						}).optional(),
+						"lastTurnCompleted": boolean().optional()
+					}).optional(),
+					"subagent": union([
+						literal(null),
+						object({
+							"mode": literal("one-shot"),
+							"label": string().optional(),
+							"seq": intersection(number(), unknown())
+						}),
+						object({
+							"mode": literal("continuable"),
+							"label": string(),
+							"seq": intersection(number(), unknown())
+						})
+					]).optional(),
+					"goal": union([literal(null), object({
+						"goal": object({
+							"objective": string().readonly(),
+							"phase": union([
+								literal("active"),
+								literal("paused"),
+								literal("blocked"),
+								literal("complete")
+							]).readonly(),
+							"blockedReason": object({
+								"code": string().readonly(),
+								"message": string().readonly()
+							}).readonly().optional(),
+							"maxGoalRounds": number().readonly(),
+							"id": intersection(string(), unknown()).readonly(),
+							"revision": number().readonly()
+						}).readonly(),
+						"roundsStarted": number().readonly(),
+						"createdAt": number().readonly(),
+						"updatedAt": number().readonly()
+					})]).optional()
+				}), record(string(), union([
+					literal(null),
+					string(),
+					number(),
+					literal(false),
+					literal(true),
+					array(lazy(() => JsonValueRemoteCodec$schema())),
+					record(string(), lazy(() => JsonValueRemoteCodec$schema()))
+				])).readonly()).readonly()
+			}).readonly().optional()
+		})).readonly() });
+		let _deepseek_ai_dsh_api_session_controller_session_modelCatalog_result$schema$value;
+		const _deepseek_ai_dsh_api_session_controller_session_modelCatalog_result$schema = () => _deepseek_ai_dsh_api_session_controller_session_modelCatalog_result$schema$value ??= object({
+			"default": object({
+				"provider": string().readonly(),
+				"model": string().readonly(),
+				"reasoningEffort": string().readonly().optional()
+			}).readonly(),
+			"routableProviders": array(string()).readonly(),
+			"groups": array(object({
+				"id": string().readonly(),
+				"name": string().readonly(),
+				"models": array(object({
+					"id": string().readonly(),
+					"name": string().readonly(),
+					"description": string().readonly().optional(),
+					"reasoning": object({
+						"efforts": array(object({
+							"id": string().readonly(),
+							"name": string().readonly(),
+							"description": string().readonly().optional()
+						})).readonly(),
+						"defaultEffort": string().readonly().optional()
+					}).readonly().optional()
+				})).readonly()
+			})).readonly(),
+			"failures": array(object({
+				"id": string().readonly(),
+				"name": string().readonly(),
+				"message": string().readonly()
+			})).readonly()
+		});
+		let _deepseek_ai_dsh_api_session_controller_session_openWorkspacePath_parameter_0$schema$value;
+		const _deepseek_ai_dsh_api_session_controller_session_openWorkspacePath_parameter_0$schema = () => _deepseek_ai_dsh_api_session_controller_session_openWorkspacePath_parameter_0$schema$value ??= object({
+			"action": literal("reveal").readonly().optional(),
+			"application": string().readonly().optional(),
+			"path": string().readonly()
+		});
+		let _deepseek_ai_dsh_api_session_controller_session_openWorkspacePath_result$schema$value;
+		const _deepseek_ai_dsh_api_session_controller_session_openWorkspacePath_result$schema = () => _deepseek_ai_dsh_api_session_controller_session_openWorkspacePath_result$schema$value ??= object({ "opened": literal(true).readonly() });
+		let _deepseek_ai_dsh_api_session_controller_session_page_parameter_0$schema$value;
+		const _deepseek_ai_dsh_api_session_controller_session_page_parameter_0$schema = () => _deepseek_ai_dsh_api_session_controller_session_page_parameter_0$schema$value ??= object({
+			"address": union([object({
+				"kind": literal("session").readonly(),
+				"sessionId": intersection(string(), unknown()).readonly()
+			}), object({
+				"kind": literal("subagent").readonly(),
+				"parentSessionId": intersection(string(), unknown()).readonly(),
+				"childSessionId": intersection(string(), unknown()).readonly(),
+				"mode": union([
+					literal("one-shot"),
+					literal("continuable"),
+					literal("unknown")
+				]).readonly()
+			})]).readonly(),
+			"throughSeq": number().readonly(),
+			"beforeSeq": number().readonly().optional(),
+			"maxMessages": number().readonly().optional(),
+			"turnWindow": object({
+				"minMessages": number().readonly(),
+				"minTurns": number().readonly()
+			}).readonly().optional()
+		});
+		let _deepseek_ai_dsh_api_session_controller_session_page_result$schema$value;
+		const _deepseek_ai_dsh_api_session_controller_session_page_result$schema = () => _deepseek_ai_dsh_api_session_controller_session_page_result$schema$value ??= object({
+			"records": array(object({
+				"type": literal("event").readonly(),
+				"event": object({
+					"type": string().readonly(),
+					"seq": number().readonly(),
+					"time": number().readonly(),
+					"data": union([
+						literal(null),
+						string(),
+						number(),
+						literal(false),
+						literal(true),
+						array(lazy(() => JsonValueRemoteCodec$schema2())),
+						record(string(), lazy(() => JsonValueRemoteCodec$schema2()))
+					]).readonly(),
+					"ignorable": literal(true).readonly().optional(),
+					"sourceEventSeqs": union([
+						literal(null),
+						string(),
+						number(),
+						literal(false),
+						literal(true),
+						array(lazy(() => JsonValueRemoteCodec$schema2())),
+						record(string(), lazy(() => JsonValueRemoteCodec$schema2()))
+					]).readonly().optional(),
+					"surfaceOp": union([
+						literal(null),
+						string(),
+						number(),
+						literal(false),
+						literal(true),
+						array(lazy(() => JsonValueRemoteCodec$schema2())),
+						record(string(), lazy(() => JsonValueRemoteCodec$schema2()))
+					]).readonly().optional()
+				}).readonly()
+			})).readonly(),
+			"hasMore": boolean().readonly()
+		});
+		let _deepseek_ai_dsh_api_session_controller_session_projections_parameter_0$schema$value;
+		const _deepseek_ai_dsh_api_session_controller_session_projections_parameter_0$schema = () => _deepseek_ai_dsh_api_session_controller_session_projections_parameter_0$schema$value ??= object({ "sessionId": intersection(string(), unknown()).readonly() });
+		let _deepseek_ai_dsh_api_session_controller_session_projections_result$schema$value;
+		const _deepseek_ai_dsh_api_session_controller_session_projections_result$schema = () => _deepseek_ai_dsh_api_session_controller_session_projections_result$schema$value ??= union([literal(null), object({
+			"asOfSeq": number().readonly(),
+			"values": intersection(object({
+				"inbox": object({
+					"next-turn": array(union([
+						literal(null),
+						string(),
+						number(),
+						literal(false),
+						literal(true),
+						array(lazy(() => JsonValueRemoteCodec$schema4())),
+						record(string(), lazy(() => JsonValueRemoteCodec$schema4()))
+					])).readonly(),
+					"next-step": array(union([
+						literal(null),
+						string(),
+						number(),
+						literal(false),
+						literal(true),
+						array(lazy(() => JsonValueRemoteCodec$schema4())),
+						record(string(), lazy(() => JsonValueRemoteCodec$schema4()))
+					])).readonly()
+				}).optional(),
+				"agentPreset": union([literal(null), string()]).optional(),
+				"title": union([literal(null), string()]).optional(),
+				"todos": union([literal(null), array(object({
+					"content": string(),
+					"status": union([
+						literal("completed"),
+						literal("pending"),
+						literal("in_progress")
+					])
+				}))]).optional(),
+				"sessionListMetadata": object({
+					"blank": boolean().readonly(),
+					"lastPromptAt": union([literal(null), number()]).readonly()
+				}).optional(),
+				"imageLimits": object({
+					"maxImageBytes": number(),
+					"maxImagesPerMessage": number(),
+					"maxMessageImageBytes": number(),
+					"maxImagePixels": number(),
+					"maxImageDimension": number(),
+					"mediaTypes": array(union([
+						literal("image/png"),
+						literal("image/jpeg"),
+						literal("image/webp"),
+						literal("image/gif")
+					]))
+				}).optional(),
+				"modelSelection": object({
+					"lastUsed": union([literal(null), object({
+						"provider": string().readonly(),
+						"model": string().readonly(),
+						"reasoningEffort": string().readonly().optional()
+					})]).readonly(),
+					"next": union([literal(null), object({
+						"provider": string().readonly(),
+						"model": string().readonly(),
+						"reasoningEffort": string().readonly().optional()
+					})]).readonly()
+				}).optional(),
+				"permissions": object({ "currentValue": string() }).optional(),
+				"subagentCatalog": array(union([
+					intersection(object({
+						"id": intersection(string(), unknown()).readonly(),
+						"createdAt": number().readonly()
+					}), object({
+						"mode": literal("one-shot").readonly(),
+						"label": string().readonly().optional()
+					})),
+					intersection(object({
+						"id": intersection(string(), unknown()).readonly(),
+						"createdAt": number().readonly()
+					}), object({
+						"mode": literal("continuable").readonly(),
+						"label": string().readonly()
+					})),
+					intersection(object({
+						"id": intersection(string(), unknown()).readonly(),
+						"createdAt": number().readonly()
+					}), object({
+						"mode": literal("unknown").readonly(),
+						"label": string().readonly().optional()
+					}))
+				])).optional(),
+				"subagentTiming": object({
+					"settledMs": number(),
+					"active": object({
+						"since": number(),
+						"through": number()
+					}).optional(),
+					"lastTurnCompleted": boolean().optional()
+				}).optional(),
+				"subagent": union([
+					literal(null),
+					object({
+						"mode": literal("one-shot"),
+						"label": string().optional(),
+						"seq": intersection(number(), unknown())
+					}),
+					object({
+						"mode": literal("continuable"),
+						"label": string(),
+						"seq": intersection(number(), unknown())
+					})
+				]).optional(),
+				"goal": union([literal(null), object({
+					"goal": object({
+						"objective": string().readonly(),
+						"phase": union([
+							literal("active"),
+							literal("paused"),
+							literal("blocked"),
+							literal("complete")
+						]).readonly(),
+						"blockedReason": object({
+							"code": string().readonly(),
+							"message": string().readonly()
+						}).readonly().optional(),
+						"maxGoalRounds": number().readonly(),
+						"id": intersection(string(), unknown()).readonly(),
+						"revision": number().readonly()
+					}).readonly(),
+					"roundsStarted": number().readonly(),
+					"createdAt": number().readonly(),
+					"updatedAt": number().readonly()
+				})]).optional()
+			}), record(string(), union([
+				literal(null),
+				string(),
+				number(),
+				literal(false),
+				literal(true),
+				array(lazy(() => JsonValueRemoteCodec$schema4())),
+				record(string(), lazy(() => JsonValueRemoteCodec$schema4()))
+			])).readonly()).readonly()
+		})]);
+		let _deepseek_ai_dsh_api_session_controller_session_prompt_parameter_0$schema$value;
+		const _deepseek_ai_dsh_api_session_controller_session_prompt_parameter_0$schema = () => _deepseek_ai_dsh_api_session_controller_session_prompt_parameter_0$schema$value ??= object({
+			"requestId": intersection(string(), unknown()).readonly(),
+			"sessionId": intersection(string(), unknown()).readonly(),
+			"mode": union([literal("queue"), literal("steer")]).readonly(),
+			"content": array(union([
+				object({
+					"type": literal("text").readonly(),
+					"text": string().readonly()
+				}),
+				object({
+					"type": literal("image").readonly(),
+					"mediaType": union([
+						literal("image/png"),
+						literal("image/jpeg"),
+						literal("image/webp"),
+						literal("image/gif")
+					]).readonly(),
+					"data": string().readonly(),
+					"name": string().readonly().optional()
+				}),
+				object({
+					"type": literal("file").readonly(),
+					"receiptId": intersection(string(), unknown()).readonly()
+				})
+			])).readonly(),
+			"clientTimeZone": string().readonly().optional()
+		});
+		let _deepseek_ai_dsh_api_session_controller_session_prompt_result$schema$value;
+		const _deepseek_ai_dsh_api_session_controller_session_prompt_result$schema = () => _deepseek_ai_dsh_api_session_controller_session_prompt_result$schema$value ??= object({ "accepted": literal(true).readonly() });
+		let _deepseek_ai_dsh_api_session_controller_session_rename_parameter_0$schema$value;
+		const _deepseek_ai_dsh_api_session_controller_session_rename_parameter_0$schema = () => _deepseek_ai_dsh_api_session_controller_session_rename_parameter_0$schema$value ??= object({
+			"sessionId": intersection(string(), unknown()).readonly(),
+			"title": string().readonly()
+		});
+		let _deepseek_ai_dsh_api_session_controller_session_rename_result$schema$value;
+		const _deepseek_ai_dsh_api_session_controller_session_rename_result$schema = () => _deepseek_ai_dsh_api_session_controller_session_rename_result$schema$value ??= object({
+			"title": string().readonly(),
+			"seq": number().readonly()
+		});
+		let _deepseek_ai_dsh_api_session_controller_session_search_parameter_0$schema$value;
+		const _deepseek_ai_dsh_api_session_controller_session_search_parameter_0$schema = () => _deepseek_ai_dsh_api_session_controller_session_search_parameter_0$schema$value ??= object({ "query": string().readonly() });
+		let _deepseek_ai_dsh_api_session_controller_session_search_result$schema$value;
+		const _deepseek_ai_dsh_api_session_controller_session_search_result$schema = () => _deepseek_ai_dsh_api_session_controller_session_search_result$schema$value ??= object({
+			"items": array(object({
+				"sessionId": intersection(string(), unknown()).readonly(),
+				"snippet": string().readonly()
+			})).readonly(),
+			"hasMore": boolean().readonly()
+		});
+		let _deepseek_ai_dsh_api_session_controller_session_selectModel_parameter_0$schema$value;
+		const _deepseek_ai_dsh_api_session_controller_session_selectModel_parameter_0$schema = () => _deepseek_ai_dsh_api_session_controller_session_selectModel_parameter_0$schema$value ??= object({
+			"sessionId": intersection(string(), unknown()).readonly(),
+			"provider": string().readonly(),
+			"model": string().readonly(),
+			"reasoningEffort": string().readonly().optional()
+		});
+		let _deepseek_ai_dsh_api_session_controller_session_selectModel_result$schema$value;
+		const _deepseek_ai_dsh_api_session_controller_session_selectModel_result$schema = () => _deepseek_ai_dsh_api_session_controller_session_selectModel_result$schema$value ??= object({ "selected": object({
+			"provider": string().readonly(),
+			"model": string().readonly(),
+			"reasoningEffort": string().readonly().optional()
+		}).readonly() });
+		let _deepseek_ai_dsh_api_session_controller_session_updateQueue_parameter_0$schema$value;
+		const _deepseek_ai_dsh_api_session_controller_session_updateQueue_parameter_0$schema = () => _deepseek_ai_dsh_api_session_controller_session_updateQueue_parameter_0$schema$value ??= object({
+			"sessionId": intersection(string(), unknown()).readonly(),
+			"itemId": intersection(string(), unknown()).readonly(),
+			"action": union([
+				object({
+					"kind": literal("edit").readonly(),
+					"content": array(object({
+						"type": literal("text"),
+						"text": string()
+					})).readonly()
+				}),
+				object({ "kind": literal("remove").readonly() }),
+				object({ "kind": literal("steer").readonly() })
+			]).readonly()
+		});
+		let _deepseek_ai_dsh_api_session_controller_session_updateQueue_result$schema$value;
+		const _deepseek_ai_dsh_api_session_controller_session_updateQueue_result$schema = () => _deepseek_ai_dsh_api_session_controller_session_updateQueue_result$schema$value ??= object({ "accepted": literal(true).readonly() });
+		let _deepseek_ai_dsh_api_session_controller_session_workspacePathApplications_parameter_0$schema$value;
+		const _deepseek_ai_dsh_api_session_controller_session_workspacePathApplications_parameter_0$schema = () => _deepseek_ai_dsh_api_session_controller_session_workspacePathApplications_parameter_0$schema$value ??= object({ "path": string().readonly() });
+		let _deepseek_ai_dsh_api_session_controller_session_workspacePathApplications_result$schema$value;
+		const _deepseek_ai_dsh_api_session_controller_session_workspacePathApplications_result$schema = () => _deepseek_ai_dsh_api_session_controller_session_workspacePathApplications_result$schema$value ??= array(object({
+			"id": string().readonly(),
+			"name": string().readonly(),
+			"default": boolean().readonly(),
+			"icon": union([literal(null), string()]).readonly()
+		}));
+		let _deepseek_ai_dsh_api_session_controller_skills_list_parameter_0$schema$value;
+		const _deepseek_ai_dsh_api_session_controller_skills_list_parameter_0$schema = () => _deepseek_ai_dsh_api_session_controller_skills_list_parameter_0$schema$value ??= object({ "sessionId": intersection(string(), unknown()).readonly() });
+		let _deepseek_ai_dsh_api_session_controller_skills_list_result$schema$value;
+		const _deepseek_ai_dsh_api_session_controller_skills_list_result$schema = () => _deepseek_ai_dsh_api_session_controller_skills_list_result$schema$value ??= object({ "skills": array(object({
+			"path": string().readonly().optional(),
+			"name": string().readonly(),
+			"description": string().readonly(),
+			"whenToUse": string().readonly().optional(),
+			"modelInvocable": boolean().readonly()
+		})).readonly() });
+		const TYPERT_REMOTE$4 = {
+			package: "@deepseek-ai/dsh-api-session-controller",
+			descriptors: [
+				{
+					id: "@deepseek-ai/dsh-api-session-controller#fileReferences/list",
+					service: "sessionFileReferences",
+					namespace: "fileReferences",
+					method: "list",
+					invocation: { kind: "direct" },
+					scope: {
+						context: "agent",
+						wire: "agentId"
+					},
+					parameters: [{
+						name: "agent",
+						wire: "agentId",
+						source: "lookup",
+						lookup: "agent",
+						codec: {
+							mode: "strict",
+							typeSymbol: "@deepseek-ai/dsh-session/types#SessionId",
+							create: _deepseek_ai_dsh_api_session_controller_fileReferences_list_parameter_0$schema
+						}
+					}, {
+						name: "query",
+						wire: "query",
+						source: "json",
+						codec: {
+							mode: "strict",
+							typeSymbol: "@deepseek-ai/dsh-api-session-controller#fileReferences/list:query",
+							create: _deepseek_ai_dsh_api_session_controller_fileReferences_list_parameter_1$schema
+						}
+					}],
+					cancellation: { parameter: "signal" },
+					result: {
+						mode: "strict",
+						typeSymbol: "@deepseek-ai/dsh-api-session-controller#fileReferences/list:result",
+						create: _deepseek_ai_dsh_api_session_controller_fileReferences_list_result$schema
+					},
+					sourceLocation: {
+						"file": "packages/api/session-controller/src/file-references.ts",
+						"line": 33,
+						"column": 3
+					}
+				},
+				{
+					id: "@deepseek-ai/dsh-api-session-controller#session/attachment",
+					service: "sessionController",
+					namespace: "session",
+					method: "attachment",
+					invocation: { kind: "direct" },
+					parameters: [{
+						name: "request",
+						wire: "request",
+						source: "json",
+						codec: {
+							mode: "strict",
+							typeSymbol: "@deepseek-ai/dsh-api-session-controller/types#SessionAttachmentRequest",
+							create: _deepseek_ai_dsh_api_session_controller_session_attachment_parameter_0$schema
+						}
+					}],
+					result: {
+						mode: "strict",
+						typeSymbol: "@deepseek-ai/dsh-api-session-controller/types#SessionAttachmentValue",
+						create: _deepseek_ai_dsh_api_session_controller_session_attachment_result$schema
+					},
+					sourceLocation: {
+						"file": "packages/api/session-controller/src/index.ts",
+						"line": 437,
+						"column": 3
+					}
+				},
+				{
+					id: "@deepseek-ai/dsh-api-session-controller#session/cancel",
+					service: "sessionController",
+					namespace: "session",
+					method: "cancel",
+					invocation: { kind: "direct" },
+					parameters: [{
+						name: "request",
+						wire: "request",
+						source: "json",
+						codec: {
+							mode: "strict",
+							typeSymbol: "@deepseek-ai/dsh-api-session-controller/types#SessionCancelRequest",
+							create: _deepseek_ai_dsh_api_session_controller_session_cancel_parameter_0$schema
+						}
+					}],
+					result: {
+						mode: "strict",
+						typeSymbol: "@deepseek-ai/dsh-api-session-controller/types#SessionCancelValue",
+						create: _deepseek_ai_dsh_api_session_controller_session_cancel_result$schema
+					},
+					sourceLocation: {
+						"file": "packages/api/session-controller/src/index.ts",
+						"line": 457,
+						"column": 3
+					}
+				},
+				{
+					id: "@deepseek-ai/dsh-api-session-controller#session/canOpenWorkspacePath",
+					service: "sessionController",
+					namespace: "session",
+					method: "canOpenWorkspacePath",
+					invocation: { kind: "direct" },
+					parameters: [],
+					result: {
+						mode: "strict",
+						typeSymbol: "@deepseek-ai/dsh-api-session-controller#session/canOpenWorkspacePath:result",
+						create: _deepseek_ai_dsh_api_session_controller_session_canOpenWorkspacePath_result$schema
+					},
+					sourceLocation: {
+						"file": "packages/api/session-controller/src/index.ts",
+						"line": 319,
+						"column": 3
+					}
+				},
+				{
+					id: "@deepseek-ai/dsh-api-session-controller#session/control",
+					service: "sessionController",
+					namespace: "session",
+					method: "control",
+					mode: "stream",
+					invocation: { kind: "direct" },
+					parameters: [],
+					cancellation: { parameter: "signal" },
+					result: {
+						mode: "strict",
+						typeSymbol: "@deepseek-ai/dsh-api-session-controller/types#SessionControlFrame",
+						create: _deepseek_ai_dsh_api_session_controller_session_control_result$schema
+					},
+					sourceLocation: {
+						"file": "packages/api/session-controller/src/index.ts",
+						"line": 520,
+						"column": 3
+					}
+				},
+				{
+					id: "@deepseek-ai/dsh-api-session-controller#session/create",
+					service: "sessionController",
+					namespace: "session",
+					method: "create",
+					invocation: { kind: "direct" },
+					parameters: [{
+						name: "request",
+						wire: "request",
+						source: "json",
+						codec: {
+							mode: "strict",
+							typeSymbol: "@deepseek-ai/dsh-api-session-controller/types#SessionCreateRequest",
+							create: _deepseek_ai_dsh_api_session_controller_session_create_parameter_0$schema
+						}
+					}],
+					result: {
+						mode: "strict",
+						typeSymbol: "@deepseek-ai/dsh-api-session-controller/types#SessionCreateValue",
+						create: _deepseek_ai_dsh_api_session_controller_session_create_result$schema
+					},
+					sourceLocation: {
+						"file": "packages/api/session-controller/src/index.ts",
+						"line": 273,
+						"column": 3
+					}
+				},
+				{
+					id: "@deepseek-ai/dsh-api-session-controller#session/follow",
+					service: "sessionController",
+					namespace: "session",
+					method: "follow",
+					mode: "stream",
+					invocation: { kind: "direct" },
+					parameters: [{
+						name: "request",
+						wire: "request",
+						source: "json",
+						codec: {
+							mode: "strict",
+							typeSymbol: "@deepseek-ai/dsh-api-session-controller/types#SessionFollowRequest",
+							create: _deepseek_ai_dsh_api_session_controller_session_follow_parameter_0$schema
+						}
+					}],
+					cancellation: { parameter: "signal" },
+					result: {
+						mode: "strict",
+						typeSymbol: "@deepseek-ai/dsh-api-session-controller/types#SessionFollowFrame",
+						create: _deepseek_ai_dsh_api_session_controller_session_follow_result$schema
+					},
+					sourceLocation: {
+						"file": "packages/api/session-controller/src/index.ts",
+						"line": 480,
+						"column": 3
+					}
+				},
+				{
+					id: "@deepseek-ai/dsh-api-session-controller#session/fork",
+					service: "sessionController",
+					namespace: "session",
+					method: "fork",
+					invocation: { kind: "direct" },
+					parameters: [{
+						name: "request",
+						wire: "request",
+						source: "json",
+						codec: {
+							mode: "strict",
+							typeSymbol: "@deepseek-ai/dsh-api-session-controller/types#SessionForkRequest",
+							create: _deepseek_ai_dsh_api_session_controller_session_fork_parameter_0$schema
+						}
+					}],
+					result: {
+						mode: "strict",
+						typeSymbol: "@deepseek-ai/dsh-api-session-controller/types#SessionForkValue",
+						create: _deepseek_ai_dsh_api_session_controller_session_fork_result$schema
+					},
+					sourceLocation: {
+						"file": "packages/api/session-controller/src/index.ts",
+						"line": 415,
+						"column": 3
+					}
+				},
+				{
+					id: "@deepseek-ai/dsh-api-session-controller#session/initializeDefaultModel",
+					service: "sessionController",
+					namespace: "session",
+					method: "initializeDefaultModel",
+					invocation: { kind: "direct" },
+					parameters: [],
+					result: {
+						mode: "strict",
+						typeSymbol: "@deepseek-ai/dsh-api-session-controller#session/initializeDefaultModel:result",
+						create: _deepseek_ai_dsh_api_session_controller_session_initializeDefaultModel_result$schema
+					},
+					sourceLocation: {
+						"file": "packages/api/session-controller/src/index.ts",
+						"line": 292,
+						"column": 9
+					}
+				},
+				{
+					id: "@deepseek-ai/dsh-api-session-controller#session/list",
+					service: "sessionController",
+					namespace: "session",
+					method: "list",
+					invocation: { kind: "direct" },
+					parameters: [{
+						name: "_request",
+						wire: "_request",
+						source: "json",
+						codec: {
+							mode: "strict",
+							typeSymbol: "@deepseek-ai/dsh-api-session-controller/types#SessionListRequest",
+							create: _deepseek_ai_dsh_api_session_controller_session_list_parameter_0$schema
+						}
+					}],
+					cancellation: { parameter: "signal" },
+					result: {
+						mode: "strict",
+						typeSymbol: "@deepseek-ai/dsh-api-session-controller/types#SessionListValue",
+						create: _deepseek_ai_dsh_api_session_controller_session_list_result$schema
+					},
+					sourceLocation: {
+						"file": "packages/api/session-controller/src/index.ts",
+						"line": 252,
+						"column": 9
+					}
+				},
+				{
+					id: "@deepseek-ai/dsh-api-session-controller#session/modelCatalog",
+					service: "sessionController",
+					namespace: "session",
+					method: "modelCatalog",
+					invocation: { kind: "direct" },
+					parameters: [],
+					result: {
+						mode: "strict",
+						typeSymbol: "@deepseek-ai/dsh-api-session-controller/types#ModelCatalog",
+						create: _deepseek_ai_dsh_api_session_controller_session_modelCatalog_result$schema
+					},
+					sourceLocation: {
+						"file": "packages/api/session-controller/src/index.ts",
+						"line": 310,
+						"column": 3
+					}
+				},
+				{
+					id: "@deepseek-ai/dsh-api-session-controller#session/openWorkspacePath",
+					service: "sessionController",
+					namespace: "session",
+					method: "openWorkspacePath",
+					invocation: { kind: "direct" },
+					parameters: [{
+						name: "request",
+						wire: "request",
+						source: "json",
+						codec: {
+							mode: "strict",
+							typeSymbol: "@deepseek-ai/dsh-api-session-controller/types#SessionOpenWorkspacePathRequest",
+							create: _deepseek_ai_dsh_api_session_controller_session_openWorkspacePath_parameter_0$schema
+						}
+					}],
+					cancellation: { parameter: "signal" },
+					result: {
+						mode: "strict",
+						typeSymbol: "@deepseek-ai/dsh-api-session-controller/types#SessionOpenWorkspacePathValue",
+						create: _deepseek_ai_dsh_api_session_controller_session_openWorkspacePath_result$schema
+					},
+					sourceLocation: {
+						"file": "packages/api/session-controller/src/index.ts",
+						"line": 340,
+						"column": 9
+					}
+				},
+				{
+					id: "@deepseek-ai/dsh-api-session-controller#session/page",
+					service: "sessionController",
+					namespace: "session",
+					method: "page",
+					invocation: { kind: "direct" },
+					parameters: [{
+						name: "request",
+						wire: "request",
+						source: "json",
+						codec: {
+							mode: "strict",
+							typeSymbol: "@deepseek-ai/dsh-api-session-controller/types#SessionPageRequest",
+							create: _deepseek_ai_dsh_api_session_controller_session_page_parameter_0$schema
+						}
+					}],
+					cancellation: { parameter: "signal" },
+					result: {
+						mode: "strict",
+						typeSymbol: "@deepseek-ai/dsh-api-session-controller/types#SessionPage",
+						create: _deepseek_ai_dsh_api_session_controller_session_page_result$schema
+					},
+					sourceLocation: {
+						"file": "packages/api/session-controller/src/index.ts",
+						"line": 468,
+						"column": 3
+					}
+				},
+				{
+					id: "@deepseek-ai/dsh-api-session-controller#session/projections",
+					service: "sessionController",
+					namespace: "session",
+					method: "projections",
+					invocation: { kind: "direct" },
+					parameters: [{
+						name: "request",
+						wire: "request",
+						source: "json",
+						codec: {
+							mode: "strict",
+							typeSymbol: "@deepseek-ai/dsh-api-session-controller/types#SessionProjectionsRequest",
+							create: _deepseek_ai_dsh_api_session_controller_session_projections_parameter_0$schema
+						}
+					}],
+					cancellation: { parameter: "signal" },
+					result: {
+						mode: "strict",
+						typeSymbol: "@deepseek-ai/dsh-api-session-controller/types#SessionProjectionsValue",
+						create: _deepseek_ai_dsh_api_session_controller_session_projections_result$schema
+					},
+					sourceLocation: {
+						"file": "packages/api/session-controller/src/index.ts",
+						"line": 491,
+						"column": 9
+					}
+				},
+				{
+					id: "@deepseek-ai/dsh-api-session-controller#session/prompt",
+					service: "sessionController",
+					namespace: "session",
+					method: "prompt",
+					invocation: { kind: "direct" },
+					parameters: [{
+						name: "request",
+						wire: "request",
+						source: "json",
+						codec: {
+							mode: "strict",
+							typeSymbol: "@deepseek-ai/dsh-api-session-controller/types#SessionPromptRequest",
+							create: _deepseek_ai_dsh_api_session_controller_session_prompt_parameter_0$schema
+						}
+					}],
+					cancellation: { parameter: "signal" },
+					result: {
+						mode: "strict",
+						typeSymbol: "@deepseek-ai/dsh-api-session-controller/types#SessionPromptValue",
+						create: _deepseek_ai_dsh_api_session_controller_session_prompt_result$schema
+					},
+					sourceLocation: {
+						"file": "packages/api/session-controller/src/index.ts",
+						"line": 426,
+						"column": 3
+					}
+				},
+				{
+					id: "@deepseek-ai/dsh-api-session-controller#session/rename",
+					service: "sessionController",
+					namespace: "session",
+					method: "rename",
+					invocation: { kind: "direct" },
+					parameters: [{
+						name: "request",
+						wire: "request",
+						source: "json",
+						codec: {
+							mode: "strict",
+							typeSymbol: "@deepseek-ai/dsh-api-session-controller/types#SessionRenameRequest",
+							create: _deepseek_ai_dsh_api_session_controller_session_rename_parameter_0$schema
+						}
+					}],
+					result: {
+						mode: "strict",
+						typeSymbol: "@deepseek-ai/dsh-api-session-controller/types#SessionRenameValue",
+						create: _deepseek_ai_dsh_api_session_controller_session_rename_result$schema
+					},
+					sourceLocation: {
+						"file": "packages/api/session-controller/src/index.ts",
+						"line": 403,
+						"column": 3
+					}
+				},
+				{
+					id: "@deepseek-ai/dsh-api-session-controller#session/search",
+					service: "sessionController",
+					namespace: "session",
+					method: "search",
+					invocation: { kind: "direct" },
+					parameters: [{
+						name: "request",
+						wire: "request",
+						source: "json",
+						codec: {
+							mode: "strict",
+							typeSymbol: "@deepseek-ai/dsh-api-session-controller/types#SessionSearchRequest",
+							create: _deepseek_ai_dsh_api_session_controller_session_search_parameter_0$schema
+						}
+					}],
+					cancellation: { parameter: "signal" },
+					result: {
+						mode: "strict",
+						typeSymbol: "@deepseek-ai/dsh-api-session-controller/types#SessionSearchValue",
+						create: _deepseek_ai_dsh_api_session_controller_session_search_result$schema
+					},
+					sourceLocation: {
+						"file": "packages/api/session-controller/src/index.ts",
+						"line": 263,
+						"column": 3
+					}
+				},
+				{
+					id: "@deepseek-ai/dsh-api-session-controller#session/selectModel",
+					service: "sessionController",
+					namespace: "session",
+					method: "selectModel",
+					invocation: { kind: "direct" },
+					parameters: [{
+						name: "request",
+						wire: "request",
+						source: "json",
+						codec: {
+							mode: "strict",
+							typeSymbol: "@deepseek-ai/dsh-api-session-controller/types#SessionSelectModelRequest",
+							create: _deepseek_ai_dsh_api_session_controller_session_selectModel_parameter_0$schema
+						}
+					}],
+					result: {
+						mode: "strict",
+						typeSymbol: "@deepseek-ai/dsh-api-session-controller/types#SessionSelectModelValue",
+						create: _deepseek_ai_dsh_api_session_controller_session_selectModel_result$schema
+					},
+					sourceLocation: {
+						"file": "packages/api/session-controller/src/index.ts",
+						"line": 283,
+						"column": 3
+					}
+				},
+				{
+					id: "@deepseek-ai/dsh-api-session-controller#session/updateQueue",
+					service: "sessionController",
+					namespace: "session",
+					method: "updateQueue",
+					invocation: { kind: "direct" },
+					parameters: [{
+						name: "request",
+						wire: "request",
+						source: "json",
+						codec: {
+							mode: "strict",
+							typeSymbol: "@deepseek-ai/dsh-api-session-controller/types#SessionUpdateQueueRequest",
+							create: _deepseek_ai_dsh_api_session_controller_session_updateQueue_parameter_0$schema
+						}
+					}],
+					result: {
+						mode: "strict",
+						typeSymbol: "@deepseek-ai/dsh-api-session-controller/types#SessionUpdateQueueValue",
+						create: _deepseek_ai_dsh_api_session_controller_session_updateQueue_result$schema
+					},
+					sourceLocation: {
+						"file": "packages/api/session-controller/src/index.ts",
+						"line": 447,
+						"column": 3
+					}
+				},
+				{
+					id: "@deepseek-ai/dsh-api-session-controller#session/workspacePathApplications",
+					service: "sessionController",
+					namespace: "session",
+					method: "workspacePathApplications",
+					invocation: { kind: "direct" },
+					parameters: [{
+						name: "request",
+						wire: "request",
+						source: "json",
+						codec: {
+							mode: "strict",
+							typeSymbol: "@deepseek-ai/dsh-api-session-controller#session/workspacePathApplications:request",
+							create: _deepseek_ai_dsh_api_session_controller_session_workspacePathApplications_parameter_0$schema
+						}
+					}],
+					cancellation: { parameter: "signal" },
+					result: {
+						mode: "strict",
+						typeSymbol: "@deepseek-ai/dsh-api-session-controller#session/workspacePathApplications:result",
+						create: _deepseek_ai_dsh_api_session_controller_session_workspacePathApplications_result$schema
+					},
+					sourceLocation: {
+						"file": "packages/api/session-controller/src/index.ts",
+						"line": 370,
+						"column": 9
+					}
+				},
+				{
+					id: "@deepseek-ai/dsh-api-session-controller#skills/list",
+					service: "sessionSkillCatalog",
+					namespace: "skills",
+					method: "list",
+					invocation: { kind: "direct" },
+					parameters: [{
+						name: "request",
+						wire: "request",
+						source: "json",
+						codec: {
+							mode: "strict",
+							typeSymbol: "@deepseek-ai/dsh-api-session-controller/types#SkillListRequest",
+							create: _deepseek_ai_dsh_api_session_controller_skills_list_parameter_0$schema
+						}
+					}],
+					cancellation: { parameter: "signal" },
+					result: {
+						mode: "strict",
+						typeSymbol: "@deepseek-ai/dsh-api-session-controller/types#SkillListValue",
+						create: _deepseek_ai_dsh_api_session_controller_skills_list_result$schema
+					},
+					sourceLocation: {
+						"file": "packages/api/session-controller/src/skill-catalog.ts",
+						"line": 35,
+						"column": 9
+					}
+				}
+			]
+		};
+		//#endregion
+		//#region ../job-controller/lib/typert.remote-client.js
+		let _deepseek_ai_dsh_api_job_controller_job_follow_parameter_0$schema$value;
+		const _deepseek_ai_dsh_api_job_controller_job_follow_parameter_0$schema = () => _deepseek_ai_dsh_api_job_controller_job_follow_parameter_0$schema$value ??= object({
+			"sessionId": intersection(string(), unknown()).readonly().optional(),
+			"jobId": intersection(string(), unknown()).readonly(),
+			"from": number().readonly().optional()
+		});
+		let _deepseek_ai_dsh_api_job_controller_job_follow_result$schema$value;
+		const _deepseek_ai_dsh_api_job_controller_job_follow_result$schema = () => _deepseek_ai_dsh_api_job_controller_job_follow_result$schema$value ??= union([
+			object({
+				"type": literal("opened").readonly(),
+				"job": object({
+					"id": intersection(string(), unknown()).readonly(),
+					"kind": string().readonly(),
+					"label": string().readonly(),
+					"owner": intersection(string(), unknown()).readonly().optional(),
+					"outputLimitBytes": number().readonly().optional(),
+					"status": union([
+						literal("failed"),
+						literal("running"),
+						literal("stopping"),
+						literal("completed"),
+						literal("killed")
+					]).readonly(),
+					"progress": string().readonly().optional(),
+					"detail": string().readonly().optional(),
+					"startedAt": number().readonly(),
+					"finishedAt": number().readonly().optional(),
+					"output": object({
+						"total": number().readonly(),
+						"earliest": number().readonly(),
+						"spillPaths": array(string()).readonly().optional()
+					}).readonly()
+				}).readonly(),
+				"from": number().readonly()
+			}),
+			object({
+				"type": literal("output").readonly(),
+				"chunks": array(object({
+					"at": number().readonly(),
+					"text": string().readonly(),
+					"channel": union([
+						literal("stdout"),
+						literal("stderr"),
+						literal("log")
+					]).readonly().optional(),
+					"gapBefore": literal(true).readonly().optional()
+				})).readonly(),
+				"next": number().readonly(),
+				"lossy": literal(true).readonly().optional()
+			}),
+			object({
+				"type": literal("status").readonly(),
+				"job": object({
+					"id": intersection(string(), unknown()).readonly(),
+					"kind": string().readonly(),
+					"label": string().readonly(),
+					"owner": intersection(string(), unknown()).readonly().optional(),
+					"outputLimitBytes": number().readonly().optional(),
+					"status": union([
+						literal("failed"),
+						literal("running"),
+						literal("stopping"),
+						literal("completed"),
+						literal("killed")
+					]).readonly(),
+					"progress": string().readonly().optional(),
+					"detail": string().readonly().optional(),
+					"startedAt": number().readonly(),
+					"finishedAt": number().readonly().optional(),
+					"output": object({
+						"total": number().readonly(),
+						"earliest": number().readonly(),
+						"spillPaths": array(string()).readonly().optional()
+					}).readonly()
+				}).readonly()
+			})
+		]);
+		let _deepseek_ai_dsh_api_job_controller_job_kill_parameter_0$schema$value;
+		const _deepseek_ai_dsh_api_job_controller_job_kill_parameter_0$schema = () => _deepseek_ai_dsh_api_job_controller_job_kill_parameter_0$schema$value ??= object({
+			"sessionId": intersection(string(), unknown()).readonly(),
+			"jobId": intersection(string(), unknown()).readonly()
+		});
+		let _deepseek_ai_dsh_api_job_controller_job_kill_result$schema$value;
+		const _deepseek_ai_dsh_api_job_controller_job_kill_result$schema = () => _deepseek_ai_dsh_api_job_controller_job_kill_result$schema$value ??= object({ "outcome": union([literal("requested"), literal("already-finished")]).readonly() });
+		let _deepseek_ai_dsh_api_job_controller_job_list_parameter_0$schema$value;
+		const _deepseek_ai_dsh_api_job_controller_job_list_parameter_0$schema = () => _deepseek_ai_dsh_api_job_controller_job_list_parameter_0$schema$value ??= object({ "sessionId": intersection(string(), unknown()).readonly() });
+		let _deepseek_ai_dsh_api_job_controller_job_list_result$schema$value;
+		const _deepseek_ai_dsh_api_job_controller_job_list_result$schema = () => _deepseek_ai_dsh_api_job_controller_job_list_result$schema$value ??= object({
+			"type": literal("rows").readonly(),
+			"jobs": array(object({
+				"id": intersection(string(), unknown()).readonly(),
+				"kind": string().readonly(),
+				"label": string().readonly(),
+				"owner": intersection(string(), unknown()).readonly().optional(),
+				"outputLimitBytes": number().readonly().optional(),
+				"status": union([
+					literal("failed"),
+					literal("running"),
+					literal("stopping"),
+					literal("completed"),
+					literal("killed")
+				]).readonly(),
+				"progress": string().readonly().optional(),
+				"detail": string().readonly().optional(),
+				"startedAt": number().readonly(),
+				"finishedAt": number().readonly().optional(),
+				"output": object({
+					"total": number().readonly(),
+					"earliest": number().readonly(),
+					"spillPaths": array(string()).readonly().optional()
+				}).readonly()
+			})).readonly()
+		});
+		const TYPERT_REMOTE$3 = {
+			package: "@deepseek-ai/dsh-api-job-controller",
+			descriptors: [
+				{
+					id: "@deepseek-ai/dsh-api-job-controller#job/follow",
+					service: "jobController",
+					namespace: "job",
+					method: "follow",
+					mode: "stream",
+					invocation: { kind: "direct" },
+					parameters: [{
+						name: "request",
+						wire: "request",
+						source: "json",
+						codec: {
+							mode: "strict",
+							typeSymbol: "@deepseek-ai/dsh-api-job-controller/types#JobFollowRequest",
+							create: _deepseek_ai_dsh_api_job_controller_job_follow_parameter_0$schema
+						}
+					}],
+					cancellation: { parameter: "signal" },
+					result: {
+						mode: "strict",
+						typeSymbol: "@deepseek-ai/dsh-api-job-controller/types#JobFollowFrame",
+						create: _deepseek_ai_dsh_api_job_controller_job_follow_result$schema
+					},
+					sourceLocation: {
+						"file": "packages/api/job-controller/src/index.ts",
+						"line": 91,
+						"column": 3
+					}
+				},
+				{
+					id: "@deepseek-ai/dsh-api-job-controller#job/kill",
+					service: "jobController",
+					namespace: "job",
+					method: "kill",
+					invocation: { kind: "direct" },
+					parameters: [{
+						name: "request",
+						wire: "request",
+						source: "json",
+						codec: {
+							mode: "strict",
+							typeSymbol: "@deepseek-ai/dsh-api-job-controller/types#JobKillRequest",
+							create: _deepseek_ai_dsh_api_job_controller_job_kill_parameter_0$schema
+						}
+					}],
+					result: {
+						mode: "strict",
+						typeSymbol: "@deepseek-ai/dsh-api-job-controller/types#JobKillValue",
+						create: _deepseek_ai_dsh_api_job_controller_job_kill_result$schema
+					},
+					sourceLocation: {
+						"file": "packages/api/job-controller/src/index.ts",
+						"line": 110,
+						"column": 3
+					}
+				},
+				{
+					id: "@deepseek-ai/dsh-api-job-controller#job/list",
+					service: "jobController",
+					namespace: "job",
+					method: "list",
+					mode: "stream",
+					invocation: { kind: "direct" },
+					parameters: [{
+						name: "request",
+						wire: "request",
+						source: "json",
+						codec: {
+							mode: "strict",
+							typeSymbol: "@deepseek-ai/dsh-api-job-controller/types#JobListRequest",
+							create: _deepseek_ai_dsh_api_job_controller_job_list_parameter_0$schema
+						}
+					}],
+					cancellation: { parameter: "signal" },
+					result: {
+						mode: "strict",
+						typeSymbol: "@deepseek-ai/dsh-api-job-controller/types#JobListFrame",
+						create: _deepseek_ai_dsh_api_job_controller_job_list_result$schema
+					},
+					sourceLocation: {
+						"file": "packages/api/job-controller/src/index.ts",
+						"line": 76,
+						"column": 3
+					}
+				}
+			]
+		};
+		//#endregion
+		//#region ../workspace-controller/lib/typert.remote-client.js
+		let _deepseek_ai_dsh_api_workspace_controller_directoryPicker_createDirectory_parameter_0$schema$value;
+		const _deepseek_ai_dsh_api_workspace_controller_directoryPicker_createDirectory_parameter_0$schema = () => _deepseek_ai_dsh_api_workspace_controller_directoryPicker_createDirectory_parameter_0$schema$value ??= string();
+		let _deepseek_ai_dsh_api_workspace_controller_directoryPicker_createDirectory_parameter_1$schema$value;
+		const _deepseek_ai_dsh_api_workspace_controller_directoryPicker_createDirectory_parameter_1$schema = () => _deepseek_ai_dsh_api_workspace_controller_directoryPicker_createDirectory_parameter_1$schema$value ??= string();
+		let _deepseek_ai_dsh_api_workspace_controller_directoryPicker_createDirectory_result$schema$value;
+		const _deepseek_ai_dsh_api_workspace_controller_directoryPicker_createDirectory_result$schema = () => _deepseek_ai_dsh_api_workspace_controller_directoryPicker_createDirectory_result$schema$value ??= string();
+		let _deepseek_ai_dsh_api_workspace_controller_directoryPicker_list_parameter_0$schema$value;
+		const _deepseek_ai_dsh_api_workspace_controller_directoryPicker_list_parameter_0$schema = () => _deepseek_ai_dsh_api_workspace_controller_directoryPicker_list_parameter_0$schema$value ??= union([_undefined(), string()]);
+		let _deepseek_ai_dsh_api_workspace_controller_directoryPicker_list_result$schema$value;
+		const _deepseek_ai_dsh_api_workspace_controller_directoryPicker_list_result$schema = () => _deepseek_ai_dsh_api_workspace_controller_directoryPicker_list_result$schema$value ??= object({
+			"path": string(),
+			"home": string(),
+			"crumbs": array(object({
+				"name": string(),
+				"path": string(),
+				"hidden": boolean()
+			})),
+			"entries": array(object({
+				"name": string(),
+				"path": string(),
+				"hidden": boolean()
+			})),
+			"truncated": boolean()
+		});
+		let _deepseek_ai_dsh_api_workspace_controller_directoryPicker_pick_result$schema$value;
+		const _deepseek_ai_dsh_api_workspace_controller_directoryPicker_pick_result$schema = () => _deepseek_ai_dsh_api_workspace_controller_directoryPicker_pick_result$schema$value ??= union([literal(null), string()]);
+		let _deepseek_ai_dsh_api_workspace_controller_workspace_archiveSession_parameter_0$schema$value;
+		const _deepseek_ai_dsh_api_workspace_controller_workspace_archiveSession_parameter_0$schema = () => _deepseek_ai_dsh_api_workspace_controller_workspace_archiveSession_parameter_0$schema$value ??= object({
+			"sessionId": intersection(string(), unknown()).readonly(),
+			"stopActivity": boolean().readonly().optional()
+		});
+		let _deepseek_ai_dsh_api_workspace_controller_workspace_archiveSession_result$schema$value;
+		const _deepseek_ai_dsh_api_workspace_controller_workspace_archiveSession_result$schema = () => _deepseek_ai_dsh_api_workspace_controller_workspace_archiveSession_result$schema$value ??= object({ "archivedSessionIds": array(intersection(string(), unknown())).readonly() });
+		let _deepseek_ai_dsh_api_workspace_controller_workspace_create_parameter_0$schema$value;
+		const _deepseek_ai_dsh_api_workspace_controller_workspace_create_parameter_0$schema = () => _deepseek_ai_dsh_api_workspace_controller_workspace_create_parameter_0$schema$value ??= object({ "path": string().readonly() });
+		let _deepseek_ai_dsh_api_workspace_controller_workspace_create_result$schema$value;
+		const _deepseek_ai_dsh_api_workspace_controller_workspace_create_result$schema = () => _deepseek_ai_dsh_api_workspace_controller_workspace_create_result$schema$value ??= object({
+			"workspace": object({
+				"workspaceId": intersection(string(), unknown()).readonly(),
+				"path": string().readonly(),
+				"title": string().readonly(),
+				"sessionIds": array(intersection(string(), unknown())).readonly(),
+				"createdAt": string().readonly(),
+				"updatedAt": string().readonly()
+			}).readonly(),
+			"created": boolean().readonly()
+		});
+		let _deepseek_ai_dsh_api_workspace_controller_workspace_delete_parameter_0$schema$value;
+		const _deepseek_ai_dsh_api_workspace_controller_workspace_delete_parameter_0$schema = () => _deepseek_ai_dsh_api_workspace_controller_workspace_delete_parameter_0$schema$value ??= object({ "workspaceId": intersection(string(), unknown()).readonly() });
+		let _deepseek_ai_dsh_api_workspace_controller_workspace_delete_result$schema$value;
+		const _deepseek_ai_dsh_api_workspace_controller_workspace_delete_result$schema = () => _deepseek_ai_dsh_api_workspace_controller_workspace_delete_result$schema$value ??= object({ "deleted": literal(true).readonly() });
+		let _deepseek_ai_dsh_api_workspace_controller_workspace_follow_result$schema$value;
+		const _deepseek_ai_dsh_api_workspace_controller_workspace_follow_result$schema = () => _deepseek_ai_dsh_api_workspace_controller_workspace_follow_result$schema$value ??= union([
+			object({
+				"type": literal("baseline").readonly(),
+				"value": object({
+					"items": array(object({
+						"workspaceId": intersection(string(), unknown()).readonly(),
+						"path": string().readonly(),
+						"title": string().readonly(),
+						"sessionIds": array(intersection(string(), unknown())).readonly(),
+						"createdAt": string().readonly(),
+						"updatedAt": string().readonly()
+					})).readonly(),
+					"archivedSessionIds": array(intersection(string(), unknown())).readonly(),
+					"pinnedSessionIds": array(intersection(string(), unknown())).readonly()
+				}).readonly()
+			}),
+			object({
+				"type": literal("upsert").readonly(),
+				"workspace": object({
+					"workspaceId": intersection(string(), unknown()).readonly(),
+					"path": string().readonly(),
+					"title": string().readonly(),
+					"sessionIds": array(intersection(string(), unknown())).readonly(),
+					"createdAt": string().readonly(),
+					"updatedAt": string().readonly()
+				}).readonly()
+			}),
+			object({
+				"type": literal("remove").readonly(),
+				"workspaceId": intersection(string(), unknown()).readonly()
+			}),
+			object({
+				"type": literal("order").readonly(),
+				"workspaceIds": array(intersection(string(), unknown())).readonly()
+			}),
+			object({
+				"type": literal("archived").readonly(),
+				"archivedSessionIds": array(intersection(string(), unknown())).readonly()
+			}),
+			object({
+				"type": literal("pinned").readonly(),
+				"pinnedSessionIds": array(intersection(string(), unknown())).readonly()
+			})
+		]);
+		let _deepseek_ai_dsh_api_workspace_controller_workspace_initializeDefault_result$schema$value;
+		const _deepseek_ai_dsh_api_workspace_controller_workspace_initializeDefault_result$schema = () => _deepseek_ai_dsh_api_workspace_controller_workspace_initializeDefault_result$schema$value ??= union([_undefined(), object({ "workspace": object({
+			"workspaceId": intersection(string(), unknown()).readonly(),
+			"path": string().readonly(),
+			"title": string().readonly(),
+			"sessionIds": array(intersection(string(), unknown())).readonly(),
+			"createdAt": string().readonly(),
+			"updatedAt": string().readonly()
+		}).readonly() })]);
+		let _deepseek_ai_dsh_api_workspace_controller_workspace_insertBefore_parameter_0$schema$value;
+		const _deepseek_ai_dsh_api_workspace_controller_workspace_insertBefore_parameter_0$schema = () => _deepseek_ai_dsh_api_workspace_controller_workspace_insertBefore_parameter_0$schema$value ??= object({
+			"workspaceId": intersection(string(), unknown()).readonly(),
+			"beforeWorkspaceId": intersection(string(), unknown()).readonly().optional()
+		});
+		let _deepseek_ai_dsh_api_workspace_controller_workspace_insertBefore_result$schema$value;
+		const _deepseek_ai_dsh_api_workspace_controller_workspace_insertBefore_result$schema = () => _deepseek_ai_dsh_api_workspace_controller_workspace_insertBefore_result$schema$value ??= object({ "workspaceIds": array(intersection(string(), unknown())).readonly() });
+		let _deepseek_ai_dsh_api_workspace_controller_workspace_insertSessionBefore_parameter_0$schema$value;
+		const _deepseek_ai_dsh_api_workspace_controller_workspace_insertSessionBefore_parameter_0$schema = () => _deepseek_ai_dsh_api_workspace_controller_workspace_insertSessionBefore_parameter_0$schema$value ??= object({
+			"workspaceId": intersection(string(), unknown()).readonly(),
+			"sessionId": intersection(string(), unknown()).readonly(),
+			"beforeSessionId": intersection(string(), unknown()).readonly().optional()
+		});
+		let _deepseek_ai_dsh_api_workspace_controller_workspace_insertSessionBefore_result$schema$value;
+		const _deepseek_ai_dsh_api_workspace_controller_workspace_insertSessionBefore_result$schema = () => _deepseek_ai_dsh_api_workspace_controller_workspace_insertSessionBefore_result$schema$value ??= object({ "workspace": object({
+			"workspaceId": intersection(string(), unknown()).readonly(),
+			"path": string().readonly(),
+			"title": string().readonly(),
+			"sessionIds": array(intersection(string(), unknown())).readonly(),
+			"createdAt": string().readonly(),
+			"updatedAt": string().readonly()
+		}).readonly() });
+		let _deepseek_ai_dsh_api_workspace_controller_workspace_pinSession_parameter_0$schema$value;
+		const _deepseek_ai_dsh_api_workspace_controller_workspace_pinSession_parameter_0$schema = () => _deepseek_ai_dsh_api_workspace_controller_workspace_pinSession_parameter_0$schema$value ??= object({ "sessionId": intersection(string(), unknown()).readonly() });
+		let _deepseek_ai_dsh_api_workspace_controller_workspace_pinSession_result$schema$value;
+		const _deepseek_ai_dsh_api_workspace_controller_workspace_pinSession_result$schema = () => _deepseek_ai_dsh_api_workspace_controller_workspace_pinSession_result$schema$value ??= object({ "pinnedSessionIds": array(intersection(string(), unknown())).readonly() });
+		let _deepseek_ai_dsh_api_workspace_controller_workspace_rename_parameter_0$schema$value;
+		const _deepseek_ai_dsh_api_workspace_controller_workspace_rename_parameter_0$schema = () => _deepseek_ai_dsh_api_workspace_controller_workspace_rename_parameter_0$schema$value ??= object({
+			"workspaceId": intersection(string(), unknown()).readonly(),
+			"title": string().readonly()
+		});
+		let _deepseek_ai_dsh_api_workspace_controller_workspace_rename_result$schema$value;
+		const _deepseek_ai_dsh_api_workspace_controller_workspace_rename_result$schema = () => _deepseek_ai_dsh_api_workspace_controller_workspace_rename_result$schema$value ??= object({ "workspace": object({
+			"workspaceId": intersection(string(), unknown()).readonly(),
+			"path": string().readonly(),
+			"title": string().readonly(),
+			"sessionIds": array(intersection(string(), unknown())).readonly(),
+			"createdAt": string().readonly(),
+			"updatedAt": string().readonly()
+		}).readonly() });
+		let _deepseek_ai_dsh_api_workspace_controller_workspace_unarchiveSession_parameter_0$schema$value;
+		const _deepseek_ai_dsh_api_workspace_controller_workspace_unarchiveSession_parameter_0$schema = () => _deepseek_ai_dsh_api_workspace_controller_workspace_unarchiveSession_parameter_0$schema$value ??= object({ "sessionId": intersection(string(), unknown()).readonly() });
+		let _deepseek_ai_dsh_api_workspace_controller_workspace_unarchiveSession_result$schema$value;
+		const _deepseek_ai_dsh_api_workspace_controller_workspace_unarchiveSession_result$schema = () => _deepseek_ai_dsh_api_workspace_controller_workspace_unarchiveSession_result$schema$value ??= object({ "archivedSessionIds": array(intersection(string(), unknown())).readonly() });
+		let _deepseek_ai_dsh_api_workspace_controller_workspace_unpinSession_parameter_0$schema$value;
+		const _deepseek_ai_dsh_api_workspace_controller_workspace_unpinSession_parameter_0$schema = () => _deepseek_ai_dsh_api_workspace_controller_workspace_unpinSession_parameter_0$schema$value ??= object({ "sessionId": intersection(string(), unknown()).readonly() });
+		let _deepseek_ai_dsh_api_workspace_controller_workspace_unpinSession_result$schema$value;
+		const _deepseek_ai_dsh_api_workspace_controller_workspace_unpinSession_result$schema = () => _deepseek_ai_dsh_api_workspace_controller_workspace_unpinSession_result$schema$value ??= object({ "pinnedSessionIds": array(intersection(string(), unknown())).readonly() });
+		const TYPERT_REMOTE$2 = {
+			package: "@deepseek-ai/dsh-api-workspace-controller",
+			descriptors: [
+				{
+					id: "@deepseek-ai/dsh-api-workspace-controller#directoryPicker/createDirectory",
+					service: "directoryPickerController",
+					namespace: "directoryPicker",
+					method: "createDirectory",
+					invocation: { kind: "direct" },
+					parameters: [{
+						name: "path",
+						wire: "path",
+						source: "json",
+						codec: {
+							mode: "strict",
+							typeSymbol: "@deepseek-ai/dsh-api-workspace-controller#directoryPicker/createDirectory:path",
+							create: _deepseek_ai_dsh_api_workspace_controller_directoryPicker_createDirectory_parameter_0$schema
+						}
+					}, {
+						name: "name",
+						wire: "name",
+						source: "json",
+						codec: {
+							mode: "strict",
+							typeSymbol: "@deepseek-ai/dsh-api-workspace-controller#directoryPicker/createDirectory:name",
+							create: _deepseek_ai_dsh_api_workspace_controller_directoryPicker_createDirectory_parameter_1$schema
+						}
+					}],
+					result: {
+						mode: "strict",
+						typeSymbol: "@deepseek-ai/dsh-api-workspace-controller#directoryPicker/createDirectory:result",
+						create: _deepseek_ai_dsh_api_workspace_controller_directoryPicker_createDirectory_result$schema
+					},
+					sourceLocation: {
+						"file": "packages/api/workspace-controller/src/directory-picker.ts",
+						"line": 88,
+						"column": 9
+					}
+				},
+				{
+					id: "@deepseek-ai/dsh-api-workspace-controller#directoryPicker/list",
+					service: "directoryPickerController",
+					namespace: "directoryPicker",
+					method: "list",
+					invocation: { kind: "direct" },
+					parameters: [{
+						name: "path",
+						wire: "path",
+						source: "json",
+						acceptsUndefined: true,
+						codec: {
+							mode: "strict",
+							typeSymbol: "@deepseek-ai/dsh-api-workspace-controller#directoryPicker/list:path",
+							create: _deepseek_ai_dsh_api_workspace_controller_directoryPicker_list_parameter_0$schema
+						}
+					}],
+					cancellation: { parameter: "signal" },
+					result: {
+						mode: "strict",
+						typeSymbol: "@deepseek-ai/dsh-host-directory-picker/types#DirectoryListing",
+						create: _deepseek_ai_dsh_api_workspace_controller_directoryPicker_list_result$schema
+					},
+					sourceLocation: {
+						"file": "packages/api/workspace-controller/src/directory-picker.ts",
+						"line": 72,
+						"column": 9
+					}
+				},
+				{
+					id: "@deepseek-ai/dsh-api-workspace-controller#directoryPicker/pick",
+					service: "directoryPickerController",
+					namespace: "directoryPicker",
+					method: "pick",
+					invocation: { kind: "direct" },
+					parameters: [],
+					cancellation: { parameter: "signal" },
+					result: {
+						mode: "strict",
+						typeSymbol: "@deepseek-ai/dsh-api-workspace-controller#directoryPicker/pick:result",
+						create: _deepseek_ai_dsh_api_workspace_controller_directoryPicker_pick_result$schema
+					},
+					sourceLocation: {
+						"file": "packages/api/workspace-controller/src/directory-picker.ts",
+						"line": 55,
+						"column": 9
+					}
+				},
+				{
+					id: "@deepseek-ai/dsh-api-workspace-controller#workspace/archiveSession",
+					service: "workspaceController",
+					namespace: "workspace",
+					method: "archiveSession",
+					invocation: { kind: "direct" },
+					parameters: [{
+						name: "request",
+						wire: "request",
+						source: "json",
+						codec: {
+							mode: "strict",
+							typeSymbol: "@deepseek-ai/dsh-api-workspace-controller/types#WorkspaceArchiveSessionRequest",
+							create: _deepseek_ai_dsh_api_workspace_controller_workspace_archiveSession_parameter_0$schema
+						}
+					}],
+					result: {
+						mode: "strict",
+						typeSymbol: "@deepseek-ai/dsh-api-workspace-controller/types#WorkspaceArchiveValue",
+						create: _deepseek_ai_dsh_api_workspace_controller_workspace_archiveSession_result$schema
+					},
+					sourceLocation: {
+						"file": "packages/api/workspace-controller/src/index.ts",
+						"line": 155,
+						"column": 3
+					}
+				},
+				{
+					id: "@deepseek-ai/dsh-api-workspace-controller#workspace/create",
+					service: "workspaceController",
+					namespace: "workspace",
+					method: "create",
+					invocation: { kind: "direct" },
+					parameters: [{
+						name: "request",
+						wire: "request",
+						source: "json",
+						codec: {
+							mode: "strict",
+							typeSymbol: "@deepseek-ai/dsh-api-workspace-controller/types#WorkspaceCreateRequest",
+							create: _deepseek_ai_dsh_api_workspace_controller_workspace_create_parameter_0$schema
+						}
+					}],
+					result: {
+						mode: "strict",
+						typeSymbol: "@deepseek-ai/dsh-api-workspace-controller/types#WorkspaceCreateValue",
+						create: _deepseek_ai_dsh_api_workspace_controller_workspace_create_result$schema
+					},
+					sourceLocation: {
+						"file": "packages/api/workspace-controller/src/index.ts",
+						"line": 86,
+						"column": 3
+					}
+				},
+				{
+					id: "@deepseek-ai/dsh-api-workspace-controller#workspace/delete",
+					service: "workspaceController",
+					namespace: "workspace",
+					method: "delete",
+					invocation: { kind: "direct" },
+					parameters: [{
+						name: "request",
+						wire: "request",
+						source: "json",
+						codec: {
+							mode: "strict",
+							typeSymbol: "@deepseek-ai/dsh-api-workspace-controller/types#WorkspaceDeleteRequest",
+							create: _deepseek_ai_dsh_api_workspace_controller_workspace_delete_parameter_0$schema
+						}
+					}],
+					result: {
+						mode: "strict",
+						typeSymbol: "@deepseek-ai/dsh-api-workspace-controller/types#WorkspaceDeleteValue",
+						create: _deepseek_ai_dsh_api_workspace_controller_workspace_delete_result$schema
+					},
+					sourceLocation: {
+						"file": "packages/api/workspace-controller/src/index.ts",
+						"line": 125,
+						"column": 3
+					}
+				},
+				{
+					id: "@deepseek-ai/dsh-api-workspace-controller#workspace/follow",
+					service: "workspaceController",
+					namespace: "workspace",
+					method: "follow",
+					mode: "stream",
+					invocation: { kind: "direct" },
+					parameters: [],
+					cancellation: { parameter: "signal" },
+					result: {
+						mode: "strict",
+						typeSymbol: "@deepseek-ai/dsh-api-workspace-controller/types#WorkspaceFollowFrame",
+						create: _deepseek_ai_dsh_api_workspace_controller_workspace_follow_result$schema
+					},
+					sourceLocation: {
+						"file": "packages/api/workspace-controller/src/index.ts",
+						"line": 195,
+						"column": 3
+					}
+				},
+				{
+					id: "@deepseek-ai/dsh-api-workspace-controller#workspace/initializeDefault",
+					service: "workspaceController",
+					namespace: "workspace",
+					method: "initializeDefault",
+					invocation: { kind: "direct" },
+					parameters: [],
+					cancellation: { parameter: "signal" },
+					result: {
+						mode: "strict",
+						typeSymbol: "@deepseek-ai/dsh-api-workspace-controller#workspace/initializeDefault:result",
+						create: _deepseek_ai_dsh_api_workspace_controller_workspace_initializeDefault_result$schema
+					},
+					sourceLocation: {
+						"file": "packages/api/workspace-controller/src/index.ts",
+						"line": 99,
+						"column": 9
+					}
+				},
+				{
+					id: "@deepseek-ai/dsh-api-workspace-controller#workspace/insertBefore",
+					service: "workspaceController",
+					namespace: "workspace",
+					method: "insertBefore",
+					invocation: { kind: "direct" },
+					parameters: [{
+						name: "request",
+						wire: "request",
+						source: "json",
+						codec: {
+							mode: "strict",
+							typeSymbol: "@deepseek-ai/dsh-api-workspace-controller/types#WorkspaceInsertBeforeRequest",
+							create: _deepseek_ai_dsh_api_workspace_controller_workspace_insertBefore_parameter_0$schema
+						}
+					}],
+					result: {
+						mode: "strict",
+						typeSymbol: "@deepseek-ai/dsh-api-workspace-controller/types#WorkspaceOrderValue",
+						create: _deepseek_ai_dsh_api_workspace_controller_workspace_insertBefore_result$schema
+					},
+					sourceLocation: {
+						"file": "packages/api/workspace-controller/src/index.ts",
+						"line": 135,
+						"column": 3
+					}
+				},
+				{
+					id: "@deepseek-ai/dsh-api-workspace-controller#workspace/insertSessionBefore",
+					service: "workspaceController",
+					namespace: "workspace",
+					method: "insertSessionBefore",
+					invocation: { kind: "direct" },
+					parameters: [{
+						name: "request",
+						wire: "request",
+						source: "json",
+						codec: {
+							mode: "strict",
+							typeSymbol: "@deepseek-ai/dsh-api-workspace-controller/types#WorkspaceInsertSessionBeforeRequest",
+							create: _deepseek_ai_dsh_api_workspace_controller_workspace_insertSessionBefore_parameter_0$schema
+						}
+					}],
+					result: {
+						mode: "strict",
+						typeSymbol: "@deepseek-ai/dsh-api-workspace-controller/types#WorkspaceValue",
+						create: _deepseek_ai_dsh_api_workspace_controller_workspace_insertSessionBefore_result$schema
+					},
+					sourceLocation: {
+						"file": "packages/api/workspace-controller/src/index.ts",
+						"line": 145,
+						"column": 3
+					}
+				},
+				{
+					id: "@deepseek-ai/dsh-api-workspace-controller#workspace/pinSession",
+					service: "workspaceController",
+					namespace: "workspace",
+					method: "pinSession",
+					invocation: { kind: "direct" },
+					parameters: [{
+						name: "request",
+						wire: "request",
+						source: "json",
+						codec: {
+							mode: "strict",
+							typeSymbol: "@deepseek-ai/dsh-api-workspace-controller/types#WorkspacePinSessionRequest",
+							create: _deepseek_ai_dsh_api_workspace_controller_workspace_pinSession_parameter_0$schema
+						}
+					}],
+					result: {
+						mode: "strict",
+						typeSymbol: "@deepseek-ai/dsh-api-workspace-controller/types#WorkspacePinValue",
+						create: _deepseek_ai_dsh_api_workspace_controller_workspace_pinSession_result$schema
+					},
+					sourceLocation: {
+						"file": "packages/api/workspace-controller/src/index.ts",
+						"line": 175,
+						"column": 3
+					}
+				},
+				{
+					id: "@deepseek-ai/dsh-api-workspace-controller#workspace/rename",
+					service: "workspaceController",
+					namespace: "workspace",
+					method: "rename",
+					invocation: { kind: "direct" },
+					parameters: [{
+						name: "request",
+						wire: "request",
+						source: "json",
+						codec: {
+							mode: "strict",
+							typeSymbol: "@deepseek-ai/dsh-api-workspace-controller/types#WorkspaceRenameRequest",
+							create: _deepseek_ai_dsh_api_workspace_controller_workspace_rename_parameter_0$schema
+						}
+					}],
+					result: {
+						mode: "strict",
+						typeSymbol: "@deepseek-ai/dsh-api-workspace-controller/types#WorkspaceValue",
+						create: _deepseek_ai_dsh_api_workspace_controller_workspace_rename_result$schema
+					},
+					sourceLocation: {
+						"file": "packages/api/workspace-controller/src/index.ts",
+						"line": 115,
+						"column": 3
+					}
+				},
+				{
+					id: "@deepseek-ai/dsh-api-workspace-controller#workspace/unarchiveSession",
+					service: "workspaceController",
+					namespace: "workspace",
+					method: "unarchiveSession",
+					invocation: { kind: "direct" },
+					parameters: [{
+						name: "request",
+						wire: "request",
+						source: "json",
+						codec: {
+							mode: "strict",
+							typeSymbol: "@deepseek-ai/dsh-api-workspace-controller/types#WorkspaceUnarchiveSessionRequest",
+							create: _deepseek_ai_dsh_api_workspace_controller_workspace_unarchiveSession_parameter_0$schema
+						}
+					}],
+					result: {
+						mode: "strict",
+						typeSymbol: "@deepseek-ai/dsh-api-workspace-controller/types#WorkspaceArchiveValue",
+						create: _deepseek_ai_dsh_api_workspace_controller_workspace_unarchiveSession_result$schema
+					},
+					sourceLocation: {
+						"file": "packages/api/workspace-controller/src/index.ts",
+						"line": 165,
+						"column": 3
+					}
+				},
+				{
+					id: "@deepseek-ai/dsh-api-workspace-controller#workspace/unpinSession",
+					service: "workspaceController",
+					namespace: "workspace",
+					method: "unpinSession",
+					invocation: { kind: "direct" },
+					parameters: [{
+						name: "request",
+						wire: "request",
+						source: "json",
+						codec: {
+							mode: "strict",
+							typeSymbol: "@deepseek-ai/dsh-api-workspace-controller/types#WorkspaceUnpinSessionRequest",
+							create: _deepseek_ai_dsh_api_workspace_controller_workspace_unpinSession_parameter_0$schema
+						}
+					}],
+					result: {
+						mode: "strict",
+						typeSymbol: "@deepseek-ai/dsh-api-workspace-controller/types#WorkspacePinValue",
+						create: _deepseek_ai_dsh_api_workspace_controller_workspace_unpinSession_result$schema
+					},
+					sourceLocation: {
+						"file": "packages/api/workspace-controller/src/index.ts",
+						"line": 185,
+						"column": 3
+					}
+				}
+			]
+		};
+		//#endregion
+		//#region ../terminal-controller/lib/typert.remote-client.js
+		let _deepseek_ai_dsh_api_terminal_controller_terminal_close_parameter_0$schema$value;
+		const _deepseek_ai_dsh_api_terminal_controller_terminal_close_parameter_0$schema = () => _deepseek_ai_dsh_api_terminal_controller_terminal_close_parameter_0$schema$value ??= intersection(string(), unknown());
+		let _deepseek_ai_dsh_api_terminal_controller_terminal_close_parameter_1$schema$value;
+		const _deepseek_ai_dsh_api_terminal_controller_terminal_close_parameter_1$schema = () => _deepseek_ai_dsh_api_terminal_controller_terminal_close_parameter_1$schema$value ??= intersection(string(), unknown());
+		let _deepseek_ai_dsh_api_terminal_controller_terminal_close_result$schema$value;
+		const _deepseek_ai_dsh_api_terminal_controller_terminal_close_result$schema = () => _deepseek_ai_dsh_api_terminal_controller_terminal_close_result$schema$value ??= _void();
+		let _deepseek_ai_dsh_api_terminal_controller_terminal_create_parameter_0$schema$value;
+		const _deepseek_ai_dsh_api_terminal_controller_terminal_create_parameter_0$schema = () => _deepseek_ai_dsh_api_terminal_controller_terminal_create_parameter_0$schema$value ??= intersection(string(), unknown());
+		let _deepseek_ai_dsh_api_terminal_controller_terminal_create_parameter_1$schema$value;
+		const _deepseek_ai_dsh_api_terminal_controller_terminal_create_parameter_1$schema = () => _deepseek_ai_dsh_api_terminal_controller_terminal_create_parameter_1$schema$value ??= object({
+			"shellPath": string().readonly().optional(),
+			"id": intersection(string(), unknown()).readonly(),
+			"cols": number().readonly(),
+			"rows": number().readonly()
+		});
+		let _deepseek_ai_dsh_api_terminal_controller_terminal_create_result$schema$value;
+		const _deepseek_ai_dsh_api_terminal_controller_terminal_create_result$schema = () => _deepseek_ai_dsh_api_terminal_controller_terminal_create_result$schema$value ??= object({
+			"id": intersection(string(), unknown()).readonly(),
+			"title": string().readonly(),
+			"shell": object({
+				"path": string().readonly(),
+				"args": array(string()).readonly(),
+				"name": string().readonly()
+			}).readonly(),
+			"cwd": string().readonly(),
+			"cols": number().readonly(),
+			"rows": number().readonly(),
+			"state": union([
+				literal("failed"),
+				literal("running"),
+				literal("exited")
+			]).readonly(),
+			"exitCode": union([literal(null), number()]).readonly(),
+			"error": string().readonly().optional(),
+			"controllerId": intersection(string(), unknown()).readonly().optional()
+		});
+		let _deepseek_ai_dsh_api_terminal_controller_terminal_environment_parameter_0$schema$value;
+		const _deepseek_ai_dsh_api_terminal_controller_terminal_environment_parameter_0$schema = () => _deepseek_ai_dsh_api_terminal_controller_terminal_environment_parameter_0$schema$value ??= intersection(string(), unknown());
+		let _deepseek_ai_dsh_api_terminal_controller_terminal_environment_result$schema$value;
+		const _deepseek_ai_dsh_api_terminal_controller_terminal_environment_result$schema = () => _deepseek_ai_dsh_api_terminal_controller_terminal_environment_result$schema$value ??= object({
+			"cwd": string().readonly(),
+			"maxInputBytes": number().readonly(),
+			"maxCols": number().readonly(),
+			"maxRows": number().readonly(),
+			"scrollback": number().readonly()
+		});
+		let _deepseek_ai_dsh_api_terminal_controller_terminal_follow_parameter_0$schema$value;
+		const _deepseek_ai_dsh_api_terminal_controller_terminal_follow_parameter_0$schema = () => _deepseek_ai_dsh_api_terminal_controller_terminal_follow_parameter_0$schema$value ??= intersection(string(), unknown());
+		let _deepseek_ai_dsh_api_terminal_controller_terminal_follow_parameter_1$schema$value;
+		const _deepseek_ai_dsh_api_terminal_controller_terminal_follow_parameter_1$schema = () => _deepseek_ai_dsh_api_terminal_controller_terminal_follow_parameter_1$schema$value ??= intersection(string(), unknown());
+		let _deepseek_ai_dsh_api_terminal_controller_terminal_follow_parameter_2$schema$value;
+		const _deepseek_ai_dsh_api_terminal_controller_terminal_follow_parameter_2$schema = () => _deepseek_ai_dsh_api_terminal_controller_terminal_follow_parameter_2$schema$value ??= intersection(string(), unknown());
+		let _deepseek_ai_dsh_api_terminal_controller_terminal_follow_result$schema$value;
+		const _deepseek_ai_dsh_api_terminal_controller_terminal_follow_result$schema = () => _deepseek_ai_dsh_api_terminal_controller_terminal_follow_result$schema$value ??= union([
+			object({
+				"type": literal("snapshot").readonly(),
+				"sequence": number().readonly(),
+				"screen": string().readonly(),
+				"info": object({
+					"id": intersection(string(), unknown()).readonly(),
+					"title": string().readonly(),
+					"shell": object({
+						"path": string().readonly(),
+						"args": array(string()).readonly(),
+						"name": string().readonly()
+					}).readonly(),
+					"cwd": string().readonly(),
+					"cols": number().readonly(),
+					"rows": number().readonly(),
+					"state": union([
+						literal("failed"),
+						literal("running"),
+						literal("exited")
+					]).readonly(),
+					"exitCode": union([literal(null), number()]).readonly(),
+					"error": string().readonly().optional(),
+					"controllerId": intersection(string(), unknown()).readonly().optional()
+				}).readonly()
+			}),
+			object({
+				"type": literal("output").readonly(),
+				"sequence": number().readonly(),
+				"data": string().readonly()
+			}),
+			object({
+				"type": literal("state").readonly(),
+				"info": object({
+					"id": intersection(string(), unknown()).readonly(),
+					"title": string().readonly(),
+					"shell": object({
+						"path": string().readonly(),
+						"args": array(string()).readonly(),
+						"name": string().readonly()
+					}).readonly(),
+					"cwd": string().readonly(),
+					"cols": number().readonly(),
+					"rows": number().readonly(),
+					"state": union([
+						literal("failed"),
+						literal("running"),
+						literal("exited")
+					]).readonly(),
+					"exitCode": union([literal(null), number()]).readonly(),
+					"error": string().readonly().optional(),
+					"controllerId": intersection(string(), unknown()).readonly().optional()
+				}).readonly()
+			})
+		]);
+		let _deepseek_ai_dsh_api_terminal_controller_terminal_list_parameter_0$schema$value;
+		const _deepseek_ai_dsh_api_terminal_controller_terminal_list_parameter_0$schema = () => _deepseek_ai_dsh_api_terminal_controller_terminal_list_parameter_0$schema$value ??= intersection(string(), unknown());
+		let _deepseek_ai_dsh_api_terminal_controller_terminal_list_result$schema$value;
+		const _deepseek_ai_dsh_api_terminal_controller_terminal_list_result$schema = () => _deepseek_ai_dsh_api_terminal_controller_terminal_list_result$schema$value ??= array(object({
+			"id": intersection(string(), unknown()).readonly(),
+			"title": string().readonly(),
+			"shell": object({
+				"path": string().readonly(),
+				"args": array(string()).readonly(),
+				"name": string().readonly()
+			}).readonly(),
+			"cwd": string().readonly(),
+			"cols": number().readonly(),
+			"rows": number().readonly(),
+			"state": union([
+				literal("failed"),
+				literal("running"),
+				literal("exited")
+			]).readonly(),
+			"exitCode": union([literal(null), number()]).readonly(),
+			"error": string().readonly().optional(),
+			"controllerId": intersection(string(), unknown()).readonly().optional()
+		}));
+		let _deepseek_ai_dsh_api_terminal_controller_terminal_rename_parameter_0$schema$value;
+		const _deepseek_ai_dsh_api_terminal_controller_terminal_rename_parameter_0$schema = () => _deepseek_ai_dsh_api_terminal_controller_terminal_rename_parameter_0$schema$value ??= intersection(string(), unknown());
+		let _deepseek_ai_dsh_api_terminal_controller_terminal_rename_parameter_1$schema$value;
+		const _deepseek_ai_dsh_api_terminal_controller_terminal_rename_parameter_1$schema = () => _deepseek_ai_dsh_api_terminal_controller_terminal_rename_parameter_1$schema$value ??= intersection(string(), unknown());
+		let _deepseek_ai_dsh_api_terminal_controller_terminal_rename_parameter_2$schema$value;
+		const _deepseek_ai_dsh_api_terminal_controller_terminal_rename_parameter_2$schema = () => _deepseek_ai_dsh_api_terminal_controller_terminal_rename_parameter_2$schema$value ??= string();
+		let _deepseek_ai_dsh_api_terminal_controller_terminal_rename_result$schema$value;
+		const _deepseek_ai_dsh_api_terminal_controller_terminal_rename_result$schema = () => _deepseek_ai_dsh_api_terminal_controller_terminal_rename_result$schema$value ??= _void();
+		let _deepseek_ai_dsh_api_terminal_controller_terminal_resize_parameter_0$schema$value;
+		const _deepseek_ai_dsh_api_terminal_controller_terminal_resize_parameter_0$schema = () => _deepseek_ai_dsh_api_terminal_controller_terminal_resize_parameter_0$schema$value ??= intersection(string(), unknown());
+		let _deepseek_ai_dsh_api_terminal_controller_terminal_resize_parameter_1$schema$value;
+		const _deepseek_ai_dsh_api_terminal_controller_terminal_resize_parameter_1$schema = () => _deepseek_ai_dsh_api_terminal_controller_terminal_resize_parameter_1$schema$value ??= intersection(string(), unknown());
+		let _deepseek_ai_dsh_api_terminal_controller_terminal_resize_parameter_2$schema$value;
+		const _deepseek_ai_dsh_api_terminal_controller_terminal_resize_parameter_2$schema = () => _deepseek_ai_dsh_api_terminal_controller_terminal_resize_parameter_2$schema$value ??= intersection(string(), unknown());
+		let _deepseek_ai_dsh_api_terminal_controller_terminal_resize_parameter_3$schema$value;
+		const _deepseek_ai_dsh_api_terminal_controller_terminal_resize_parameter_3$schema = () => _deepseek_ai_dsh_api_terminal_controller_terminal_resize_parameter_3$schema$value ??= number();
+		let _deepseek_ai_dsh_api_terminal_controller_terminal_resize_parameter_4$schema$value;
+		const _deepseek_ai_dsh_api_terminal_controller_terminal_resize_parameter_4$schema = () => _deepseek_ai_dsh_api_terminal_controller_terminal_resize_parameter_4$schema$value ??= number();
+		let _deepseek_ai_dsh_api_terminal_controller_terminal_resize_result$schema$value;
+		const _deepseek_ai_dsh_api_terminal_controller_terminal_resize_result$schema = () => _deepseek_ai_dsh_api_terminal_controller_terminal_resize_result$schema$value ??= _void();
+		let _deepseek_ai_dsh_api_terminal_controller_terminal_retain_parameter_0$schema$value;
+		const _deepseek_ai_dsh_api_terminal_controller_terminal_retain_parameter_0$schema = () => _deepseek_ai_dsh_api_terminal_controller_terminal_retain_parameter_0$schema$value ??= intersection(string(), unknown());
+		let _deepseek_ai_dsh_api_terminal_controller_terminal_retain_parameter_1$schema$value;
+		const _deepseek_ai_dsh_api_terminal_controller_terminal_retain_parameter_1$schema = () => _deepseek_ai_dsh_api_terminal_controller_terminal_retain_parameter_1$schema$value ??= intersection(string(), unknown());
+		let _deepseek_ai_dsh_api_terminal_controller_terminal_retain_result$schema$value;
+		const _deepseek_ai_dsh_api_terminal_controller_terminal_retain_result$schema = () => _deepseek_ai_dsh_api_terminal_controller_terminal_retain_result$schema$value ??= object({ "type": literal("retained").readonly() });
+		let _deepseek_ai_dsh_api_terminal_controller_terminal_shells_parameter_0$schema$value;
+		const _deepseek_ai_dsh_api_terminal_controller_terminal_shells_parameter_0$schema = () => _deepseek_ai_dsh_api_terminal_controller_terminal_shells_parameter_0$schema$value ??= intersection(string(), unknown());
+		let _deepseek_ai_dsh_api_terminal_controller_terminal_shells_result$schema$value;
+		const _deepseek_ai_dsh_api_terminal_controller_terminal_shells_result$schema = () => _deepseek_ai_dsh_api_terminal_controller_terminal_shells_result$schema$value ??= array(object({
+			"path": string().readonly(),
+			"args": array(string()).readonly(),
+			"name": string().readonly()
+		}));
+		let _deepseek_ai_dsh_api_terminal_controller_terminal_write_parameter_0$schema$value;
+		const _deepseek_ai_dsh_api_terminal_controller_terminal_write_parameter_0$schema = () => _deepseek_ai_dsh_api_terminal_controller_terminal_write_parameter_0$schema$value ??= intersection(string(), unknown());
+		let _deepseek_ai_dsh_api_terminal_controller_terminal_write_parameter_1$schema$value;
+		const _deepseek_ai_dsh_api_terminal_controller_terminal_write_parameter_1$schema = () => _deepseek_ai_dsh_api_terminal_controller_terminal_write_parameter_1$schema$value ??= intersection(string(), unknown());
+		let _deepseek_ai_dsh_api_terminal_controller_terminal_write_parameter_2$schema$value;
+		const _deepseek_ai_dsh_api_terminal_controller_terminal_write_parameter_2$schema = () => _deepseek_ai_dsh_api_terminal_controller_terminal_write_parameter_2$schema$value ??= intersection(string(), unknown());
+		let _deepseek_ai_dsh_api_terminal_controller_terminal_write_parameter_3$schema$value;
+		const _deepseek_ai_dsh_api_terminal_controller_terminal_write_parameter_3$schema = () => _deepseek_ai_dsh_api_terminal_controller_terminal_write_parameter_3$schema$value ??= string();
+		let _deepseek_ai_dsh_api_terminal_controller_terminal_write_result$schema$value;
+		const _deepseek_ai_dsh_api_terminal_controller_terminal_write_result$schema = () => _deepseek_ai_dsh_api_terminal_controller_terminal_write_result$schema$value ??= _void();
+		const TYPERT_REMOTE$1 = {
+			package: "@deepseek-ai/dsh-api-terminal-controller",
+			descriptors: [
+				{
+					id: "@deepseek-ai/dsh-api-terminal-controller#terminal/close",
+					service: "terminalController",
+					namespace: "terminal",
+					method: "close",
+					invocation: { kind: "direct" },
+					scope: {
+						context: "agent",
+						wire: "agentId"
+					},
+					parameters: [{
+						name: "agent",
+						wire: "agentId",
+						source: "lookup",
+						lookup: "agent",
+						codec: {
+							mode: "strict",
+							typeSymbol: "@deepseek-ai/dsh-session/types#SessionId",
+							create: _deepseek_ai_dsh_api_terminal_controller_terminal_close_parameter_0$schema
+						}
+					}, {
+						name: "id",
+						wire: "id",
+						source: "json",
+						codec: {
+							mode: "strict",
+							typeSymbol: "@deepseek-ai/dsh-api-terminal-controller/types#WebTerminalId",
+							create: _deepseek_ai_dsh_api_terminal_controller_terminal_close_parameter_1$schema
+						}
+					}],
+					result: {
+						mode: "strict",
+						typeSymbol: "@deepseek-ai/dsh-api-terminal-controller#terminal/close:result",
+						create: _deepseek_ai_dsh_api_terminal_controller_terminal_close_result$schema
+					},
+					sourceLocation: {
+						"file": "packages/api/terminal-controller/src/index.ts",
+						"line": 269,
+						"column": 9
+					}
+				},
+				{
+					id: "@deepseek-ai/dsh-api-terminal-controller#terminal/create",
+					service: "terminalController",
+					namespace: "terminal",
+					method: "create",
+					invocation: { kind: "direct" },
+					scope: {
+						context: "agent",
+						wire: "agentId"
+					},
+					parameters: [{
+						name: "agent",
+						wire: "agentId",
+						source: "lookup",
+						lookup: "agent",
+						codec: {
+							mode: "strict",
+							typeSymbol: "@deepseek-ai/dsh-session/types#SessionId",
+							create: _deepseek_ai_dsh_api_terminal_controller_terminal_create_parameter_0$schema
+						}
+					}, {
+						name: "request",
+						wire: "request",
+						source: "json",
+						codec: {
+							mode: "strict",
+							typeSymbol: "@deepseek-ai/dsh-api-terminal-controller/types#TerminalCreateRequest",
+							create: _deepseek_ai_dsh_api_terminal_controller_terminal_create_parameter_1$schema
+						}
+					}],
+					cancellation: { parameter: "signal" },
+					result: {
+						mode: "strict",
+						typeSymbol: "@deepseek-ai/dsh-api-terminal-controller/types#WebTerminalInfo",
+						create: _deepseek_ai_dsh_api_terminal_controller_terminal_create_result$schema
+					},
+					sourceLocation: {
+						"file": "packages/api/terminal-controller/src/index.ts",
+						"line": 158,
+						"column": 9
+					}
+				},
+				{
+					id: "@deepseek-ai/dsh-api-terminal-controller#terminal/environment",
+					service: "terminalController",
+					namespace: "terminal",
+					method: "environment",
+					invocation: { kind: "direct" },
+					scope: {
+						context: "agent",
+						wire: "agentId"
+					},
+					parameters: [{
+						name: "agent",
+						wire: "agentId",
+						source: "lookup",
+						lookup: "agent",
+						codec: {
+							mode: "strict",
+							typeSymbol: "@deepseek-ai/dsh-session/types#SessionId",
+							create: _deepseek_ai_dsh_api_terminal_controller_terminal_environment_parameter_0$schema
+						}
+					}],
+					cancellation: { parameter: "signal" },
+					result: {
+						mode: "strict",
+						typeSymbol: "@deepseek-ai/dsh-api-terminal-controller/types#TerminalEnvironment",
+						create: _deepseek_ai_dsh_api_terminal_controller_terminal_environment_result$schema
+					},
+					sourceLocation: {
+						"file": "packages/api/terminal-controller/src/index.ts",
+						"line": 118,
+						"column": 3
+					}
+				},
+				{
+					id: "@deepseek-ai/dsh-api-terminal-controller#terminal/follow",
+					service: "terminalController",
+					namespace: "terminal",
+					method: "follow",
+					mode: "stream",
+					invocation: { kind: "direct" },
+					scope: {
+						context: "agent",
+						wire: "agentId"
+					},
+					parameters: [
+						{
+							name: "agent",
+							wire: "agentId",
+							source: "lookup",
+							lookup: "agent",
+							codec: {
+								mode: "strict",
+								typeSymbol: "@deepseek-ai/dsh-session/types#SessionId",
+								create: _deepseek_ai_dsh_api_terminal_controller_terminal_follow_parameter_0$schema
+							}
+						},
+						{
+							name: "id",
+							wire: "id",
+							source: "json",
+							codec: {
+								mode: "strict",
+								typeSymbol: "@deepseek-ai/dsh-api-terminal-controller/types#WebTerminalId",
+								create: _deepseek_ai_dsh_api_terminal_controller_terminal_follow_parameter_1$schema
+							}
+						},
+						{
+							name: "attachmentId",
+							wire: "attachmentId",
+							source: "json",
+							codec: {
+								mode: "strict",
+								typeSymbol: "@deepseek-ai/dsh-api-terminal-controller/types#TerminalAttachmentId",
+								create: _deepseek_ai_dsh_api_terminal_controller_terminal_follow_parameter_2$schema
+							}
+						}
+					],
+					cancellation: { parameter: "signal" },
+					result: {
+						mode: "strict",
+						typeSymbol: "@deepseek-ai/dsh-api-terminal-controller/types#TerminalFrame",
+						create: _deepseek_ai_dsh_api_terminal_controller_terminal_follow_result$schema
+					},
+					sourceLocation: {
+						"file": "packages/api/terminal-controller/src/index.ts",
+						"line": 216,
+						"column": 3
+					}
+				},
+				{
+					id: "@deepseek-ai/dsh-api-terminal-controller#terminal/list",
+					service: "terminalController",
+					namespace: "terminal",
+					method: "list",
+					invocation: { kind: "direct" },
+					parameters: [{
+						name: "sessionId",
+						wire: "sessionId",
+						source: "json",
+						codec: {
+							mode: "strict",
+							typeSymbol: "@deepseek-ai/dsh-session/types#SessionId",
+							create: _deepseek_ai_dsh_api_terminal_controller_terminal_list_parameter_0$schema
+						}
+					}],
+					result: {
+						mode: "strict",
+						typeSymbol: "@deepseek-ai/dsh-api-terminal-controller#terminal/list:result",
+						create: _deepseek_ai_dsh_api_terminal_controller_terminal_list_result$schema
+					},
+					sourceLocation: {
+						"file": "packages/api/terminal-controller/src/index.ts",
+						"line": 144,
+						"column": 3
+					}
+				},
+				{
+					id: "@deepseek-ai/dsh-api-terminal-controller#terminal/rename",
+					service: "terminalController",
+					namespace: "terminal",
+					method: "rename",
+					invocation: { kind: "direct" },
+					scope: {
+						context: "agent",
+						wire: "agentId"
+					},
+					parameters: [
+						{
+							name: "agent",
+							wire: "agentId",
+							source: "lookup",
+							lookup: "agent",
+							codec: {
+								mode: "strict",
+								typeSymbol: "@deepseek-ai/dsh-session/types#SessionId",
+								create: _deepseek_ai_dsh_api_terminal_controller_terminal_rename_parameter_0$schema
+							}
+						},
+						{
+							name: "id",
+							wire: "id",
+							source: "json",
+							codec: {
+								mode: "strict",
+								typeSymbol: "@deepseek-ai/dsh-api-terminal-controller/types#WebTerminalId",
+								create: _deepseek_ai_dsh_api_terminal_controller_terminal_rename_parameter_1$schema
+							}
+						},
+						{
+							name: "title",
+							wire: "title",
+							source: "json",
+							codec: {
+								mode: "strict",
+								typeSymbol: "@deepseek-ai/dsh-api-terminal-controller#terminal/rename:title",
+								create: _deepseek_ai_dsh_api_terminal_controller_terminal_rename_parameter_2$schema
+							}
+						}
+					],
+					result: {
+						mode: "strict",
+						typeSymbol: "@deepseek-ai/dsh-api-terminal-controller#terminal/rename:result",
+						create: _deepseek_ai_dsh_api_terminal_controller_terminal_rename_result$schema
+					},
+					sourceLocation: {
+						"file": "packages/api/terminal-controller/src/index.ts",
+						"line": 257,
+						"column": 3
+					}
+				},
+				{
+					id: "@deepseek-ai/dsh-api-terminal-controller#terminal/resize",
+					service: "terminalController",
+					namespace: "terminal",
+					method: "resize",
+					invocation: { kind: "direct" },
+					scope: {
+						context: "agent",
+						wire: "agentId"
+					},
+					parameters: [
+						{
+							name: "agent",
+							wire: "agentId",
+							source: "lookup",
+							lookup: "agent",
+							codec: {
+								mode: "strict",
+								typeSymbol: "@deepseek-ai/dsh-session/types#SessionId",
+								create: _deepseek_ai_dsh_api_terminal_controller_terminal_resize_parameter_0$schema
+							}
+						},
+						{
+							name: "id",
+							wire: "id",
+							source: "json",
+							codec: {
+								mode: "strict",
+								typeSymbol: "@deepseek-ai/dsh-api-terminal-controller/types#WebTerminalId",
+								create: _deepseek_ai_dsh_api_terminal_controller_terminal_resize_parameter_1$schema
+							}
+						},
+						{
+							name: "attachmentId",
+							wire: "attachmentId",
+							source: "json",
+							codec: {
+								mode: "strict",
+								typeSymbol: "@deepseek-ai/dsh-api-terminal-controller/types#TerminalAttachmentId",
+								create: _deepseek_ai_dsh_api_terminal_controller_terminal_resize_parameter_2$schema
+							}
+						},
+						{
+							name: "cols",
+							wire: "cols",
+							source: "json",
+							codec: {
+								mode: "strict",
+								typeSymbol: "@deepseek-ai/dsh-api-terminal-controller#terminal/resize:cols",
+								create: _deepseek_ai_dsh_api_terminal_controller_terminal_resize_parameter_3$schema
+							}
+						},
+						{
+							name: "rows",
+							wire: "rows",
+							source: "json",
+							codec: {
+								mode: "strict",
+								typeSymbol: "@deepseek-ai/dsh-api-terminal-controller#terminal/resize:rows",
+								create: _deepseek_ai_dsh_api_terminal_controller_terminal_resize_parameter_4$schema
+							}
+						}
+					],
+					result: {
+						mode: "strict",
+						typeSymbol: "@deepseek-ai/dsh-api-terminal-controller#terminal/resize:result",
+						create: _deepseek_ai_dsh_api_terminal_controller_terminal_resize_result$schema
+					},
+					sourceLocation: {
+						"file": "packages/api/terminal-controller/src/index.ts",
+						"line": 245,
+						"column": 9
+					}
+				},
+				{
+					id: "@deepseek-ai/dsh-api-terminal-controller#terminal/retain",
+					service: "terminalController",
+					namespace: "terminal",
+					method: "retain",
+					mode: "stream",
+					invocation: { kind: "direct" },
+					parameters: [{
+						name: "sessionId",
+						wire: "sessionId",
+						source: "json",
+						codec: {
+							mode: "strict",
+							typeSymbol: "@deepseek-ai/dsh-session/types#SessionId",
+							create: _deepseek_ai_dsh_api_terminal_controller_terminal_retain_parameter_0$schema
+						}
+					}, {
+						name: "id",
+						wire: "id",
+						source: "json",
+						codec: {
+							mode: "strict",
+							typeSymbol: "@deepseek-ai/dsh-api-terminal-controller/types#WebTerminalId",
+							create: _deepseek_ai_dsh_api_terminal_controller_terminal_retain_parameter_1$schema
+						}
+					}],
+					cancellation: { parameter: "signal" },
+					result: {
+						mode: "strict",
+						typeSymbol: "@deepseek-ai/dsh-api-terminal-controller/types#TerminalRetentionFrame",
+						create: _deepseek_ai_dsh_api_terminal_controller_terminal_retain_result$schema
+					},
+					sourceLocation: {
+						"file": "packages/api/terminal-controller/src/index.ts",
+						"line": 198,
+						"column": 3
+					}
+				},
+				{
+					id: "@deepseek-ai/dsh-api-terminal-controller#terminal/shells",
+					service: "terminalController",
+					namespace: "terminal",
+					method: "shells",
+					invocation: { kind: "direct" },
+					scope: {
+						context: "agent",
+						wire: "agentId"
+					},
+					parameters: [{
+						name: "agent",
+						wire: "agentId",
+						source: "lookup",
+						lookup: "agent",
+						codec: {
+							mode: "strict",
+							typeSymbol: "@deepseek-ai/dsh-session/types#SessionId",
+							create: _deepseek_ai_dsh_api_terminal_controller_terminal_shells_parameter_0$schema
+						}
+					}],
+					cancellation: { parameter: "signal" },
+					result: {
+						mode: "strict",
+						typeSymbol: "@deepseek-ai/dsh-api-terminal-controller#terminal/shells:result",
+						create: _deepseek_ai_dsh_api_terminal_controller_terminal_shells_result$schema
+					},
+					sourceLocation: {
+						"file": "packages/api/terminal-controller/src/index.ts",
+						"line": 133,
+						"column": 3
+					}
+				},
+				{
+					id: "@deepseek-ai/dsh-api-terminal-controller#terminal/write",
+					service: "terminalController",
+					namespace: "terminal",
+					method: "write",
+					invocation: { kind: "direct" },
+					scope: {
+						context: "agent",
+						wire: "agentId"
+					},
+					parameters: [
+						{
+							name: "agent",
+							wire: "agentId",
+							source: "lookup",
+							lookup: "agent",
+							codec: {
+								mode: "strict",
+								typeSymbol: "@deepseek-ai/dsh-session/types#SessionId",
+								create: _deepseek_ai_dsh_api_terminal_controller_terminal_write_parameter_0$schema
+							}
+						},
+						{
+							name: "id",
+							wire: "id",
+							source: "json",
+							codec: {
+								mode: "strict",
+								typeSymbol: "@deepseek-ai/dsh-api-terminal-controller/types#WebTerminalId",
+								create: _deepseek_ai_dsh_api_terminal_controller_terminal_write_parameter_1$schema
+							}
+						},
+						{
+							name: "attachmentId",
+							wire: "attachmentId",
+							source: "json",
+							codec: {
+								mode: "strict",
+								typeSymbol: "@deepseek-ai/dsh-api-terminal-controller/types#TerminalAttachmentId",
+								create: _deepseek_ai_dsh_api_terminal_controller_terminal_write_parameter_2$schema
+							}
+						},
+						{
+							name: "data",
+							wire: "data",
+							source: "json",
+							codec: {
+								mode: "strict",
+								typeSymbol: "@deepseek-ai/dsh-api-terminal-controller#terminal/write:data",
+								create: _deepseek_ai_dsh_api_terminal_controller_terminal_write_parameter_3$schema
+							}
+						}
+					],
+					result: {
+						mode: "strict",
+						typeSymbol: "@deepseek-ai/dsh-api-terminal-controller#terminal/write:result",
+						create: _deepseek_ai_dsh_api_terminal_controller_terminal_write_result$schema
+					},
+					sourceLocation: {
+						"file": "packages/api/terminal-controller/src/index.ts",
+						"line": 230,
+						"column": 9
+					}
+				}
+			]
+		};
+		//#endregion
+		//#region ../workspace-files/lib/typert.remote-client.js
+		let _deepseek_ai_dsh_api_workspace_files_workspaceFiles_changes_parameter_0$schema$value;
+		const _deepseek_ai_dsh_api_workspace_files_workspaceFiles_changes_parameter_0$schema = () => _deepseek_ai_dsh_api_workspace_files_workspaceFiles_changes_parameter_0$schema$value ??= intersection(string(), unknown());
+		let _deepseek_ai_dsh_api_workspace_files_workspaceFiles_changes_parameter_1$schema$value;
+		const _deepseek_ai_dsh_api_workspace_files_workspaceFiles_changes_parameter_1$schema = () => _deepseek_ai_dsh_api_workspace_files_workspaceFiles_changes_parameter_1$schema$value ??= string();
+		let _deepseek_ai_dsh_api_workspace_files_workspaceFiles_changes_result$schema$value;
+		const _deepseek_ai_dsh_api_workspace_files_workspaceFiles_changes_result$schema = () => _deepseek_ai_dsh_api_workspace_files_workspaceFiles_changes_result$schema$value ??= union([object({ "kind": literal("ready").readonly() }), object({
+			"kind": literal("change").readonly(),
+			"change": union([object({
+				"absolutePath": string().readonly(),
+				"version": string().readonly()
+			}), object({
+				"absolutePath": string().readonly(),
+				"absent": literal(true).readonly()
+			})]).readonly()
+		})]);
+		let _deepseek_ai_dsh_api_workspace_files_workspaceFiles_list_parameter_0$schema$value;
+		const _deepseek_ai_dsh_api_workspace_files_workspaceFiles_list_parameter_0$schema = () => _deepseek_ai_dsh_api_workspace_files_workspaceFiles_list_parameter_0$schema$value ??= intersection(string(), unknown());
+		let _deepseek_ai_dsh_api_workspace_files_workspaceFiles_list_parameter_1$schema$value;
+		const _deepseek_ai_dsh_api_workspace_files_workspaceFiles_list_parameter_1$schema = () => _deepseek_ai_dsh_api_workspace_files_workspaceFiles_list_parameter_1$schema$value ??= string();
+		let _deepseek_ai_dsh_api_workspace_files_workspaceFiles_list_result$schema$value;
+		const _deepseek_ai_dsh_api_workspace_files_workspaceFiles_list_result$schema = () => _deepseek_ai_dsh_api_workspace_files_workspaceFiles_list_result$schema$value ??= object({
+			"path": string().readonly(),
+			"entries": array(object({
+				"name": string().readonly(),
+				"type": union([
+					literal("file"),
+					literal("directory"),
+					literal("other")
+				]).readonly(),
+				"size": number().readonly().optional()
+			})).readonly(),
+			"truncated": boolean().readonly()
+		});
+		let _deepseek_ai_dsh_api_workspace_files_workspaceFiles_read_parameter_0$schema$value;
+		const _deepseek_ai_dsh_api_workspace_files_workspaceFiles_read_parameter_0$schema = () => _deepseek_ai_dsh_api_workspace_files_workspaceFiles_read_parameter_0$schema$value ??= intersection(string(), unknown());
+		let _deepseek_ai_dsh_api_workspace_files_workspaceFiles_read_parameter_1$schema$value;
+		const _deepseek_ai_dsh_api_workspace_files_workspaceFiles_read_parameter_1$schema = () => _deepseek_ai_dsh_api_workspace_files_workspaceFiles_read_parameter_1$schema$value ??= string();
+		let _deepseek_ai_dsh_api_workspace_files_workspaceFiles_read_parameter_2$schema$value;
+		const _deepseek_ai_dsh_api_workspace_files_workspaceFiles_read_parameter_2$schema = () => _deepseek_ai_dsh_api_workspace_files_workspaceFiles_read_parameter_2$schema$value ??= object({
+			"offset": number().readonly().optional(),
+			"limit": number().readonly().optional()
+		});
+		let _deepseek_ai_dsh_api_workspace_files_workspaceFiles_read_result$schema$value;
+		const _deepseek_ai_dsh_api_workspace_files_workspaceFiles_read_result$schema = () => _deepseek_ai_dsh_api_workspace_files_workspaceFiles_read_result$schema$value ??= object({
+			"offset": number().readonly(),
+			"text": string().readonly(),
+			"lines": number().readonly(),
+			"eof": boolean().readonly(),
+			"absolutePath": string().readonly(),
+			"version": string().readonly(),
+			"bytes": number().readonly().optional()
+		});
+		let _deepseek_ai_dsh_api_workspace_files_workspaceFiles_readBytes_parameter_0$schema$value;
+		const _deepseek_ai_dsh_api_workspace_files_workspaceFiles_readBytes_parameter_0$schema = () => _deepseek_ai_dsh_api_workspace_files_workspaceFiles_readBytes_parameter_0$schema$value ??= intersection(string(), unknown());
+		let _deepseek_ai_dsh_api_workspace_files_workspaceFiles_readBytes_parameter_1$schema$value;
+		const _deepseek_ai_dsh_api_workspace_files_workspaceFiles_readBytes_parameter_1$schema = () => _deepseek_ai_dsh_api_workspace_files_workspaceFiles_readBytes_parameter_1$schema$value ??= string();
+		let _deepseek_ai_dsh_api_workspace_files_workspaceFiles_readBytes_parameter_2$schema$value;
+		const _deepseek_ai_dsh_api_workspace_files_workspaceFiles_readBytes_parameter_2$schema = () => _deepseek_ai_dsh_api_workspace_files_workspaceFiles_readBytes_parameter_2$schema$value ??= object({
+			"range": object({
+				"offset": number().readonly().optional(),
+				"length": number().readonly().optional()
+			}).readonly().optional(),
+			"baseFile": string().readonly().optional()
+		});
+		let _deepseek_ai_dsh_api_workspace_files_workspaceFiles_readBytes_result$schema$value;
+		const _deepseek_ai_dsh_api_workspace_files_workspaceFiles_readBytes_result$schema = () => _deepseek_ai_dsh_api_workspace_files_workspaceFiles_readBytes_result$schema$value ??= object({
+			"offset": number().readonly(),
+			"data": _instanceof(Uint8Array),
+			"eof": boolean().readonly(),
+			"absolutePath": string().readonly(),
+			"version": string().readonly(),
+			"bytes": number().readonly().optional()
+		});
+		let _deepseek_ai_dsh_api_workspace_files_workspaceFiles_stat_parameter_0$schema$value;
+		const _deepseek_ai_dsh_api_workspace_files_workspaceFiles_stat_parameter_0$schema = () => _deepseek_ai_dsh_api_workspace_files_workspaceFiles_stat_parameter_0$schema$value ??= intersection(string(), unknown());
+		let _deepseek_ai_dsh_api_workspace_files_workspaceFiles_stat_parameter_1$schema$value;
+		const _deepseek_ai_dsh_api_workspace_files_workspaceFiles_stat_parameter_1$schema = () => _deepseek_ai_dsh_api_workspace_files_workspaceFiles_stat_parameter_1$schema$value ??= string();
+		let _deepseek_ai_dsh_api_workspace_files_workspaceFiles_stat_result$schema$value;
+		const _deepseek_ai_dsh_api_workspace_files_workspaceFiles_stat_result$schema = () => _deepseek_ai_dsh_api_workspace_files_workspaceFiles_stat_result$schema$value ??= object({
+			"absolutePath": string().readonly(),
+			"version": string().readonly(),
+			"bytes": number().readonly().optional()
+		});
+		const $resultSnapshot = (input, path) => {
+			if (input === null || typeof input !== "object" || input instanceof Uint8Array) return input;
+			const toJSON = input.toJSON;
+			const value = typeof toJSON === "function" ? toJSON.call(input, path.at(-1)?.toString() ?? "value") : input;
+			if (value === null || typeof value !== "object" || value instanceof Uint8Array) return value;
+			if (Array.isArray(value)) {
+				const items = [];
+				for (let index = 0, length = value.length; index < length; index++) items.push(value[index]);
+				return items;
+			}
+			const fields = {};
+			for (const key of Object.keys(value)) {
+				const item = key === "toJSON" && value === input ? toJSON : value[key];
+				if (key === "toJSON" && typeof item === "function") continue;
+				Object.defineProperty(fields, key, {
+					value: item,
+					enumerable: true,
+					writable: true,
+					configurable: true
+				});
+			}
+			return fields;
+		};
+		const $resultContainer = (input, path, ancestors, project, snapshot) => {
+			if (input === null || typeof input !== "object") return project(input);
+			const owner = !ancestors.has(input);
+			if (!owner && ancestors.get(input) !== path.length) throw new TypeError("Remote result contains a circular object");
+			if (owner) ancestors.set(input, path.length);
+			try {
+				return project(snapshot ? $resultSnapshot(input, path) : input);
+			} finally {
+				if (owner) ancestors.delete(input);
+			}
+		};
+		const $encode1 = (value, writeBytes, path, ancestors) => {
+			return value instanceof Uint8Array ? writeBytes(value, path) : value;
+		};
+		const $encode0 = (value, writeBytes, path, ancestors) => {
+			return $resultContainer(value, path, ancestors, (value) => {
+				if (value === null || typeof value !== "object" || Array.isArray(value) || value instanceof Uint8Array) return value;
+				if (Object.hasOwn(value, "data")) value["data"] = $encode1(value["data"], writeBytes, [...path, "data"], ancestors);
+				return value;
+			}, true);
+		};
+		const TYPERT_REMOTE = {
+			package: "@deepseek-ai/dsh-api-workspace-files",
+			descriptors: [
+				{
+					id: "@deepseek-ai/dsh-api-workspace-files#workspaceFiles/changes",
+					service: "workspaceFiles",
+					namespace: "workspaceFiles",
+					method: "changes",
+					mode: "stream",
+					invocation: { kind: "direct" },
+					parameters: [{
+						name: "workspaceFileScope",
+						wire: "workspaceFileScopeId",
+						source: "lookup",
+						lookup: "workspaceFileScope",
+						codec: {
+							mode: "strict",
+							typeSymbol: "@deepseek-ai/dsh-session/types#SessionId",
+							create: _deepseek_ai_dsh_api_workspace_files_workspaceFiles_changes_parameter_0$schema
+						}
+					}, {
+						name: "path",
+						wire: "path",
+						source: "json",
+						codec: {
+							mode: "strict",
+							typeSymbol: "@deepseek-ai/dsh-api-workspace-files#workspaceFiles/changes:path",
+							create: _deepseek_ai_dsh_api_workspace_files_workspaceFiles_changes_parameter_1$schema
+						}
+					}],
+					cancellation: { parameter: "signal" },
+					result: {
+						mode: "strict",
+						typeSymbol: "@deepseek-ai/dsh-api-workspace-files/types#WorkspaceFileWatchFrame",
+						create: _deepseek_ai_dsh_api_workspace_files_workspaceFiles_changes_result$schema
+					},
+					sourceLocation: {
+						"file": "packages/api/workspace-files/src/index.ts",
+						"line": 340,
+						"column": 3
+					}
+				},
+				{
+					id: "@deepseek-ai/dsh-api-workspace-files#workspaceFiles/list",
+					service: "workspaceFiles",
+					namespace: "workspaceFiles",
+					method: "list",
+					invocation: { kind: "direct" },
+					parameters: [{
+						name: "workspaceFileScope",
+						wire: "workspaceFileScopeId",
+						source: "lookup",
+						lookup: "workspaceFileScope",
+						codec: {
+							mode: "strict",
+							typeSymbol: "@deepseek-ai/dsh-session/types#SessionId",
+							create: _deepseek_ai_dsh_api_workspace_files_workspaceFiles_list_parameter_0$schema
+						}
+					}, {
+						name: "path",
+						wire: "path",
+						source: "json",
+						codec: {
+							mode: "strict",
+							typeSymbol: "@deepseek-ai/dsh-api-workspace-files#workspaceFiles/list:path",
+							create: _deepseek_ai_dsh_api_workspace_files_workspaceFiles_list_parameter_1$schema
+						}
+					}],
+					cancellation: { parameter: "signal" },
+					result: {
+						mode: "strict",
+						typeSymbol: "@deepseek-ai/dsh-api-workspace-files/types#WorkspaceDirectoryListing",
+						create: _deepseek_ai_dsh_api_workspace_files_workspaceFiles_list_result$schema
+					},
+					sourceLocation: {
+						"file": "packages/api/workspace-files/src/index.ts",
+						"line": 303,
+						"column": 9
+					}
+				},
+				{
+					id: "@deepseek-ai/dsh-api-workspace-files#workspaceFiles/read",
+					service: "workspaceFiles",
+					namespace: "workspaceFiles",
+					method: "read",
+					invocation: { kind: "direct" },
+					parameters: [
+						{
+							name: "workspaceFileScope",
+							wire: "workspaceFileScopeId",
+							source: "lookup",
+							lookup: "workspaceFileScope",
+							codec: {
+								mode: "strict",
+								typeSymbol: "@deepseek-ai/dsh-session/types#SessionId",
+								create: _deepseek_ai_dsh_api_workspace_files_workspaceFiles_read_parameter_0$schema
+							}
+						},
+						{
+							name: "path",
+							wire: "path",
+							source: "json",
+							codec: {
+								mode: "strict",
+								typeSymbol: "@deepseek-ai/dsh-api-workspace-files#workspaceFiles/read:path",
+								create: _deepseek_ai_dsh_api_workspace_files_workspaceFiles_read_parameter_1$schema
+							}
+						},
+						{
+							name: "range",
+							wire: "range",
+							source: "json",
+							codec: {
+								mode: "strict",
+								typeSymbol: "@deepseek-ai/dsh-api-workspace-files/types#WorkspaceFileRange",
+								create: _deepseek_ai_dsh_api_workspace_files_workspaceFiles_read_parameter_2$schema
+							}
+						}
+					],
+					cancellation: { parameter: "signal" },
+					result: {
+						mode: "strict",
+						typeSymbol: "@deepseek-ai/dsh-api-workspace-files/types#WorkspaceFileText",
+						create: _deepseek_ai_dsh_api_workspace_files_workspaceFiles_read_result$schema
+					},
+					sourceLocation: {
+						"file": "packages/api/workspace-files/src/index.ts",
+						"line": 233,
+						"column": 9
+					}
+				},
+				{
+					id: "@deepseek-ai/dsh-api-workspace-files#workspaceFiles/readBytes",
+					service: "workspaceFiles",
+					namespace: "workspaceFiles",
+					method: "readBytes",
+					invocation: { kind: "direct" },
+					parameters: [
+						{
+							name: "workspaceFileScope",
+							wire: "workspaceFileScopeId",
+							source: "lookup",
+							lookup: "workspaceFileScope",
+							codec: {
+								mode: "strict",
+								typeSymbol: "@deepseek-ai/dsh-session/types#SessionId",
+								create: _deepseek_ai_dsh_api_workspace_files_workspaceFiles_readBytes_parameter_0$schema
+							}
+						},
+						{
+							name: "path",
+							wire: "path",
+							source: "json",
+							codec: {
+								mode: "strict",
+								typeSymbol: "@deepseek-ai/dsh-api-workspace-files#workspaceFiles/readBytes:path",
+								create: _deepseek_ai_dsh_api_workspace_files_workspaceFiles_readBytes_parameter_1$schema
+							}
+						},
+						{
+							name: "options",
+							wire: "options",
+							source: "json",
+							codec: {
+								mode: "strict",
+								typeSymbol: "@deepseek-ai/dsh-api-workspace-files/types#WorkspaceByteReadOptions",
+								create: _deepseek_ai_dsh_api_workspace_files_workspaceFiles_readBytes_parameter_2$schema
+							}
+						}
+					],
+					cancellation: { parameter: "signal" },
+					result: {
+						mode: "strict",
+						typeSymbol: "@deepseek-ai/dsh-api-workspace-files/types#WorkspaceFileBytes",
+						create: _deepseek_ai_dsh_api_workspace_files_workspaceFiles_readBytes_result$schema,
+						decode: (value) => _deepseek_ai_dsh_api_workspace_files_workspaceFiles_readBytes_result$schema().parse(value),
+						encode: (value, writeBytes) => $encode0(value, writeBytes, [], /* @__PURE__ */ new Map())
+					},
+					sourceLocation: {
+						"file": "packages/api/workspace-files/src/index.ts",
+						"line": 257,
+						"column": 9
+					}
+				},
+				{
+					id: "@deepseek-ai/dsh-api-workspace-files#workspaceFiles/stat",
+					service: "workspaceFiles",
+					namespace: "workspaceFiles",
+					method: "stat",
+					invocation: { kind: "direct" },
+					parameters: [{
+						name: "workspaceFileScope",
+						wire: "workspaceFileScopeId",
+						source: "lookup",
+						lookup: "workspaceFileScope",
+						codec: {
+							mode: "strict",
+							typeSymbol: "@deepseek-ai/dsh-session/types#SessionId",
+							create: _deepseek_ai_dsh_api_workspace_files_workspaceFiles_stat_parameter_0$schema
+						}
+					}, {
+						name: "path",
+						wire: "path",
+						source: "json",
+						codec: {
+							mode: "strict",
+							typeSymbol: "@deepseek-ai/dsh-api-workspace-files#workspaceFiles/stat:path",
+							create: _deepseek_ai_dsh_api_workspace_files_workspaceFiles_stat_parameter_1$schema
+						}
+					}],
+					cancellation: { parameter: "signal" },
+					result: {
+						mode: "strict",
+						typeSymbol: "@deepseek-ai/dsh-api-workspace-files/types#WorkspaceFileStat",
+						create: _deepseek_ai_dsh_api_workspace_files_workspaceFiles_stat_result$schema
+					},
+					sourceLocation: {
+						"file": "packages/api/workspace-files/src/index.ts",
+						"line": 290,
+						"column": 9
+					}
+				}
+			]
 		};
 		//#endregion
 		//#region lib/types/client/index.js
-		/** Required services for the tail-slot and tab-type registrations and their dictionaries. */
-		const inject = [
-			"slots",
-			"locale",
-			"uiConversation",
-			"remote",
-			"remote.session",
-			"sidebarRightTabs",
-			"sidebarRight",
-			"configForms"
-		];
+		/** Platform-neutral assembly of generated Host Remote contributions. */
+		/** Required service: the typed Client Remote contribution mount. */
+		const inject = ["remote"];
 		/**
-		* Client plugin body: register the dictionaries, the turn-tail entry, and the comparison tab type.
-		* @param ctx - client root context.
+		* Mount the Host capabilities explicitly selected for this Client assembly.
+		* @param ctx - Client Cordis root carrying the typed API service.
+		* @returns disposer after every selected Remote namespace is ready.
 		*/
-		function apply(ctx) {
-			const opener = new PresentedOpenController();
-			const summaries = new ChangesSummaryStore();
-			const diffs = new ChangesDiffStore();
-			ctx.effect(() => () => Promise.all([
-				opener.dispose(),
-				summaries.dispose(),
-				diffs.dispose()
-			]));
-			ctx.on("connection/reset", () => {
-				opener.resetHost();
-				summaries.reset();
-				diffs.reset();
-			});
-			ctx.uiConversation.events.register(deliverablesDefinition);
-			ctx.effect(() => ctx.locale.register(NS, {
-				zh,
-				en
-			}), "ui-deliverables: dictionaries");
-			ctx.slots.inject("conversation.chat.turnTail", () => ctx.slots.register({
-				name: "conversation.chat.turnTail",
-				id: "@deepseek-ai/dsh-client-ui-deliverables",
-				locale: NS,
-				children: { "deliverables.file.actions": {
-					kind: "list",
-					scope: "session"
-				} },
-				inject: () => ({
-					hooks: {
-						changesDiff: diffs.state,
-						presentedOpen: opener.state,
-						presentedHost: opener.host,
-						changesSummary: summaries.state,
-						showCodeDiff: ctx.configForms.developerTools.enabled
-					},
-					loadChangesDiff: (sessionId, seq, index) => diffs.load(sessionId, seq, index),
-					reloadPresentedHost: () => opener.loadHost(),
-					loadChangesSummary: (sessionId, seq) => summaries.load(sessionId, seq),
-					openPresented: (sessionId, seq, index, action, application) => opener.open(sessionId, seq, index, action, application),
-					openChanged: (sessionId, seq, index, action, application) => opener.openChanged(sessionId, seq, index, action, application),
-					openChangesReview: (coordinates, index) => {
-						ctx.sidebarRight.openResource(changesReviewAddress(coordinates), { params: { index } });
-					}
-				})
-			}, DeliverablesTail));
-			ctx.slots.inject("tool.call.toolview", () => ctx.slots.register({
-				name: "tool.call.toolview",
-				key: "present",
-				locale: NS
-			}, PresentRow));
-			const t = ctx.locale.bind(NS);
-			ctx.effect(() => ctx.sidebarRightTabs.register(changesReviewDefinition(t)), "ui-deliverables: changes-review type");
-			ctx.effect(() => ctx.slots.inject("sidebar.right.pane.tab", () => ctx.slots.register({
-				name: "sidebar.right.pane.tab",
-				key: CHANGES_REVIEW_ID,
-				locale: NS,
-				store: createReviewStore(),
-				children: { "deliverables.review.file.actions": {
-					kind: "list",
-					scope: "session"
-				} },
-				inject: () => ({
-					hooks: {
-						changesSummary: summaries.state,
-						changesDiff: diffs.state,
-						presentedOpen: opener.state,
-						presentedHost: opener.host
-					},
-					loadChangesSummary: (sessionId, seq) => summaries.load(sessionId, seq),
-					loadChangesDiff: (sessionId, seq, index) => diffs.load(sessionId, seq, index),
-					reloadPresentedHost: () => opener.loadHost(),
-					openChanged: (sessionId, seq, index, action, application) => opener.openChanged(sessionId, seq, index, action, application)
-				})
-			}, ReviewTab)), "ui-deliverables: changes-review body");
-			ctx.provide("chatFileMentions", { forClosing(owner) {
-				const paths = selectProducedFiles(owner);
-				const presented = presentedForClosing(owner);
-				if (paths === null && presented.length === 0) return void 0;
-				return producedFileMentions([...new Set([...paths ?? [], ...presented.map((file) => file.path)])], owner.openFile, (path) => t("presented.previewButton", { name: path }));
-			} });
+		async function apply(ctx) {
+			const disposers = [];
+			try {
+				for (const contribution of [
+					TYPERT_REMOTE$23,
+					TYPERT_REMOTE$22,
+					TYPERT_REMOTE$21,
+					TYPERT_REMOTE$19,
+					TYPERT_REMOTE$20,
+					TYPERT_REMOTE$17,
+					TYPERT_REMOTE$15,
+					TYPERT_REMOTE$14,
+					TYPERT_REMOTE$16,
+					TYPERT_REMOTE$11,
+					TYPERT_REMOTE$13,
+					TYPERT_REMOTE$12,
+					TYPERT_REMOTE$10,
+					TYPERT_REMOTE$8,
+					TYPERT_REMOTE$7,
+					TYPERT_REMOTE$6,
+					TYPERT_REMOTE$9,
+					TYPERT_REMOTE$5,
+					TYPERT_REMOTE$4,
+					TYPERT_REMOTE$3,
+					TYPERT_REMOTE$2,
+					TYPERT_REMOTE,
+					TYPERT_REMOTE$1,
+					TYPERT_REMOTE$18
+				]) disposers.push(await ctx.remote.$mount(contribution));
+			} catch (error) {
+				for (const dispose of disposers.reverse()) await dispose();
+				throw error;
+			}
+			return async () => {
+				for (const dispose of disposers.reverse()) await dispose();
+			};
 		}
 		//#endregion
 		exports.apply = apply;
@@ -2331,4 +13311,4 @@ window.__ModuleLoader__.load({
 	}
 });
 ;
-//# sourceMappingURL=??@deepseek-ai/dsh-client-ui-deliverables/client.js.map&rev=63137bb4201b
+//# sourceMappingURL=??@deepseek-ai/dsh-api-remotes/client.js.map&rev=84400cfa2ebd

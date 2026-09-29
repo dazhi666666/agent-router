@@ -2003,4 +2003,4 @@ window.__ModuleLoader__.load({
 	}
 });
 ;
-//# sourceMappingURL=??@deepseek-ai/dsh-client-shortcuts/client.js.map&rev=c2b0e7b09684
+//# sourceMappingURL=??@deepseek-ai/dsh-client-shortcuts/client.js.map&rev=60f683b8e434

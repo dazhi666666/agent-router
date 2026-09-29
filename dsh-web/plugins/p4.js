@@ -183,8 +183,8 @@ window.__ModuleLoader__.load({
 			};
 		}
 		//#endregion
-		//#region \0dsh-css:D:\Agent Router\deepseek-harness\packages\client\ui-open-in-app\src\client\OpenTargetButton.module.css.mjs
-		const css = ".-dPhYW_menuAnchor{flex:none;align-self:center;display:inline-flex}.-dPhYW_split{box-sizing:border-box;border:.5px solid var(--dsw-alias-border-l4);border-radius:var(--dsw-radius-sm);height:24px;font-family:var(--dsw-font-family);align-items:stretch;display:inline-flex;overflow:hidden}.-dPhYW_main,.-dPhYW_chevron{color:var(--dsw-alias-label-primary);white-space:nowrap;cursor:pointer;background:0 0;border:0;justify-content:center;align-items:center;font-size:11px;line-height:16px;display:inline-flex}.-dPhYW_main{gap:4px;padding:3px 5px}.-dPhYW_chevron{border-left:.5px solid var(--dsw-alias-border-l4);color:var(--dsw-alias-label-secondary);padding:3px 4px 3px 3px}.-dPhYW_main:hover:not(:disabled),.-dPhYW_main:focus-visible,.-dPhYW_chevron:hover:not(:disabled),.-dPhYW_chevron:focus-visible{background:var(--dsw-alias-interactive-bg-hover)}.-dPhYW_main:disabled,.-dPhYW_chevron:disabled{cursor:default}.-dPhYW_appIcon{object-fit:contain}.-dPhYW_split[data-size=large]{border-radius:var(--dsw-radius-md);border-color:var(--dsw-alias-border-l2);height:36px}.-dPhYW_split[data-size=large] .-dPhYW_main{gap:6px;padding:6px 14px;font-size:14px}.-dPhYW_split[data-size=large] .-dPhYW_chevron{padding:6px 10px}.-dPhYW_skeleton{border-radius:var(--dsw-radius-xs);background:var(--dsw-alias-interactive-bg-hover);flex:none;display:inline-block}";
+		//#region \0dsh-css:D:\deepseek-harness\packages\client\ui-open-in-app\src\client\OpenTargetButton.module.css.mjs
+		const css = ".Uum_EG_menuAnchor{flex:none;align-self:center;display:inline-flex}.Uum_EG_split{box-sizing:border-box;border:.5px solid var(--dsw-alias-border-l4);border-radius:var(--dsw-radius-sm);height:24px;font-family:var(--dsw-font-family);align-items:stretch;display:inline-flex;overflow:hidden}.Uum_EG_main,.Uum_EG_chevron{color:var(--dsw-alias-label-primary);white-space:nowrap;cursor:pointer;background:0 0;border:0;justify-content:center;align-items:center;font-size:11px;line-height:16px;display:inline-flex}.Uum_EG_main{gap:4px;padding:3px 5px}.Uum_EG_chevron{border-left:.5px solid var(--dsw-alias-border-l4);color:var(--dsw-alias-label-secondary);padding:3px 4px 3px 3px}.Uum_EG_main:hover:not(:disabled),.Uum_EG_main:focus-visible,.Uum_EG_chevron:hover:not(:disabled),.Uum_EG_chevron:focus-visible{background:var(--dsw-alias-interactive-bg-hover)}.Uum_EG_main:disabled,.Uum_EG_chevron:disabled{cursor:default}.Uum_EG_appIcon{object-fit:contain}.Uum_EG_split[data-size=large]{border-radius:var(--dsw-radius-md);border-color:var(--dsw-alias-border-l2);height:36px}.Uum_EG_split[data-size=large] .Uum_EG_main{gap:6px;padding:6px 14px;font-size:14px}.Uum_EG_split[data-size=large] .Uum_EG_chevron{padding:6px 10px}.Uum_EG_skeleton{border-radius:var(--dsw-radius-xs);background:var(--dsw-alias-interactive-bg-hover);flex:none;display:inline-block}";
 		const tagId = "@deepseek-ai/dsh-client-ui-open-in-app/OpenTargetButton.module.css";
 		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId) + "]") === null) {
 			const tag = document.createElement("style");
@@ -194,12 +194,12 @@ window.__ModuleLoader__.load({
 			document.head.appendChild(tag);
 		}
 		var OpenTargetButton_module_css_default = {
-			"appIcon": "-dPhYW_appIcon",
-			"chevron": "-dPhYW_chevron",
-			"main": "-dPhYW_main",
-			"menuAnchor": "-dPhYW_menuAnchor",
-			"skeleton": "-dPhYW_skeleton",
-			"split": "-dPhYW_split"
+			"appIcon": "Uum_EG_appIcon",
+			"chevron": "Uum_EG_chevron",
+			"main": "Uum_EG_main",
+			"menuAnchor": "Uum_EG_menuAnchor",
+			"skeleton": "Uum_EG_skeleton",
+			"split": "Uum_EG_split"
 		};
 		//#endregion
 		//#region lib/types/client/OpenTargetButton.js
@@ -879,4 +879,4 @@ window.__ModuleLoader__.load({
 	}
 });
 ;
-//# sourceMappingURL=??@deepseek-ai/dsh-client-ui-open-in-app/client.js.map&rev=2b947987860c
+//# sourceMappingURL=??@deepseek-ai/dsh-client-ui-open-in-app/client.js.map&rev=4a6e3bfbeae0

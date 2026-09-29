@@ -1,314 +1,311 @@
 window.__ModuleLoader__.load({
-	id: "@deepseek-ai/dsh-client-file-upload",
+	id: "@deepseek-ai/dsh-session-log-export",
 	factory: (require) => {
 		var module = { exports: {} };
 		var exports = module.exports;
 		Object.defineProperty(exports, Symbol.toStringTag, { value: "Module" });
-		let _deepseek_ai_cordis = require("@deepseek-ai/cordis");
-		//#region ../../util/crypto/lib/index.js
-		/**
-		* UUID minting that works in every JavaScript context this repository ships
-		* to. `crypto.randomUUID` is a secure-context Web API — a page or worker
-		* served over plain HTTP on a LAN address has no such method — while
-		* `crypto.getRandomValues` is unrestricted everywhere (browsers, workers,
-		* Node ≥ 19). One implementation here replaces per-caller polyfills; the
-		* `no-restricted-properties` lint rule points `crypto.randomUUID` callers at
-		* this module.
-		* @module @deepseek-ai/dsh-util-crypto
-		*/
-		/**
-		* Encode bytes as canonical base64 without overflowing function argument limits.
-		* @param data - Bytes to encode.
-		* @returns base64 text.
-		*/
-		function bytesToBase64(data) {
-			let binary = "";
-			const chunk = 32768;
-			for (let offset = 0; offset < data.length; offset += chunk) binary += String.fromCharCode(...data.subarray(offset, offset + chunk));
-			return btoa(binary);
-		}
+		let _deepseek_ai_dsh_client_store = require("@deepseek-ai/dsh-client-store");
+		let react_jsx_runtime = require("react/jsx-runtime");
+		let react = require("react");
+		let _deepseek_ai_dsh_client_ui_primitives = require("@deepseek-ai/dsh-client-ui-primitives");
+		/** Browser-relative form of {@link SESSION_LOG_EXPORT_PATH}. */
+		const SESSION_LOG_EXPORT_ROUTE = "/api/session.export".slice(1);
 		//#endregion
-		//#region ../../typert/protocol/lib/index.js
-		/** The one Remote failure class shared by owners, the Gateway, and consumers. */
+		//#region lib/types/client/controller.js
+		/** Browser download state shared by the Session Header button and `/export`. */
+		const INITIAL = { bySession: {} };
 		/**
-		* One Remote call failure: a real Error carrying its stable code and typed
-		* details. Owners throw it at the failure point; the Host Gateway encodes it
-		* onto the wire unchanged; the Client face rebuilds an instance for the
-		* `RemoteResult` error branch, so `throw result.error` keeps throw semantics.
-		* Discrimination is always by `code`, never by instanceof.
+		* Collapse an untrusted Session id into the filename convention owned by the host endpoint.
+		* @param sessionId - Session whose archive is downloaded.
+		* @returns one safe browser download filename.
 		*/
-		var RemoteError = class extends Error {
-			code;
-			details;
-			/** Structural marker: cross-realm/bundle identification never uses instanceof. */
-			isDSHRemoteError = true;
+		function sessionLogZipFilename(sessionId) {
+			return `dsh-session-${String(sessionId).replace(/[^A-Za-z0-9_-]/g, "_")}.zip`;
+		}
+		/**
+		* Hand a Host download route to the browser download manager, which resolves it
+		* against the document's own base.
+		* @param url - document-relative Host download route.
+		* @param filename - browser download filename.
+		*/
+		function downloadUrl(url, filename) {
+			const anchor = document.createElement("a");
+			anchor.href = url;
+			anchor.download = filename;
+			anchor.click();
+		}
+		function messageOf(error) {
+			return error instanceof Error ? error.message : String(error);
+		}
+		/** Owns one in-flight browser download per Session and publishes modal state. */
+		var SessionLogDownloadController = class {
+			fetcher;
+			save;
+			/** uSES-safe state source shared by every Session-scoped modal contribution. */
+			store = (0, _deepseek_ai_dsh_client_store.createSnapshotStore)(INITIAL);
+			active = /* @__PURE__ */ new Map();
+			disposed = false;
 			/**
-			* @param code - stable failure code declared in {@link RemoteErrorDetailsMap}.
-			* @param message - human diagnostic carried across the wire.
-			* @param details - structured payload typed by the code.
-			* @param options - standard Error options (`cause` survives in-process only).
+			* @param fetcher - HTTP carrier used to read the host-streamed ZIP.
+			* @param save - browser save operation.
 			*/
-			constructor(code, message, details, options) {
-				super(message, options);
-				this.code = code;
-				this.details = details;
-				this.name = "RemoteError";
+			constructor(fetcher = (input, init) => fetch(input, init), save = downloadUrl) {
+				this.fetcher = fetcher;
+				this.save = save;
+			}
+			/**
+			* Download one Session tree; concurrent gestures for the same Session share one operation.
+			* @param sessionId - root Session whose ZIP includes descendants and attachments.
+			* @returns after the browser save starts, an error state is published, or a late post-disposal request is ignored.
+			*/
+			download(sessionId) {
+				const existing = this.active.get(sessionId);
+				if (existing !== void 0) return existing.done;
+				if (this.disposed) return Promise.resolve();
+				const abort = new AbortController();
+				const done = this.run(sessionId, abort.signal).finally(() => {
+					this.active.delete(sessionId);
+				});
+				this.active.set(sessionId, {
+					abort,
+					done
+				});
+				return done;
+			}
+			/**
+			* Close one Session's dialog without cancelling an in-flight browser download.
+			* @param sessionId - Session whose modal closes.
+			*/
+			dismiss(sessionId) {
+				const current = this.store.getSnapshot().bySession[String(sessionId)];
+				if (current === void 0 || !current.open) return;
+				this.publish(sessionId, {
+					...current,
+					open: false
+				});
+			}
+			/**
+			* Abort active fetches and reach quiescence.
+			* @returns after every active operation settles.
+			*/
+			async dispose() {
+				this.disposed = true;
+				const active = [...this.active.values()];
+				for (const operation of active) operation.abort.abort();
+				await Promise.allSettled(active.map((operation) => operation.done));
+			}
+			async run(sessionId, signal) {
+				this.publish(sessionId, {
+					open: true,
+					status: "downloading",
+					error: null
+				});
+				try {
+					const route = `${SESSION_LOG_EXPORT_ROUTE}?${new URLSearchParams({
+						sessionId,
+						includeDescendants: "true"
+					}).toString()}`;
+					const response = await this.fetcher(route, {
+						method: "HEAD",
+						signal
+					});
+					if (!response.ok) {
+						const detail = await response.text().catch(() => "");
+						throw new Error(`Export failed: HTTP ${response.status}${detail === "" ? "" : ` ${detail}`}`);
+					}
+					this.save(route, sessionLogZipFilename(sessionId));
+					const open = this.store.getSnapshot().bySession[String(sessionId)]?.open ?? true;
+					this.publish(sessionId, {
+						open,
+						status: "success",
+						error: null
+					});
+				} catch (error) {
+					if (signal.aborted) return;
+					const open = this.store.getSnapshot().bySession[String(sessionId)]?.open ?? true;
+					this.publish(sessionId, {
+						open,
+						status: "error",
+						error: messageOf(error)
+					});
+				}
+			}
+			publish(sessionId, entry) {
+				this.store.update((state) => {
+					state.bySession = {
+						...state.bySession,
+						[String(sessionId)]: entry
+					};
+				});
 			}
 		};
-		/**
-		* Browser-relative form of {@link FILE_UPLOAD_PATH}; see
-		* .agents/notes/implemented/architecture/2026-09-14-web-document-relative-app-routes.md.
-		*/
-		const FILE_UPLOAD_ROUTE = "/api/session/uploadFileBinary".slice(1);
 		//#endregion
-		//#region lib/types/client/runtime.js
-		/** Background browser upload implementation for Blob and byte-stream bodies. */
+		//#region lib/types/client/Dialog.js
 		/**
-		* Self-contained Worker body; its string form becomes the Blob Worker source.
-		* @param scope - Worker global used for requests and progress messages.
-		* @param createXhr - XMLHttpRequest factory used for Blob progress.
-		* @param doFetch - Fetch carrier used for one-shot ReadableStream bodies.
+		* Modal shared by the Session Header download menu item and this browser's `/export` command.
+		* @param props - Session runtime, bound controller state, actions, and localized copy.
+		* @returns the modal portal contribution.
 		*/
-		function fileUploadWorker(scope = self, createXhr = () => new XMLHttpRequest(), doFetch = (input, init) => fetch(input, init)) {
-			scope.onmessage = (event) => {
-				const request = event.data;
-				if (request.body instanceof Blob) {
-					const xhr = createXhr();
-					xhr.open("POST", request.url);
-					xhr.withCredentials = true;
-					for (const [name, value] of Object.entries(request.headers)) xhr.setRequestHeader(name, value);
-					xhr.upload.onprogress = (progress) => {
-						scope.postMessage({
-							kind: "progress",
-							loaded: progress.loaded,
-							...progress.lengthComputable ? { total: progress.total } : {}
-						});
-					};
-					xhr.onload = () => {
-						scope.postMessage({
-							kind: "complete",
-							status: xhr.status,
-							body: xhr.responseText
-						});
-					};
-					xhr.onerror = () => {
-						scope.postMessage({
-							kind: "error",
-							message: "background upload transport failed"
-						});
-					};
-					xhr.send(request.body);
-					return;
-				}
-				if (!(request.body instanceof ReadableStream)) {
-					scope.postMessage({
-						kind: "error",
-						message: "background upload worker received an invalid body"
-					});
-					return;
-				}
-				const source = request.body;
-				(async () => {
-					const reader = source.getReader();
-					let loaded = 0;
-					const body = new ReadableStream({
-						async pull(controller) {
-							const item = await reader.read();
-							if (item.done) {
-								controller.close();
-								return;
-							}
-							if (!(item.value instanceof Uint8Array)) throw new TypeError("background upload stream produced a non-Uint8Array chunk");
-							loaded += item.value.byteLength;
-							scope.postMessage({
-								kind: "progress",
-								loaded
-							});
-							controller.enqueue(item.value);
-						},
-						async cancel(reason) {
-							await reader.cancel(reason);
-						}
-					});
-					const response = await doFetch(request.url, {
-						method: "POST",
-						headers: request.headers,
-						credentials: "include",
-						body,
-						duplex: "half"
-					});
-					scope.postMessage({
-						kind: "complete",
-						status: response.status,
-						body: await response.text()
-					});
-				})().catch((error) => {
-					scope.postMessage({
-						kind: "error",
-						message: error instanceof Error ? error.message : String(error)
-					});
-				});
-			};
+		function SessionLogDownloadDialog({ sessionId, useSessionLogDownload, dismiss, t }) {
+			const entry = useSessionLogDownload((state) => state.bySession[String(sessionId)]);
+			const status = entry?.status;
+			const open = entry?.open === true;
+			const error = status === "error" ? entry?.error || t("dialog.commandFailed") : null;
+			return (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Modal, {
+				open,
+				onClose: () => {
+					dismiss(sessionId);
+				},
+				title: status === "downloading" ? t("dialog.preparingTitle") : status === "success" ? t("dialog.successTitle") : t("dialog.errorTitle"),
+				description: status === "downloading" ? t("dialog.preparingDescription") : status === "success" ? t("dialog.successDescription") : error ?? t("dialog.commandFailed"),
+				closeLabel: t("dialog.close"),
+				footer: (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
+					variant: "primary",
+					onClick: () => {
+						dismiss(sessionId);
+					},
+					children: t("dialog.close")
+				})
+			});
 		}
-		/** Cordis service that owns one background carrier per upload operation. */
-		var FileUploadRuntime = class extends _deepseek_ai_cordis.Service {
-			transport;
-			/** @param ctx - providing Client context. */
-			constructor(ctx) {
-				super(ctx, "fileUpload");
-				const hook = globalThis.__DSH_FILE_UPLOAD__;
-				this.transport = hook === void 0 ? workerTransport() : customTransport(hook.fetch);
-			}
-			/**
-			* Post one body with the carrier selected before Cordis boot.
-			* @param request - target, body, cancellation, and progress observer.
-			* @returns the response status and text body.
-			*/
-			post(request) {
-				return this.transport.post(request);
-			}
-			/**
-			* Store one file for a Session.
-			* @param sessionId - Session that owns the staged receipt.
-			* @param data - browser Blob, exact bytes, or a one-shot byte stream.
-			* @param name - optional display name.
-			* @param signal - optional cancellation for the active upload.
-			* @param onProgress - optional byte-progress observer for background bodies.
-			* @returns the staged receipt and durable file reference, or a business error.
-			*/
-			async upload(sessionId, data, name, signal, onProgress) {
-				if (!(data instanceof Uint8Array)) {
-					const query = new URLSearchParams({ sessionId });
-					if (name !== void 0) query.set("name", name);
-					const response = await this.post({
-						path: `${FILE_UPLOAD_ROUTE}?${query.toString()}`,
-						body: data,
-						headers: { "content-type": "application/octet-stream" },
-						...signal === void 0 ? {} : { signal },
-						...onProgress === void 0 ? {} : { onProgress }
-					});
-					if (response.status !== 200) throw new Error(`file upload transport failed with HTTP ${String(response.status)}`);
-					return parseFileUploadResult(response.body);
-				}
-				return this.ctx.remote.fileUploads.upload(sessionId, {
-					data: bytesToBase64(data),
-					...name === void 0 ? {} : { name }
-				}, signal);
-			}
+		//#endregion
+		//#region \0dsh-css:D:\deepseek-harness\packages\session-query\session-log-export\src\client\HeaderAction.module.css.mjs
+		const css = ".kD8epW_moreButton{width:28px;color:var(--dsw-alias-label-secondary);flex:none;padding:0}.kD8epW_moreButton svg{width:15px;height:15px}";
+		const tagId = "@deepseek-ai/dsh-session-log-export/HeaderAction.module.css";
+		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId) + "]") === null) {
+			const tag = document.createElement("style");
+			tag.dataset.plugin = "@deepseek-ai/dsh-session-log-export";
+			tag.dataset.pluginCss = tagId;
+			tag.textContent = css;
+			document.head.appendChild(tag);
+		}
+		var HeaderAction_module_css_default = { "moreButton": "kD8epW_moreButton" };
+		//#endregion
+		//#region lib/types/client/HeaderAction.js
+		/**
+		* Render the Session Header menu with download and optional feedback actions.
+		* @param props - Session runtime, download controller, and localized copy.
+		* @returns the persistent Header action and Session-scoped dialog.
+		*/
+		function SessionLogDownloadHeaderAction(props) {
+			const { sessionId, useSessionLogDownload, useFeedbackAvailable, request, openFeedback, t } = props;
+			const feedbackAvailable = useFeedbackAvailable((value) => value);
+			const busy = useSessionLogDownload((state) => state.bySession[String(sessionId)])?.status === "downloading";
+			const [open, setOpen] = (0, react.useState)(false);
+			return (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [(0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Menu, {
+				open,
+				align: "end",
+				dense: true,
+				onClose: () => {
+					setOpen(false);
+				},
+				items: [{
+					id: "download",
+					label: t("menu.download"),
+					icon: (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconDownloadOutlineRegular, {}),
+					disabled: busy
+				}, ...feedbackAvailable ? [{
+					id: "feedback",
+					label: t("menu.feedback"),
+					icon: (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconPaperPlaneOutlineRegular, {})
+				}] : []],
+				onSelect: (id) => {
+					setOpen(false);
+					if (id === "feedback") openFeedback(sessionId);
+					else request(sessionId);
+				},
+				anchor: (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
+					size: "sm",
+					className: HeaderAction_module_css_default.moreButton,
+					"aria-label": t("header.more"),
+					"aria-haspopup": "menu",
+					"aria-expanded": open,
+					"aria-busy": busy,
+					onClick: () => {
+						setOpen((value) => !value);
+					},
+					children: (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconEllipsisOutlineRegular, {})
+				})
+			}), (0, react_jsx_runtime.jsx)(SessionLogDownloadDialog, { ...props })] });
+		}
+		//#endregion
+		//#region lib/types/client/locales.js
+		/** Locale namespace owned by Session export browser feedback. */
+		const NS = "session-log-download";
+		/** Simplified-Chinese Session export strings. */
+		const zh = {
+			"header.more": "更多操作",
+			"menu.download": "下载 Session 日志",
+			"menu.feedback": "反馈",
+			"dialog.preparingTitle": "正在导出 Session",
+			"dialog.preparingDescription": "正在准备包含当前 Session、子 Session 和附件的 ZIP 文件。",
+			"dialog.successTitle": "Session 导出已开始下载",
+			"dialog.successDescription": "浏览器正在下载 Session ZIP 文件。",
+			"dialog.errorTitle": "Session 导出失败",
+			"dialog.close": "关闭",
+			"dialog.commandFailed": "无法启动 Session 导出。"
 		};
-		function customTransport(customFetch) {
-			return { async post(request) {
-				const init = {
-					method: "POST",
-					...request.headers === void 0 ? {} : { headers: request.headers },
-					body: request.body,
-					...request.body instanceof ReadableStream ? { duplex: "half" } : {},
-					...request.signal === void 0 ? {} : { signal: request.signal }
-				};
-				const response = await customFetch(request.path, init);
-				return {
-					status: response.status,
-					body: await response.text()
-				};
-			} };
-		}
-		function workerTransport() {
-			return { post(request) {
-				if (typeof Worker !== "function") return Promise.reject(/* @__PURE__ */ new Error("background upload requires Web Worker support"));
-				const workerUrl = URL.createObjectURL(new Blob([`(${fileUploadWorker.toString()})()`], { type: "text/javascript" }));
-				const worker = new Worker(workerUrl, { name: "dsh-file-upload" });
-				URL.revokeObjectURL(workerUrl);
-				return new Promise((resolve, reject) => {
-					let settled = false;
-					const abort = () => {
-						settled = true;
-						worker.terminate();
-						request.signal?.removeEventListener("abort", abort);
-						reject(new DOMException("The operation was aborted.", "AbortError"));
-					};
-					const finish = (settle) => {
-						if (settled) return;
-						settled = true;
-						request.signal?.removeEventListener("abort", abort);
-						worker.terminate();
-						settle();
-					};
-					worker.onmessage = (event) => {
-						const output = event.data;
-						if (output.kind === "progress") request.onProgress?.({
-							loaded: output.loaded,
-							...output.total === void 0 ? {} : { total: output.total }
-						});
-						else if (output.kind === "complete") finish(() => {
-							resolve({
-								status: output.status,
-								body: output.body
-							});
-						});
-						else finish(() => {
-							reject(new Error(output.message));
-						});
-					};
-					worker.onerror = (event) => {
-						finish(() => {
-							reject(new Error(event.message || "background upload worker failed"));
-						});
-					};
-					if (request.signal?.aborted === true) {
-						abort();
-						return;
-					}
-					request.signal?.addEventListener("abort", abort, { once: true });
-					const message = {
-						url: new URL(request.path, document.baseURI).href,
-						body: request.body,
-						headers: request.headers ?? {}
-					};
-					if (request.body instanceof ReadableStream) worker.postMessage(message, [request.body]);
-					else worker.postMessage(message);
-				});
-			} };
-		}
-		function parseFileUploadResult(body) {
-			const value = JSON.parse(body);
-			if (!isRecord(value) || typeof value.ok !== "boolean") throw new TypeError("file upload transport returned an invalid result");
-			if (!value.ok) {
-				const error = value.error;
-				if (!isRecord(error) || typeof error.code !== "string" || typeof error.message !== "string" || !isRecord(error.details)) throw new TypeError("file upload transport returned an invalid failure");
-				return {
-					ok: false,
-					error: new RemoteError(error.code, error.message, error.details)
-				};
-			}
-			const result = value.value;
-			const file = isRecord(result) ? result.file : void 0;
-			if (!isRecord(result) || typeof result.receiptId !== "string" || !isRecord(file) || typeof file.attachmentId !== "string" || typeof file.name !== "string" || typeof file.bytes !== "number" || !Number.isSafeInteger(file.bytes) || file.bytes < 0) throw new TypeError("file upload transport returned an invalid receipt");
-			return {
-				ok: true,
-				value: {
-					receiptId: result.receiptId,
-					file: {
-						attachmentId: file.attachmentId,
-						name: file.name,
-						bytes: file.bytes
-					}
-				}
-			};
-		}
-		function isRecord(value) {
-			return typeof value === "object" && value !== null && !Array.isArray(value);
-		}
+		/** English Session export strings. */
+		const en = {
+			"header.more": "More actions",
+			"menu.download": "Download session log",
+			"menu.feedback": "Feedback",
+			"dialog.preparingTitle": "Exporting Session",
+			"dialog.preparingDescription": "Preparing a ZIP containing this Session, its sub-Sessions, and attachments.",
+			"dialog.successTitle": "Session download started",
+			"dialog.successDescription": "The browser is downloading the Session ZIP.",
+			"dialog.errorTitle": "Session export failed",
+			"dialog.close": "Close",
+			"dialog.commandFailed": "Could not start the Session export."
+		};
 		//#endregion
 		//#region lib/types/client/index.js
-		/** Browser background-upload Cordis service. */
-		/** The upload service uses the generated Remote fallback. */
-		const inject = ["remote"];
+		/** Browser plugin owning Session export download state and its shared modal. */
+		const inject = ["slots", "locale"];
 		/**
-		* Provide the browser background-upload service.
-		* @param ctx - Client plugin context.
+		* Provide the download controller and mount its modal into the Session Header.
+		* @param ctx - browser context carrying slots and locale services.
 		*/
 		function apply(ctx) {
-			ctx.plugin(FileUploadRuntime);
+			const controller = new SessionLogDownloadController();
+			ctx.provide("sessionLogDownload", controller);
+			ctx.effect(() => async () => {
+				await controller.dispose();
+			}, "session-log-download: browser download lifecycle");
+			ctx.effect(() => ctx.locale.register(NS, {
+				zh,
+				en
+			}), "session-log-download: browser dictionaries");
+			const feedbackAvailable = (0, _deepseek_ai_dsh_client_store.createSnapshotStore)(false);
+			ctx.inject(["feedbackUi"], (scope) => {
+				scope.effect(() => {
+					feedbackAvailable.set(true);
+					return () => {
+						feedbackAvailable.set(false);
+					};
+				}, "session-log-download: feedback availability");
+			});
+			ctx.on("command/executed", (sessionId, commandName, result) => {
+				if (commandName === "export" && result.kind === "success") controller.download(sessionId);
+			});
+			ctx.slots.inject("conversation.session.header.utilities", () => ctx.slots.register({
+				name: "conversation.session.header.utilities",
+				id: "session-log-download",
+				locale: NS,
+				inject: () => ({
+					hooks: {
+						sessionLogDownload: controller.store,
+						feedbackAvailable
+					},
+					request: (sessionId) => controller.download(sessionId),
+					dismiss: (sessionId) => {
+						controller.dismiss(sessionId);
+					},
+					openFeedback: (sessionId) => {
+						ctx.get("feedbackUi")?.openSession(sessionId);
+					}
+				})
+			}, SessionLogDownloadHeaderAction));
 		}
 		//#endregion
 		exports.apply = apply;
@@ -317,4 +314,4 @@ window.__ModuleLoader__.load({
 	}
 });
 ;
-//# sourceMappingURL=??@deepseek-ai/dsh-client-file-upload/client.js.map&rev=4b804eeb5572
+//# sourceMappingURL=??@deepseek-ai/dsh-session-log-export/client.js.map&rev=7e4a911ba63a

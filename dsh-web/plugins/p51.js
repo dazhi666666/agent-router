@@ -1,215 +1,174 @@
 window.__ModuleLoader__.load({
-	id: "@deepseek-ai/dsh-client-ui-settings-plugins",
+	id: "@deepseek-ai/dsh-client-ui-settings-session-log",
 	factory: (require) => {
 		var module = { exports: {} };
 		var exports = module.exports;
 		Object.defineProperty(exports, Symbol.toStringTag, { value: "Module" });
-		let _deepseek_ai_dsh_client_ui_slots = require("@deepseek-ai/dsh-client-ui-slots");
+		let _deepseek_ai_dsh_client_store = require("@deepseek-ai/dsh-client-store");
 		let react_jsx_runtime = require("react/jsx-runtime");
-		let react = require("react");
-		//#region \0dsh-css:D:\Agent Router\deepseek-harness\packages\client\ui-settings-plugins\src\client\PluginsSettingsSection.module.css.mjs
-		const css = ".aYLjXW_section{max-width:760px;color:var(--dsw-alias-label-primary);flex-direction:column;gap:12px;display:flex}.aYLjXW_heading{margin:0;font-size:18px;font-weight:600}.aYLjXW_intro{color:var(--dsw-alias-label-tertiary);margin:0;font-size:13px}.aYLjXW_tabs{border-bottom:.5px solid var(--dsw-alias-border-l2);align-items:flex-end;gap:22px;margin-top:2px;display:flex}.aYLjXW_tab{color:var(--dsw-alias-label-tertiary);font:inherit;cursor:pointer;background:0 0;border:0;padding:7px 1px 9px;font-size:13px;line-height:20px;position:relative}.aYLjXW_tab:hover,.aYLjXW_tab[data-active=true]{color:var(--dsw-alias-label-primary)}.aYLjXW_tab[data-active=true]:after,.aYLjXW_tab:focus-visible:after{background:var(--dsw-alias-label-primary);content:\"\";border-radius:2px 2px 0 0;height:2px;position:absolute;bottom:-1px;left:0;right:0}.aYLjXW_tab:focus-visible{outline:var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color,var(--dsw-alias-state-business-primary));outline-offset:2px;color:var(--dsw-alias-label-primary);border-radius:2px}.aYLjXW_panel{min-width:0;padding-top:2px}.aYLjXW_cards{flex-direction:column;gap:10px;margin:0;padding:0;list-style:none;display:flex}.aYLjXW_empty{color:var(--dsw-alias-label-tertiary);margin:0;font-size:13px}.aYLjXW_configurable{flex-direction:column;gap:10px;display:flex}.aYLjXW_presetSettings{flex-direction:column;gap:8px;display:flex}.aYLjXW_presetSettingsTitle{margin:0;font-size:15px;font-weight:600;line-height:22px}";
-		const tagId = "@deepseek-ai/dsh-client-ui-settings-plugins/PluginsSettingsSection.module.css";
+		let _deepseek_ai_dsh_client_ui_primitives = require("@deepseek-ai/dsh-client-ui-primitives");
+		//#region lib/types/client/upload-preference.js
+		/** Ordered preference writes and notices that survive the settings panel. */
+		/** Writes the Host setting without publishing an optimistic upload state. */
+		var UploadPreference = class {
+			form;
+			/** Observable mutation outcome. */
+			state = (0, _deepseek_ai_dsh_client_store.createSnapshotStore)({
+				busy: false,
+				notice: null,
+				sequence: 0
+			});
+			/** @param form - Host-owned configuration form. */
+			constructor(form) {
+				this.form = form;
+			}
+			/**
+			* Persist enablement; refusal or transport failure leaves the accepted value visible.
+			* @param enabled - requested upload state.
+			* @returns completion after the write settles.
+			*/
+			async setEnabled(enabled) {
+				if (this.state.getSnapshot().busy) return;
+				this.state.update((state) => {
+					state.busy = true;
+					state.notice = null;
+				});
+				let accepted = false;
+				try {
+					accepted = await this.form.set("enabled", enabled);
+				} catch (_error) {}
+				this.state.update((state) => {
+					state.busy = false;
+					state.notice = accepted ? "saved" : "failed";
+					state.sequence++;
+				});
+			}
+			/** Clear the displayed mutation notice. */
+			dismiss() {
+				this.state.update((state) => {
+					state.notice = null;
+				});
+			}
+		};
+		//#endregion
+		//#region \0dsh-css:D:\deepseek-harness\packages\client\ui-settings-session-log\src\client\UploadRow.module.css.mjs
+		const css = ".dtU_0q_row{border-bottom:.5px solid var(--dsw-alias-border-l2);justify-content:space-between;align-items:center;gap:24px;padding:16px 0;display:flex}.dtU_0q_title{font-size:14px;line-height:20px}.dtU_0q_description{color:var(--dsw-alias-label-secondary);margin-top:4px;font-size:12px;line-height:18px}";
+		const tagId = "@deepseek-ai/dsh-client-ui-settings-session-log/UploadRow.module.css";
 		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId) + "]") === null) {
 			const tag = document.createElement("style");
-			tag.dataset.plugin = "@deepseek-ai/dsh-client-ui-settings-plugins";
+			tag.dataset.plugin = "@deepseek-ai/dsh-client-ui-settings-session-log";
 			tag.dataset.pluginCss = tagId;
 			tag.textContent = css;
 			document.head.appendChild(tag);
 		}
-		var PluginsSettingsSection_module_css_default = {
-			"cards": "aYLjXW_cards",
-			"configurable": "aYLjXW_configurable",
-			"empty": "aYLjXW_empty",
-			"heading": "aYLjXW_heading",
-			"intro": "aYLjXW_intro",
-			"panel": "aYLjXW_panel",
-			"presetSettings": "aYLjXW_presetSettings",
-			"presetSettingsTitle": "aYLjXW_presetSettingsTitle",
-			"section": "aYLjXW_section",
-			"tab": "aYLjXW_tab",
-			"tabs": "aYLjXW_tabs"
+		var UploadRow_module_css_default = {
+			"description": "dtU_0q_description",
+			"row": "dtU_0q_row",
+			"title": "dtU_0q_title"
 		};
 		//#endregion
-		//#region lib/types/client/PluginsSettingsSection.js
-		/** Plugins settings section: localized tabs around feature-owned pages. */
-		/** Render one Plugins page whose contents arrive from feature-owned tabs; one contribution shows as the page itself. */
-		function PluginsSettingsSection({ t, renderSlot, useTabs }) {
-			const tabsId = (0, react.useId)();
-			const tabRefs = (0, react.useRef)([]);
-			const rows = useTabs((value) => value);
-			const [activeId, setActiveId] = (0, react.useState)();
-			const [visitedIds, setVisitedIds] = (0, react.useState)(() => /* @__PURE__ */ new Set());
-			const active = rows.find((row) => row.id === activeId)?.id ?? rows[0]?.id;
-			const single = rows.length === 1 ? rows[0] : void 0;
-			(0, react.useEffect)(() => {
-				if (active === void 0) return;
-				setVisitedIds((previous) => {
-					if (previous.has(active)) return previous;
-					return new Set([...previous, active]);
-				});
-			}, [active]);
+		//#region lib/types/client/UploadRow.js
+		/** General settings row and persistent shell notice for API log uploads. */
+		/**
+		* Render the accepted API upload state.
+		* @param props - settings hooks, writer and localized copy.
+		* @returns the bottom preference row.
+		*/
+		function UploadRow({ useUpload, useMutation, setEnabled, t }) {
+			const upload = useUpload((value) => value);
+			const busy = useMutation((value) => value.busy);
 			return (0, react_jsx_runtime.jsxs)("div", {
-				className: PluginsSettingsSection_module_css_default.section,
-				children: [
-					(0, react_jsx_runtime.jsx)("h2", {
-						className: PluginsSettingsSection_module_css_default.heading,
-						children: t("title")
-					}),
-					(0, react_jsx_runtime.jsx)("p", {
-						className: PluginsSettingsSection_module_css_default.intro,
-						children: t("intro")
-					}),
-					rows.length === 0 ? (0, react_jsx_runtime.jsx)("p", {
-						className: PluginsSettingsSection_module_css_default.empty,
-						children: t("empty")
-					}) : single !== void 0 ? (0, react_jsx_runtime.jsx)("div", {
-						className: PluginsSettingsSection_module_css_default.panel,
-						children: renderSlot("settings.plugins.tab", {}, { only: single.id })
-					}) : (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [(0, react_jsx_runtime.jsx)("div", {
-						className: PluginsSettingsSection_module_css_default.tabs,
-						role: "tablist",
-						"aria-label": t("tabs"),
-						children: rows.map((row, index) => {
-							const selected = row.id === active;
-							return (0, react_jsx_runtime.jsx)("button", {
-								ref: (element) => {
-									tabRefs.current[index] = element;
-								},
-								id: `${tabsId}-tab-${row.id}`,
-								type: "button",
-								role: "tab",
-								className: PluginsSettingsSection_module_css_default.tab,
-								"aria-selected": selected,
-								"aria-controls": `${tabsId}-panel-${row.id}`,
-								"data-active": selected ? "true" : void 0,
-								tabIndex: selected ? 0 : -1,
-								onClick: () => {
-									setActiveId(row.id);
-								},
-								onKeyDown: (event) => {
-									let nextIndex;
-									switch (event.key) {
-										case "ArrowRight":
-											nextIndex = (index + 1) % rows.length;
-											break;
-										case "ArrowLeft":
-											nextIndex = (index - 1 + rows.length) % rows.length;
-											break;
-										case "Home":
-											nextIndex = 0;
-											break;
-										case "End":
-											nextIndex = rows.length - 1;
-											break;
-										default: return;
-									}
-									event.preventDefault();
-									const nextRow = rows[nextIndex];
-									const nextTab = tabRefs.current[nextIndex];
-									setActiveId(nextRow.id);
-									nextTab.focus();
-								},
-								children: row.label
-							}, row.id);
-						})
-					}), rows.filter((row) => row.id === active || visitedIds.has(row.id)).map((row) => {
-						const selected = row.id === active;
-						return (0, react_jsx_runtime.jsx)("div", {
-							id: `${tabsId}-panel-${row.id}`,
-							className: PluginsSettingsSection_module_css_default.panel,
-							role: "tabpanel",
-							"aria-labelledby": `${tabsId}-tab-${row.id}`,
-							hidden: !selected,
-							children: renderSlot("settings.plugins.tab", {}, { only: row.id })
-						}, row.id);
-					})] })
-				]
+				className: UploadRow_module_css_default.row,
+				children: [(0, react_jsx_runtime.jsxs)("div", { children: [(0, react_jsx_runtime.jsx)("div", {
+					className: UploadRow_module_css_default.title,
+					children: t("title")
+				}), (0, react_jsx_runtime.jsx)("div", {
+					className: UploadRow_module_css_default.description,
+					children: t("description")
+				})] }), (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Switch, {
+					checked: upload.value?.enabled === true,
+					label: t("title"),
+					disabled: busy || upload.status !== "ready" || !upload.writable,
+					onChange: (enabled) => {
+						setEnabled(enabled);
+					}
+				})]
 			});
+		}
+		/**
+		* Keep the save outcome visible after settings closes.
+		* @param props - mutation hook, dismissal and localized copy.
+		* @returns the current toast, or nothing.
+		*/
+		function UploadToast({ useMutation, dismiss, t }) {
+			const state = useMutation((value) => value);
+			if (state.notice === null) return null;
+			return (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Toast, {
+				text: t(state.notice),
+				onDone: dismiss,
+				...state.notice === "saved" ? { tone: "success" } : {}
+			}, state.sequence);
 		}
 		//#endregion
 		//#region lib/types/client/locales.js
-		/** Locale bundles for the built-in plugins settings section. */
-		/** English copy. */
+		/** Copy for the API Session-log upload preference. */
 		const en = {
-			nav: "Built-in plugins",
-			title: "Built-in plugins",
-			intro: "Inspect the plugins this deployment ships.",
-			tabs: "Plugin views",
-			empty: "This deployment exposes no plugin views."
+			title: "Upload Session Log when using the official model API",
+			description: "Help improve DeepSeek models and products.",
+			saved: "Preference saved",
+			failed: "Could not save preference"
 		};
-		/** Simplified Chinese copy. */
+		/** Chinese preference copy. */
 		const zh = {
-			nav: "内置插件",
-			title: "内置插件",
-			intro: "查看内置部署的插件列表",
-			tabs: "插件视图",
-			empty: "本部署没有开放任何插件视图。"
+			title: "在使用官方模型 API 时上传 Session Log",
+			description: "帮助改进 DeepSeek 模型与产品",
+			saved: "设置已保存",
+			failed: "无法保存设置"
 		};
 		//#endregion
 		//#region lib/types/client/index.js
+		/** Services used by the browser companion. */
+		const inject = [
+			"slots",
+			"locale",
+			"configForms"
+		];
 		/**
-		* Built-in plugins settings section, browser half: the shell around the
-		* feature-owned tabs registered into `settings.plugins.tab` (the read-only
-		* inventory ships one). The configuration pages of the host-plane plugins
-		* live in their own companion packages, which register into the Plugins
-		* page; this section owns the Settings navigation entry and the tab chrome
-		* only.
-		*/
-		/** Dictionary namespace owned by this plugin. */
-		const NS = "settings.plugins";
-		/** Required services (cordis fiber inject). */
-		const inject = ["slots", "locale"];
-		/**
-		* Mount the built-in plugins section.
-		* @param ctx - the browser plugin context.
+		* Register the preference while its Host configuration is available.
+		* @param ctx - browser plugin context.
 		*/
 		function apply(ctx) {
-			const t = ctx.locale.bind(NS);
-			ctx.effect(() => ctx.locale.register(NS, {
-				zh,
-				en
-			}), "ui-settings-plugins: section dictionaries");
-			let tabsVersion = -1;
-			let tabsRevision = -1;
-			let tabs = [];
-			const sectionInjected = () => ({ hooks: { tabs: {
-				getSnapshot: () => {
-					const version = ctx.slots.getVersion("settings.plugins.tab");
-					const revision = ctx.locale.getSnapshot().revision;
-					if (version !== tabsVersion || revision !== tabsRevision) {
-						tabsVersion = version;
-						tabsRevision = revision;
-						tabs = ctx.slots.entries("settings.plugins.tab").map((entry) => ({
-							/* v8 ignore next -- list-slot registration requires id */
-							id: entry.options.id ?? "",
-							order: entry.options.order ?? 0,
-							label: (0, _deepseek_ai_dsh_client_ui_slots.resolveSlotLabel)(entry.options.label) ?? ""
-						})).sort((a, b) => a.order - b.order);
-					}
-					return tabs;
+			const locale = "settings.sessionLog";
+			const namespace = "session-log-deepseek";
+			ctx.effect(() => ctx.locale.register(locale, {
+				en,
+				zh
+			}));
+			const form = ctx.configForms.get(namespace);
+			const preference = new UploadPreference(form);
+			const face = () => ({
+				hooks: {
+					upload: form,
+					mutation: preference.state
 				},
-				subscribe: (listener) => {
-					const offLedger = ctx.slots.subscribe("settings.plugins.tab", listener);
-					const offLocale = ctx.locale.subscribe(listener);
-					return () => {
-						offLedger();
-						offLocale();
-					};
+				setEnabled: (enabled) => preference.setEnabled(enabled),
+				dismiss: () => {
+					preference.dismiss();
 				}
-			} } });
-			ctx.slots.inject("settings.section", () => ctx.slots.register({
-				name: "settings.section",
-				id: "plugins",
-				order: 15,
-				label: () => t("nav"),
-				locale: NS,
-				inject: sectionInjected,
-				children: { "settings.plugins.tab": {
-					kind: "list",
-					scope: "root"
-				} }
-			}, PluginsSettingsSection));
+			});
+			ctx.effect(() => ctx.configForms.whileServed([namespace], () => ctx.slots.inject("settings.general.item", () => ctx.slots.register({
+				name: "settings.general.item",
+				id: namespace,
+				order: 90,
+				locale,
+				inject: face
+			}, UploadRow))));
+			ctx.slots.inject("shell.overlay", () => ctx.slots.register({
+				name: "shell.overlay",
+				id: "session-log-upload-toast",
+				locale,
+				inject: face
+			}, UploadToast));
 		}
 		//#endregion
 		exports.apply = apply;
@@ -218,4 +177,4 @@ window.__ModuleLoader__.load({
 	}
 });
 ;
-//# sourceMappingURL=??@deepseek-ai/dsh-client-ui-settings-plugins/client.js.map&rev=4d20790cf675
+//# sourceMappingURL=??@deepseek-ai/dsh-client-ui-settings-session-log/client.js.map&rev=fa380a6d34d9

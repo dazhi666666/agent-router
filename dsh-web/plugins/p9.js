@@ -904,7 +904,7 @@ window.__ModuleLoader__.load({
 		/** Public contact and bonus notice options shared by Host and Client. */
 		/** Validate public questionnaire options. */
 		const ContactConfigFields = {
-			contactFormUrl: Schema.string().pattern(/^https:\/\/[^/\s]+\//).default("https://trtgsjkv6r.feishu.cn/share/base/form/shrcnlCoGElW7MQznGy9r3YYXcg"),
+			contactFormUrl: Schema.string().pattern(/^https:\/\/[^/\s]+\//).default("https://trtgsjkv6r.feishu.cn/share/base/form/shrcnlCoGElW7MQznGy9r3YYXcg?hide_uid=1&hide_device_info=1&hide_harness_version=1"),
 			contactSource: Schema.string().default(""),
 			bonusAckRetryDelayMs: Schema.number().min(1).default(1e3),
 			bonusAckRetryMaxDelayMs: Schema.number().min(1).default(6e4)
@@ -916,7 +916,7 @@ window.__ModuleLoader__.load({
 		/**
 		* Build an external questionnaire URL without authentication credentials.
 		* @param config - questionnaire destination and supported source option.
-		* @param context - currently available build and browser environment.
+		* @param context - account, build and environment facts sampled by the caller.
 		* @returns questionnaire URL with hidden, optionally prefilled context fields.
 		*/
 		function contactUrl(config, context) {
@@ -925,11 +925,12 @@ window.__ModuleLoader__.load({
 			const width = Math.round(context.width * ratio);
 			const height = Math.round(context.height * ratio);
 			const fields = {
+				uid: context.uid,
 				source: config.contactSource,
-				app_version: context.version,
+				harness_version: context.version,
 				os_version: void 0,
 				device_brand: void 0,
-				device_model: void 0,
+				device_info: context.deviceInfo,
 				app_locale: context.locale,
 				screen_resolution: width > 0 && height > 0 ? `${width}x${height}` : void 0
 			};
@@ -938,8 +939,10 @@ window.__ModuleLoader__.load({
 				url.searchParams.delete(`prefill_${name}`);
 				if (value) url.searchParams.set(`prefill_${name}`, value);
 			}
-			url.searchParams.delete("prefill_uid");
-			url.searchParams.delete("hide_uid");
+			url.searchParams.delete("prefill_app_version");
+			url.searchParams.delete("hide_app_version");
+			url.searchParams.delete("prefill_device_model");
+			url.searchParams.delete("hide_device_model");
 			return url.href;
 		}
 		//#endregion
@@ -958,8 +961,8 @@ window.__ModuleLoader__.load({
 			return url.href;
 		}
 		//#endregion
-		//#region \0dsh-css:D:\Agent Router\deepseek-harness\packages\client\ui-settings-account\src\client\SignInDialog.module.css.mjs
-		const css$7 = "._5kXPta_dialog{user-select:none;box-sizing:border-box;border:.5px solid var(--dsw-alias-border-inverted)}._5kXPta_content{flex-direction:column;width:100%;display:flex}._5kXPta_header{justify-content:space-between;align-items:center;gap:8px;padding:22px 24px 12px;display:flex}._5kXPta_title{color:var(--dsw-alias-label-primary);margin:0;font-size:16px;font-weight:500;line-height:24px}._5kXPta_close{box-sizing:border-box;border-radius:var(--dsw-radius-sm);width:28px;height:28px;color:var(--dsw-alias-label-primary);cursor:pointer;background:0 0;border:0;flex:none;justify-content:center;align-items:center;padding:6px;display:inline-flex}._5kXPta_close:hover{background:var(--dsw-alias-interactive-bg-hover)}._5kXPta_actions{box-sizing:border-box;justify-content:flex-end;align-items:center;gap:8px;width:100%;padding:0 24px;display:flex}._5kXPta_primaryButton,._5kXPta_secondaryButton{box-sizing:border-box;border-radius:var(--dsw-radius-md);min-width:72px;height:36px;font-size:14px;line-height:22px}._5kXPta_primaryButton{padding:0 16px;font-weight:500}._5kXPta_secondaryButton{border:.5px solid var(--dsw-alias-border-l2);padding:0 14px}._5kXPta_description{color:var(--dsw-alias-label-primary);margin:0;padding:0 24px;font-size:14px;line-height:22px}._5kXPta_link{color:inherit;font:inherit;cursor:pointer;background:0 0;border:0;padding:0;text-decoration:underline}._5kXPta_spinner{flex:none;animation:1s linear infinite _5kXPta_spin}._5kXPta_primaryButton:has(._5kXPta_spinner){opacity:1}@keyframes _5kXPta_spin{to{transform:rotate(360deg)}}@media (prefers-reduced-motion:reduce){._5kXPta_spinner{animation:none}}";
+		//#region \0dsh-css:D:\deepseek-harness\packages\client\ui-settings-account\src\client\SignInDialog.module.css.mjs
+		const css$7 = "._7vaB1a_dialog{user-select:none;box-sizing:border-box;border:.5px solid var(--dsw-alias-border-inverted)}._7vaB1a_content{flex-direction:column;width:100%;display:flex}._7vaB1a_header{justify-content:space-between;align-items:center;gap:8px;padding:22px 24px 12px;display:flex}._7vaB1a_title{color:var(--dsw-alias-label-primary);margin:0;font-size:16px;font-weight:500;line-height:24px}._7vaB1a_close{box-sizing:border-box;border-radius:var(--dsw-radius-sm);width:28px;height:28px;color:var(--dsw-alias-label-primary);cursor:pointer;background:0 0;border:0;flex:none;justify-content:center;align-items:center;padding:6px;display:inline-flex}._7vaB1a_close:hover{background:var(--dsw-alias-interactive-bg-hover)}._7vaB1a_actions{box-sizing:border-box;justify-content:flex-end;align-items:center;gap:8px;width:100%;padding:0 24px;display:flex}._7vaB1a_primaryButton,._7vaB1a_secondaryButton{box-sizing:border-box;border-radius:var(--dsw-radius-md);min-width:72px;height:36px;font-size:14px;line-height:22px}._7vaB1a_primaryButton{padding:0 16px;font-weight:500}._7vaB1a_secondaryButton{border:.5px solid var(--dsw-alias-border-l2);padding:0 14px}._7vaB1a_description{color:var(--dsw-alias-label-primary);margin:0;padding:0 24px;font-size:14px;line-height:22px}._7vaB1a_link{color:inherit;font:inherit;cursor:pointer;background:0 0;border:0;padding:0;text-decoration:underline}._7vaB1a_spinner{flex:none;animation:1s linear infinite _7vaB1a_spin}._7vaB1a_primaryButton:has(._7vaB1a_spinner){opacity:1}@keyframes _7vaB1a_spin{to{transform:rotate(360deg)}}@media (prefers-reduced-motion:reduce){._7vaB1a_spinner{animation:none}}";
 		const tagId$7 = "@deepseek-ai/dsh-client-ui-settings-account/SignInDialog.module.css";
 		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId$7) + "]") === null) {
 			const tag = document.createElement("style");
@@ -969,18 +972,18 @@ window.__ModuleLoader__.load({
 			document.head.appendChild(tag);
 		}
 		var SignInDialog_module_css_default = {
-			"actions": "_5kXPta_actions",
-			"close": "_5kXPta_close",
-			"content": "_5kXPta_content",
-			"description": "_5kXPta_description",
-			"dialog": "_5kXPta_dialog",
-			"header": "_5kXPta_header",
-			"link": "_5kXPta_link",
-			"primaryButton": "_5kXPta_primaryButton",
-			"secondaryButton": "_5kXPta_secondaryButton",
-			"spin": "_5kXPta_spin",
-			"spinner": "_5kXPta_spinner",
-			"title": "_5kXPta_title"
+			"actions": "_7vaB1a_actions",
+			"close": "_7vaB1a_close",
+			"content": "_7vaB1a_content",
+			"description": "_7vaB1a_description",
+			"dialog": "_7vaB1a_dialog",
+			"header": "_7vaB1a_header",
+			"link": "_7vaB1a_link",
+			"primaryButton": "_7vaB1a_primaryButton",
+			"secondaryButton": "_7vaB1a_secondaryButton",
+			"spin": "_7vaB1a_spin",
+			"spinner": "_7vaB1a_spinner",
+			"title": "_7vaB1a_title"
 		};
 		//#endregion
 		//#region lib/types/client/SignInDialog.js
@@ -1139,8 +1142,8 @@ window.__ModuleLoader__.load({
 			});
 		}
 		//#endregion
-		//#region \0dsh-css:D:\Agent Router\deepseek-harness\packages\client\ui-settings-account\src\client\PlatformOverlay.module.css.mjs
-		const css$6 = ".gsq9Nq_overlay{z-index:1001;background:var(--dsw-alias-bg-base);flex-direction:column;display:flex;position:fixed;inset:0}[data-windows-titlebar] .gsq9Nq_overlay{padding-top:var(--dsh-windows-titlebar-height)}.gsq9Nq_header{-webkit-app-region:initial;box-sizing:border-box;border-bottom:.5px solid var(--dsw-alias-border-l1);flex:none;height:48px;padding:6px 16px}.gsq9Nq_controls{align-items:center;gap:24px;padding-top:5px;display:flex}.gsq9Nq_trafficLights{flex:none;width:60.667px;height:14px;display:none}html[data-platform=darwin] .gsq9Nq_trafficLights{display:block}.gsq9Nq_back{box-sizing:border-box;border-radius:var(--dsw-radius-sm);height:28px;color:var(--dsw-alias-label-secondary);font:inherit;white-space:nowrap;cursor:pointer;background:0 0;border:none;justify-content:center;align-items:center;gap:8px;padding:0 6px;font-size:14px;line-height:22px;display:inline-flex}.gsq9Nq_viewport{min-height:0;color:var(--dsw-alias-label-secondary);flex:1;position:relative}.gsq9Nq_status{flex-direction:column;justify-content:center;align-items:center;gap:16px;display:flex;position:absolute;inset:0}.gsq9Nq_failure{color:var(--dsw-alias-label-tertiary);text-align:center;font-size:14px;line-height:22px}.gsq9Nq_retry.gsq9Nq_retry{box-sizing:border-box;border:.5px solid var(--dsw-alias-border-l2);border-radius:var(--dsw-radius-md);min-width:58px;height:32px;padding:0 12px;font-size:13px;font-weight:400;line-height:20px}.gsq9Nq_spinner{width:24px;height:24px;animation:1s linear infinite gsq9Nq_spin;position:relative}.gsq9Nq_spinner:before{content:\"\";background:url(data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTkiIGhlaWdodD0iMjIiIHZpZXdCb3g9IjAgMCAxOSAyMiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGcgY2xpcC1wYXRoPSJ1cmwoI3BhaW50MF9hbmd1bGFyXzI5ODhfMzIzMjlfY2xpcF9wYXRoKSIgZGF0YS1maWdtYS1za2lwLXBhcnNlPSJ0cnVlIj48ZyB0cmFuc2Zvcm09Im1hdHJpeCgwLjAwNjk1MDQ4IDAuMDA2OTUwNDggLTAuMDA2OTUwNDggMC4wMDY5NTA0OCAxMC44Nzk3IDEwLjg3OTMpIj48Zm9yZWlnbk9iamVjdCB4PSItMTg2Ny40MiIgeT0iLTE4NjcuNDIiIHdpZHRoPSIzNzM0Ljg1IiBoZWlnaHQ9IjM3MzQuODUiPjxkaXYgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzE5OTkveGh0bWwiIHN0eWxlPSJiYWNrZ3JvdW5kOmNvbmljLWdyYWRpZW50KGZyb20gOTBkZWcscmdiYSgyNDYsIDI0NiwgMjQ2LCAwLjk5NDMpIDBkZWcscmdiYSgwLCAwLCAwLCAwLjgzKSAyNzMuMDI3ZGVnLHJnYmEoMCwgMCwgMCwgMCkgMjg3LjY5NGRlZyxyZ2JhKDI1NSwgMjU1LCAyNTUsIDEpIDM1MC40OTdkZWcscmdiYSgyNDYsIDI0NiwgMjQ2LCAwLjk5NDMpIDM2MGRlZyk7aGVpZ2h0OjEwMCU7d2lkdGg6MTAwJTtvcGFjaXR5OjAuNSI+PC9kaXY+PC9mb3JlaWduT2JqZWN0PjwvZz48L2c+PHBhdGggZD0iTTMuMTg2MjcgMTguNTcyMkMtMS4wNjIwOSAxNC4zMjM2IC0xLjA2MjA5IDcuNDM1MDIgMy4xODYyNyAzLjE4NjM5QzcuNDM0ODggLTEuMDYyMjIgMTQuMzIzMyAtMS4wNjIwNSAxOC41NzIxIDMuMTg2MzlMMTcuMDg3OCA0LjY3MDdDMTMuNjU5MSAxLjI0MjM2IDguMTAwMTEgMS4yNDMyMiA0LjY3MTYxIDQuNjcxNzNDMS4yNDMzNSA4LjEwMDI2IDEuMjQzMzUgMTMuNjU4MyA0LjY3MTYxIDE3LjA4NjhDOC4xMDAxMSAyMC41MTUzIDEzLjY1OTEgMjAuNTE2MiAxNy4wODc4IDE3LjA4NzlMMTguNTcyMSAxOC41NzIyQzE0LjMyMzMgMjIuODIwNiA3LjQzNDg4IDIyLjgyMDggMy4xODYyNyAxOC41NzIyWiIgZGF0YS1maWdtYS1ncmFkaWVudC1maWxsPSJ7JiMzNDt0eXBlJiMzNDs6JiMzNDtHUkFESUVOVF9BTkdVTEFSJiMzNDssJiMzNDtzdG9wcyYjMzQ7Olt7JiMzNDtjb2xvciYjMzQ7OnsmIzM0O3ImIzM0OzowLjAsJiMzNDtnJiMzNDs6MC4wLCYjMzQ7YiYjMzQ7OjAuMCwmIzM0O2EmIzM0OzowLjgyOTk5OTk4MzMxMDY5OTQ2fSwmIzM0O3Bvc2l0aW9uJiMzNDs6MC43NTg0MDg3MjUyNjE2ODgyM30seyYjMzQ7Y29sb3ImIzM0Ozp7JiMzNDtyJiMzNDs6MC4wLCYjMzQ7ZyYjMzQ7OjAuMCwmIzM0O2ImIzM0OzowLjAsJiMzNDthJiMzNDs6MC4wfSwmIzM0O3Bvc2l0aW9uJiMzNDs6MC43OTkxNDk2OTIwNTg1NjMyM30seyYjMzQ7Y29sb3ImIzM0Ozp7JiMzNDtyJiMzNDs6MS4wLCYjMzQ7ZyYjMzQ7OjEuMCwmIzM0O2ImIzM0OzoxLjAsJiMzNDthJiMzNDs6MS4wfSwmIzM0O3Bvc2l0aW9uJiMzNDs6MC45NzM2MDE4MTgwODQ3MTY4MH1dLCYjMzQ7dHJhbnNmb3JtJiMzNDs6eyYjMzQ7bTAwJiMzNDs6MTMuOTAwOTUzMjkyODQ2NjgwLCYjMzQ7bTAxJiMzNDs6LTEzLjkwMDk1MzI5Mjg0NjY4MCwmIzM0O20wMiYjMzQ7OjEwLjg3OTY3Nzc3MjUyMTk3MywmIzM0O20xMCYjMzQ7OjEzLjkwMDk1NDI0NjUyMDk5NiwmIzM0O20xMSYjMzQ7OjEzLjkwMDk1NDI0NjUyMDk5NiwmIzM0O20xMiYjMzQ7Oi0zLjAyMTY2NzAwMzYzMTU5MTh9LCYjMzQ7b3BhY2l0eSYjMzQ7OjAuNTAsJiMzNDtibGVuZE1vZGUmIzM0OzomIzM0O05PUk1BTCYjMzQ7LCYjMzQ7c3RvcHNWYXImIzM0OzpbeyYjMzQ7Y29sb3ImIzM0Ozp7JiMzNDtyJiMzNDs6MC4wLCYjMzQ7ZyYjMzQ7OjAuMCwmIzM0O2ImIzM0OzowLjAsJiMzNDthJiMzNDs6MC44Mjk5OTk5ODMzMTA2OTk0Nn0sJiMzNDtwb3NpdGlvbiYjMzQ7OjAuNzU4NDA4NzI1MjYxNjg4MjN9LHsmIzM0O2NvbG9yJiMzNDs6eyYjMzQ7ciYjMzQ7OjAuMCwmIzM0O2cmIzM0OzowLjAsJiMzNDtiJiMzNDs6MC4wLCYjMzQ7YSYjMzQ7OjAuMH0sJiMzNDtwb3NpdGlvbiYjMzQ7OjAuNzk5MTQ5NjkyMDU4NTYzMjN9LHsmIzM0O2NvbG9yJiMzNDs6eyYjMzQ7ciYjMzQ7OjEuMCwmIzM0O2cmIzM0OzoxLjAsJiMzNDtiJiMzNDs6MS4wLCYjMzQ7YSYjMzQ7OjEuMH0sJiMzNDtwb3NpdGlvbiYjMzQ7OjAuOTczNjAxODE4MDg0NzE2ODB9XSwmIzM0O3Zpc2libGUmIzM0Ozp0cnVlfSIvPgo8ZGVmcz4KPGNsaXBQYXRoIGlkPSJwYWludDBfYW5ndWxhcl8yOTg4XzMyMzI5X2NsaXBfcGF0aCI+PHBhdGggZD0iTTMuMTg2MjcgMTguNTcyMkMtMS4wNjIwOSAxNC4zMjM2IC0xLjA2MjA5IDcuNDM1MDIgMy4xODYyNyAzLjE4NjM5QzcuNDM0ODggLTEuMDYyMjIgMTQuMzIzMyAtMS4wNjIwNSAxOC41NzIxIDMuMTg2MzlMMTcuMDg3OCA0LjY3MDdDMTMuNjU5MSAxLjI0MjM2IDguMTAwMTEgMS4yNDMyMiA0LjY3MTYxIDQuNjcxNzNDMS4yNDMzNSA4LjEwMDI2IDEuMjQzMzUgMTMuNjU4MyA0LjY3MTYxIDE3LjA4NjhDOC4xMDAxMSAyMC41MTUzIDEzLjY1OTEgMjAuNTE2MiAxNy4wODc4IDE3LjA4NzlMMTguNTcyMSAxOC41NzIyQzE0LjMyMzMgMjIuODIwNiA3LjQzNDg4IDIyLjgyMDggMy4xODYyNyAxOC41NzIyWiIvPjwvY2xpcFBhdGg+PC9kZWZzPgo8L3N2Zz4K) 50%/100% 100% no-repeat;width:18.572px;height:21.759px;position:absolute;top:1.121px;left:1.12px}@keyframes gsq9Nq_spin{to{transform:rotate(360deg)}}@media (prefers-reduced-motion:reduce){.gsq9Nq_spinner{animation:none}}";
+		//#region \0dsh-css:D:\deepseek-harness\packages\client\ui-settings-account\src\client\PlatformOverlay.module.css.mjs
+		const css$6 = ".-o69DW_overlay{z-index:1001;background:var(--dsw-alias-bg-base);flex-direction:column;display:flex;position:fixed;inset:0}[data-windows-titlebar] .-o69DW_overlay{padding-top:var(--dsh-windows-titlebar-height)}.-o69DW_header{-webkit-app-region:initial;box-sizing:border-box;border-bottom:.5px solid var(--dsw-alias-border-l1);flex:none;height:48px;padding:6px 16px}.-o69DW_controls{align-items:center;gap:24px;padding-top:5px;display:flex}.-o69DW_trafficLights{flex:none;width:60.667px;height:14px;display:none}html[data-platform=darwin] .-o69DW_trafficLights{display:block}.-o69DW_back{box-sizing:border-box;border-radius:var(--dsw-radius-sm);height:28px;color:var(--dsw-alias-label-secondary);font:inherit;white-space:nowrap;cursor:pointer;background:0 0;border:none;justify-content:center;align-items:center;gap:8px;padding:0 6px;font-size:14px;line-height:22px;display:inline-flex}.-o69DW_viewport{min-height:0;color:var(--dsw-alias-label-secondary);flex:1;position:relative}.-o69DW_status{flex-direction:column;justify-content:center;align-items:center;gap:16px;display:flex;position:absolute;inset:0}.-o69DW_failure{color:var(--dsw-alias-label-tertiary);text-align:center;font-size:14px;line-height:22px}.-o69DW_retry.-o69DW_retry{box-sizing:border-box;border:.5px solid var(--dsw-alias-border-l2);border-radius:var(--dsw-radius-md);min-width:58px;height:32px;padding:0 12px;font-size:13px;font-weight:400;line-height:20px}.-o69DW_spinner{width:24px;height:24px;animation:1s linear infinite -o69DW_spin;position:relative}.-o69DW_spinner:before{content:\"\";background:url(data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTkiIGhlaWdodD0iMjIiIHZpZXdCb3g9IjAgMCAxOSAyMiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGcgY2xpcC1wYXRoPSJ1cmwoI3BhaW50MF9hbmd1bGFyXzI5ODhfMzIzMjlfY2xpcF9wYXRoKSIgZGF0YS1maWdtYS1za2lwLXBhcnNlPSJ0cnVlIj48ZyB0cmFuc2Zvcm09Im1hdHJpeCgwLjAwNjk1MDQ4IDAuMDA2OTUwNDggLTAuMDA2OTUwNDggMC4wMDY5NTA0OCAxMC44Nzk3IDEwLjg3OTMpIj48Zm9yZWlnbk9iamVjdCB4PSItMTg2Ny40MiIgeT0iLTE4NjcuNDIiIHdpZHRoPSIzNzM0Ljg1IiBoZWlnaHQ9IjM3MzQuODUiPjxkaXYgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzE5OTkveGh0bWwiIHN0eWxlPSJiYWNrZ3JvdW5kOmNvbmljLWdyYWRpZW50KGZyb20gOTBkZWcscmdiYSgyNDYsIDI0NiwgMjQ2LCAwLjk5NDMpIDBkZWcscmdiYSgwLCAwLCAwLCAwLjgzKSAyNzMuMDI3ZGVnLHJnYmEoMCwgMCwgMCwgMCkgMjg3LjY5NGRlZyxyZ2JhKDI1NSwgMjU1LCAyNTUsIDEpIDM1MC40OTdkZWcscmdiYSgyNDYsIDI0NiwgMjQ2LCAwLjk5NDMpIDM2MGRlZyk7aGVpZ2h0OjEwMCU7d2lkdGg6MTAwJTtvcGFjaXR5OjAuNSI+PC9kaXY+PC9mb3JlaWduT2JqZWN0PjwvZz48L2c+PHBhdGggZD0iTTMuMTg2MjcgMTguNTcyMkMtMS4wNjIwOSAxNC4zMjM2IC0xLjA2MjA5IDcuNDM1MDIgMy4xODYyNyAzLjE4NjM5QzcuNDM0ODggLTEuMDYyMjIgMTQuMzIzMyAtMS4wNjIwNSAxOC41NzIxIDMuMTg2MzlMMTcuMDg3OCA0LjY3MDdDMTMuNjU5MSAxLjI0MjM2IDguMTAwMTEgMS4yNDMyMiA0LjY3MTYxIDQuNjcxNzNDMS4yNDMzNSA4LjEwMDI2IDEuMjQzMzUgMTMuNjU4MyA0LjY3MTYxIDE3LjA4NjhDOC4xMDAxMSAyMC41MTUzIDEzLjY1OTEgMjAuNTE2MiAxNy4wODc4IDE3LjA4NzlMMTguNTcyMSAxOC41NzIyQzE0LjMyMzMgMjIuODIwNiA3LjQzNDg4IDIyLjgyMDggMy4xODYyNyAxOC41NzIyWiIgZGF0YS1maWdtYS1ncmFkaWVudC1maWxsPSJ7JiMzNDt0eXBlJiMzNDs6JiMzNDtHUkFESUVOVF9BTkdVTEFSJiMzNDssJiMzNDtzdG9wcyYjMzQ7Olt7JiMzNDtjb2xvciYjMzQ7OnsmIzM0O3ImIzM0OzowLjAsJiMzNDtnJiMzNDs6MC4wLCYjMzQ7YiYjMzQ7OjAuMCwmIzM0O2EmIzM0OzowLjgyOTk5OTk4MzMxMDY5OTQ2fSwmIzM0O3Bvc2l0aW9uJiMzNDs6MC43NTg0MDg3MjUyNjE2ODgyM30seyYjMzQ7Y29sb3ImIzM0Ozp7JiMzNDtyJiMzNDs6MC4wLCYjMzQ7ZyYjMzQ7OjAuMCwmIzM0O2ImIzM0OzowLjAsJiMzNDthJiMzNDs6MC4wfSwmIzM0O3Bvc2l0aW9uJiMzNDs6MC43OTkxNDk2OTIwNTg1NjMyM30seyYjMzQ7Y29sb3ImIzM0Ozp7JiMzNDtyJiMzNDs6MS4wLCYjMzQ7ZyYjMzQ7OjEuMCwmIzM0O2ImIzM0OzoxLjAsJiMzNDthJiMzNDs6MS4wfSwmIzM0O3Bvc2l0aW9uJiMzNDs6MC45NzM2MDE4MTgwODQ3MTY4MH1dLCYjMzQ7dHJhbnNmb3JtJiMzNDs6eyYjMzQ7bTAwJiMzNDs6MTMuOTAwOTUzMjkyODQ2NjgwLCYjMzQ7bTAxJiMzNDs6LTEzLjkwMDk1MzI5Mjg0NjY4MCwmIzM0O20wMiYjMzQ7OjEwLjg3OTY3Nzc3MjUyMTk3MywmIzM0O20xMCYjMzQ7OjEzLjkwMDk1NDI0NjUyMDk5NiwmIzM0O20xMSYjMzQ7OjEzLjkwMDk1NDI0NjUyMDk5NiwmIzM0O20xMiYjMzQ7Oi0zLjAyMTY2NzAwMzYzMTU5MTh9LCYjMzQ7b3BhY2l0eSYjMzQ7OjAuNTAsJiMzNDtibGVuZE1vZGUmIzM0OzomIzM0O05PUk1BTCYjMzQ7LCYjMzQ7c3RvcHNWYXImIzM0OzpbeyYjMzQ7Y29sb3ImIzM0Ozp7JiMzNDtyJiMzNDs6MC4wLCYjMzQ7ZyYjMzQ7OjAuMCwmIzM0O2ImIzM0OzowLjAsJiMzNDthJiMzNDs6MC44Mjk5OTk5ODMzMTA2OTk0Nn0sJiMzNDtwb3NpdGlvbiYjMzQ7OjAuNzU4NDA4NzI1MjYxNjg4MjN9LHsmIzM0O2NvbG9yJiMzNDs6eyYjMzQ7ciYjMzQ7OjAuMCwmIzM0O2cmIzM0OzowLjAsJiMzNDtiJiMzNDs6MC4wLCYjMzQ7YSYjMzQ7OjAuMH0sJiMzNDtwb3NpdGlvbiYjMzQ7OjAuNzk5MTQ5NjkyMDU4NTYzMjN9LHsmIzM0O2NvbG9yJiMzNDs6eyYjMzQ7ciYjMzQ7OjEuMCwmIzM0O2cmIzM0OzoxLjAsJiMzNDtiJiMzNDs6MS4wLCYjMzQ7YSYjMzQ7OjEuMH0sJiMzNDtwb3NpdGlvbiYjMzQ7OjAuOTczNjAxODE4MDg0NzE2ODB9XSwmIzM0O3Zpc2libGUmIzM0Ozp0cnVlfSIvPgo8ZGVmcz4KPGNsaXBQYXRoIGlkPSJwYWludDBfYW5ndWxhcl8yOTg4XzMyMzI5X2NsaXBfcGF0aCI+PHBhdGggZD0iTTMuMTg2MjcgMTguNTcyMkMtMS4wNjIwOSAxNC4zMjM2IC0xLjA2MjA5IDcuNDM1MDIgMy4xODYyNyAzLjE4NjM5QzcuNDM0ODggLTEuMDYyMjIgMTQuMzIzMyAtMS4wNjIwNSAxOC41NzIxIDMuMTg2MzlMMTcuMDg3OCA0LjY3MDdDMTMuNjU5MSAxLjI0MjM2IDguMTAwMTEgMS4yNDMyMiA0LjY3MTYxIDQuNjcxNzNDMS4yNDMzNSA4LjEwMDI2IDEuMjQzMzUgMTMuNjU4MyA0LjY3MTYxIDE3LjA4NjhDOC4xMDAxMSAyMC41MTUzIDEzLjY1OTEgMjAuNTE2MiAxNy4wODc4IDE3LjA4NzlMMTguNTcyMSAxOC41NzIyQzE0LjMyMzMgMjIuODIwNiA3LjQzNDg4IDIyLjgyMDggMy4xODYyNyAxOC41NzIyWiIvPjwvY2xpcFBhdGg+PC9kZWZzPgo8L3N2Zz4K) 50%/100% 100% no-repeat;width:18.572px;height:21.759px;position:absolute;top:1.121px;left:1.12px}@keyframes -o69DW_spin{to{transform:rotate(360deg)}}@media (prefers-reduced-motion:reduce){.-o69DW_spinner{animation:none}}";
 		const tagId$6 = "@deepseek-ai/dsh-client-ui-settings-account/PlatformOverlay.module.css";
 		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId$6) + "]") === null) {
 			const tag = document.createElement("style");
@@ -1150,17 +1153,17 @@ window.__ModuleLoader__.load({
 			document.head.appendChild(tag);
 		}
 		var PlatformOverlay_module_css_default = {
-			"back": "gsq9Nq_back",
-			"controls": "gsq9Nq_controls",
-			"failure": "gsq9Nq_failure",
-			"header": "gsq9Nq_header",
-			"overlay": "gsq9Nq_overlay",
-			"retry": "gsq9Nq_retry",
-			"spin": "gsq9Nq_spin",
-			"spinner": "gsq9Nq_spinner",
-			"status": "gsq9Nq_status",
-			"trafficLights": "gsq9Nq_trafficLights",
-			"viewport": "gsq9Nq_viewport"
+			"back": "-o69DW_back",
+			"controls": "-o69DW_controls",
+			"failure": "-o69DW_failure",
+			"header": "-o69DW_header",
+			"overlay": "-o69DW_overlay",
+			"retry": "-o69DW_retry",
+			"spin": "-o69DW_spin",
+			"spinner": "-o69DW_spinner",
+			"status": "-o69DW_status",
+			"trafficLights": "-o69DW_trafficLights",
+			"viewport": "-o69DW_viewport"
 		};
 		//#endregion
 		//#region lib/types/client/overlay-inert.js
@@ -1418,8 +1421,8 @@ window.__ModuleLoader__.load({
 			});
 		}
 		//#endregion
-		//#region \0dsh-css:D:\Agent Router\deepseek-harness\packages\client\ui-settings-account\src\client\AccountAvatar.module.css.mjs
-		const css$5 = ".oAXhwa_image{corner-shape:round;object-fit:cover;border-radius:50%;width:100%;height:100%;display:block}";
+		//#region \0dsh-css:D:\deepseek-harness\packages\client\ui-settings-account\src\client\AccountAvatar.module.css.mjs
+		const css$5 = ".XsYcaG_image{corner-shape:round;object-fit:cover;border-radius:50%;width:100%;height:100%;display:block}";
 		const tagId$5 = "@deepseek-ai/dsh-client-ui-settings-account/AccountAvatar.module.css";
 		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId$5) + "]") === null) {
 			const tag = document.createElement("style");
@@ -1428,7 +1431,7 @@ window.__ModuleLoader__.load({
 			tag.textContent = css$5;
 			document.head.appendChild(tag);
 		}
-		var AccountAvatar_module_css_default = { "image": "oAXhwa_image" };
+		var AccountAvatar_module_css_default = { "image": "XsYcaG_image" };
 		//#endregion
 		//#region lib/types/client/AccountAvatar.js
 		/** Shared account picture with an icon fallback for missing or unavailable images. */
@@ -1450,8 +1453,8 @@ window.__ModuleLoader__.load({
 			}) : (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconUserOutlineMedium, { size: 16 });
 		}
 		//#endregion
-		//#region \0dsh-css:D:\Agent Router\deepseek-harness\packages\client\ui-settings-account\src\client\AccountNotice.module.css.mjs
-		const css$4 = "._3dAI1q_card{z-index:40;box-sizing:border-box;border:.5px solid var(--dsw-alias-border-l2-darkmode-thin);background:var(--dsw-specific-input-major);width:260px;max-width:calc(100vw - 16px);color:var(--dsw-alias-label-secondary);border-radius:16px;padding:20px;font-size:14px;line-height:22px;position:fixed;box-shadow:0 2px 4px #0000000d}._3dAI1q_copy{overflow-wrap:anywhere;flex-direction:column;gap:2px;display:flex}._3dAI1q_copy p{white-space:pre-wrap;margin:0}._3dAI1q_title{align-items:flex-start;gap:2px;font-weight:500;line-height:20px;display:flex}._3dAI1q_icon{width:14px;height:14px;color:var(--dsw-alias-brand-primary-new-colorprimary-new-color);flex:none;margin-top:1px;display:flex}._3dAI1q_close{width:18px;height:18px;color:var(--dsw-alias-label-caption);cursor:pointer;background:0 0;border:0;justify-content:center;align-items:center;padding:4px;display:flex;position:absolute;top:6px;right:6px}._3dAI1q_close:focus-visible{outline:2px solid var(--dsw-focus-ring-color,var(--dsw-alias-state-business-primary));outline-offset:2px;border-radius:4px}";
+		//#region \0dsh-css:D:\deepseek-harness\packages\client\ui-settings-account\src\client\AccountNotice.module.css.mjs
+		const css$4 = ".gA3Fra_card{z-index:40;box-sizing:border-box;border:.5px solid var(--dsw-alias-border-l2-darkmode-thin);background:var(--dsw-specific-input-major);width:260px;max-width:calc(100vw - 16px);color:var(--dsw-alias-label-secondary);border-radius:16px;padding:20px;font-size:14px;line-height:22px;position:fixed;box-shadow:0 2px 4px #0000000d}.gA3Fra_copy{overflow-wrap:anywhere;flex-direction:column;gap:2px;display:flex}.gA3Fra_copy p{white-space:pre-wrap;margin:0}.gA3Fra_title{align-items:flex-start;gap:2px;font-weight:500;line-height:20px;display:flex}.gA3Fra_icon{width:14px;height:14px;color:var(--dsw-alias-brand-primary-new-colorprimary-new-color);flex:none;margin-top:1px;display:flex}.gA3Fra_close{width:18px;height:18px;color:var(--dsw-alias-label-caption);cursor:pointer;background:0 0;border:0;justify-content:center;align-items:center;padding:4px;display:flex;position:absolute;top:6px;right:6px}.gA3Fra_close:focus-visible{outline:2px solid var(--dsw-focus-ring-color,var(--dsw-alias-state-business-primary));outline-offset:2px;border-radius:4px}";
 		const tagId$4 = "@deepseek-ai/dsh-client-ui-settings-account/AccountNotice.module.css";
 		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId$4) + "]") === null) {
 			const tag = document.createElement("style");
@@ -1461,11 +1464,11 @@ window.__ModuleLoader__.load({
 			document.head.appendChild(tag);
 		}
 		var AccountNotice_module_css_default = {
-			"card": "_3dAI1q_card",
-			"close": "_3dAI1q_close",
-			"copy": "_3dAI1q_copy",
-			"icon": "_3dAI1q_icon",
-			"title": "_3dAI1q_title"
+			"card": "gA3Fra_card",
+			"close": "gA3Fra_close",
+			"copy": "gA3Fra_copy",
+			"icon": "gA3Fra_icon",
+			"title": "gA3Fra_title"
 		};
 		//#endregion
 		//#region lib/types/client/AccountNotice.js
@@ -1605,8 +1608,8 @@ window.__ModuleLoader__.load({
 			}), document.body);
 		}
 		//#endregion
-		//#region \0dsh-css:D:\Agent Router\deepseek-harness\packages\client\ui-settings-account\src\client\AccountMenu.module.css.mjs
-		const css$3 = ".cK5QWW_root{flex:1;min-width:0}.cK5QWW_anchor{width:100%}.cK5QWW_trigger{user-select:none;border-radius:var(--dsw-radius-md);width:100%;height:44px;color:var(--dsw-alias-label-primary);font:inherit;cursor:pointer;background:0 0;border:0;align-items:center;gap:8px;padding:6px;font-size:14px;display:flex}.cK5QWW_trigger[data-collapsed=true]{box-sizing:border-box;justify-content:center;gap:0;width:36px;height:36px;padding:0}.cK5QWW_trigger:hover{background:var(--dsw-alias-interactive-bg-hover)}.cK5QWW_avatar{corner-shape:round;background:var(--dsw-alias-bg-skeleton);width:24px;height:24px;color:var(--dsw-alias-label-tertiary);border-radius:50%;flex:none;justify-content:center;align-items:center;display:flex}.cK5QWW_label{text-overflow:ellipsis;white-space:nowrap;overflow:hidden}.cK5QWW_trigger[data-signed-out=true]:not([data-collapsed=true]){height:32px;padding:6px 2px 6px 6px;line-height:20px}.cK5QWW_signedOutMenu[role=menu]{min-width:124px;max-width:280px;padding:4px}.cK5QWW_signedOutMenu [role=menuitem]{border-radius:var(--dsw-radius-md);gap:8px;min-height:40px;padding:8px 10px;font-size:14px;line-height:22px}.cK5QWW_signedOutMenu [role=menuitem]>span:first-child:not(:last-child){width:16px;height:16px;color:var(--dsw-alias-menu-icon)}.cK5QWW_signedOutMenu [role=menuitem]>span:first-child:not(:last-child) svg{width:16px;height:16px}";
+		//#region \0dsh-css:D:\deepseek-harness\packages\client\ui-settings-account\src\client\AccountMenu.module.css.mjs
+		const css$3 = ".f5RMMq_root{flex:1;min-width:0}.f5RMMq_anchor{width:100%}.f5RMMq_trigger{user-select:none;border-radius:var(--dsw-radius-md);width:100%;height:44px;color:var(--dsw-alias-label-primary);font:inherit;cursor:pointer;background:0 0;border:0;align-items:center;gap:8px;padding:6px;font-size:14px;display:flex}.f5RMMq_trigger[data-collapsed=true]{box-sizing:border-box;justify-content:center;gap:0;width:36px;height:36px;padding:0}.f5RMMq_trigger:hover{background:var(--dsw-alias-interactive-bg-hover)}.f5RMMq_avatar{corner-shape:round;background:var(--dsw-alias-bg-skeleton);width:24px;height:24px;color:var(--dsw-alias-label-tertiary);border-radius:50%;flex:none;justify-content:center;align-items:center;display:flex}.f5RMMq_label{text-overflow:ellipsis;white-space:nowrap;overflow:hidden}.f5RMMq_trigger[data-signed-out=true]:not([data-collapsed=true]){height:32px;padding:6px 2px 6px 6px;line-height:20px}.f5RMMq_signedOutMenu[role=menu]{min-width:124px;max-width:280px;padding:4px}.f5RMMq_signedOutMenu [role=menuitem]{border-radius:var(--dsw-radius-md);gap:8px;min-height:40px;padding:8px 10px;font-size:14px;line-height:22px}.f5RMMq_signedOutMenu [role=menuitem]>span:first-child:not(:last-child){width:16px;height:16px;color:var(--dsw-alias-menu-icon)}.f5RMMq_signedOutMenu [role=menuitem]>span:first-child:not(:last-child) svg{width:16px;height:16px}";
 		const tagId$3 = "@deepseek-ai/dsh-client-ui-settings-account/AccountMenu.module.css";
 		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId$3) + "]") === null) {
 			const tag = document.createElement("style");
@@ -1616,12 +1619,12 @@ window.__ModuleLoader__.load({
 			document.head.appendChild(tag);
 		}
 		var AccountMenu_module_css_default = {
-			"anchor": "cK5QWW_anchor",
-			"avatar": "cK5QWW_avatar",
-			"label": "cK5QWW_label",
-			"root": "cK5QWW_root",
-			"signedOutMenu": "cK5QWW_signedOutMenu",
-			"trigger": "cK5QWW_trigger"
+			"anchor": "f5RMMq_anchor",
+			"avatar": "f5RMMq_avatar",
+			"label": "f5RMMq_label",
+			"root": "f5RMMq_root",
+			"signedOutMenu": "f5RMMq_signedOutMenu",
+			"trigger": "f5RMMq_trigger"
 		};
 		//#endregion
 		//#region lib/types/client/AccountMenu.js
@@ -1730,7 +1733,7 @@ window.__ModuleLoader__.load({
 							},
 							{
 								id: "contact",
-								label: signedIn ? t("contactUs") : t("contactUsSignedOut"),
+								label: t("contactUs"),
 								icon: (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconPaperPlaneOutlineMedium, { size: 16 })
 							},
 							...signedIn ? [{
@@ -2262,8 +2265,8 @@ window.__ModuleLoader__.load({
 			return `${Number(integer).toLocaleString()}.${fraction}`;
 		}
 		//#endregion
-		//#region \0dsh-css:D:\Agent Router\deepseek-harness\packages\client\ui-settings-account\src\client\AccountSection.module.css.mjs
-		const css$2 = "._4bNuya_section{color:var(--dsw-alias-label-primary);flex-direction:column;gap:16px;padding:8px 0;font-size:13px;line-height:22px;display:flex}._4bNuya_card,._4bNuya_balanceCard{border:.5px solid var(--dsw-alias-settings-card-stroke);border-radius:var(--dsw-radius-xl);background:var(--dsw-alias-settings-card-fill);padding:12px 16px}._4bNuya_card,._4bNuya_row{justify-content:space-between;align-items:center;gap:16px;display:flex}._4bNuya_identity{align-items:center;gap:10px;min-width:0;min-height:44px;display:flex}._4bNuya_avatar{corner-shape:round;width:32px;height:32px;color:var(--dsw-alias-label-tertiary);background:var(--dsw-alias-bg-skeleton);border-radius:50%;flex:none;justify-content:center;align-items:center;display:flex}._4bNuya_identityCopy{flex-direction:column;min-width:0;display:flex}._4bNuya_name{font-size:14px;font-weight:500}._4bNuya_status,._4bNuya_secondary,._4bNuya_unavailable{color:var(--dsw-alias-label-tertiary)}._4bNuya_balanceCard{flex-direction:column;gap:8px;display:flex}._4bNuya_row{box-sizing:border-box;min-height:40px;padding:6px 0}._4bNuya_divider{border-top:.5px solid var(--dsw-alias-border-l2)}._4bNuya_links,._4bNuya_actions{flex-wrap:wrap;justify-content:flex-end;align-items:center;gap:10px;display:flex}._4bNuya_linkButton{box-sizing:border-box;border:.5px solid var(--dsw-alias-border-l3);border-radius:var(--dsw-radius-md);white-space:nowrap;min-width:58px;height:36px;color:var(--dsw-alias-label-primary);background:0 0;flex:none;justify-content:center;align-items:center;padding:0 14px;font-size:14px;line-height:22px;text-decoration:none;display:inline-flex}._4bNuya_linkButton:hover{background:var(--dsw-alias-interactive-bg-hover)}._4bNuya_linkButton:focus-visible{outline:var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color,var(--dsw-alias-state-business-primary));outline-offset:2px}._4bNuya_unavailableLink{color:var(--dsw-alias-label-tertiary);text-underline-offset:3px;text-decoration:underline}._4bNuya_unavailableLink:hover{color:var(--dsw-alias-label-primary)}._4bNuya_unavailableLink:focus-visible{outline:2px solid var(--dsw-focus-ring-color,var(--dsw-alias-state-business-primary));outline-offset:2px;border-radius:4px}._4bNuya_primary{color:var(--dsw-alias-label-primary-foreground);background:var(--dsw-alias-button-primary-fill);border-color:#0000;font-weight:500}._4bNuya_primary:hover{background:var(--dsw-alias-button-primary-hover)}._4bNuya_signedOut{box-sizing:border-box;min-height:calc(100% + 16px);color:var(--dsw-alias-label-primary);flex-direction:column;justify-content:center;align-items:center;margin-bottom:-16px;padding-bottom:8px;display:flex}._4bNuya_signedOutContent{flex-direction:column;justify-content:center;align-items:center;gap:20px;width:100%;min-height:60px;padding:12px 0;display:flex}._4bNuya_signedOutCopy{text-align:center;flex-direction:column;gap:4px;width:100%;display:flex}._4bNuya_signedOutTitle{font-size:14px;line-height:22px}._4bNuya_signedOutDescription{color:var(--dsw-alias-label-tertiary);font-size:12px;line-height:18px}._4bNuya_signInButton{min-width:72px;font-weight:500}._4bNuya_amount{flex-wrap:wrap;justify-content:flex-end;font-size:18px;font-weight:510;line-height:28px;display:flex}._4bNuya_amount>span+span:before{content:\" + \";white-space:pre}._4bNuya_accountInfo{color:var(--dsw-alias-label-primary);flex:none;align-items:center;gap:2px;font-size:13px;line-height:22px;text-decoration:none;display:inline-flex}._4bNuya_bonusValue{justify-content:flex-end;align-items:center;gap:8px;display:flex}";
+		//#region \0dsh-css:D:\deepseek-harness\packages\client\ui-settings-account\src\client\AccountSection.module.css.mjs
+		const css$2 = ".LzD9na_section{color:var(--dsw-alias-label-primary);flex-direction:column;gap:16px;padding:8px 0;font-size:13px;line-height:22px;display:flex}.LzD9na_card,.LzD9na_balanceCard{border:.5px solid var(--dsw-alias-settings-card-stroke);border-radius:var(--dsw-radius-xl);background:var(--dsw-alias-settings-card-fill);padding:12px 16px}.LzD9na_card,.LzD9na_row{justify-content:space-between;align-items:center;gap:16px;display:flex}.LzD9na_identity{align-items:center;gap:10px;min-width:0;min-height:44px;display:flex}.LzD9na_avatar{corner-shape:round;width:32px;height:32px;color:var(--dsw-alias-label-tertiary);background:var(--dsw-alias-bg-skeleton);border-radius:50%;flex:none;justify-content:center;align-items:center;display:flex}.LzD9na_identityCopy{flex-direction:column;min-width:0;display:flex}.LzD9na_name{font-size:14px;font-weight:500}.LzD9na_status,.LzD9na_secondary,.LzD9na_unavailable{color:var(--dsw-alias-label-tertiary)}.LzD9na_balanceCard{flex-direction:column;gap:8px;display:flex}.LzD9na_row{box-sizing:border-box;min-height:40px;padding:6px 0}.LzD9na_divider{border-top:.5px solid var(--dsw-alias-border-l2)}.LzD9na_links,.LzD9na_actions{flex-wrap:wrap;justify-content:flex-end;align-items:center;gap:10px;display:flex}.LzD9na_linkButton{box-sizing:border-box;border:.5px solid var(--dsw-alias-border-l3);border-radius:var(--dsw-radius-md);white-space:nowrap;min-width:58px;height:36px;color:var(--dsw-alias-label-primary);background:0 0;flex:none;justify-content:center;align-items:center;padding:0 14px;font-size:14px;line-height:22px;text-decoration:none;display:inline-flex}.LzD9na_linkButton:hover{background:var(--dsw-alias-interactive-bg-hover)}.LzD9na_linkButton:focus-visible{outline:var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color,var(--dsw-alias-state-business-primary));outline-offset:2px}.LzD9na_unavailableLink{color:var(--dsw-alias-label-tertiary);text-underline-offset:3px;text-decoration:underline}.LzD9na_unavailableLink:hover{color:var(--dsw-alias-label-primary)}.LzD9na_unavailableLink:focus-visible{outline:2px solid var(--dsw-focus-ring-color,var(--dsw-alias-state-business-primary));outline-offset:2px;border-radius:4px}.LzD9na_primary{color:var(--dsw-alias-label-primary-foreground);background:var(--dsw-alias-button-primary-fill);border-color:#0000;font-weight:500}.LzD9na_primary:hover{background:var(--dsw-alias-button-primary-hover)}.LzD9na_signedOut{box-sizing:border-box;min-height:calc(100% + 16px);color:var(--dsw-alias-label-primary);flex-direction:column;justify-content:center;align-items:center;margin-bottom:-16px;padding-bottom:8px;display:flex}.LzD9na_signedOutContent{flex-direction:column;justify-content:center;align-items:center;gap:20px;width:100%;min-height:60px;padding:12px 0;display:flex}.LzD9na_signedOutCopy{text-align:center;flex-direction:column;gap:4px;width:100%;display:flex}.LzD9na_signedOutTitle{font-size:14px;line-height:22px}.LzD9na_signedOutDescription{color:var(--dsw-alias-label-tertiary);font-size:12px;line-height:18px}.LzD9na_signInButton{min-width:72px;font-weight:500}.LzD9na_amount{flex-wrap:wrap;justify-content:flex-end;font-size:18px;font-weight:510;line-height:28px;display:flex}.LzD9na_amount>span+span:before{content:\" + \";white-space:pre}.LzD9na_accountInfo{color:var(--dsw-alias-label-primary);flex:none;align-items:center;gap:2px;font-size:13px;line-height:22px;text-decoration:none;display:inline-flex}.LzD9na_bonusValue{justify-content:flex-end;align-items:center;gap:8px;display:flex}";
 		const tagId$2 = "@deepseek-ai/dsh-client-ui-settings-account/AccountSection.module.css";
 		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId$2) + "]") === null) {
 			const tag = document.createElement("style");
@@ -2273,32 +2276,32 @@ window.__ModuleLoader__.load({
 			document.head.appendChild(tag);
 		}
 		var AccountSection_module_css_default = {
-			"accountInfo": "_4bNuya_accountInfo",
-			"actions": "_4bNuya_actions",
-			"amount": "_4bNuya_amount",
-			"avatar": "_4bNuya_avatar",
-			"balanceCard": "_4bNuya_balanceCard",
-			"bonusValue": "_4bNuya_bonusValue",
-			"card": "_4bNuya_card",
-			"divider": "_4bNuya_divider",
-			"identity": "_4bNuya_identity",
-			"identityCopy": "_4bNuya_identityCopy",
-			"linkButton": "_4bNuya_linkButton",
-			"links": "_4bNuya_links",
-			"name": "_4bNuya_name",
-			"primary": "_4bNuya_primary",
-			"row": "_4bNuya_row",
-			"secondary": "_4bNuya_secondary",
-			"section": "_4bNuya_section",
-			"signInButton": "_4bNuya_signInButton",
-			"signedOut": "_4bNuya_signedOut",
-			"signedOutContent": "_4bNuya_signedOutContent",
-			"signedOutCopy": "_4bNuya_signedOutCopy",
-			"signedOutDescription": "_4bNuya_signedOutDescription",
-			"signedOutTitle": "_4bNuya_signedOutTitle",
-			"status": "_4bNuya_status",
-			"unavailable": "_4bNuya_unavailable",
-			"unavailableLink": "_4bNuya_unavailableLink"
+			"accountInfo": "LzD9na_accountInfo",
+			"actions": "LzD9na_actions",
+			"amount": "LzD9na_amount",
+			"avatar": "LzD9na_avatar",
+			"balanceCard": "LzD9na_balanceCard",
+			"bonusValue": "LzD9na_bonusValue",
+			"card": "LzD9na_card",
+			"divider": "LzD9na_divider",
+			"identity": "LzD9na_identity",
+			"identityCopy": "LzD9na_identityCopy",
+			"linkButton": "LzD9na_linkButton",
+			"links": "LzD9na_links",
+			"name": "LzD9na_name",
+			"primary": "LzD9na_primary",
+			"row": "LzD9na_row",
+			"secondary": "LzD9na_secondary",
+			"section": "LzD9na_section",
+			"signInButton": "LzD9na_signInButton",
+			"signedOut": "LzD9na_signedOut",
+			"signedOutContent": "LzD9na_signedOutContent",
+			"signedOutCopy": "LzD9na_signedOutCopy",
+			"signedOutDescription": "LzD9na_signedOutDescription",
+			"signedOutTitle": "LzD9na_signedOutTitle",
+			"status": "LzD9na_status",
+			"unavailable": "LzD9na_unavailable",
+			"unavailableLink": "LzD9na_unavailableLink"
 		};
 		//#endregion
 		//#region lib/types/client/AccountSection.js
@@ -2815,7 +2818,6 @@ window.__ModuleLoader__.load({
 			backToHarness: "Back to DeepSeek Harness",
 			settings: "Settings",
 			contactUs: "Feedback",
-			contactUsSignedOut: "Contact us",
 			menu: "Account menu",
 			nav: "Account",
 			signedIn: "Signed in to DeepSeek",
@@ -2875,7 +2877,6 @@ window.__ModuleLoader__.load({
 			backToHarness: "返回 DeepSeek Harness",
 			settings: "设置",
 			contactUs: "意见反馈",
-			contactUsSignedOut: "联系我们",
 			menu: "账号菜单",
 			nav: "账号与余额",
 			signedIn: "已登录 DeepSeek",
@@ -3290,8 +3291,8 @@ window.__ModuleLoader__.load({
 			}
 		};
 		//#endregion
-		//#region \0dsh-css:D:\Agent Router\deepseek-harness\packages\client\ui-settings-account\src\client\OnboardingSurface.module.css.mjs
-		const css$1 = ".xO5Gqq_onboardingOverlay{z-index:900;background:var(--dsw-alias-bg-base);user-select:none;flex-direction:column;display:flex;position:fixed;inset:0}html[data-platform=darwin] .xO5Gqq_onboardingOverlay{background:0 0}.xO5Gqq_onboardingOverlay[data-exiting]{pointer-events:none;animation:.18s ease-out forwards xO5Gqq_onboardingExit}@keyframes xO5Gqq_onboardingExit{0%{opacity:1}to{opacity:0}}@media (prefers-reduced-motion:reduce){.xO5Gqq_onboardingOverlay[data-exiting]{animation:none}}html[data-platform=darwin] .xO5Gqq_dragBand{pointer-events:none;position:absolute;inset:8px}.xO5Gqq_onboardingStage{-webkit-app-region:initial;flex:1;justify-content:center;min-height:0;display:flex;overflow:auto}.xO5Gqq_onboardingOverlay[inert] .xO5Gqq_dragBand{-webkit-app-region:no-drag}";
+		//#region \0dsh-css:D:\deepseek-harness\packages\client\ui-settings-account\src\client\OnboardingSurface.module.css.mjs
+		const css$1 = ".yYlCYa_onboardingOverlay{z-index:900;background:var(--dsw-alias-bg-base);user-select:none;flex-direction:column;display:flex;position:fixed;inset:0}html[data-platform=darwin] .yYlCYa_onboardingOverlay{background:0 0}.yYlCYa_onboardingOverlay[data-exiting]{pointer-events:none;animation:.18s ease-out forwards yYlCYa_onboardingExit}@keyframes yYlCYa_onboardingExit{0%{opacity:1}to{opacity:0}}@media (prefers-reduced-motion:reduce){.yYlCYa_onboardingOverlay[data-exiting]{animation:none}}html[data-platform=darwin] .yYlCYa_dragBand{pointer-events:none;position:absolute;inset:8px}.yYlCYa_onboardingStage{-webkit-app-region:initial;flex:1;justify-content:center;min-height:0;display:flex;overflow:auto}.yYlCYa_onboardingOverlay[inert] .yYlCYa_dragBand{-webkit-app-region:no-drag}";
 		const tagId$1 = "@deepseek-ai/dsh-client-ui-settings-account/OnboardingSurface.module.css";
 		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId$1) + "]") === null) {
 			const tag = document.createElement("style");
@@ -3301,10 +3302,10 @@ window.__ModuleLoader__.load({
 			document.head.appendChild(tag);
 		}
 		var OnboardingSurface_module_css_default = {
-			"dragBand": "xO5Gqq_dragBand",
-			"onboardingExit": "xO5Gqq_onboardingExit",
-			"onboardingOverlay": "xO5Gqq_onboardingOverlay",
-			"onboardingStage": "xO5Gqq_onboardingStage"
+			"dragBand": "yYlCYa_dragBand",
+			"onboardingExit": "yYlCYa_onboardingExit",
+			"onboardingOverlay": "yYlCYa_onboardingOverlay",
+			"onboardingStage": "yYlCYa_onboardingStage"
 		};
 		//#endregion
 		//#region lib/types/client/OnboardingSurface.js
@@ -3354,8 +3355,8 @@ window.__ModuleLoader__.load({
 			}), document.body);
 		}
 		//#endregion
-		//#region \0dsh-css:D:\Agent Router\deepseek-harness\packages\client\ui-settings-account\src\client\DesktopOnboarding.module.css.mjs
-		const css = ".TZHSza_page{--page-padding:clamp(40px, 8.333vw, 120px);width:100%;height:100%;min-height:480px;color:var(--dsw-alias-label-primary);animation:.1s ease-out TZHSza_pageEnter;position:relative;overflow:hidden}.TZHSza_blurred{filter:var(--dsw-mask-blur)}@keyframes TZHSza_pageEnter{0%{opacity:0}to{opacity:1}}.TZHSza_loading{height:100%;color:var(--dsw-alias-label-tertiary);place-items:center;display:grid}.TZHSza_content{width:min(calc(100% - 2 * var(--page-padding)), 1200px);position:absolute;top:50%;left:50%;transform:translate(-50%,-50%)}.TZHSza_copy h1{outline:none;margin:0;font-size:28px;font-weight:300;line-height:48px}html[data-platform=darwin] .TZHSza_copy h1{-webkit-app-region:initial}.TZHSza_brand{font-family:var(--dsw-font-family-brand);font-size:inherit;white-space:nowrap;font-style:normal;font-weight:500}.TZHSza_page:lang(en) .TZHSza_copy h1{font-family:var(--dsw-font-family-brand);font-weight:300}.TZHSza_page:lang(en) :is(.TZHSza_heroDescription,.TZHSza_subtitle,.TZHSza_cardTitle,.TZHSza_cardDescription){font-family:var(--dsw-font-family-brand)}.TZHSza_heroDescription{color:var(--dsw-alias-label-tertiary);margin:24px 0 0;font-size:16px;font-weight:300;line-height:28px}.TZHSza_welcome{width:100%;max-width:2200px;height:100%}.TZHSza_welcome .TZHSza_copy{z-index:1;width:520px;position:absolute;top:50%;left:clamp(64px,41.667vw - 300px,200px);transform:translateY(-50%)}.TZHSza_start{width:240px;margin:60px 0 0;display:flex}.TZHSza_welcomeIllustration{pointer-events:none;width:1247px;height:822px;position:absolute;top:clamp(32px,31.608vh - 157.65px,133.145px);left:min(41.667vw + 112.5px,712.5px)}.TZHSza_welcomeArtwork{width:1331px;height:auto;position:absolute;top:-40px;left:-67px}.TZHSza_illustration img{width:100%;height:auto;display:block}.TZHSza_illustration .TZHSza_darkIllustration{display:none}body[data-ds-dark-theme] .TZHSza_lightIllustration{display:none}body[data-ds-dark-theme] .TZHSza_darkIllustration{display:block}.TZHSza_credit{grid-template-columns:minmax(0,594px) minmax(0,400px);justify-content:center;align-items:center;gap:clamp(32px,33.3333vw - 331.333px,164px);max-width:1196px;display:grid;transform:translate(-50%,calc(-50% - 5px))}.TZHSza_creditIllustration{aspect-ratio:594/509;object-fit:contain;width:100%;height:auto}.TZHSza_credit .TZHSza_copy{max-width:400px}.TZHSza_creditActions{gap:24px;margin-top:60px;display:flex}.TZHSza_creditActions>button{flex:1;max-width:160px}.TZHSza_creditActions .TZHSza_laterAction{background:var(--dsw-alias-onboarding-secondary-fill)}.TZHSza_creditActions .TZHSza_laterAction:hover:not(:disabled){background:linear-gradient(var(--dsw-alias-interactive-bg-hover), var(--dsw-alias-interactive-bg-hover)), var(--dsw-alias-onboarding-secondary-fill)}.TZHSza_page button{transition:background-color .12s,color .12s,opacity .12s}.TZHSza_purpose,.TZHSza_process{flex-direction:column;align-items:center;gap:48px;display:flex;top:calc(50% - 188.5px);transform:translate(-50%)}.TZHSza_purpose{max-width:843px}.TZHSza_process{max-width:1130px}.TZHSza_purpose .TZHSza_copy,.TZHSza_process .TZHSza_copy{text-align:center}.TZHSza_purpose .TZHSza_copy h1,.TZHSza_process .TZHSza_copy h1{font-size:28px;line-height:39px}.TZHSza_purpose .TZHSza_brand{line-height:0}.TZHSza_subtitle{color:var(--dsw-alias-label-tertiary);margin:16px 0 0;font-size:16px;font-weight:300;line-height:22px}.TZHSza_purposeCards,.TZHSza_processCards{align-items:stretch;gap:16px;width:100%;display:grid}.TZHSza_purposeCards{grid-template-columns:repeat(2,minmax(0,1fr));gap:17px}.TZHSza_processCards{box-sizing:border-box;grid-template-columns:repeat(3,minmax(0,1fr));min-height:225px;padding-block:1.5px}.TZHSza_card{-webkit-app-region:no-drag;--card-border-stops:var(--dsw-gradient-onboarding-blue-stops);box-sizing:border-box;background:var(--dsw-alias-onboarding-card-fill);min-width:0;min-height:222px;box-shadow:8px 8px 24px color-mix(in srgb, var(--dsw-alias-onboarding-accent) 8%, transparent), 4px 4px 12px color-mix(in srgb, var(--dsw-alias-onboarding-accent) 4%, transparent);color:inherit;font:inherit;text-align:left;cursor:pointer;backdrop-filter:blur(32.609px);border:0;border-radius:32px;flex-direction:column;align-items:flex-start;padding:48.5px 32.5px 64.5px;transition:background-color .12s;display:flex;position:relative}.TZHSza_card:before,.TZHSza_card:after{content:\"\";border-radius:inherit;pointer-events:none;transition:opacity .12s,border-color .12s;position:absolute;inset:0}.TZHSza_card:before{border:.5px solid var(--dsw-alias-border-l2)}.TZHSza_card:after{background:conic-gradient(from var(--dsh-onboarding-border-angle), var(--card-border-stops));opacity:0;padding:2px;mask-image:linear-gradient(#fff 0 0),linear-gradient(#fff 0 0);mask-position:0 0,0 0;mask-size:auto,auto;mask-repeat:repeat,repeat;mask-clip:content-box,border-box;mask-origin:content-box,border-box;mask-composite:exclude;mask-mode:match-source,match-source}.TZHSza_card:hover:before{border-color:var(--dsw-alias-border-l4)}.TZHSza_card:hover:after{opacity:.35}.TZHSza_selected:before{opacity:0}.TZHSza_selected:after,.TZHSza_selected:hover:after{opacity:1}.TZHSza_selected:after{animation:14s linear infinite TZHSza_borderSweep}.TZHSza_officeCard,.TZHSza_card[data-process=compact]{--card-border-stops:var(--dsw-gradient-onboarding-violet-stops)}.TZHSza_card[data-process=detailed]{--card-border-stops:var(--dsw-gradient-onboarding-cyan-stops)}@property --dsh-onboarding-border-angle{syntax:\"<angle>\";inherits:false;initial-value:90deg}@keyframes TZHSza_borderSweep{0%{--dsh-onboarding-border-angle:90deg}to{--dsh-onboarding-border-angle:450deg}}.TZHSza_card:focus-visible,html:not([data-input-modality=pointer]) .TZHSza_card:has(:focus-visible){outline:2px solid var(--dsw-focus-ring-color,var(--dsw-alias-state-business-primary));outline-offset:5px}.TZHSza_card[aria-disabled=true]{cursor:wait}.TZHSza_cardTop{justify-content:space-between;align-items:center;gap:12px;width:100%;height:40px;margin-bottom:12px;display:flex}.TZHSza_cardCheckbox{position:static}.TZHSza_card .TZHSza_cardCheckbox input:focus-visible,.TZHSza_card .TZHSza_cardCheckbox input:focus-visible+span{outline:none}.TZHSza_cardCheckbox:after{content:\"\";z-index:1;cursor:pointer;position:absolute;inset:0}.TZHSza_fileIcons{align-items:center;gap:clamp(2px,.56vw,8px);display:flex}.TZHSza_fileIcons>svg{transform-origin:0;flex:none}.TZHSza_iconsEntering>svg{animation:TZHSza_iconEnter var(--ds-transition-duration) var(--ds-ease-in-out) both}.TZHSza_iconsEntering>svg:nth-child(2){animation-delay:30ms}.TZHSza_iconsEntering>svg:nth-child(3){animation-delay:50ms}.TZHSza_iconsEntering>svg:nth-child(4){animation-delay:62ms}.TZHSza_iconsEntering>svg:nth-child(5){animation-delay:70ms}@keyframes TZHSza_iconEnter{0%{opacity:0;transform:scale(.8)}to{opacity:1;transform:scale(1)}}.TZHSza_cardTitle{font-size:20px;font-weight:400;line-height:28px}.TZHSza_cardDescription{color:var(--dsw-alias-label-tertiary);margin-top:8px;font-size:15px;font-weight:300;line-height:21px}.TZHSza_processIcon{justify-content:center;align-items:center;width:40px;height:40px;margin-bottom:12px;display:flex}.TZHSza_primaryAction{justify-content:center;width:100%;min-height:44px;margin-top:100px;display:flex;position:absolute;top:100%}.TZHSza_primaryAction>button{width:min(240px,100%)}.TZHSza_primaryAction>button[aria-disabled=true]{cursor:wait}.TZHSza_navigation{pointer-events:none;width:min(calc(100% - 2 * var(--page-padding)), 1200px);justify-content:space-between;display:flex;position:absolute;bottom:clamp(24px,7.61vh,70px);left:50%;transform:translate(-50%)}.TZHSza_navigation button{pointer-events:auto;color:var(--dsw-alias-label-tertiary);font:inherit;cursor:pointer;background:0 0;border:0;align-items:center;gap:20px;padding:0;font-size:16px;font-weight:300;line-height:32px;display:flex}.TZHSza_navigation button:focus-visible{outline:2px solid var(--dsw-focus-ring-color,var(--dsw-alias-state-business-primary));outline-offset:5px}.TZHSza_navigation button:hover:not(:disabled){color:var(--dsw-alias-label-primary)}.TZHSza_backIcon{background:currentColor;flex:none;width:17px;height:14px;mask-position:50%;mask-size:contain;mask-repeat:no-repeat}.TZHSza_status{font-size:14px;line-height:22px;position:absolute;bottom:12px;left:50%;transform:translate(-50%)}.TZHSza_confirmation{color:var(--dsw-alias-label-primary);padding:22px 24px 0}.TZHSza_confirmationHeading{justify-content:space-between;align-items:center;gap:8px;margin-bottom:12px;display:flex}.TZHSza_confirmation h2{margin:0;font-size:16px;font-weight:500;line-height:24px}.TZHSza_confirmationClose{width:28px;height:28px;color:var(--dsw-alias-label-secondary);cursor:pointer;background:0 0;border:0;border-radius:28px;flex:none;justify-content:center;align-items:center;display:flex}.TZHSza_confirmationClose:hover{background:var(--dsw-alias-interactive-bg-hover)}.TZHSza_confirmation p{margin:0;font-size:14px;line-height:22px}.TZHSza_confirmationActions{justify-content:flex-end;gap:8px;margin-top:20px;display:flex}.TZHSza_dialogButton{font-family:var(--dsw-font-family);border-radius:12px;font-weight:500}.TZHSza_dialogButton:first-child{font-weight:400}@media (height<=760px){.TZHSza_purpose,.TZHSza_process{top:calc(50% - 180px)}.TZHSza_purpose .TZHSza_copy h1,.TZHSza_process .TZHSza_copy h1{font-size:28px;line-height:39px}.TZHSza_subtitle{margin-top:16px;line-height:21px}.TZHSza_card{min-height:187px;padding:24.5px 32.5px 32.5px}.TZHSza_processCards{min-height:0;padding-block:0}.TZHSza_primaryAction{margin-top:40px}.TZHSza_creditActions{margin-top:32px}}@media (width<=1200px){.TZHSza_welcomeIllustration{left:calc(73.333vw - 267.5px)}}@media (height>=920px){.TZHSza_welcomeIllustration{top:calc(50% - 326.855px)}}@media (width<=1100px){.TZHSza_page{--page-padding:40px}.TZHSza_copy h1{font-size:26px;line-height:40px}.TZHSza_heroDescription{font-size:16px;line-height:28px}.TZHSza_welcome .TZHSza_copy h1{font-size:28px;line-height:48px}.TZHSza_fileIcons{gap:3px}}@media (height<=560px){.TZHSza_page{overflow:auto}}@media (prefers-reduced-motion:reduce){.TZHSza_page button,.TZHSza_card,.TZHSza_card:before,.TZHSza_card:after{transition:none}.TZHSza_page,.TZHSza_fileIcons>svg,.TZHSza_selected:after{animation:none}}.TZHSza_page .TZHSza_action{height:44px;font-family:var(--dsw-font-family);border-radius:12px;padding:0 24px;font-size:14px;font-weight:500;line-height:22px}.TZHSza_page .TZHSza_action:focus-visible{outline:2px solid var(--dsw-focus-ring-color,var(--dsw-alias-state-business-primary));outline-offset:3px}.TZHSza_page:lang(en) .TZHSza_navigation button{font-family:var(--dsw-font-family-brand)}.TZHSza_cardCheckbox input{opacity:0;width:24px;height:24px;margin:0;position:absolute}.TZHSza_indicator{box-sizing:border-box;border:2px solid var(--dsw-alias-onboarding-checkbox-border);width:24px;height:24px;color:var(--dsw-alias-label-primary-foreground);pointer-events:none;background:0 0;border-radius:6px;flex:none;justify-content:center;align-items:center;display:inline-flex}.TZHSza_indicator svg{visibility:hidden}.TZHSza_cardCheckbox input:checked+.TZHSza_indicator{border-color:var(--dsw-alias-brand-primary);background:var(--dsw-alias-brand-primary)}.TZHSza_cardCheckbox input:checked+.TZHSza_indicator svg{visibility:visible}";
+		//#region \0dsh-css:D:\deepseek-harness\packages\client\ui-settings-account\src\client\DesktopOnboarding.module.css.mjs
+		const css = ".cRsBFW_page{--page-padding:clamp(40px, 8.333vw, 120px);width:100%;height:100%;min-height:480px;color:var(--dsw-alias-label-primary);animation:.1s ease-out cRsBFW_pageEnter;position:relative;overflow:hidden}.cRsBFW_blurred{filter:var(--dsw-mask-blur)}@keyframes cRsBFW_pageEnter{0%{opacity:0}to{opacity:1}}.cRsBFW_loading{height:100%;color:var(--dsw-alias-label-tertiary);place-items:center;display:grid}.cRsBFW_content{width:min(calc(100% - 2 * var(--page-padding)), 1200px);position:absolute;top:50%;left:50%;transform:translate(-50%,-50%)}.cRsBFW_copy h1{outline:none;margin:0;font-size:28px;font-weight:300;line-height:48px}html[data-platform=darwin] .cRsBFW_copy h1{-webkit-app-region:initial}.cRsBFW_brand{font-family:var(--dsw-font-family-brand);font-size:inherit;white-space:nowrap;font-style:normal;font-weight:500}.cRsBFW_page:lang(en) .cRsBFW_copy h1{font-family:var(--dsw-font-family-brand);font-weight:300}.cRsBFW_page:lang(en) :is(.cRsBFW_heroDescription,.cRsBFW_subtitle,.cRsBFW_cardTitle,.cRsBFW_cardDescription){font-family:var(--dsw-font-family-brand)}.cRsBFW_heroDescription{color:var(--dsw-alias-label-tertiary);margin:24px 0 0;font-size:16px;font-weight:300;line-height:28px}.cRsBFW_welcome{width:100%;max-width:2200px;height:100%}.cRsBFW_welcome .cRsBFW_copy{z-index:1;width:520px;position:absolute;top:50%;left:clamp(64px,41.667vw - 300px,200px);transform:translateY(-50%)}.cRsBFW_start{width:240px;margin:60px 0 0;display:flex}.cRsBFW_welcomeIllustration{pointer-events:none;width:1247px;height:822px;position:absolute;top:clamp(32px,31.608vh - 157.65px,133.145px);left:min(41.667vw + 112.5px,712.5px)}.cRsBFW_welcomeArtwork{width:1331px;height:auto;position:absolute;top:-40px;left:-67px}.cRsBFW_illustration img{width:100%;height:auto;display:block}.cRsBFW_illustration .cRsBFW_darkIllustration{display:none}body[data-ds-dark-theme] .cRsBFW_lightIllustration{display:none}body[data-ds-dark-theme] .cRsBFW_darkIllustration{display:block}.cRsBFW_credit{grid-template-columns:minmax(0,594px) minmax(0,400px);justify-content:center;align-items:center;gap:clamp(32px,33.3333vw - 331.333px,164px);max-width:1196px;display:grid;transform:translate(-50%,calc(-50% - 5px))}.cRsBFW_creditIllustration{aspect-ratio:594/509;object-fit:contain;width:100%;height:auto}.cRsBFW_credit .cRsBFW_copy{max-width:400px}.cRsBFW_creditActions{gap:24px;margin-top:60px;display:flex}.cRsBFW_creditActions>button{flex:1;max-width:160px}.cRsBFW_creditActions .cRsBFW_laterAction{background:var(--dsw-alias-onboarding-secondary-fill)}.cRsBFW_creditActions .cRsBFW_laterAction:hover:not(:disabled){background:linear-gradient(var(--dsw-alias-interactive-bg-hover), var(--dsw-alias-interactive-bg-hover)), var(--dsw-alias-onboarding-secondary-fill)}.cRsBFW_page button{transition:background-color .12s,color .12s,opacity .12s}.cRsBFW_purpose,.cRsBFW_process{flex-direction:column;align-items:center;gap:48px;display:flex;top:calc(50% - 188.5px);transform:translate(-50%)}.cRsBFW_purpose{max-width:843px}.cRsBFW_process{max-width:1130px}.cRsBFW_purpose .cRsBFW_copy,.cRsBFW_process .cRsBFW_copy{text-align:center}.cRsBFW_purpose .cRsBFW_copy h1,.cRsBFW_process .cRsBFW_copy h1{font-size:28px;line-height:39px}.cRsBFW_purpose .cRsBFW_brand{line-height:0}.cRsBFW_subtitle{color:var(--dsw-alias-label-tertiary);margin:16px 0 0;font-size:16px;font-weight:300;line-height:22px}.cRsBFW_purposeCards,.cRsBFW_processCards{align-items:stretch;gap:16px;width:100%;display:grid}.cRsBFW_purposeCards{grid-template-columns:repeat(2,minmax(0,1fr));gap:17px}.cRsBFW_processCards{box-sizing:border-box;grid-template-columns:repeat(3,minmax(0,1fr));min-height:225px;padding-block:1.5px}.cRsBFW_card{-webkit-app-region:no-drag;--card-border-stops:var(--dsw-gradient-onboarding-blue-stops);box-sizing:border-box;background:var(--dsw-alias-onboarding-card-fill);min-width:0;min-height:222px;box-shadow:8px 8px 24px color-mix(in srgb, var(--dsw-alias-onboarding-accent) 8%, transparent), 4px 4px 12px color-mix(in srgb, var(--dsw-alias-onboarding-accent) 4%, transparent);color:inherit;font:inherit;text-align:left;cursor:pointer;backdrop-filter:blur(32.609px);border:0;border-radius:32px;flex-direction:column;align-items:flex-start;padding:48.5px 32.5px 64.5px;transition:background-color .12s;display:flex;position:relative}.cRsBFW_card:before,.cRsBFW_card:after{content:\"\";border-radius:inherit;pointer-events:none;transition:opacity .12s,border-color .12s;position:absolute;inset:0}.cRsBFW_card:before{border:.5px solid var(--dsw-alias-border-l2)}.cRsBFW_card:after{background:conic-gradient(from var(--dsh-onboarding-border-angle), var(--card-border-stops));opacity:0;padding:2px;mask-image:linear-gradient(#fff 0 0),linear-gradient(#fff 0 0);mask-position:0 0,0 0;mask-size:auto,auto;mask-repeat:repeat,repeat;mask-clip:content-box,border-box;mask-origin:content-box,border-box;mask-composite:exclude;mask-mode:match-source,match-source}.cRsBFW_card:hover:before{border-color:var(--dsw-alias-border-l4)}.cRsBFW_card:hover:after{opacity:.35}.cRsBFW_selected:before{opacity:0}.cRsBFW_selected:after,.cRsBFW_selected:hover:after{opacity:1}.cRsBFW_selected:after{animation:14s linear infinite cRsBFW_borderSweep}.cRsBFW_officeCard,.cRsBFW_card[data-process=compact]{--card-border-stops:var(--dsw-gradient-onboarding-violet-stops)}.cRsBFW_card[data-process=detailed]{--card-border-stops:var(--dsw-gradient-onboarding-cyan-stops)}@property --dsh-onboarding-border-angle{syntax:\"<angle>\";inherits:false;initial-value:90deg}@keyframes cRsBFW_borderSweep{0%{--dsh-onboarding-border-angle:90deg}to{--dsh-onboarding-border-angle:450deg}}.cRsBFW_card:focus-visible,html:not([data-input-modality=pointer]) .cRsBFW_card:has(:focus-visible){outline:2px solid var(--dsw-focus-ring-color,var(--dsw-alias-state-business-primary));outline-offset:5px}.cRsBFW_card[aria-disabled=true]{cursor:wait}.cRsBFW_cardTop{justify-content:space-between;align-items:center;gap:12px;width:100%;height:40px;margin-bottom:12px;display:flex}.cRsBFW_cardCheckbox{position:static}.cRsBFW_card .cRsBFW_cardCheckbox input:focus-visible,.cRsBFW_card .cRsBFW_cardCheckbox input:focus-visible+span{outline:none}.cRsBFW_cardCheckbox:after{content:\"\";z-index:1;cursor:pointer;position:absolute;inset:0}.cRsBFW_fileIcons{align-items:center;gap:clamp(2px,.56vw,8px);display:flex}.cRsBFW_fileIcons>svg{transform-origin:0;flex:none}.cRsBFW_iconsEntering>svg{animation:cRsBFW_iconEnter var(--ds-transition-duration) var(--ds-ease-in-out) both}.cRsBFW_iconsEntering>svg:nth-child(2){animation-delay:30ms}.cRsBFW_iconsEntering>svg:nth-child(3){animation-delay:50ms}.cRsBFW_iconsEntering>svg:nth-child(4){animation-delay:62ms}.cRsBFW_iconsEntering>svg:nth-child(5){animation-delay:70ms}@keyframes cRsBFW_iconEnter{0%{opacity:0;transform:scale(.8)}to{opacity:1;transform:scale(1)}}.cRsBFW_cardTitle{font-size:20px;font-weight:400;line-height:28px}.cRsBFW_cardDescription{color:var(--dsw-alias-label-tertiary);margin-top:8px;font-size:15px;font-weight:300;line-height:21px}.cRsBFW_processIcon{justify-content:center;align-items:center;width:40px;height:40px;margin-bottom:12px;display:flex}.cRsBFW_primaryAction{justify-content:center;width:100%;min-height:44px;margin-top:100px;display:flex;position:absolute;top:100%}.cRsBFW_primaryAction>button{width:min(240px,100%)}.cRsBFW_primaryAction>button[aria-disabled=true]{cursor:wait}.cRsBFW_navigation{pointer-events:none;width:min(calc(100% - 2 * var(--page-padding)), 1200px);justify-content:space-between;display:flex;position:absolute;bottom:clamp(24px,7.61vh,70px);left:50%;transform:translate(-50%)}.cRsBFW_navigation button{pointer-events:auto;color:var(--dsw-alias-label-tertiary);font:inherit;cursor:pointer;background:0 0;border:0;align-items:center;gap:20px;padding:0;font-size:16px;font-weight:300;line-height:32px;display:flex}.cRsBFW_navigation button:focus-visible{outline:2px solid var(--dsw-focus-ring-color,var(--dsw-alias-state-business-primary));outline-offset:5px}.cRsBFW_navigation button:hover:not(:disabled){color:var(--dsw-alias-label-primary)}.cRsBFW_backIcon{background:currentColor;flex:none;width:17px;height:14px;mask-position:50%;mask-size:contain;mask-repeat:no-repeat}.cRsBFW_status{font-size:14px;line-height:22px;position:absolute;bottom:12px;left:50%;transform:translate(-50%)}.cRsBFW_confirmation{color:var(--dsw-alias-label-primary);padding:22px 24px 0}.cRsBFW_confirmationHeading{justify-content:space-between;align-items:center;gap:8px;margin-bottom:12px;display:flex}.cRsBFW_confirmation h2{margin:0;font-size:16px;font-weight:500;line-height:24px}.cRsBFW_confirmationClose{width:28px;height:28px;color:var(--dsw-alias-label-secondary);cursor:pointer;background:0 0;border:0;border-radius:28px;flex:none;justify-content:center;align-items:center;display:flex}.cRsBFW_confirmationClose:hover{background:var(--dsw-alias-interactive-bg-hover)}.cRsBFW_confirmation p{margin:0;font-size:14px;line-height:22px}.cRsBFW_confirmationActions{justify-content:flex-end;gap:8px;margin-top:20px;display:flex}.cRsBFW_dialogButton{font-family:var(--dsw-font-family);border-radius:12px;font-weight:500}.cRsBFW_dialogButton:first-child{font-weight:400}@media (height<=760px){.cRsBFW_purpose,.cRsBFW_process{top:calc(50% - 180px)}.cRsBFW_purpose .cRsBFW_copy h1,.cRsBFW_process .cRsBFW_copy h1{font-size:28px;line-height:39px}.cRsBFW_subtitle{margin-top:16px;line-height:21px}.cRsBFW_card{min-height:187px;padding:24.5px 32.5px 32.5px}.cRsBFW_processCards{min-height:0;padding-block:0}.cRsBFW_primaryAction{margin-top:40px}.cRsBFW_creditActions{margin-top:32px}}@media (width<=1200px){.cRsBFW_welcomeIllustration{left:calc(73.333vw - 267.5px)}}@media (height>=920px){.cRsBFW_welcomeIllustration{top:calc(50% - 326.855px)}}@media (width<=1100px){.cRsBFW_page{--page-padding:40px}.cRsBFW_copy h1{font-size:26px;line-height:40px}.cRsBFW_heroDescription{font-size:16px;line-height:28px}.cRsBFW_welcome .cRsBFW_copy h1{font-size:28px;line-height:48px}.cRsBFW_fileIcons{gap:3px}}@media (height<=560px){.cRsBFW_page{overflow:auto}}@media (prefers-reduced-motion:reduce){.cRsBFW_page button,.cRsBFW_card,.cRsBFW_card:before,.cRsBFW_card:after{transition:none}.cRsBFW_page,.cRsBFW_fileIcons>svg,.cRsBFW_selected:after{animation:none}}.cRsBFW_page .cRsBFW_action{height:44px;font-family:var(--dsw-font-family);border-radius:12px;padding:0 24px;font-size:14px;font-weight:500;line-height:22px}.cRsBFW_page .cRsBFW_action:focus-visible{outline:2px solid var(--dsw-focus-ring-color,var(--dsw-alias-state-business-primary));outline-offset:3px}.cRsBFW_page:lang(en) .cRsBFW_navigation button{font-family:var(--dsw-font-family-brand)}.cRsBFW_cardCheckbox input{opacity:0;width:24px;height:24px;margin:0;position:absolute}.cRsBFW_indicator{box-sizing:border-box;border:2px solid var(--dsw-alias-onboarding-checkbox-border);width:24px;height:24px;color:var(--dsw-alias-label-primary-foreground);pointer-events:none;background:0 0;border-radius:6px;flex:none;justify-content:center;align-items:center;display:inline-flex}.cRsBFW_indicator svg{visibility:hidden}.cRsBFW_cardCheckbox input:checked+.cRsBFW_indicator{border-color:var(--dsw-alias-brand-primary);background:var(--dsw-alias-brand-primary)}.cRsBFW_cardCheckbox input:checked+.cRsBFW_indicator svg{visibility:visible}";
 		const tagId = "@deepseek-ai/dsh-client-ui-settings-account/DesktopOnboarding.module.css";
 		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId) + "]") === null) {
 			const tag = document.createElement("style");
@@ -3365,53 +3366,53 @@ window.__ModuleLoader__.load({
 			document.head.appendChild(tag);
 		}
 		var DesktopOnboarding_module_css_default = {
-			"action": "TZHSza_action",
-			"backIcon": "TZHSza_backIcon",
-			"blurred": "TZHSza_blurred",
-			"borderSweep": "TZHSza_borderSweep",
-			"brand": "TZHSza_brand",
-			"card": "TZHSza_card",
-			"cardCheckbox": "TZHSza_cardCheckbox",
-			"cardDescription": "TZHSza_cardDescription",
-			"cardTitle": "TZHSza_cardTitle",
-			"cardTop": "TZHSza_cardTop",
-			"confirmation": "TZHSza_confirmation",
-			"confirmationActions": "TZHSza_confirmationActions",
-			"confirmationClose": "TZHSza_confirmationClose",
-			"confirmationHeading": "TZHSza_confirmationHeading",
-			"content": "TZHSza_content",
-			"copy": "TZHSza_copy",
-			"credit": "TZHSza_credit",
-			"creditActions": "TZHSza_creditActions",
-			"creditIllustration": "TZHSza_creditIllustration",
-			"darkIllustration": "TZHSza_darkIllustration",
-			"dialogButton": "TZHSza_dialogButton",
-			"fileIcons": "TZHSza_fileIcons",
-			"heroDescription": "TZHSza_heroDescription",
-			"iconEnter": "TZHSza_iconEnter",
-			"iconsEntering": "TZHSza_iconsEntering",
-			"illustration": "TZHSza_illustration",
-			"indicator": "TZHSza_indicator",
-			"laterAction": "TZHSza_laterAction",
-			"lightIllustration": "TZHSza_lightIllustration",
-			"loading": "TZHSza_loading",
-			"navigation": "TZHSza_navigation",
-			"officeCard": "TZHSza_officeCard",
-			"page": "TZHSza_page",
-			"pageEnter": "TZHSza_pageEnter",
-			"primaryAction": "TZHSza_primaryAction",
-			"process": "TZHSza_process",
-			"processCards": "TZHSza_processCards",
-			"processIcon": "TZHSza_processIcon",
-			"purpose": "TZHSza_purpose",
-			"purposeCards": "TZHSza_purposeCards",
-			"selected": "TZHSza_selected",
-			"start": "TZHSza_start",
-			"status": "TZHSza_status",
-			"subtitle": "TZHSza_subtitle",
-			"welcome": "TZHSza_welcome",
-			"welcomeArtwork": "TZHSza_welcomeArtwork",
-			"welcomeIllustration": "TZHSza_welcomeIllustration"
+			"action": "cRsBFW_action",
+			"backIcon": "cRsBFW_backIcon",
+			"blurred": "cRsBFW_blurred",
+			"borderSweep": "cRsBFW_borderSweep",
+			"brand": "cRsBFW_brand",
+			"card": "cRsBFW_card",
+			"cardCheckbox": "cRsBFW_cardCheckbox",
+			"cardDescription": "cRsBFW_cardDescription",
+			"cardTitle": "cRsBFW_cardTitle",
+			"cardTop": "cRsBFW_cardTop",
+			"confirmation": "cRsBFW_confirmation",
+			"confirmationActions": "cRsBFW_confirmationActions",
+			"confirmationClose": "cRsBFW_confirmationClose",
+			"confirmationHeading": "cRsBFW_confirmationHeading",
+			"content": "cRsBFW_content",
+			"copy": "cRsBFW_copy",
+			"credit": "cRsBFW_credit",
+			"creditActions": "cRsBFW_creditActions",
+			"creditIllustration": "cRsBFW_creditIllustration",
+			"darkIllustration": "cRsBFW_darkIllustration",
+			"dialogButton": "cRsBFW_dialogButton",
+			"fileIcons": "cRsBFW_fileIcons",
+			"heroDescription": "cRsBFW_heroDescription",
+			"iconEnter": "cRsBFW_iconEnter",
+			"iconsEntering": "cRsBFW_iconsEntering",
+			"illustration": "cRsBFW_illustration",
+			"indicator": "cRsBFW_indicator",
+			"laterAction": "cRsBFW_laterAction",
+			"lightIllustration": "cRsBFW_lightIllustration",
+			"loading": "cRsBFW_loading",
+			"navigation": "cRsBFW_navigation",
+			"officeCard": "cRsBFW_officeCard",
+			"page": "cRsBFW_page",
+			"pageEnter": "cRsBFW_pageEnter",
+			"primaryAction": "cRsBFW_primaryAction",
+			"process": "cRsBFW_process",
+			"processCards": "cRsBFW_processCards",
+			"processIcon": "cRsBFW_processIcon",
+			"purpose": "cRsBFW_purpose",
+			"purposeCards": "cRsBFW_purposeCards",
+			"selected": "cRsBFW_selected",
+			"start": "cRsBFW_start",
+			"status": "cRsBFW_status",
+			"subtitle": "cRsBFW_subtitle",
+			"welcome": "cRsBFW_welcome",
+			"welcomeArtwork": "cRsBFW_welcomeArtwork",
+			"welcomeIllustration": "cRsBFW_welcomeIllustration"
 		};
 		//#endregion
 		//#region lib/types/client/OnboardingIllustration.js
@@ -3783,7 +3784,7 @@ window.__ModuleLoader__.load({
 		//#region lib/types/client/OnboardingConfirmation.js
 		/** Credit and setup confirmations with contained keyboard focus. */
 		/** @param props - confirmation action, localized copy and navigation callbacks. @returns a focus-contained dialog. */
-		function OnboardingConfirmation({ kind, t, busy, canRecharge, onClose, onContinue, onRecharge, onSkip }) {
+		function OnboardingConfirmation({ kind, t, busy, canRecharge, onClose, onContinueSetup, onContinue, onRecharge, onSkip }) {
 			const credit = kind !== "skip";
 			const title = t(credit ? "onboardingNoCreditTitle" : "onboardingSkipTitle");
 			return (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Modal, {
@@ -3812,7 +3813,7 @@ window.__ModuleLoader__.load({
 								className: DesktopOnboarding_module_css_default.dialogButton,
 								variant: "outline",
 								disabled: busy,
-								onClick: kind === "credit-skip" ? onSkip : kind === "credit" ? onContinue : onClose,
+								onClick: kind === "credit-skip" ? onSkip : kind === "credit" ? onContinue : onContinueSetup,
 								children: t(credit ? "onboardingUnderstood" : "onboardingKeepSetting")
 							}), (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
 								className: DesktopOnboarding_module_css_default.dialogButton,
@@ -3828,12 +3829,18 @@ window.__ModuleLoader__.load({
 		}
 		//#endregion
 		//#region lib/types/client/DesktopOnboarding.js
-		/** Coordinates onboarding navigation, transitions and the shared native recharge page. */
+		const onboardingPages = {
+			welcome: "onboarding_welcome",
+			credit: "onboarding_recharge",
+			purpose: "onboarding_use_case",
+			process: "onboarding_process",
+			done: void 0
+		};
 		/**
 		* @param props - durable choices, account state, localized copy and the shared recharge page channel.
 		* @returns the active first-run page.
 		*/
-		function DesktopOnboarding({ state, account, openPlatformPage, update, complete, retry, t, locale, exiting = false }) {
+		function DesktopOnboarding({ state, account, openPlatformPage, update, complete, retry, t, locale, track, exiting = false }) {
 			const [dialog, setDialog] = (0, react.useState)(null);
 			const heading = (0, react.useRef)(null);
 			const page = (0, react.useRef)(null);
@@ -3872,12 +3879,69 @@ window.__ModuleLoader__.load({
 			(0, react.useEffect)(() => {
 				heading.current?.focus();
 			}, [step]);
+			const pageName = onboardingPages[step];
+			const shownPage = (0, react.useRef)(null);
+			(0, react.useEffect)(() => {
+				if (!state.visible || pageName === void 0 || exiting) {
+					shownPage.current = null;
+					return;
+				}
+				if (state.status === "loading") return;
+				if (shownPage.current === pageName) return;
+				shownPage.current = pageName;
+				track?.("onboarding_page_view", { page_name: pageName });
+			}, [
+				state.visible,
+				state.status,
+				step,
+				pageName,
+				exiting,
+				track
+			]);
+			const shownPopup = (0, react.useRef)(null);
+			(0, react.useEffect)(() => {
+				if (dialog === null || !state.visible || state.status === "loading" || step === "done") {
+					shownPopup.current = null;
+					return;
+				}
+				if (shownPopup.current === dialog) return;
+				shownPopup.current = dialog;
+				track?.("onboarding_popup_view", { popup_name: dialog === "skip" ? "skip_setting" : "skip_charge" });
+			}, [
+				dialog,
+				track,
+				state.visible,
+				state.status,
+				step
+			]);
+			const popupClick = (button_name) => {
+				track?.("onboarding_popup_click", {
+					popup_name: dialog === "skip" ? "skip_setting" : "skip_charge",
+					button_name
+				});
+			};
 			if (state.visible && state.status === "loading") return (0, react_jsx_runtime.jsx)(OnboardingSurface, { children: (0, react_jsx_runtime.jsx)("div", {
 				className: DesktopOnboarding_module_css_default.loading,
 				role: "status",
 				children: t("onboardingLoading")
 			}) });
-			if (!state.visible || step === "done") return null;
+			if (!state.visible || pageName === void 0) return null;
+			const click = (button_name) => {
+				const selected_content = step === "purpose" && progress.purpose !== null ? {
+					office: "office",
+					development: "code",
+					both: "code_office"
+				}[progress.purpose] : step === "process" && progress.process !== null ? {
+					compact: "focus_result",
+					standard: "key_detail",
+					detailed: "full_process"
+				}[progress.process] : void 0;
+				track?.("onboarding_page_click", {
+					page_name: pageName,
+					button_name,
+					...selected_content === void 0 ? {} : { selected_content }
+				});
+			};
 			const go = (next) => {
 				update({ step: next });
 			};
@@ -3914,6 +3978,7 @@ window.__ModuleLoader__.load({
 							heading,
 							busy,
 							onStart: () => {
+								click("next");
 								go("credit");
 							}
 						}),
@@ -3925,10 +3990,17 @@ window.__ModuleLoader__.load({
 							funded: state.creditFunded,
 							canRecharge,
 							onContinue: () => {
+								click("continue");
 								go("purpose");
 							},
-							onRecharge: recharge,
-							onLater: later
+							onRecharge: () => {
+								click("charge");
+								recharge();
+							},
+							onLater: () => {
+								click("later");
+								later();
+							}
 						}),
 						step === "purpose" && (0, react_jsx_runtime.jsx)(OnboardingPurposeStep, {
 							t,
@@ -3938,7 +4010,10 @@ window.__ModuleLoader__.load({
 							onSelect: (purpose) => {
 								update({ purpose });
 							},
-							onContinue: purposeNext
+							onContinue: () => {
+								click("next");
+								purposeNext();
+							}
 						}),
 						step === "process" && (0, react_jsx_runtime.jsx)(OnboardingProcessStep, {
 							t,
@@ -3949,6 +4024,7 @@ window.__ModuleLoader__.load({
 								update({ process });
 							},
 							onComplete: () => {
+								click("next");
 								complete("completed");
 							}
 						}),
@@ -3969,6 +4045,7 @@ window.__ModuleLoader__.load({
 								type: "button",
 								disabled: busy,
 								onClick: () => {
+									click("back");
 									go(step === "credit" ? "welcome" : step === "purpose" ? "credit" : "purpose");
 								},
 								children: [(0, react_jsx_runtime.jsx)("span", {
@@ -3980,6 +4057,7 @@ window.__ModuleLoader__.load({
 								type: "button",
 								disabled: busy,
 								onClick: () => {
+									click("skip");
 									setDialog(step === "credit" ? "credit-skip" : "skip");
 								},
 								children: t("onboardingSkip")
@@ -3993,14 +4071,24 @@ window.__ModuleLoader__.load({
 				busy,
 				canRecharge,
 				onClose: () => {
+					popupClick("close");
+					setDialog(null);
+				},
+				onContinueSetup: () => {
+					popupClick("setting");
 					setDialog(null);
 				},
 				onContinue: () => {
+					popupClick("know");
 					setDialog(null);
 					go("purpose");
 				},
-				onRecharge: recharge,
+				onRecharge: () => {
+					popupClick("charge");
+					recharge();
+				},
 				onSkip: () => {
+					popupClick(dialog === "skip" ? "enter" : "know");
 					complete("skipped").then(() => {
 						setDialog(null);
 					});
@@ -4125,7 +4213,7 @@ window.__ModuleLoader__.load({
 				for (const listener of listeners) listener();
 			};
 			/** @returns the client identity for one account call, read at call time so it carries the language and zone in effect then. */
-			const client = () => accountClientMetadata(ctx.locale.getSnapshot().active, "0.1.7-rc.2");
+			const client = () => accountClientMetadata(ctx.locale.getSnapshot().active, "0.2.0-rc.1");
 			const notices = createBonusNoticeController({
 				ackRetryDelayMs: config.bonusAckRetryDelayMs,
 				ackRetryMaxDelayMs: config.bonusAckRetryMaxDelayMs,
@@ -4255,14 +4343,33 @@ window.__ModuleLoader__.load({
 				...nativePlatform === void 0 ? {} : { openPlatformPage: platformPageOpener(refreshAccount) },
 				refreshAccount,
 				contactUs() {
-					const url = contactUrl(config, {
-						version: "0.1.7-rc.2",
+					const profile = snapshot.details?.profile;
+					const context = {
+						uid: profile?.status === "ready" ? profile.value.id : null,
+						version: "0.2.0-rc.1",
 						locale: ctx.locale.getSnapshot().active === "zh" ? "zh-CN" : "en",
 						width: window.screen.width,
 						height: window.screen.height,
 						pixelRatio: window.devicePixelRatio
-					});
-					window.open(url, "_blank", "noopener,noreferrer");
+					};
+					const openForm = (deviceInfo) => {
+						window.open(contactUrl(config, {
+							...context,
+							deviceInfo
+						}), "_blank", "noopener,noreferrer");
+					};
+					const readDeviceInfo = globalThis.dshDesktop?.deviceInfo;
+					if (readDeviceInfo === void 0) {
+						openForm(navigator.userAgent);
+						return;
+					}
+					(async () => {
+						let deviceInfo = "";
+						try {
+							deviceInfo = await readDeviceInfo();
+						} catch (_error) {}
+						openForm(deviceInfo);
+					})();
 				},
 				showLogin(visible) {
 					publish({
@@ -4358,7 +4465,8 @@ window.__ModuleLoader__.load({
 						...nativePlatform === void 0 ? {} : { openPlatformPage: platformPageOpener(refresh) },
 						update: (change) => controller.update(change),
 						complete: (reason) => controller.complete(reason),
-						retry: () => controller.retry()
+						retry: () => controller.retry(),
+						track: (name, attributes) => ctx.get("productAnalytics")?.track(name, attributes)
 					})
 				}, DesktopOnboardingEntry));
 			}
@@ -4425,4 +4533,4 @@ window.__ModuleLoader__.load({
 	}
 });
 ;
-//# sourceMappingURL=??@deepseek-ai/dsh-client-ui-settings-account/client.js.map&rev=190430b12d21
+//# sourceMappingURL=??@deepseek-ai/dsh-client-ui-settings-account/client.js.map&rev=3a67ef8f7401

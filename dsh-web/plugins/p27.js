@@ -56,8 +56,8 @@ window.__ModuleLoader__.load({
 			return n;
 		}
 		//#endregion
-		//#region \0dsh-css:D:\Agent Router\deepseek-harness\packages\client\ui-settings-general\src\client\SettingsRoot.module.css.mjs
-		const css$6 = ".Qr_3fG_triggerRow{flex:none;align-items:center;gap:8px;width:calc(100% + 4px);margin:4px -2px;display:flex;position:relative}.Qr_3fG_triggerRow.Qr_3fG_railRow{width:36px;margin:8px 0 10px}.Qr_3fG_trigger{box-sizing:border-box;border-radius:var(--dsw-radius-md);cursor:pointer;width:auto;min-width:0;height:42px;color:var(--dsw-alias-label-primary);background:0 0;border:none;flex:1;align-items:center;gap:8px;margin:0;padding:0 10px 0 8px;font-family:inherit;font-size:14px;line-height:22px;display:flex;overflow:hidden}.Qr_3fG_trigger:hover{background:var(--dsw-alias-interactive-bg-hover)}.Qr_3fG_trigger.Qr_3fG_rail{flex:none;justify-content:center;gap:0;width:36px;height:36px;margin:0;padding:0}.Qr_3fG_triggerLabel{white-space:nowrap;overflow:hidden}.Qr_3fG_overlay{z-index:1000;justify-content:center;align-items:center;display:flex;position:fixed;inset:0}.Qr_3fG_mask{background:var(--dsw-alias-bg-mask-1);backdrop-filter:var(--dsw-mask-blur);position:absolute;inset:0}.Qr_3fG_panel{z-index:1;width:800px;height:min(800px, calc(100vh - 2 * max(24px, var(--dsh-frame-top-clearance,24px))));border-radius:var(--dsw-radius-panel);background:var(--dsw-alias-bg-layer-2);max-width:calc(100vw - 48px);box-shadow:var(--dsw-elevation-prominent);--dsh-scrollbar-thumb:var(--dsw-alias-scrollbar-bg-l2);--dsh-scrollbar-thumb-hover:var(--dsw-alias-scrollbar-hover-l2);display:flex;position:relative;overflow:hidden}.Qr_3fG_panel:focus{outline:none}.Qr_3fG_nav{box-sizing:border-box;flex-direction:column;flex:none;gap:18px;width:188px;padding:22px 12px 0;display:flex}.Qr_3fG_navTitle{color:var(--dsw-alias-label-primary);padding:0 12px;font-size:16px;font-weight:500;line-height:24px}.Qr_3fG_navList{flex-direction:column;gap:4px;display:flex;overflow-y:auto}.Qr_3fG_navCell{box-sizing:border-box;border-radius:var(--dsw-radius-md);cursor:pointer;height:40px;color:var(--dsw-alias-label-primary);text-align:left;background:0 0;border:none;align-items:center;gap:8px;padding:9px 16px 9px 12px;font-family:inherit;font-size:14px;font-weight:400;line-height:22px;display:flex}.Qr_3fG_navCell:hover{background:var(--dsw-specific-sidebar-nav-item-hover)}.Qr_3fG_navCell.Qr_3fG_active{background:var(--dsw-specific-sidebar-nav-item-active)}.Qr_3fG_navIcon{flex:none}.Qr_3fG_navLabel{white-space:nowrap;text-overflow:ellipsis;flex:1;min-width:0;overflow:hidden}.Qr_3fG_content{flex-direction:column;flex:1;min-width:0;display:flex}.Qr_3fG_header{box-sizing:border-box;flex:none;justify-content:space-between;align-items:flex-start;gap:8px;height:54px;padding:20px 14px 8px 10px;display:flex}.Qr_3fG_actions{justify-content:flex-end;align-items:center;gap:8px;min-width:0;margin-left:auto;display:flex}.Qr_3fG_close{border-radius:var(--dsw-radius-sm);cursor:pointer;width:28px;height:28px;color:var(--dsw-alias-label-primary);background:0 0;border:none;justify-content:center;align-items:center;padding:0;display:inline-flex}.Qr_3fG_close:hover{background:var(--dsw-alias-interactive-bg-hover)}.Qr_3fG_options{flex:1;min-height:0;padding:0 24px 24px;overflow-y:auto}.Qr_3fG_hiddenLabel{clip:rect(0 0 0 0);white-space:nowrap;width:1px;height:1px;position:absolute;overflow:hidden}";
+		//#region \0dsh-css:D:\deepseek-harness\packages\client\ui-settings-general\src\client\SettingsRoot.module.css.mjs
+		const css$6 = ".wajtAG_triggerRow{flex:none;align-items:center;gap:8px;width:calc(100% + 4px);margin:4px -2px;display:flex;position:relative}.wajtAG_triggerRow.wajtAG_railRow{width:36px;margin:8px 0 10px}.wajtAG_trigger{box-sizing:border-box;border-radius:var(--dsw-radius-md);cursor:pointer;width:auto;min-width:0;height:42px;color:var(--dsw-alias-label-primary);background:0 0;border:none;flex:1;align-items:center;gap:8px;margin:0;padding:0 10px 0 8px;font-family:inherit;font-size:14px;line-height:22px;display:flex;overflow:hidden}.wajtAG_trigger:hover{background:var(--dsw-alias-interactive-bg-hover)}.wajtAG_trigger.wajtAG_rail{flex:none;justify-content:center;gap:0;width:36px;height:36px;margin:0;padding:0}.wajtAG_triggerLabel{white-space:nowrap;overflow:hidden}.wajtAG_overlay{z-index:1000;justify-content:center;align-items:center;display:flex;position:fixed;inset:0}.wajtAG_mask{inset:var(--dsh-frame-chrome-top,0px) 0 0;background:var(--dsw-alias-bg-mask-1);backdrop-filter:var(--dsw-mask-blur);position:absolute}.wajtAG_panel{z-index:1;width:800px;height:min(800px, calc(100vh - 2 * max(24px, var(--dsh-frame-overlay-top,24px))));border-radius:var(--dsw-radius-panel);background:var(--dsw-alias-bg-layer-2);max-width:calc(100vw - 48px);box-shadow:var(--dsw-elevation-prominent);--dsh-scrollbar-thumb:var(--dsw-alias-scrollbar-bg-l2);--dsh-scrollbar-thumb-hover:var(--dsw-alias-scrollbar-hover-l2);display:flex;position:relative;overflow:hidden}.wajtAG_panel:focus{outline:none}.wajtAG_nav{box-sizing:border-box;flex-direction:column;flex:none;gap:18px;width:188px;padding:22px 12px 0;display:flex}.wajtAG_navTitle{color:var(--dsw-alias-label-primary);padding:0 12px;font-size:16px;font-weight:500;line-height:24px}.wajtAG_navList{flex-direction:column;gap:4px;display:flex;overflow-y:auto}.wajtAG_navCell{box-sizing:border-box;border-radius:var(--dsw-radius-md);cursor:pointer;height:40px;color:var(--dsw-alias-label-primary);text-align:left;background:0 0;border:none;align-items:center;gap:8px;padding:9px 16px 9px 12px;font-family:inherit;font-size:14px;font-weight:400;line-height:22px;display:flex}.wajtAG_navCell:hover{background:var(--dsw-specific-sidebar-nav-item-hover)}.wajtAG_navCell.wajtAG_active{background:var(--dsw-specific-sidebar-nav-item-active)}.wajtAG_navIcon{flex:none}.wajtAG_navLabel{white-space:nowrap;text-overflow:ellipsis;flex:1;min-width:0;overflow:hidden}.wajtAG_content{flex-direction:column;flex:1;min-width:0;display:flex}.wajtAG_header{box-sizing:border-box;flex:none;justify-content:space-between;align-items:flex-start;gap:8px;height:54px;padding:20px 14px 8px 10px;display:flex}.wajtAG_actions{justify-content:flex-end;align-items:center;gap:8px;min-width:0;margin-left:auto;display:flex}.wajtAG_close{border-radius:var(--dsw-radius-sm);cursor:pointer;width:28px;height:28px;color:var(--dsw-alias-label-primary);background:0 0;border:none;justify-content:center;align-items:center;padding:0;display:inline-flex}.wajtAG_close:hover{background:var(--dsw-alias-interactive-bg-hover)}.wajtAG_options{flex:1;min-height:0;padding:0 24px 24px;overflow-y:auto}.wajtAG_hiddenLabel{clip:rect(0 0 0 0);white-space:nowrap;width:1px;height:1px;position:absolute;overflow:hidden}";
 		const tagId$6 = "@deepseek-ai/dsh-client-ui-settings-general/SettingsRoot.module.css";
 		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId$6) + "]") === null) {
 			const tag = document.createElement("style");
@@ -67,31 +67,31 @@ window.__ModuleLoader__.load({
 			document.head.appendChild(tag);
 		}
 		var SettingsRoot_module_css_default = {
-			"actions": "Qr_3fG_actions",
-			"active": "Qr_3fG_active",
-			"close": "Qr_3fG_close",
-			"content": "Qr_3fG_content",
-			"header": "Qr_3fG_header",
-			"hiddenLabel": "Qr_3fG_hiddenLabel",
-			"mask": "Qr_3fG_mask",
-			"nav": "Qr_3fG_nav",
-			"navCell": "Qr_3fG_navCell",
-			"navIcon": "Qr_3fG_navIcon",
-			"navLabel": "Qr_3fG_navLabel",
-			"navList": "Qr_3fG_navList",
-			"navTitle": "Qr_3fG_navTitle",
-			"options": "Qr_3fG_options",
-			"overlay": "Qr_3fG_overlay",
-			"panel": "Qr_3fG_panel",
-			"rail": "Qr_3fG_rail",
-			"railRow": "Qr_3fG_railRow",
-			"trigger": "Qr_3fG_trigger",
-			"triggerLabel": "Qr_3fG_triggerLabel",
-			"triggerRow": "Qr_3fG_triggerRow"
+			"actions": "wajtAG_actions",
+			"active": "wajtAG_active",
+			"close": "wajtAG_close",
+			"content": "wajtAG_content",
+			"header": "wajtAG_header",
+			"hiddenLabel": "wajtAG_hiddenLabel",
+			"mask": "wajtAG_mask",
+			"nav": "wajtAG_nav",
+			"navCell": "wajtAG_navCell",
+			"navIcon": "wajtAG_navIcon",
+			"navLabel": "wajtAG_navLabel",
+			"navList": "wajtAG_navList",
+			"navTitle": "wajtAG_navTitle",
+			"options": "wajtAG_options",
+			"overlay": "wajtAG_overlay",
+			"panel": "wajtAG_panel",
+			"rail": "wajtAG_rail",
+			"railRow": "wajtAG_railRow",
+			"trigger": "wajtAG_trigger",
+			"triggerLabel": "wajtAG_triggerLabel",
+			"triggerRow": "wajtAG_triggerRow"
 		};
 		//#endregion
-		//#region \0dsh-css:D:\Agent Router\deepseek-harness\packages\client\ui-settings-general\src\client\DesktopUpdateIndicator.module.css.mjs
-		const css$5 = ".MTFOVG_indicator{box-sizing:border-box;border:1px solid color-mix(in srgb, var(--dsw-alias-brand-primary-new-colorprimary-new-color) 20%, transparent);border-radius:var(--dsw-radius-sm);height:28px;color:var(--dsw-alias-brand-primary-new-colorprimary-new-color);background:color-mix(in srgb, var(--dsw-alias-brand-primary-new-colorprimary-new-color) 8%, transparent);text-align:left;white-space:nowrap;cursor:pointer;flex:none;grid-template-columns:14px max-content;align-items:center;column-gap:4px;padding:0 8px;font-family:inherit;font-size:12px;font-weight:500;line-height:18px;display:inline-grid}.MTFOVG_icon{place-items:center;width:14px;height:14px;display:grid}.MTFOVG_badge{inset-inline-end:2px;corner-shape:round;background:var(--dsw-alias-brand-primary-new-colorprimary-new-color);border-radius:50%;width:6px;height:6px;position:absolute;top:2px}.MTFOVG_errorDot{corner-shape:round;background:currentColor;border-radius:50%;width:6px;height:6px}.MTFOVG_spinner{animation:1s linear infinite MTFOVG_spin}@keyframes MTFOVG_spin{to{transform:rotate(360deg)}}@media (prefers-reduced-motion:reduce){.MTFOVG_spinner{animation:none}}.MTFOVG_indicator[aria-disabled=true]{cursor:default}";
+		//#region \0dsh-css:D:\deepseek-harness\packages\client\ui-settings-general\src\client\DesktopUpdateIndicator.module.css.mjs
+		const css$5 = ".sf0CHW_indicator{box-sizing:border-box;border:1px solid color-mix(in srgb, var(--dsw-alias-brand-primary-new-colorprimary-new-color) 20%, transparent);border-radius:var(--dsw-radius-sm);height:28px;color:var(--dsw-alias-brand-primary-new-colorprimary-new-color);background:color-mix(in srgb, var(--dsw-alias-brand-primary-new-colorprimary-new-color) 8%, transparent);text-align:left;white-space:nowrap;cursor:pointer;flex:none;grid-template-columns:14px max-content;align-items:center;column-gap:4px;padding:0 8px;font-family:inherit;font-size:12px;font-weight:500;line-height:18px;display:inline-grid}.sf0CHW_icon{place-items:center;width:14px;height:14px;display:grid}.sf0CHW_badge{inset-inline-end:2px;corner-shape:round;background:var(--dsw-alias-brand-primary-new-colorprimary-new-color);border-radius:50%;width:6px;height:6px;position:absolute;top:2px}.sf0CHW_errorDot{corner-shape:round;background:currentColor;border-radius:50%;width:6px;height:6px}.sf0CHW_spinner{animation:1s linear infinite sf0CHW_spin}@keyframes sf0CHW_spin{to{transform:rotate(360deg)}}@media (prefers-reduced-motion:reduce){.sf0CHW_spinner{animation:none}}.sf0CHW_indicator[aria-disabled=true]{cursor:default}";
 		const tagId$5 = "@deepseek-ai/dsh-client-ui-settings-general/DesktopUpdateIndicator.module.css";
 		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId$5) + "]") === null) {
 			const tag = document.createElement("style");
@@ -101,12 +101,12 @@ window.__ModuleLoader__.load({
 			document.head.appendChild(tag);
 		}
 		var DesktopUpdateIndicator_module_css_default = {
-			"badge": "MTFOVG_badge",
-			"errorDot": "MTFOVG_errorDot",
-			"icon": "MTFOVG_icon",
-			"indicator": "MTFOVG_indicator",
-			"spin": "MTFOVG_spin",
-			"spinner": "MTFOVG_spinner"
+			"badge": "sf0CHW_badge",
+			"errorDot": "sf0CHW_errorDot",
+			"icon": "sf0CHW_icon",
+			"indicator": "sf0CHW_indicator",
+			"spin": "sf0CHW_spin",
+			"spinner": "sf0CHW_spinner"
 		};
 		//#endregion
 		//#region lib/types/client/DesktopUpdateIndicator.js
@@ -128,6 +128,10 @@ window.__ModuleLoader__.load({
 				ready: t("desktop.update.ready"),
 				error: t("desktop.update.retry")
 			}[state.phase];
+			if (state.phase === "checking" || state.phase === "verifying" || state.phase === "installing") return {
+				label,
+				detail: state.version ?? label
+			};
 			if (state.phase === "error") return {
 				label,
 				detail: {
@@ -563,8 +567,8 @@ window.__ModuleLoader__.load({
 			}
 		};
 		//#endregion
-		//#region \0dsh-css:D:\Agent Router\deepseek-harness\packages\client\ui-settings-general\src\client\chrome.module.css.mjs
-		const css$4 = ".Q72hRa_triggerLabel{white-space:nowrap;overflow:hidden}";
+		//#region \0dsh-css:D:\deepseek-harness\packages\client\ui-settings-general\src\client\chrome.module.css.mjs
+		const css$4 = ".rMJ2Ra_triggerLabel{white-space:nowrap;overflow:hidden}";
 		const tagId$4 = "@deepseek-ai/dsh-client-ui-settings-general/chrome.module.css";
 		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId$4) + "]") === null) {
 			const tag = document.createElement("style");
@@ -573,7 +577,7 @@ window.__ModuleLoader__.load({
 			tag.textContent = css$4;
 			document.head.appendChild(tag);
 		}
-		var chrome_module_css_default = { "triggerLabel": "Q72hRa_triggerLabel" };
+		var chrome_module_css_default = { "triggerLabel": "rMJ2Ra_triggerLabel" };
 		//#endregion
 		//#region lib/types/client/chrome.js
 		/**
@@ -610,8 +614,8 @@ window.__ModuleLoader__.load({
 			return (0, react_jsx_runtime.jsx)(react_jsx_runtime.Fragment, { children: t("close") });
 		}
 		//#endregion
-		//#region \0dsh-css:D:\Agent Router\deepseek-harness\packages\client\ui-settings-general\src\client\GeneralSection.module.css.mjs
-		const css$3 = ".NfKRTG_section{flex-direction:column;width:100%;display:flex}.NfKRTG_section>[data-slot=\"settings.general.item\"]>:last-child{border-bottom:none}";
+		//#region \0dsh-css:D:\deepseek-harness\packages\client\ui-settings-general\src\client\GeneralSection.module.css.mjs
+		const css$3 = ".SvguWq_section{flex-direction:column;width:100%;display:flex}.SvguWq_section>[data-slot=\"settings.general.item\"]>:last-child{border-bottom:none}";
 		const tagId$3 = "@deepseek-ai/dsh-client-ui-settings-general/GeneralSection.module.css";
 		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId$3) + "]") === null) {
 			const tag = document.createElement("style");
@@ -620,7 +624,7 @@ window.__ModuleLoader__.load({
 			tag.textContent = css$3;
 			document.head.appendChild(tag);
 		}
-		var GeneralSection_module_css_default = { "section": "NfKRTG_section" };
+		var GeneralSection_module_css_default = { "section": "SvguWq_section" };
 		//#endregion
 		//#region lib/types/client/GeneralSection.js
 		/**
@@ -635,8 +639,8 @@ window.__ModuleLoader__.load({
 			});
 		}
 		//#endregion
-		//#region \0dsh-css:D:\Agent Router\deepseek-harness\packages\client\ui-settings-general\src\client\CurrentVersionRow.module.css.mjs
-		const css$2 = "._7hvG3a_row{color:var(--dsw-alias-label-primary);overflow-wrap:anywhere;padding:16px 0;font-size:14px;line-height:22px}";
+		//#region \0dsh-css:D:\deepseek-harness\packages\client\ui-settings-general\src\client\CurrentVersionRow.module.css.mjs
+		const css$2 = ".xSMImG_row{color:var(--dsw-alias-label-primary);overflow-wrap:anywhere;padding:16px 0;font-size:14px;line-height:22px}";
 		const tagId$2 = "@deepseek-ai/dsh-client-ui-settings-general/CurrentVersionRow.module.css";
 		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId$2) + "]") === null) {
 			const tag = document.createElement("style");
@@ -645,7 +649,7 @@ window.__ModuleLoader__.load({
 			tag.textContent = css$2;
 			document.head.appendChild(tag);
 		}
-		var CurrentVersionRow_module_css_default = { "row": "_7hvG3a_row" };
+		var CurrentVersionRow_module_css_default = { "row": "xSMImG_row" };
 		//#endregion
 		//#region lib/types/client/CurrentVersionRow.js
 		/**
@@ -656,12 +660,12 @@ window.__ModuleLoader__.load({
 		function CurrentVersionRow({ t }) {
 			return (0, react_jsx_runtime.jsx)("div", {
 				className: CurrentVersionRow_module_css_default.row,
-				children: t("general.currentVersion", { version: "0.1.7-rc.2" })
+				children: t("general.currentVersion", { version: "0.2.0-rc.1" })
 			});
 		}
 		//#endregion
-		//#region \0dsh-css:D:\Agent Router\deepseek-harness\packages\client\ui-settings-general\src\client\DeveloperToolsRow.module.css.mjs
-		const css$1 = ".JETKlG_row{border-bottom:.5px solid var(--dsw-alias-border-l2);justify-content:space-between;align-items:center;gap:24px;padding:16px 0;display:flex}.JETKlG_title{font-size:14px;line-height:20px}.JETKlG_description{color:var(--dsw-alias-label-secondary);margin-top:4px;font-size:12px;line-height:18px}";
+		//#region \0dsh-css:D:\deepseek-harness\packages\client\ui-settings-general\src\client\DeveloperToolsRow.module.css.mjs
+		const css$1 = ".YO4NEW_row{border-bottom:.5px solid var(--dsw-alias-border-l2);justify-content:space-between;align-items:center;gap:24px;padding:16px 0;display:flex}.YO4NEW_title{font-size:14px;line-height:20px}.YO4NEW_description{color:var(--dsw-alias-label-secondary);margin-top:4px;font-size:12px;line-height:18px}";
 		const tagId$1 = "@deepseek-ai/dsh-client-ui-settings-general/DeveloperToolsRow.module.css";
 		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId$1) + "]") === null) {
 			const tag = document.createElement("style");
@@ -671,9 +675,9 @@ window.__ModuleLoader__.load({
 			document.head.appendChild(tag);
 		}
 		var DeveloperToolsRow_module_css_default = {
-			"description": "JETKlG_description",
-			"row": "JETKlG_row",
-			"title": "JETKlG_title"
+			"description": "YO4NEW_description",
+			"row": "YO4NEW_row",
+			"title": "YO4NEW_title"
 		};
 		//#endregion
 		//#region lib/types/client/DeveloperToolsRow.js
@@ -719,8 +723,8 @@ window.__ModuleLoader__.load({
 			});
 		}
 		//#endregion
-		//#region \0dsh-css:D:\Agent Router\deepseek-harness\packages\client\ui-settings-general\src\client\SettingsDocumentAction.module.css.mjs
-		const css = ".kutCSW_action{align-items:center;gap:8px;min-width:0;display:flex}.kutCSW_error{max-width:180px;color:var(--dsw-alias-state-error-primary);text-overflow:ellipsis;white-space:nowrap;font-size:12px;line-height:18px;overflow:hidden}";
+		//#region \0dsh-css:D:\deepseek-harness\packages\client\ui-settings-general\src\client\SettingsDocumentAction.module.css.mjs
+		const css = ".PHFDrq_action{align-items:center;gap:8px;min-width:0;display:flex}.PHFDrq_error{max-width:180px;color:var(--dsw-alias-state-error-primary);text-overflow:ellipsis;white-space:nowrap;font-size:12px;line-height:18px;overflow:hidden}";
 		const tagId = "@deepseek-ai/dsh-client-ui-settings-general/SettingsDocumentAction.module.css";
 		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId) + "]") === null) {
 			const tag = document.createElement("style");
@@ -730,8 +734,8 @@ window.__ModuleLoader__.load({
 			document.head.appendChild(tag);
 		}
 		var SettingsDocumentAction_module_css_default = {
-			"action": "kutCSW_action",
-			"error": "kutCSW_error"
+			"action": "PHFDrq_action",
+			"error": "PHFDrq_error"
 		};
 		//#endregion
 		//#region lib/types/client/SettingsDocumentAction.js
@@ -863,16 +867,16 @@ window.__ModuleLoader__.load({
 			"desktop.update.installing": "正在准备重启…",
 			"desktop.update.ready": "安装并重启",
 			"desktop.update.retry": "重试更新",
-			"desktop.update.versionDetail": "{label} — V{version}",
-			"desktop.update.downloadDetail": "正在下载更新：{percent}%\n目标版本：V{version}",
+			"desktop.update.versionDetail": "{label}：{version}",
+			"desktop.update.downloadDetail": "正在下载更新：{percent}%\n目标版本：{version}",
 			"desktop.update.checkFailed": "检查更新失败，请稍后重试。",
 			"desktop.update.downloadFailed": "下载更新失败，请重试。",
 			"desktop.update.installFailed": "安装更新失败，请稍后重试。",
-			"desktop.update.checkNetworkFailed": "检查更新失败，请稍后重试。网络连接异常，请检查网络后重试。",
-			"desktop.update.downloadNetworkFailed": "下载更新失败，请重试。网络连接异常，请检查网络后重试。",
-			"desktop.update.installNetworkFailed": "安装更新失败，请稍后重试。网络连接异常，请检查网络后重试。",
-			"desktop.update.stopFailed": "未能安全停止任务，更新未安装。请稍后重试。",
-			"desktop.update.tasksChanged": "有新任务开始，请重新确认更新。",
+			"desktop.update.checkNetworkFailed": "检查更新失败，请检查网络连接后重试。",
+			"desktop.update.downloadNetworkFailed": "下载更新失败，请检查网络连接后重试。",
+			"desktop.update.installNetworkFailed": "安装更新失败，请检查网络连接后重试。",
+			"desktop.update.stopFailed": "未能安全停止任务，更新尚未安装，请稍后重试。",
+			"desktop.update.tasksChanged": "有新任务开始运行，请重新确认是否停止任务并更新。",
 			"desktop.update.tasksUnavailable": "无法确认任务状态，请在工作区就绪后重试更新。",
 			"title": "设置",
 			"close": "关闭",
@@ -900,16 +904,16 @@ window.__ModuleLoader__.load({
 			"desktop.update.installing": "Preparing to restart…",
 			"desktop.update.ready": "Install and Restart",
 			"desktop.update.retry": "Retry update",
-			"desktop.update.versionDetail": "{label} — V{version}",
-			"desktop.update.downloadDetail": "Downloading update: {percent}%\nTarget version: V{version}",
+			"desktop.update.versionDetail": "{label}: {version}",
+			"desktop.update.downloadDetail": "Downloading update: {percent}%\nTarget version: {version}",
 			"desktop.update.checkFailed": "Could not check for updates. Please try again later.",
 			"desktop.update.downloadFailed": "Could not download the update. Please try again.",
 			"desktop.update.installFailed": "Could not install the update. Please try again later.",
-			"desktop.update.checkNetworkFailed": "Could not check for updates. Please try again later. The connection was interrupted. Check your network and try again.",
-			"desktop.update.downloadNetworkFailed": "Could not download the update. Please try again. The connection was interrupted. Check your network and try again.",
-			"desktop.update.installNetworkFailed": "Could not install the update. Please try again later. The connection was interrupted. Check your network and try again.",
-			"desktop.update.stopFailed": "Tasks could not be stopped safely. The update was not installed. Please try again later.",
-			"desktop.update.tasksChanged": "New tasks started. Review the update confirmation again.",
+			"desktop.update.checkNetworkFailed": "Could not check for updates. Check your connection and try again.",
+			"desktop.update.downloadNetworkFailed": "Could not download the update. Check your connection and try again.",
+			"desktop.update.installNetworkFailed": "Could not install the update. Check your connection and try again.",
+			"desktop.update.stopFailed": "Could not safely stop the tasks. The update has not been installed. Please try again later.",
+			"desktop.update.tasksChanged": "New tasks have started. Confirm again to stop the tasks and update.",
 			"desktop.update.tasksUnavailable": "Task status is unavailable. Try updating again when the workspace is ready.",
 			"title": "Settings",
 			"close": "Close",
@@ -1184,4 +1188,4 @@ window.__ModuleLoader__.load({
 	}
 });
 ;
-//# sourceMappingURL=??@deepseek-ai/dsh-client-ui-settings-general/client.js.map&rev=e99f91caddab
+//# sourceMappingURL=??@deepseek-ai/dsh-client-ui-settings-general/client.js.map&rev=c3b8f20345e6

@@ -74,6 +74,413 @@ window.__ModuleLoader__.load({
 			};
 		}
 		//#endregion
+		//#region lib/types/client/locales.js
+		/** Plugin management interface copy. */
+		/** Git template shared by the displayed example and replacement reminder. */
+		const INSTALL_GIT_EXAMPLE = "https://github.com/author/dsh-plugin";
+		/** Local-path template shared by the displayed example and replacement reminder. */
+		const INSTALL_PATH_EXAMPLE = "/Users/name/my-plugin";
+		/** Simplified Chinese dictionary and key source of truth. */
+		const zh = {
+			panel: "插件",
+			title: "插件",
+			intro: "安装、启用和配置插件",
+			infoLabel: "插件说明",
+			infoDescription: "在这里配置官方插件，安装和管理其他插件。内置插件列表及运行状态可在「设置 → 内置插件」中查看",
+			loading: "正在读取插件…",
+			error: "可能由于网络问题，无法读取全部插件",
+			unavailable: "本部署没有可管理的 profile，无法安装或启停插件。",
+			retry: "重试",
+			refresh: "刷新",
+			refreshError: "刷新失败，请重试",
+			empty: "还没有安装任何插件。",
+			addPlugin: "添加插件",
+			restartNotice: "更改将在下次启动生效",
+			overriddenNotice: "{name} 已保存，但被更高优先级的配置覆盖，当前未生效",
+			bundlesTitle: "已安装",
+			officialTitle: "官方",
+			statusProblem: "异常",
+			statusBeta: "实验性",
+			reasonLabel: "原因",
+			metadataError: "包元信息错误：{error}",
+			versionTag: "v{version}",
+			partsLabel: "包含的组件",
+			partsEmpty: "这个插件包不包含任何组件。",
+			partsCountTotal: "共 {count} 个",
+			partsCountRunning: "{count} 运行中",
+			partsCountOff: "{count} 已停用",
+			partOff: "已关闭",
+			partsCountFailed: "{count} 异常",
+			partsFilter: "筛选组件",
+			partsFilterEmpty: "没有匹配的组件。",
+			partToggle: "启用组件 {name}",
+			rowPhasePending: "等待依赖",
+			rowPhaseLoading: "加载中",
+			rowPhaseActive: "运行中",
+			rowPhaseFailed: "异常",
+			rowPhaseUnloading: "卸载中",
+			enableToggle: "启用 {name}",
+			openDetail: "查看 {name}",
+			backToList: "返回插件列表",
+			crumbRoot: "插件列表",
+			backToPackage: "返回 {name}",
+			configureRow: "配置 {name}",
+			rowStateIdle: "未运行",
+			uninstall: "卸载",
+			uninstallLabel: "卸载 {name}",
+			installTitle: "添加插件",
+			installDescription: "输入插件的包名、GitHub 仓库地址或本地目录路径。",
+			installSpecLabel: "包名或地址",
+			installSpecPlaceholder: "例如 dsh-plugin-whale-pet",
+			installGuideToggle: "插件安装引导和示例",
+			installGuideHide: "收起引导",
+			installGuideIdTitle: "包名",
+			installGuideIdExample: "dsh-plugin-whale-pet",
+			installGuideIdHint: "插件包名即 npm 包名（如 dsh-xxx 或 @作者/插件名），社区插件的 README 安装命令中 dsh plugin add 或 pnpm add 之后的部分。",
+			installGuideGitTitle: "GitHub 仓库地址",
+			installGuideGitExample: INSTALL_GIT_EXAMPLE,
+			installGuideGitHint: "插件在 GitHub 上的开源仓库地址，也支持其他 Git 仓库。",
+			installGuidePathTitle: "本地插件目录",
+			installGuidePathExample: INSTALL_PATH_EXAMPLE,
+			installGuidePathHint: "本机上插件目录的绝对路径，适用于自行开发或已下载的插件。",
+			installGuideExampleLabel: "示例：",
+			installGitTemplateHint: "请替换为实际的 Git 仓库地址",
+			installPathTemplateHint: "请替换为本机插件目录的实际路径",
+			installGuideFill: "填入示例",
+			installGuideFillAria: "填入示例 {example}",
+			installGuideSafety: "请确认插件来源可信。插件在本机以你的权限运行，来源不明的插件可能损坏 DeepSeek Harness，或读取和泄露你的数据。",
+			registryToggle: "安装源",
+			registryLegend: "从哪个 npm 源下载插件",
+			registryDefault: "默认安装源",
+			registryOfficial: "npm 官方源",
+			registryNpmmirror: "中国大陆镜像源",
+			registryCustom: "自定义地址",
+			registryCustomPlaceholder: "https://npm.example.com/",
+			registryCustomHint: "填写内网或私有 npm 源地址，以 http:// 或 https:// 开头。若为需要登录的源，请把凭据放在本机的 ~/.npmrc 里。",
+			registryCustomInvalid: "请输入以 http:// 或 https:// 开头的地址",
+			registryListSeparator: "、",
+			installRun: "安装",
+			installChecking: "正在检查…",
+			installProblemInvalid: "无法识别这个包名或地址：{reason}",
+			installProblemInstalled: "该插件已安装",
+			installProblemNotFound: "未找到相关插件",
+			installProblemNotPackage: "该路径不存在或不是有效的插件包",
+			installProblemNotBundle: "这个包没有声明组合包，无法作为插件安装：{reason}",
+			installProblemNetwork: "无法连接插件源，请检查网络后重试",
+			installProblemNetworkAll: "所有安装源都无法连接（已尝试：{registries}），请检查网络或代理设置，或更换安装源",
+			installProblemUnknown: "无法获取插件信息：{reason}",
+			installingTitle: "插件安装中…",
+			installedTitle: "已安装",
+			installFailedTitle: "插件安装失败",
+			installGithubFailedTitle: "无法访问 GitHub",
+			installGithubTimeoutTitle: "连接 GitHub 超时",
+			installGithubFailedDescription: "请尝试其他安装来源。",
+			installUseGithubMirror: "改用国内镜像",
+			installTryAnotherWay: "试试其他方式",
+			installPackageLabel: "插件包名",
+			installEdit: "编辑",
+			installEditAria: "返回编辑",
+			installCancelAndEdit: "取消安装并返回编辑",
+			installApplyingCancellationError: "取消请求未得到确认；安装已进入收尾阶段，请等待结果。{reason}",
+			installReconcile: "核对安装状态",
+			installUnknownTitle: "未能获取安装结果",
+			installUnknownDescription: "后端当前没有此安装任务。请检查插件列表后再尝试安装。",
+			installResultUnconfirmed: "未收到安装结果，请核对安装状态。{reason}",
+			installAwaitingAcceptance: "正在等待后端接收安装任务，收到确认后会自动重试取消。",
+			installBackgroundUnknown: "未能获取安装结果，请检查插件列表。",
+			installCancel: "取消安装",
+			installCloseCancels: "取消安装并关闭",
+			installViewTask: "查看安装任务",
+			installUnconfirmedTitle: "安装状态尚未确认",
+			installBackgroundDone: "插件安装已完成，可查看安装结果。",
+			installBackgroundFailed: "插件安装失败，可查看安装详情。",
+			installBackgroundUnconfirmed: "安装状态暂未确认，请查看安装任务了解详情。",
+			installBackgroundApplying: "安装已进入收尾阶段，无法取消，可查看安装进度。",
+			installStarting: "正在准备安装…",
+			installCancelling: "正在停止安装…",
+			installApplying: "正在应用配置，请稍候…",
+			installCancelledShort: "已取消",
+			installCancelled: "已取消安装，插件未启用，下载的文件可能保留",
+			installCancelUnconfirmed: "尚未确认安装已停止，请重试取消或等待安装结果。{reason}",
+			installEnableNow: "立即启用",
+			installDetailsShow: "查看安装详情",
+			installDetailsHide: "收起安装详情",
+			installVersion: "版本 {version}",
+			installSubjectPath: "本地目录",
+			installSubjectGit: "Git 仓库",
+			installSubjectTarball: "压缩包",
+			installLocation: "安装位置：{dir}",
+			installRetry: "重试",
+			installChangeRegistry: "更换安装源",
+			installAttempt: "{previous} 不可用，正在改用 {registry} 重试（第 {index} 个源，共 {total} 个）",
+			installAttemptBadge: "第 {index} 次 · {registry}",
+			installFailureNetwork: "网络连接失败",
+			installFailureNetworkAll: "所有安装源都无法连接（已尝试：{registries}）。请检查网络或代理设置，或更换安装源后重试。",
+			installFailureNetworkHost: "无法连接 {host}。GitHub 地址和 .tgz 直链不经过安装源，需要本机能直接访问它或配置代理；如果这个插件也发布到了 npm，请改填包名。",
+			installFailureNotFound: "未找到相关插件",
+			installFailureNoMatchingVersion: "没有匹配的版本",
+			installFailureDiskFull: "磁盘空间不足，安装已停止",
+			installFailurePermission: "没有写入权限，无法安装",
+			installFailureBuildBlocked: "有依赖的安装脚本需要你允许后才能继续",
+			installFailureBuildBlockedManual: "有依赖的安装脚本被 pnpm 拦下，请在 profile 的 pnpm-workspace.yaml 的 allowBuilds 中放行后重试",
+			installFailureIntegrity: "下载的安装包校验失败",
+			installFailureTimeout: "安装超时",
+			installFailurePnpmMissing: "没有找到 pnpm，无法安装",
+			installFailureGeneric: "安装过程中出错，原因见安装详情",
+			terminalRunning: "运行中",
+			terminalFailed: "失败",
+			terminalDone: "已完成",
+			terminalCopy: "复制",
+			terminalCopied: "复制成功",
+			terminalNoOutput: "无输出",
+			terminalCollapseAria: "收起输出",
+			terminalCollapse: "收起",
+			terminalExpandAria: "展开其余 {n} 行输出",
+			terminalExpand: "… 其余 {n} 行",
+			terminalExitCode: "退出码 {code}",
+			terminalSignal: "信号 {signal}",
+			terminalNoExitCode: "未正常退出",
+			installDoneNothing: "安装完成，没有新增依赖。",
+			installDoneRestart: "已安装，下次启动后加载。",
+			installDoneApproved: "已允许运行安装脚本：{names}",
+			installApprovalTitle: "需要允许安装脚本",
+			installApprovalDescription: "以下包声明了安装脚本，pnpm 默认不运行。",
+			installApprovalConsequence: "允许后，脚本会以你的权限在本机运行，授权保存在当前 profile，之后不再询问。",
+			installApprovalCaution: "只在信任这些包时允许。",
+			installApproveAndRetry: "允许这些脚本并重试",
+			installClose: "完成",
+			close: "关闭",
+			cancel: "取消",
+			confirmUninstallTitle: "卸载「{name}」？",
+			confirmUninstallDescription: "卸载后它提供的功能会消失。",
+			confirmUninstall: "卸载",
+			failedEnable: "启用失败：{reason}",
+			failedDisable: "停用失败：{reason}",
+			failedUninstall: "卸载失败：{reason}",
+			failedRowEnable: "组件启用失败：{reason}",
+			failedRowDisable: "组件停用失败：{reason}",
+			reasonManagementRequired: "插件管理所需，不能停用或卸载",
+			reasonUnaddressable: "当前 profile 的 patch 无法唯一定位这一项",
+			reasonUnknownPlugin: "找不到该插件",
+			reasonInvalidSpec: "请输入有效的包名或地址",
+			reasonAmbiguousInstall: "无法从依赖变更中确定安装了哪一个包",
+			reasonNotBundle: "这个包没有声明组合包，不能作为插件管理",
+			reasonNotRemovable: "这个包不属于当前 profile，或者是插件管理所需的组件",
+			reasonStopProfile: "这个 profile 没有启用 HMR，正在使用的包要停止后用 dsh plugin 卸载",
+			reasonBundleInUse: "其他配置仍在使用这个组合包的组件，请先停用它们",
+			reasonStaleApproval: "待允许的安装脚本列表已变化，请重新安装以刷新",
+			reasonIncompatibleVersion: "{plugin} 与 DSH {runtime} 不兼容（要求 {peers}），运行它可能导致崩溃或数据丢失。请安装与当前 DSH 兼容的插件版本。",
+			reasonIncompatibleVersionUnnamed: "这个插件与当前 DSH 版本不兼容，运行它可能导致崩溃或数据丢失",
+			reasonOperationError: "Host 报告了一个错误"
+		};
+		/** English dictionary checked against the Chinese key set. */
+		const en = {
+			panel: "Plugins",
+			title: "Plugins",
+			intro: "Install, enable, and configure plugins",
+			infoLabel: "About plugins",
+			infoDescription: "Configure official plugins and install or manage other plugins here. View the built-in plugin list and runtime status in Settings → Built-in plugins.",
+			loading: "Reading plugins…",
+			error: "Could not read all plugins, possibly due to a network problem",
+			unavailable: "This deployment runs without a manageable profile, so plugins cannot be installed or switched here.",
+			retry: "Retry",
+			refresh: "Refresh",
+			refreshError: "Refresh failed. Please try again.",
+			empty: "No plugins are installed yet.",
+			addPlugin: "Add plugin",
+			restartNotice: "The change takes effect at the next start",
+			overriddenNotice: "{name} was saved, but a higher-priority configuration overrides it, so it is not in effect",
+			bundlesTitle: "Installed",
+			officialTitle: "Official",
+			statusProblem: "Problem",
+			statusBeta: "Experimental",
+			reasonLabel: "Reason",
+			metadataError: "Package metadata error: {error}",
+			versionTag: "v{version}",
+			partsLabel: "Components",
+			partsEmpty: "This plugin pack contains no components.",
+			partsCountTotal: "{count} total",
+			partsCountRunning: "{count} running",
+			partsCountOff: "{count} off",
+			partOff: "Off",
+			partsCountFailed: "{count} failed",
+			partsFilter: "Filter components",
+			partsFilterEmpty: "No component matches.",
+			partToggle: "Enable component {name}",
+			rowPhasePending: "Waiting for dependencies",
+			rowPhaseLoading: "Loading",
+			rowPhaseActive: "Running",
+			rowPhaseFailed: "Problem",
+			rowPhaseUnloading: "Unloading",
+			enableToggle: "Enable {name}",
+			openDetail: "View {name}",
+			backToList: "Back to plugins",
+			crumbRoot: "Plugins",
+			backToPackage: "Back to {name}",
+			configureRow: "Configure {name}",
+			rowStateIdle: "Not running",
+			uninstall: "Uninstall",
+			uninstallLabel: "Uninstall {name}",
+			installTitle: "Add plugin",
+			installDescription: "Enter the plugin's package name, GitHub repository address, or local directory path.",
+			installSpecLabel: "Package name or address",
+			installSpecPlaceholder: "for example dsh-plugin-whale-pet",
+			installGuideToggle: "Install guide and examples",
+			installGuideHide: "Hide the guide",
+			installGuideIdTitle: "Package name",
+			installGuideIdExample: "dsh-plugin-whale-pet",
+			installGuideIdHint: "The plugin package name is the npm package name (like dsh-xxx or @author/plugin): the part after dsh plugin add or pnpm add in a community plugin's README install command.",
+			installGuideGitTitle: "GitHub repository address",
+			installGuideGitExample: INSTALL_GIT_EXAMPLE,
+			installGuideGitHint: "The address of the plugin's open-source repository on GitHub; other Git hosts work too.",
+			installGuidePathTitle: "Local plugin directory",
+			installGuidePathExample: INSTALL_PATH_EXAMPLE,
+			installGuidePathHint: "The absolute path of a plugin directory on this machine, developed here or downloaded.",
+			installGuideExampleLabel: "Example: ",
+			installGitTemplateHint: "Replace this with the actual Git repository address.",
+			installPathTemplateHint: "Replace this with the actual path to your local plugin directory.",
+			installGuideFill: "Use example",
+			installGuideFillAria: "Use the example {example}",
+			installGuideSafety: "Install only plugins you trust: they run with your permissions and can damage DeepSeek Harness or leak your data.",
+			registryToggle: "Registry",
+			registryLegend: "The npm registry the plugin is downloaded from",
+			registryDefault: "Default registry",
+			registryOfficial: "Official npm registry",
+			registryNpmmirror: "Mainland China mirror",
+			registryCustom: "Custom address",
+			registryCustomPlaceholder: "https://npm.example.com/",
+			registryCustomHint: "Enter an internal or private npm registry address starting with http:// or https://. If it requires a login, store the credentials in ~/.npmrc on this machine.",
+			registryCustomInvalid: "Enter an address starting with http:// or https://",
+			registryListSeparator: ", ",
+			installRun: "Install",
+			installChecking: "Checking…",
+			installProblemInvalid: "This is not a package name or address that can be installed: {reason}",
+			installProblemInstalled: "This plugin is already installed",
+			installProblemNotFound: "No such plugin was found",
+			installProblemNotPackage: "The path does not exist or is not a valid plugin package",
+			installProblemNotBundle: "This package declares no bundle, so it cannot be installed as a plugin: {reason}",
+			installProblemNetwork: "The plugin registry could not be reached; check the network and try again",
+			installProblemNetworkAll: "No registry could be reached (tried: {registries}); check the network or proxy settings, or change the registry",
+			installProblemUnknown: "The plugin could not be looked up: {reason}",
+			installingTitle: "Installing the plugin…",
+			installedTitle: "Installed",
+			installFailedTitle: "The plugin could not be installed",
+			installGithubFailedTitle: "Cannot access GitHub",
+			installGithubTimeoutTitle: "GitHub connection timed out",
+			installGithubFailedDescription: "Try another installation source.",
+			installUseGithubMirror: "Use mainland China mirror",
+			installTryAnotherWay: "Try another way",
+			installPackageLabel: "Plugin package name",
+			installEdit: "Edit",
+			installEditAria: "Back to editing",
+			installCancelAndEdit: "Cancel installation and return to editing",
+			installApplyingCancellationError: "Cancellation was not confirmed. Installation is being applied; wait for its result. {reason}",
+			installReconcile: "Check installation status",
+			installUnknownTitle: "Installation result unavailable",
+			installUnknownDescription: "The Host has no active installation with this request id. Check the plugin list before trying again.",
+			installResultUnconfirmed: "The installation result was not received. Check installation status. {reason}",
+			installAwaitingAcceptance: "Waiting for the Host to accept installation. Cancellation will retry automatically after confirmation.",
+			installBackgroundUnknown: "Installation result unavailable. Check the plugin list.",
+			installCancel: "Cancel install",
+			installCloseCancels: "Cancel install and close",
+			installViewTask: "View installation",
+			installUnconfirmedTitle: "Installation status unconfirmed",
+			installBackgroundDone: "Installation finished. View installation details.",
+			installBackgroundFailed: "Installation failed. View installation details.",
+			installBackgroundUnconfirmed: "Installation status is unconfirmed. View the installation for details.",
+			installBackgroundApplying: "Installation is being applied and cannot be cancelled. View installation progress.",
+			installStarting: "Preparing installation…",
+			installCancelling: "Stopping installation…",
+			installApplying: "Applying configuration, please wait…",
+			installCancelledShort: "Cancelled",
+			installCancelled: "Installation cancelled; the plugin is not enabled, and downloaded files may remain",
+			installCancelUnconfirmed: "Installation has not been confirmed stopped. Retry cancellation or wait for the installation result. {reason}",
+			installEnableNow: "Enable now",
+			installDetailsShow: "Show install details",
+			installDetailsHide: "Hide install details",
+			installVersion: "Version {version}",
+			installSubjectPath: "Local directory",
+			installSubjectGit: "Git repository",
+			installSubjectTarball: "Tarball",
+			installLocation: "Installs into {dir}",
+			installRetry: "Retry",
+			installChangeRegistry: "Change registry",
+			installAttempt: "{previous} could not serve the package; retrying through {registry} (registry {index} of {total})",
+			installAttemptBadge: "Attempt {index} · {registry}",
+			installFailureNetwork: "The network connection failed",
+			installFailureNetworkAll: "No registry could be reached (tried: {registries}). Check the network or proxy settings, or change the registry and retry.",
+			installFailureNetworkHost: "{host} could not be reached. A GitHub address or a .tgz link is not fetched through the registry: this machine must reach it directly or through a proxy. If the plugin is also published to npm, enter its package name instead.",
+			installFailureNotFound: "No such plugin was found",
+			installFailureNoMatchingVersion: "No version matches the request",
+			installFailureDiskFull: "The disk is full; the install stopped",
+			installFailurePermission: "No write permission; the plugin cannot be installed",
+			installFailureBuildBlocked: "A dependency's install scripts need your permission before the install can continue",
+			installFailureBuildBlockedManual: "pnpm blocked install scripts; allow them under allowBuilds in pnpm-workspace.yaml and retry",
+			installFailureIntegrity: "The downloaded package failed its integrity check",
+			installFailureTimeout: "The install timed out",
+			installFailurePnpmMissing: "pnpm was not found, so nothing can be installed",
+			installFailureGeneric: "Something went wrong during the install; the details say what",
+			terminalRunning: "Running",
+			terminalFailed: "Failed",
+			terminalDone: "Done",
+			terminalCopy: "Copy",
+			terminalCopied: "Copied",
+			terminalNoOutput: "No output",
+			terminalCollapseAria: "Collapse output",
+			terminalCollapse: "Collapse",
+			terminalExpandAria: "Expand the remaining {n} output lines",
+			terminalExpand: "… {n} more lines",
+			terminalExitCode: "exit code {code}",
+			terminalSignal: "signal {signal}",
+			terminalNoExitCode: "no exit code",
+			installDoneNothing: "Install finished with no new dependency.",
+			installDoneRestart: "Installed; it loads at the next start.",
+			installDoneApproved: "Install scripts allowed for {names}",
+			installApprovalTitle: "Install scripts need permission",
+			installApprovalDescription: "These packages have install scripts that pnpm did not run.",
+			installApprovalConsequence: "Once allowed, the scripts run here with your permissions, and the permission is saved in this profile.",
+			installApprovalCaution: "Allow only packages you trust.",
+			installApproveAndRetry: "Allow these scripts and retry",
+			installClose: "Done",
+			close: "Close",
+			cancel: "Cancel",
+			confirmUninstallTitle: "Uninstall \"{name}\"?",
+			confirmUninstallDescription: "What it provides goes away once it is uninstalled.",
+			confirmUninstall: "Uninstall",
+			failedEnable: "Could not enable: {reason}",
+			failedDisable: "Could not disable: {reason}",
+			failedUninstall: "Could not uninstall: {reason}",
+			failedRowEnable: "Could not enable the component: {reason}",
+			failedRowDisable: "Could not disable the component: {reason}",
+			reasonManagementRequired: "Plugin management needs it; it cannot be switched off or uninstalled.",
+			reasonUnaddressable: "The profile patch cannot address this one uniquely.",
+			reasonUnknownPlugin: "No such plugin.",
+			reasonInvalidSpec: "Enter a valid package name or address.",
+			reasonAmbiguousInstall: "Which package was installed cannot be told from the dependency change.",
+			reasonNotBundle: "This package declares no bundle, so it cannot be managed as a plugin.",
+			reasonNotRemovable: "This package is not owned by the profile, or plugin management needs it.",
+			reasonStopProfile: "This profile runs without HMR; stop it and uninstall the package with dsh plugin.",
+			reasonBundleInUse: "Other configuration still uses this bundle's components; switch them off first.",
+			reasonStaleApproval: "The pending script approvals changed; install again to refresh them.",
+			reasonIncompatibleVersion: "{plugin} is incompatible with DSH {runtime} (requires {peers}); running it may cause crashes or data loss. Install a plugin version compatible with this DSH.",
+			reasonIncompatibleVersionUnnamed: "This plugin is incompatible with the running DSH version; running it may cause crashes or data loss.",
+			reasonOperationError: "The Host reported an error."
+		};
+		//#endregion
+		//#region lib/types/client/sanitize-install-input.js
+		/** Privacy-safe installation input classification shared by click and result events. */
+		/**
+		* Keep registry package names and plain versions; classify other installer inputs without their contents.
+		* @param spec - user-entered installation spec.
+		* @returns an identifier safe to send without URL credentials, tokens, or local paths.
+		*/
+		function sanitizeInstallInput(spec) {
+			if (/^(?:@[a-z0-9._-]+\/)?[a-z0-9][a-z0-9._-]*(?:@[a-z0-9.*^~+<>=| -]+)?$/iu.test(spec)) return spec;
+			if (/^(?:git[+:]|git@|github:|gitlab:|bitbucket:)/iu.test(spec)) return "[git]";
+			if (/^[a-z][a-z0-9+.-]*:\/\//iu.test(spec)) return "[url]";
+			return "[path-or-other]";
+		}
+		//#endregion
 		//#region ../../util/crypto/lib/index.js
 		/**
 		* Random v4 UUID, minted from `crypto.getRandomValues`.
@@ -225,6 +632,7 @@ window.__ModuleLoader__.load({
 				case "restart": return t("restartNotice");
 				case "overridden": return t("overriddenNotice", { name: notice.packageName });
 				case "cancelled": return t("installCancelled");
+				case "refresh-failed": return t("refreshError");
 				case "install": return t({
 					done: "installBackgroundDone",
 					failed: "installBackgroundFailed",
@@ -244,18 +652,13 @@ window.__ModuleLoader__.load({
 		}
 		//#endregion
 		//#region lib/types/client/manager-store.js
-		/**
-		* The plugin manager's state: the Host's bundles joined with its plugin
-		* entries, the action in flight, the install run, and the confirmation an
-		* uninstall waits on. Every fact comes from the Host — the store re-reads
-		* after each action and after every `plugin-manager/changed` event, so a
-		* change made on another surface shows here without a manual refresh.
-		*/
 		/** The choice shown until the Host has said which registry it asks first: the one pnpm's own configuration names. */
 		const OFFICIAL_REGISTRY = {
 			kind: "offered",
 			registry: null
 		};
+		/** Hold the manual-refresh spinner at least this long so a fast read does not flash it. */
+		const REFRESH_SPINNER_MIN_MS = 400;
 		/**
 		* The registry a choice asks, as the Host's install plan compares registries: pnpm's own configuration stands for
 		* the URL it names, once the Host has read it.
@@ -484,11 +887,14 @@ window.__ModuleLoader__.load({
 			rerun = false;
 			generation = 0;
 			disposed = false;
+			/** A successful managed-profile read remains usable even when it returned no bundles. */
+			hasCachedInventory = false;
 			pendingConfirm;
 			/** Cancels the check the dialog has in flight. */
 			inspectAbort;
 			request;
 			noticeSeq = 0;
+			analyticsAttempt;
 			registryRead;
 			/** The registry last used from this browser, kept across dialogs and page loads; null until one was used. */
 			registryMemory = (0, _deepseek_ai_dsh_client_store.createSnapshotStore)(null, { persist: { name: "dsh.plugin-manager.install-registry" } });
@@ -499,6 +905,7 @@ window.__ModuleLoader__.load({
 				this.ctx = ctx;
 				this.store = (0, _deepseek_ai_dsh_client_store.createSnapshotStore)({
 					status: "idle",
+					refreshStatus: "idle",
 					packages: [],
 					busy: [],
 					notice: null,
@@ -540,9 +947,10 @@ window.__ModuleLoader__.load({
 						if (this.getSnapshot().status === "idle") this.load();
 					},
 					refresh: () => {
-						this.load();
+						this.refresh();
 					},
 					openInstall: () => {
+						this.ctx.get("productAnalytics")?.track("plugin_add_button_click", {});
 						if (this.getSnapshot().install.requestId === void 0) {
 							this.patch({ install: {
 								...IDLE_INSTALL,
@@ -563,6 +971,7 @@ window.__ModuleLoader__.load({
 							this.cancelInstall();
 							return;
 						}
+						if (this.getSnapshot().install.phase === "checking") this.finishAnalytics("cancelled");
 						this.abortInspect();
 						this.registryRead = void 0;
 						this.patch({ install: IDLE_INSTALL });
@@ -643,7 +1052,9 @@ window.__ModuleLoader__.load({
 							packageName,
 							action: enabled ? "enable" : "disable"
 						}, async () => {
-							this.applied(await this.ctx.remote.pluginManager.setBundleEnabled(packageName, enabled), packageName);
+							const result = await this.ctx.remote.pluginManager.setBundleEnabled(packageName, enabled);
+							this.applied(result, packageName);
+							if (result.ok && (result.value.application === "applied" || result.value.application === "restart-required")) this.trackToggle(packageName, enabled);
 						});
 					},
 					uninstall: (packageName) => {
@@ -651,6 +1062,7 @@ window.__ModuleLoader__.load({
 							packageName,
 							action: "uninstall"
 						}, async () => {
+							this.ctx.get("productAnalytics")?.track("confirm_uninstall_plugin", { plugin_name: packageName });
 							this.applied(await this.ctx.remote.pluginManager.removeBundle(packageName), packageName);
 						});
 						this.patch({ confirm: {
@@ -670,7 +1082,9 @@ window.__ModuleLoader__.load({
 							packageName: entryId,
 							action: enabled ? "rowEnable" : "rowDisable"
 						}, async () => {
-							this.applied(await this.ctx.remote.pluginManager.setPluginEnabled(entryId, enabled), entryId);
+							const result = await this.ctx.remote.pluginManager.setPluginEnabled(entryId, enabled);
+							this.applied(result, entryId);
+							if (result.ok && (result.value.application === "applied" || result.value.application === "restart-required")) this.trackToggle(entryId, enabled, true);
 						});
 					},
 					dismissNotice: () => {
@@ -772,6 +1186,39 @@ window.__ModuleLoader__.load({
 				this.inFlight = run;
 				return run;
 			}
+			/** Keep manual refresh feedback until its coalesced reads settle, without clearing cached cards. */
+			async refresh() {
+				if (this.disposed || this.getSnapshot().refreshStatus === "refreshing") return;
+				const startedAt = Date.now();
+				this.patch({
+					refreshStatus: "refreshing",
+					...this.getSnapshot().notice?.kind === "refresh-failed" ? { notice: null } : {}
+				});
+				try {
+					await this.load();
+				} catch (_error) {
+					this.patch({ status: "error" });
+				} finally {
+					const remaining = REFRESH_SPINNER_MIN_MS - (Date.now() - startedAt);
+					if (remaining > 0) await new Promise((resolve) => {
+						setTimeout(resolve, remaining);
+					});
+					this.settleRefresh();
+				}
+			}
+			/** Publish refresh feedback only before disposal. */
+			settleRefresh() {
+				if (this.disposed) return;
+				const failed = this.getSnapshot().status === "error";
+				this.patch(failed && this.hasCachedInventory ? {
+					status: "ready",
+					refreshStatus: "idle",
+					notice: {
+						kind: "refresh-failed",
+						seq: ++this.noticeSeq
+					}
+				} : { refreshStatus: failed ? "failed" : "idle" });
+			}
 			async read() {
 				try {
 					do {
@@ -785,6 +1232,7 @@ window.__ModuleLoader__.load({
 							continue;
 						}
 						if (inventory.value.managementAvailable !== true) {
+							this.hasCachedInventory = false;
 							this.patch({
 								status: "unavailable",
 								packages: []
@@ -797,8 +1245,10 @@ window.__ModuleLoader__.load({
 							this.patch({ status: "error" });
 							continue;
 						}
+						this.hasCachedInventory = true;
 						this.patch({
 							status: "ready",
+							refreshStatus: this.getSnapshot().refreshStatus === "refreshing" ? "refreshing" : "idle",
 							packages: sortPackages(bundles.value.map((bundle) => packageView(bundle, plugins.value)))
 						});
 					} while (this.shouldRerun());
@@ -834,7 +1284,15 @@ window.__ModuleLoader__.load({
 				const install = state.install;
 				const spec = install.spec.trim();
 				if (install.phase === "checking" || isInstallPending(install.phase) || spec === "") return;
+				if (this.ctx.get("productAnalytics")?.enabled) {
+					this.analyticsAttempt = {
+						input: sanitizeInstallInput(spec),
+						started: Date.now()
+					};
+					this.ctx.get("productAnalytics")?.track("plugin_install_click", { input_value: sanitizeInstallInput(spec) });
+				}
 				if (state.packages.some((pkg) => pkg.name === spec)) {
+					this.finishAnalytics("failed", "already-installed");
 					this.patchInstall({
 						phase: "idle",
 						inputError: {
@@ -847,9 +1305,11 @@ window.__ModuleLoader__.load({
 				const choice = install.registry;
 				const typed = choice.kind === "custom" ? choice.url.trim() : void 0;
 				if (typed !== void 0 && !REGISTRY_URL.test(typed)) {
+					this.finishAnalytics("failed", "invalid-registry");
 					this.patchInstall({
 						phase: "idle",
-						registryError: true
+						registryError: true,
+						registryOpen: true
 					});
 					return;
 				}
@@ -885,6 +1345,7 @@ window.__ModuleLoader__.load({
 				if (this.gone(controller.signal)) return;
 				this.inspectAbort = void 0;
 				if (!inspected.ok) {
+					this.finishAnalytics("failed", inspected.error.code);
 					this.patchInstall({
 						phase: "idle",
 						inputError: {
@@ -896,6 +1357,7 @@ window.__ModuleLoader__.load({
 				}
 				if (inspected.value.status === "refused") {
 					const { problem, reason, registries } = inspected.value;
+					this.finishAnalytics("failed", problem);
 					this.patchInstall({
 						phase: "idle",
 						inputError: {
@@ -968,6 +1430,7 @@ window.__ModuleLoader__.load({
 					return;
 				}
 				this.request = void 0;
+				this.finishAnalytics("unknown");
 				this.patchInstall({
 					phase: "unknown",
 					failure: null,
@@ -977,6 +1440,7 @@ window.__ModuleLoader__.load({
 				this.load();
 			}
 			settleInstall(result) {
+				this.finishAnalytics(result.application === "failed" ? "failed" : result.application === "cancelled" ? "cancelled" : "success", result.application === "failed" ? result.error?.code : void 0, result.bundle);
 				const { runs, attempts } = this.getSnapshot().install;
 				this.request = void 0;
 				const asked = result.registries === void 0 ? {} : { attempts: {
@@ -1026,6 +1490,10 @@ window.__ModuleLoader__.load({
 				const install = this.getSnapshot().install;
 				const pending = install.failure?.pendingBuilds;
 				if (install.phase !== "failed" || install.subject === null || pending === void 0 || pending.length === 0) return;
+				if (this.ctx.get("productAnalytics")?.enabled) this.analyticsAttempt = {
+					input: sanitizeInstallInput(install.subject.spec),
+					started: Date.now()
+				};
 				await this.startInstall(install.subject, pending);
 			}
 			/**
@@ -1036,6 +1504,7 @@ window.__ModuleLoader__.load({
 			async cancelInstall() {
 				const install = this.getSnapshot().install;
 				if (install.phase === "checking" || install.phase === "failed" || install.phase === "unknown") {
+					if (install.phase === "checking") this.finishAnalytics("cancelled");
 					this.abortInspect();
 					this.offerSpecAgain();
 					return;
@@ -1064,6 +1533,7 @@ window.__ModuleLoader__.load({
 					return;
 				}
 				if (result.value.status === "cancelled") {
+					this.finishAnalytics("cancelled");
 					this.offerSpecAgain({
 						kind: "cancelled",
 						seq: ++this.noticeSeq
@@ -1122,6 +1592,7 @@ window.__ModuleLoader__.load({
 					if (this.disposed) return;
 					try {
 						this.applied(result, name);
+						if (result.ok && (result.value.application === "applied" || result.value.application === "restart-required")) this.trackToggle(name, true);
 					} catch (error) {
 						this.patch({ notice: failedNotice(error, {
 							packageName: name,
@@ -1188,6 +1659,30 @@ window.__ModuleLoader__.load({
 					case "applied": return;
 				}
 			}
+			trackToggle(name, enabled, row = false) {
+				const bundle = this.getSnapshot().packages.find((pkg) => row ? pkg.rows.some((item) => item.entryId === name) : pkg.name === name);
+				const pluginName = row ? bundle?.rows.find((item) => item.entryId === name)?.moduleName : name;
+				if (bundle === void 0 || pluginName === void 0) return;
+				this.ctx.get("productAnalytics")?.track("plugin_toggle", {
+					plugin_name: pluginName,
+					plugin_type: row ? "plugin" : "bundle",
+					is_enabled: enabled,
+					is_builtin: !bundle.installed
+				});
+			}
+			finishAnalytics(status, reason, name) {
+				const attempt = this.analyticsAttempt;
+				this.analyticsAttempt = void 0;
+				if (attempt === void 0 || this.disposed) return;
+				const errorReason = status === "cancelled" ? "user_cancelled" : status === "unknown" ? "unknown_result" : reason;
+				this.ctx.get("productAnalytics")?.track("install_plugin_result", {
+					input_value: attempt.input,
+					is_success: status === "success",
+					duration: Math.max(0, Date.now() - attempt.started),
+					...errorReason === void 0 ? {} : { error_reason: errorReason },
+					...name === void 0 ? {} : { plugin_name: name }
+				});
+			}
 			patch(next) {
 				if (this.disposed) return;
 				this.store.set({
@@ -1207,8 +1702,8 @@ window.__ModuleLoader__.load({
 			return error instanceof Error ? error.message : String(error);
 		}
 		//#endregion
-		//#region \0dsh-css:D:\Agent Router\deepseek-harness\packages\client\ui-plugin-manager\src\client\PluginManagerPage.module.css.mjs
-		const css = ".oypj0a_page{box-sizing:border-box;height:100%;color:var(--dsw-alias-label-primary);flex-direction:column;align-items:center;gap:32px;padding:0 clamp(24px,4vw,48px) 48px;display:flex;overflow:auto}.oypj0a_page>*{width:100%;max-width:960px}.oypj0a_pageHead{box-sizing:border-box;justify-content:space-between;align-items:flex-start;gap:16px;padding-top:28px;display:flex}[data-platform=darwin] .oypj0a_pageHead{padding-top:calc(28px + var(--dsh-frame-top-clearance,0px))}.oypj0a_pageTitle{margin:0;font-size:20px;font-weight:500;line-height:28px}.oypj0a_pageIntro{color:var(--dsw-alias-label-secondary);margin:4px 0 0;font-size:13px;line-height:20px}.oypj0a_toolbar{justify-content:flex-end;align-items:center;gap:16px;display:flex}.oypj0a_status,.oypj0a_failure p,.oypj0a_empty{color:var(--dsw-alias-label-tertiary);margin:0;font-size:13px;line-height:20px}.oypj0a_failure{color:var(--dsw-alias-state-error-primary);align-items:center;gap:10px;display:flex}.oypj0a_statusWithDot{align-items:center;gap:6px;display:inline-flex}.oypj0a_banner{border-radius:var(--dsw-radius-md);background:color-mix(in srgb, var(--dsw-alias-state-warning-primary,var(--dsw-alias-state-business-primary)) 12%, transparent);color:var(--dsw-alias-label-primary);margin:0;padding:8px 12px;font-size:12px;line-height:18px}.oypj0a_group{flex-direction:column;gap:8px;display:flex}.oypj0a_groupHead{align-items:baseline;gap:8px;display:flex}.oypj0a_groupTitle{margin:0;font-size:14px;font-weight:500;line-height:22px}.oypj0a_count{color:var(--dsw-alias-label-caption);font-variant-numeric:tabular-nums;font-size:14px}.oypj0a_groupInfo{color:var(--dsw-alias-label-caption);align-self:center;align-items:center;display:inline-flex}.oypj0a_groupInfo:hover,.oypj0a_groupInfo:focus-visible{color:var(--dsw-alias-label-secondary)}.oypj0a_statusTag{height:18px;padding:0 7px;font-size:10px;line-height:1}.oypj0a_card[data-plugin-highlight]{animation:2.4s ease-out oypj0a_dsh-plugin-highlight}@keyframes oypj0a_dsh-plugin-highlight{0%,55%{box-shadow:0 0 0 2px var(--dsw-alias-state-business-primary)}to{box-shadow:0 0 #0000}}@media (prefers-reduced-motion:reduce){.oypj0a_card[data-plugin-highlight]{box-shadow:0 0 0 2px var(--dsw-alias-state-business-primary);animation:none}}.oypj0a_iconButton:focus-visible{outline:var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color,var(--dsw-alias-state-business-primary));outline-offset:1px}.oypj0a_cards{flex-direction:column;gap:2px;margin:0;padding:0;list-style:none;display:flex}.oypj0a_card{border-radius:var(--dsw-radius-xl);--dsh-scrollbar-thumb:var(--dsw-alias-scrollbar-bg-l2);--dsh-scrollbar-thumb-hover:var(--dsw-alias-scrollbar-hover-l2);min-width:0;margin:0 -8px}.oypj0a_cardHead{align-items:center;gap:14px;padding:8px;display:flex}.oypj0a_cardIcon{border:.5px solid var(--dsw-alias-border-l3);border-radius:var(--dsw-radius-lg);width:48px;height:48px;color:var(--dsw-alias-label-secondary);flex:none;justify-content:center;align-items:center;display:inline-flex}.oypj0a_packageImage{object-fit:contain}.oypj0a_cardMain{flex-direction:column;flex:1;gap:4px;min-width:0;display:flex}.oypj0a_titleRow{flex-wrap:wrap;align-items:center;gap:8px;min-width:0;display:flex}.oypj0a_cardTitle{text-overflow:ellipsis;white-space:nowrap;font-size:14px;font-weight:500;line-height:20px;overflow:hidden}.oypj0a_cardLink{position:relative}.oypj0a_cardLink:hover{background:var(--dsw-alias-interactive-bg-hover)}.oypj0a_cardOpen{max-width:100%;color:inherit;font:inherit;text-align:left;cursor:pointer;background:0 0;border:0;padding:0;font-size:14px;font-weight:500;line-height:20px}.oypj0a_cardOpen:after{content:\"\";border-radius:inherit;position:absolute;inset:0}.oypj0a_cardOpen:focus-visible{outline:none}.oypj0a_cardOpen:focus-visible:after{outline:var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color,var(--dsw-alias-state-business-primary));outline-offset:2px}.oypj0a_cardDesc{color:var(--dsw-alias-label-tertiary);-webkit-line-clamp:1;-webkit-box-orient:vertical;font-size:13px;line-height:18px;display:-webkit-box;overflow:hidden}.oypj0a_cardEnd{z-index:1;flex:none;align-items:center;gap:8px;display:inline-flex;position:relative}.oypj0a_iconButton{border-radius:var(--dsw-radius-sm);width:28px;height:28px;color:var(--dsw-alias-label-caption);cursor:pointer;background:0 0;border:0;justify-content:center;align-items:center;display:inline-flex}.oypj0a_iconButton:hover:not(:disabled){background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-secondary)}.oypj0a_iconButton:disabled{opacity:.5;cursor:default}.oypj0a_addButton{border-radius:var(--dsw-radius-md);height:32px;padding:0 12px;font-size:13px;line-height:20px}.oypj0a_iconWrap{display:inline-flex}.oypj0a_danger{color:var(--dsw-alias-state-error-primary);border-color:color-mix(in srgb, var(--dsw-alias-state-error-primary) 30%, transparent);--dsw-alias-interactive-bg-hover:color-mix(in srgb, var(--dsw-alias-state-error-primary) 8%, transparent)}.oypj0a_detailActions{flex:none;align-items:center;gap:16px;display:flex}.oypj0a_actions{align-items:center;gap:16px;display:flex}.oypj0a_deleteButton{border-radius:var(--dsw-radius-sm);width:28px;height:28px;color:var(--dsw-alias-state-error-primary);cursor:pointer;background:0 0;border:0;justify-content:center;align-items:center;display:inline-flex}.oypj0a_deleteButton:hover:not(:disabled){background:var(--dsw-alias-interactive-bg-hover-danger,var(--dsw-alias-interactive-bg-hover))}.oypj0a_deleteButton:disabled{opacity:.5;cursor:default}.oypj0a_deleteButton:focus-visible{outline:var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color,var(--dsw-alias-state-business-primary));outline-offset:1px}.oypj0a_reason{color:var(--dsw-alias-state-error-primary);overflow-wrap:anywhere;white-space:pre-wrap;margin:0;font-size:12px;line-height:18px}.oypj0a_partsHead .oypj0a_subLabel{margin:0}.oypj0a_partsFilter{width:200px}.oypj0a_partsFilter:focus-visible{outline:var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color,var(--dsw-alias-state-business-primary));outline-offset:1px}.oypj0a_installDialog{width:min(560px,100%);max-height:min(800px,100%)}.oypj0a_installContent{min-height:0;overflow-y:auto}.oypj0a_installBody{flex-direction:column;gap:12px;min-width:0;display:flex}.oypj0a_installLocation{color:var(--dsw-alias-label-tertiary);overflow-wrap:anywhere;margin:0;font-size:12px;line-height:18px}.oypj0a_installField{flex-direction:column;gap:6px;font-size:13px;display:flex}.oypj0a_installField input[type=text]{border:.5px solid var(--dsw-alias-border-l4);border-radius:var(--dsw-radius-md);background:var(--dsw-alias-bg-layer-3);height:40px;font:inherit;color:var(--dsw-alias-label-primary);outline:none;padding:0 14px;font-size:13px}.oypj0a_installField input[type=text]:focus{border-color:var(--dsw-alias-state-business-primary);box-shadow:inset 0 0 0 .5px var(--dsw-alias-state-business-primary)}.oypj0a_installField input[aria-invalid=true]{border-color:var(--dsw-alias-state-error-primary)}.oypj0a_guideToggle{font:inherit;color:var(--dsw-alias-label-secondary);cursor:pointer;background:0 0;border:0;align-self:flex-start;align-items:center;gap:4px;margin-top:4px;padding:0;font-size:12.5px;display:inline-flex}.oypj0a_guideToggle:hover{color:var(--dsw-alias-label-primary)}.oypj0a_guideChevron{transition:transform .16s}.oypj0a_guideToggle[aria-expanded=true] .oypj0a_guideChevron{transform:rotate(180deg)}.oypj0a_guide{border:.5px solid var(--dsw-alias-border-l4);border-radius:var(--dsw-radius-lg);background:var(--dsw-alias-bg-layer-1);flex-direction:column;gap:10px;padding:8px 14px 14px;display:flex}.oypj0a_guideHint{color:var(--dsw-alias-label-tertiary);margin:0;font-size:12px;line-height:18px}.oypj0a_guideSafety{border-radius:var(--dsw-radius-md);background:color-mix(in srgb, var(--dsw-alias-state-warning-primary,var(--dsw-alias-state-business-primary)) 12%, transparent);color:var(--dsw-alias-state-warning-primary,var(--dsw-alias-state-business-primary));align-items:flex-start;gap:8px;margin:0;padding:10px 12px;font-size:12px;line-height:18px;display:flex}.oypj0a_guideSafety>svg{flex:none;margin-top:2px}.oypj0a_guideList{flex-direction:column;gap:2px;margin:0;padding:0;list-style:none;display:flex}.oypj0a_guideItem{align-items:flex-start;gap:10px;padding:8px 0;display:flex}.oypj0a_guideIndex{corner-shape:round;background:var(--dsw-alias-bg-module-platform);width:20px;height:20px;color:var(--dsw-alias-label-secondary);border-radius:999px;flex:none;justify-content:center;align-items:center;font-size:11px;font-weight:500;display:inline-flex}.oypj0a_guideMain{flex-direction:column;flex:1;gap:0;min-width:0;display:flex}.oypj0a_guideTitle{color:var(--dsw-alias-label-primary);font-size:13px;font-weight:500;line-height:20px}.oypj0a_guideExample{color:var(--dsw-alias-label-secondary);overflow-wrap:anywhere;font-size:12px;line-height:20px}.oypj0a_guideExample code{font-family:var(--dsw-font-mono,ui-monospace, SFMono-Regular, Menlo, monospace)}.oypj0a_guideExampleLabel{color:var(--dsw-alias-label-tertiary)}.oypj0a_optionsRow{flex-wrap:wrap;justify-content:space-between;align-items:center;gap:8px 12px;display:flex}.oypj0a_registryToggle{border:.5px solid var(--dsw-alias-border-l4);border-radius:var(--dsw-radius-sm);background:var(--dsw-alias-bg-layer-2);height:26px;font:inherit;color:var(--dsw-alias-label-secondary);cursor:pointer;align-items:center;gap:6px;padding:0 8px 0 10px;font-size:12.5px;display:inline-flex}.oypj0a_registryToggle:hover:not(:disabled){color:var(--dsw-alias-label-primary)}.oypj0a_registryToggle:disabled{cursor:default;opacity:.6}.oypj0a_registryToggle[aria-expanded=true]{border-color:var(--dsw-alias-border-l3);background:var(--dsw-alias-bg-layer-3)}.oypj0a_registryToggle[aria-expanded=true] .oypj0a_guideChevron{transform:rotate(180deg)}.oypj0a_registryChosen{color:var(--dsw-alias-label-primary);font-weight:500}.oypj0a_registry{z-index:1100;box-sizing:border-box;border-radius:var(--dsw-radius-lg);background:var(--dsw-alias-bg-layer-2);--dsw-elevation-stroke-color:var(--dsw-alias-border-l3);width:min(440px,100vw - 24px);box-shadow:var(--dsw-elevation-prominent);border:0;flex-direction:column;gap:4px;min-width:0;margin:0;padding:8px 10px 12px;display:flex;position:fixed}.oypj0a_registryOption{border-radius:var(--dsw-radius-lg);cursor:pointer;border:.5px solid #0000;flex-direction:column;gap:4px;padding:8px 10px;display:flex}.oypj0a_registryOption[data-checked=true]{border-color:color-mix(in srgb, var(--dsw-alias-brand-primary) 40%, transparent);background:var(--dsw-alias-bg-layer-2)}label.oypj0a_registryOption{flex-direction:row;align-items:flex-start;gap:10px}.oypj0a_registryOption input[type=radio]{width:16px;height:16px;accent-color:var(--dsw-alias-brand-primary);flex:none;margin:2px 0 0}.oypj0a_registryTitle{color:var(--dsw-alias-label-primary);flex-wrap:wrap;align-items:center;gap:8px;font-size:13px;line-height:20px;display:flex}.oypj0a_registryHint{color:var(--dsw-alias-label-tertiary);overflow-wrap:anywhere;font-size:12px;line-height:18px}.oypj0a_registryCustomPick{cursor:pointer;align-items:flex-start;gap:10px;display:flex}.oypj0a_registryCustomField{border:.5px solid var(--dsw-alias-border-l4);border-radius:var(--dsw-radius-md);background:var(--dsw-alias-bg-layer-3);height:32px;font:inherit;color:var(--dsw-alias-label-primary);margin-left:26px;padding:0 10px;font-size:13px}.oypj0a_registryCustomField[aria-invalid=true]{border-color:var(--dsw-alias-state-error-primary)}.oypj0a_registryOption>.oypj0a_inputError,.oypj0a_registryOption>.oypj0a_registryHint{margin-left:26px}.oypj0a_inputError{color:var(--dsw-alias-state-error-primary);margin:-4px 0 0;font-size:12px;line-height:18px}.oypj0a_wide{border-radius:var(--dsw-radius-md);justify-content:center;width:100%;height:40px}.oypj0a_wizard{flex-direction:column;flex:auto;gap:16px;min-width:0;min-height:0;padding:16px 20px 0;display:flex}.oypj0a_wizardScroll{flex-direction:column;flex:auto;gap:16px;min-height:0;display:flex;overflow-y:auto}.oypj0a_wizardHead{justify-content:space-between;align-items:center;min-height:24px;display:flex}.oypj0a_wizardBack{font:inherit;color:var(--dsw-alias-label-primary);cursor:pointer;background:0 0;border:0;align-items:center;gap:4px;padding:0;font-size:15px;font-weight:600;display:inline-flex}.oypj0a_wizardClose{border-radius:var(--dsw-radius-sm);width:24px;height:24px;color:var(--dsw-alias-label-tertiary);cursor:pointer;background:0 0;border:0;justify-content:center;align-items:center;padding:0;display:inline-flex}.oypj0a_wizardClose:hover{background:var(--dsw-alias-bg-layer-3);color:var(--dsw-alias-label-primary)}.oypj0a_wizardHero{text-align:center;flex-direction:column;align-items:center;gap:10px;padding:8px 0 4px;display:flex}.oypj0a_wizardIcon{width:44px;height:44px;color:var(--dsw-alias-label-secondary);justify-content:center;align-items:center;display:inline-flex}.oypj0a_wizardIcon[data-state=done]{color:var(--dsw-alias-state-success-secondary)}.oypj0a_wizardIcon[data-state=error]{color:var(--dsw-alias-state-warn-label)}.oypj0a_wizardTitle{margin:0;font-size:18px;font-weight:600;line-height:26px}.oypj0a_wizardSub{color:var(--dsw-alias-label-secondary);overflow-wrap:anywhere;margin:0;font-size:13px;line-height:20px}.oypj0a_subject{border:.5px solid var(--dsw-alias-border-l3);border-radius:var(--dsw-radius-lg);text-align:center;flex-direction:column;align-items:center;gap:6px;padding:16px;display:flex}.oypj0a_subjectName{overflow-wrap:anywhere;margin:0;font-size:15px;font-weight:600;line-height:22px}.oypj0a_subjectDesc,.oypj0a_subjectMeta{color:var(--dsw-alias-label-secondary);overflow-wrap:anywhere;margin:0;font-size:13px;line-height:20px}.oypj0a_wizardFoot{justify-content:space-between;align-items:center;gap:12px;display:flex}.oypj0a_footAction{border-radius:var(--dsw-radius-md);height:32px}.oypj0a_detailsToggle{font:inherit;color:var(--dsw-alias-label-secondary);cursor:pointer;background:0 0;border:0;align-items:center;gap:4px;padding:0;font-size:13px;display:inline-flex}.oypj0a_detailsChevron{transition:transform .16s}.oypj0a_detailsToggle[aria-expanded=true] .oypj0a_detailsChevron{transform:rotate(180deg)}.oypj0a_detailsBody{flex-direction:column;gap:8px;min-width:0;display:flex}.oypj0a_wizardActions{align-items:center;gap:8px;display:flex}.oypj0a_run{flex-direction:column;gap:4px;min-width:0;display:flex}.oypj0a_attemptBadge{border-radius:var(--dsw-radius-sm);background:var(--dsw-alias-bg-layer-3);color:var(--dsw-alias-label-secondary);align-self:flex-start;margin:0;padding:0 6px;font-size:11px;line-height:18px}@media (prefers-reduced-motion:reduce){.oypj0a_detailsChevron{transition:none}}.oypj0a_result,.oypj0a_resultWarn{border-radius:var(--dsw-radius-md);background:color-mix(in srgb, var(--dsw-alias-state-success-primary) 10%, transparent);color:var(--dsw-alias-label-primary);margin:0;padding:8px 12px;font-size:13px;line-height:20px}.oypj0a_resultWarn{background:color-mix(in srgb, var(--dsw-alias-state-warning-primary,var(--dsw-alias-state-business-primary)) 12%, transparent)}.oypj0a_approval{border:.5px solid color-mix(in srgb, var(--dsw-alias-state-warning-primary,var(--dsw-alias-state-business-primary)) 40%, transparent);border-radius:var(--dsw-radius-lg);background:color-mix(in srgb, var(--dsw-alias-state-warning-primary,var(--dsw-alias-state-business-primary)) 8%, transparent);flex-direction:column;gap:8px;padding:12px 14px;display:flex}.oypj0a_approvalTitle{color:var(--dsw-alias-label-primary);margin:0;font-size:13px;font-weight:600}.oypj0a_approvalText{color:var(--dsw-alias-label-secondary);margin:0;font-size:12.5px;line-height:18px}.oypj0a_approvalCaution{color:var(--dsw-alias-state-warning-primary,var(--dsw-alias-state-business-primary));margin:0;font-size:12.5px;font-weight:600;line-height:18px}.oypj0a_approvalList{flex-wrap:wrap;gap:6px;margin:0;padding:0;list-style:none;display:flex}.oypj0a_approvalList code{border-radius:var(--dsw-radius-sm);background:var(--dsw-alias-bg-layer-3);font-family:var(--dsw-font-mono,ui-monospace, SFMono-Regular, Menlo, monospace);color:var(--dsw-alias-label-primary);padding:2px 8px;font-size:12px;display:inline-block}.oypj0a_terminal{--dsl-terminal-font:var(--dsw-font-markdown-code-block-small);--dsl-terminal-line-height:18px;--dsl-terminal-output-max-height:240px;border:.5px solid var(--dsw-alias-border-l1);margin:4px 0 0}.oypj0a_dependents{color:var(--dsw-alias-label-secondary);margin:8px 0 0;padding-left:18px;font-size:13px;line-height:20px}.oypj0a_dangerButton{--dsw-alias-button-primary-fill:var(--dsw-alias-state-error-primary);--dsw-alias-button-primary-hover:var(--dsw-alias-state-error-primary)}.oypj0a_detail{flex-direction:column;display:flex}.oypj0a_detailTop{flex-direction:column;padding-top:28px;display:flex}[data-platform=darwin] .oypj0a_detailTop{padding-top:calc(28px + var(--dsh-frame-top-clearance,0px))}.oypj0a_crumb{color:var(--dsw-alias-label-tertiary);font:inherit;cursor:pointer;background:0 0;border:0;align-items:center;gap:6px;padding:0;font-size:12.5px;display:inline-flex}.oypj0a_crumb:hover{color:var(--dsw-alias-label-primary)}.oypj0a_crumb:focus-visible{outline:var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color,var(--dsw-alias-state-business-primary));outline-offset:2px}.oypj0a_crumbIcon{transform:rotate(90deg)}.oypj0a_detailHead{justify-content:space-between;align-items:center;gap:12px;margin:32px 0 0;display:flex}.oypj0a_detailMain{flex-direction:column;gap:8px;min-width:0;margin-top:20px;display:flex}.oypj0a_detailTitle{margin:0;font-size:20px;font-weight:500;line-height:28px}.oypj0a_versionTag{font-variant-numeric:tabular-nums;flex:none}.oypj0a_detailDesc{color:var(--dsw-alias-label-secondary);margin:0;font-size:14px;line-height:22px}.oypj0a_detailName{color:var(--dsw-alias-label-tertiary);overflow-wrap:anywhere;margin:0;font-size:12px;line-height:18px}.oypj0a_detailName code{font-family:var(--dsw-font-mono,ui-monospace, SFMono-Regular, Menlo, monospace)}.oypj0a_detail>.oypj0a_detailDesc{margin-top:12px}.oypj0a_detailSections{flex-direction:column;gap:32px;margin-top:32px;display:flex}.oypj0a_detailSection{flex-direction:column;gap:12px;display:flex}.oypj0a_sectionHead{align-items:baseline;gap:10px;display:flex}.oypj0a_sectionTitle{margin:0;font-size:14px;font-weight:500;line-height:20px}.oypj0a_sectionCount{color:var(--dsw-alias-label-secondary);font-size:12px;line-height:18px}.oypj0a_cardArrow{color:var(--dsw-alias-label-tertiary);flex:none}.oypj0a_rows{flex-direction:column;margin:0;padding:0;list-style:none;display:flex}.oypj0a_row{border-bottom:.5px solid var(--dsw-alias-border-l2);padding:12px 2px}.oypj0a_row:last-child{border-bottom:0}.oypj0a_rowLine{align-items:center;gap:16px;min-width:0;display:flex}.oypj0a_rowIcon{border:.5px solid var(--dsw-alias-border-l3);border-radius:var(--dsw-radius-md);width:40px;height:40px;color:var(--dsw-alias-label-secondary);flex:none;justify-content:center;align-items:center;display:inline-flex}.oypj0a_rowMain{flex-direction:column;flex:1;gap:2px;min-width:0;display:flex}.oypj0a_rowId{color:var(--dsw-alias-label-primary);overflow-wrap:anywhere;font-size:13.5px;font-weight:500;line-height:20px}.oypj0a_row[data-state=off] .oypj0a_rowId{color:var(--dsw-alias-label-secondary)}.oypj0a_rowModule{font-family:var(--dsw-font-mono,ui-monospace, SFMono-Regular, Menlo, monospace);color:var(--dsw-alias-label-tertiary);overflow-wrap:anywhere;font-size:11.5px;line-height:16px}.oypj0a_rowOpen{color:inherit;font:inherit;text-align:left;cursor:pointer;background:0 0;border:0;align-items:center;gap:2px;padding:0;display:inline-flex}.oypj0a_rowOpen:hover .oypj0a_rowId{text-underline-offset:3px;text-decoration:underline}.oypj0a_rowOpenIcon{color:var(--dsw-alias-label-tertiary);flex:none}.oypj0a_rowOpen:hover .oypj0a_rowOpenIcon{color:var(--dsw-alias-label-primary)}.oypj0a_rowState{color:var(--dsw-alias-label-secondary);white-space:nowrap;flex:none;align-items:center;gap:6px;font-size:12.5px;line-height:18px;display:inline-flex}.oypj0a_row[data-state=failed] .oypj0a_rowState{color:var(--dsw-alias-state-error-primary)}.oypj0a_rowFailure{color:var(--dsw-alias-state-error-primary);overflow-wrap:anywhere;margin:4px 0 0 56px;font-size:12px;line-height:18px}";
+		//#region \0dsh-css:D:\deepseek-harness\packages\client\ui-plugin-manager\src\client\PluginManagerPage.module.css.mjs
+		const css = ".rNhiXq_page{box-sizing:border-box;height:100%;color:var(--dsw-alias-label-primary);flex-direction:column;align-items:center;gap:32px;padding:0 clamp(24px,4vw,48px) 48px;display:flex;overflow:auto}.rNhiXq_page>*{width:100%;max-width:960px}.rNhiXq_pageHead{box-sizing:border-box;justify-content:space-between;align-items:flex-start;gap:16px;padding-top:28px;display:flex}[data-platform=darwin] .rNhiXq_pageHead{padding-top:calc(28px + var(--dsh-frame-top-clearance,0px))}.rNhiXq_pageTitle{margin:0;font-size:20px;font-weight:500;line-height:28px}.rNhiXq_pageIntro{color:var(--dsw-alias-label-secondary);align-items:center;gap:4px;margin:4px 0 0;font-size:13px;line-height:20px;display:flex}.rNhiXq_infoButton{width:20px;height:20px;color:var(--dsw-alias-label-caption);flex:none;padding:0}.rNhiXq_toolbar{justify-content:flex-end;align-items:center;gap:16px;display:flex}.rNhiXq_status,.rNhiXq_failure p,.rNhiXq_empty{color:var(--dsw-alias-label-tertiary);margin:0;font-size:13px;line-height:20px}.rNhiXq_failure{color:var(--dsw-alias-state-error-primary);align-items:center;gap:10px;display:flex}.rNhiXq_statusWithDot{align-items:center;gap:6px;display:inline-flex}.rNhiXq_group{flex-direction:column;gap:8px;display:flex}.rNhiXq_groupHead{align-items:baseline;gap:8px;display:flex}.rNhiXq_groupTitle{margin:0;font-size:14px;font-weight:500;line-height:22px}.rNhiXq_count{color:var(--dsw-alias-label-caption);font-variant-numeric:tabular-nums;font-size:14px}.rNhiXq_groupInfo{color:var(--dsw-alias-label-caption);align-self:center;align-items:center;display:inline-flex}.rNhiXq_groupInfo:hover,.rNhiXq_groupInfo:focus-visible{color:var(--dsw-alias-label-secondary)}.rNhiXq_statusTag{height:18px;padding:0 7px;font-size:10px;line-height:1}.rNhiXq_card[data-plugin-highlight]{animation:2.4s ease-out rNhiXq_dsh-plugin-highlight}@keyframes rNhiXq_dsh-plugin-highlight{0%,55%{box-shadow:0 0 0 2px color-mix(in srgb, var(--dsw-alias-state-business-primary) 40%, transparent)}to{box-shadow:0 0 #0000}}@media (prefers-reduced-motion:reduce){.rNhiXq_card[data-plugin-highlight]{box-shadow:0 0 0 2px color-mix(in srgb, var(--dsw-alias-state-business-primary) 40%, transparent);animation:none}}.rNhiXq_iconButton:focus-visible{outline:var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color,var(--dsw-alias-state-business-primary));outline-offset:1px}.rNhiXq_cards{flex-direction:column;gap:2px;margin:0;padding:0;list-style:none;display:flex}.rNhiXq_card{border-radius:var(--dsw-radius-xl);--dsh-scrollbar-thumb:var(--dsw-alias-scrollbar-bg-l2);--dsh-scrollbar-thumb-hover:var(--dsw-alias-scrollbar-hover-l2);min-width:0;margin:0 -8px}.rNhiXq_cardHead{align-items:center;gap:14px;padding:8px;display:flex}.rNhiXq_cardIcon{border:.5px solid var(--dsw-alias-border-l3);border-radius:var(--dsw-radius-lg);width:48px;height:48px;color:var(--dsw-alias-label-secondary);flex:none;justify-content:center;align-items:center;display:inline-flex}.rNhiXq_packageImage{object-fit:contain}.rNhiXq_cardMain{flex-direction:column;flex:1;gap:4px;min-width:0;display:flex}.rNhiXq_titleRow{flex-wrap:wrap;align-items:center;gap:8px;min-width:0;display:flex}.rNhiXq_cardTitle{text-overflow:ellipsis;white-space:nowrap;font-size:14px;font-weight:500;line-height:20px;overflow:hidden}.rNhiXq_cardLink{position:relative}.rNhiXq_cardLink:hover{background:var(--dsw-alias-interactive-bg-hover)}.rNhiXq_cardOpen{max-width:100%;color:inherit;font:inherit;text-align:left;cursor:pointer;background:0 0;border:0;padding:0;font-size:14px;font-weight:500;line-height:20px}.rNhiXq_cardOpen:after{content:\"\";border-radius:var(--dsw-radius-xl);position:absolute;inset:0}.rNhiXq_cardOpen:focus-visible{outline:none}.rNhiXq_cardOpen:focus-visible:after{outline:var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color,var(--dsw-alias-state-business-primary));outline-offset:2px}.rNhiXq_cardDesc{color:var(--dsw-alias-label-tertiary);-webkit-line-clamp:1;-webkit-box-orient:vertical;font-size:13px;line-height:18px;display:-webkit-box;overflow:hidden}.rNhiXq_skeletonFill{background:var(--dsw-alias-bg-skeleton);animation:2s cubic-bezier(.36,0,.64,1) infinite rNhiXq_dsh-plugin-skeleton}.rNhiXq_skeletonText{align-items:center;height:1lh;display:flex}.rNhiXq_skeletonBar{border-radius:var(--dsw-radius-xs);width:100%;height:12px}.rNhiXq_skeletonHeading{width:48px}.rNhiXq_skeletonTitle{width:min(144px,60%)}.rNhiXq_skeletonDescription{width:min(280px,85%)}.rNhiXq_skeletonIcon{border-color:#0000}.rNhiXq_skeletonActions{width:36px;height:20px}@keyframes rNhiXq_dsh-plugin-skeleton{0%{opacity:1}40%{opacity:.6}80%,to{opacity:1}}@media (prefers-reduced-motion:reduce){.rNhiXq_skeletonFill{animation:none}}.rNhiXq_cardEnd{z-index:1;flex:none;align-items:center;gap:8px;display:inline-flex;position:relative}.rNhiXq_iconButton{border-radius:var(--dsw-radius-sm);width:28px;height:28px;color:var(--dsw-alias-label-caption);cursor:pointer;background:0 0;border:0;justify-content:center;align-items:center;display:inline-flex}.rNhiXq_iconButton:hover:not(:disabled){background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-secondary)}.rNhiXq_iconButton:disabled{opacity:.5;cursor:default}.rNhiXq_addButton{border-radius:var(--dsw-radius-md);height:32px;padding:0 12px;font-size:13px;line-height:20px}.rNhiXq_iconWrap{display:inline-flex}.rNhiXq_danger{color:var(--dsw-alias-state-error-primary);border-color:color-mix(in srgb, var(--dsw-alias-state-error-primary) 30%, transparent);--dsw-alias-interactive-bg-hover:color-mix(in srgb, var(--dsw-alias-state-error-primary) 8%, transparent)}.rNhiXq_detailActions{flex:none;align-items:center;gap:16px;display:flex}.rNhiXq_actions{align-items:center;gap:16px;display:flex}.rNhiXq_deleteButton{border-radius:var(--dsw-radius-sm);width:28px;height:28px;color:var(--dsw-alias-state-error-primary);cursor:pointer;background:0 0;border:0;justify-content:center;align-items:center;display:inline-flex}.rNhiXq_deleteButton:hover:not(:disabled){background:var(--dsw-alias-interactive-bg-hover-danger,var(--dsw-alias-interactive-bg-hover))}.rNhiXq_deleteButton:disabled{opacity:.5;cursor:default}.rNhiXq_deleteButton:focus-visible{outline:var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color,var(--dsw-alias-state-business-primary));outline-offset:1px}.rNhiXq_reason{color:var(--dsw-alias-state-error-primary);overflow-wrap:anywhere;white-space:pre-wrap;margin:0;font-size:12px;line-height:18px}.rNhiXq_partsHead .rNhiXq_subLabel{margin:0}.rNhiXq_partsFilter{width:200px}.rNhiXq_partsFilter:focus-visible{outline:var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color,var(--dsw-alias-state-business-primary));outline-offset:1px}.rNhiXq_installDialog{width:min(560px,100%);max-height:min(800px,100%)}.rNhiXq_installContent{min-height:0;overflow-y:auto}.rNhiXq_installBody{flex-direction:column;gap:12px;min-width:0;display:flex}.rNhiXq_installFooter{flex-direction:column;flex:1;gap:20px;min-width:0;display:flex}.rNhiXq_templateHint{color:var(--dsw-alias-label-secondary);margin:-4px 0 0;font-size:12px;line-height:18px}.rNhiXq_installLocation{color:var(--dsw-alias-label-tertiary);overflow-wrap:anywhere;margin:0;font-size:12px;line-height:18px}.rNhiXq_installField{flex-direction:column;gap:6px;font-size:13px;display:flex}.rNhiXq_installField input[type=text]{border:.5px solid var(--dsw-alias-border-l4);border-radius:var(--dsw-radius-md);background:var(--dsw-alias-bg-layer-3);height:40px;font:inherit;color:var(--dsw-alias-label-primary);outline:none;padding:0 14px;font-size:13px}.rNhiXq_installField input[type=text]:focus,.rNhiXq_registryCustomField:focus{border-color:var(--dsw-alias-state-business-primary);box-shadow:inset 0 0 0 .5px var(--dsw-alias-state-business-primary)}.rNhiXq_installField input[type=text][aria-invalid=true],.rNhiXq_registryCustomField[aria-invalid=true]{border-color:var(--dsw-alias-state-error-primary);box-shadow:none}.rNhiXq_installField input[type=text][aria-invalid=true]:focus,.rNhiXq_registryCustomField[aria-invalid=true]:focus{box-shadow:inset 0 0 0 .5px var(--dsw-focus-ring-color,var(--dsw-alias-state-business-primary))}.rNhiXq_guideToggle{font:inherit;color:var(--dsw-alias-label-secondary);cursor:pointer;background:0 0;border:0;align-self:flex-start;align-items:center;gap:4px;margin-top:4px;padding:0;font-size:12.5px;display:inline-flex}.rNhiXq_guideToggle:hover{color:var(--dsw-alias-label-primary)}.rNhiXq_guideChevron{transition:transform .16s}.rNhiXq_guideToggle[aria-expanded=true] .rNhiXq_guideChevron{transform:rotate(180deg)}.rNhiXq_guide{border:.5px solid var(--dsw-alias-border-l4);border-radius:var(--dsw-radius-lg);background:var(--dsw-alias-bg-layer-1);flex-direction:column;gap:10px;padding:8px 14px 14px;display:flex}.rNhiXq_guideHint{color:var(--dsw-alias-label-secondary);margin:0;font-size:12px;line-height:18px}.rNhiXq_installSafety{border-radius:var(--dsw-radius-md);background:var(--dsw-alias-state-warn-tertiary);color:var(--dsw-alias-label-secondary);align-items:flex-start;gap:8px;margin:0;padding:10px 12px;font-size:12px;line-height:18px;display:flex}.rNhiXq_installSafety>svg{color:var(--dsw-alias-state-warn-primary);flex:none;margin-top:2px}.rNhiXq_guideList{flex-direction:column;gap:2px;margin:0;padding:0;list-style:none;display:flex}.rNhiXq_guideItem{align-items:flex-start;gap:10px;padding:8px 0;display:flex}.rNhiXq_guideItem>button{align-self:center}.rNhiXq_guideIndex{corner-shape:round;background:var(--dsw-alias-bg-module-platform);width:20px;height:20px;color:var(--dsw-alias-label-secondary);border-radius:999px;flex:none;justify-content:center;align-items:center;font-size:11px;font-weight:500;display:inline-flex}.rNhiXq_guideMain{flex-direction:column;flex:1;gap:0;min-width:0;display:flex}.rNhiXq_guideTitle{color:var(--dsw-alias-label-primary);font-size:13px;font-weight:500;line-height:20px}.rNhiXq_guideExample{color:var(--dsw-alias-label-secondary);overflow-wrap:anywhere;font-size:12px;line-height:20px}.rNhiXq_guideExample code{font-family:var(--ds-font-family-code)}.rNhiXq_guideExampleLabel{color:var(--dsw-alias-label-tertiary)}.rNhiXq_optionsRow{flex-wrap:wrap;justify-content:space-between;align-items:center;gap:8px 12px;display:flex}.rNhiXq_registryToggle{border:.5px solid var(--dsw-alias-border-l4);border-radius:var(--dsw-radius-md);background:var(--dsw-alias-bg-layer-2);height:28px;font:inherit;color:var(--dsw-alias-label-secondary);cursor:pointer;align-items:center;gap:6px;padding:0 8px 0 10px;font-size:12.5px;display:inline-flex}.rNhiXq_registryToggle:hover:not(:disabled){color:var(--dsw-alias-label-primary)}.rNhiXq_registryToggle:disabled{cursor:default;opacity:.6}.rNhiXq_registryToggle[aria-expanded=true]{border-color:var(--dsw-alias-border-l3);background:var(--dsw-alias-bg-layer-3)}.rNhiXq_registryToggle[aria-expanded=true] .rNhiXq_guideChevron{transform:rotate(180deg)}.rNhiXq_registryChosen{color:var(--dsw-alias-label-primary);font-weight:500}.rNhiXq_registry{z-index:1100;box-sizing:border-box;background:var(--dsw-alias-bg-layer-2);border-radius:var(--dsw-radius-lg);--dsw-elevation-stroke-color:var(--dsw-alias-border-l1);width:min(440px,100vw - 24px);box-shadow:var(--dsw-elevation-prominent);border:0;flex-direction:column;gap:4px;min-width:0;margin:0;padding:8px;display:flex;position:fixed}.rNhiXq_registryOption{border-radius:var(--dsw-radius-md);cursor:pointer;border:0;flex-direction:column;gap:4px;padding:8px 10px;display:flex}.rNhiXq_registryOption:hover{background:var(--dsw-alias-interactive-bg-hover)}label.rNhiXq_registryOption{flex-direction:row;align-items:flex-start;gap:10px}.rNhiXq_registryOption input[type=radio]{width:16px;height:16px;accent-color:var(--dsw-alias-brand-primary);flex:none;margin:2px 0 0}.rNhiXq_registryTitle{color:var(--dsw-alias-label-primary);flex-wrap:wrap;align-items:center;gap:8px;font-size:13px;line-height:20px;display:flex}.rNhiXq_registryHint{color:var(--dsw-alias-label-tertiary);overflow-wrap:anywhere;font-size:12px;line-height:18px}.rNhiXq_registryCustomPick{cursor:pointer;align-items:flex-start;gap:10px;display:flex}.rNhiXq_registryCustomField{border:.5px solid var(--dsw-alias-border-l4);border-radius:var(--dsw-radius-md);background:var(--dsw-alias-bg-layer-3);height:32px;font:inherit;color:var(--dsw-alias-label-primary);outline:none;margin-left:26px;padding:0 10px;font-size:13px}.rNhiXq_registryOption>.rNhiXq_inputError,.rNhiXq_registryOption>.rNhiXq_registryHint{margin-left:26px}.rNhiXq_inputError{color:var(--dsw-alias-state-error-primary);margin:-4px 0 0;font-size:12px;line-height:18px}.rNhiXq_wide{border-radius:var(--dsw-radius-md);justify-content:center;width:100%;height:40px}.rNhiXq_wizard{flex-direction:column;flex:auto;gap:16px;min-width:0;min-height:0;padding:16px 20px 0;display:flex}.rNhiXq_wizardScroll{flex-direction:column;flex:auto;gap:16px;min-height:0;display:flex;overflow-y:auto}.rNhiXq_wizardHead{justify-content:space-between;align-items:center;min-height:24px;display:flex}.rNhiXq_wizardBack{font:inherit;color:var(--dsw-alias-label-primary);cursor:pointer;background:0 0;border:0;align-items:center;gap:4px;padding:0;font-size:15px;font-weight:600;display:inline-flex}.rNhiXq_wizardClose{border-radius:var(--dsw-radius-sm);width:24px;height:24px;color:var(--dsw-alias-label-tertiary);cursor:pointer;background:0 0;border:0;justify-content:center;align-items:center;padding:0;display:inline-flex}.rNhiXq_wizardClose:hover{background:var(--dsw-alias-bg-layer-3);color:var(--dsw-alias-label-primary)}.rNhiXq_wizardHero{text-align:center;flex-direction:column;align-items:center;gap:10px;padding:8px 0 4px;display:flex}.rNhiXq_wizardIcon{width:44px;height:44px;color:var(--dsw-alias-label-secondary);justify-content:center;align-items:center;display:inline-flex}.rNhiXq_wizardIcon[data-state=done]{color:var(--dsw-alias-state-success-secondary)}.rNhiXq_wizardIcon[data-state=error]{color:var(--dsw-alias-state-warn-label)}.rNhiXq_wizardTitle{margin:0;font-size:18px;font-weight:600;line-height:26px}.rNhiXq_wizardSub{color:var(--dsw-alias-label-secondary);overflow-wrap:anywhere;margin:0;font-size:13px;line-height:20px}.rNhiXq_subject{border:.5px solid var(--dsw-alias-border-l3);border-radius:var(--dsw-radius-lg);text-align:center;flex-direction:column;align-items:center;gap:6px;padding:16px;display:flex}.rNhiXq_subjectName{overflow-wrap:anywhere;margin:0;font-size:15px;font-weight:600;line-height:22px}.rNhiXq_subjectDesc,.rNhiXq_subjectMeta{color:var(--dsw-alias-label-secondary);overflow-wrap:anywhere;margin:0;font-size:13px;line-height:20px}.rNhiXq_wizardFoot{justify-content:space-between;align-items:center;gap:12px;display:flex}.rNhiXq_footAction{border-radius:var(--dsw-radius-md);height:32px}.rNhiXq_detailsToggle{font:inherit;color:var(--dsw-alias-label-secondary);cursor:pointer;background:0 0;border:0;align-items:center;gap:4px;padding:0;font-size:13px;display:inline-flex}.rNhiXq_detailsChevron{transition:transform .16s}.rNhiXq_detailsToggle[aria-expanded=true] .rNhiXq_detailsChevron{transform:rotate(180deg)}.rNhiXq_detailsBody{flex-direction:column;gap:8px;min-width:0;display:flex}.rNhiXq_wizardActions{align-items:center;gap:8px;display:flex}.rNhiXq_run{flex-direction:column;gap:4px;min-width:0;display:flex}.rNhiXq_attemptBadge{border-radius:var(--dsw-radius-sm);background:var(--dsw-alias-bg-layer-3);color:var(--dsw-alias-label-secondary);align-self:flex-start;margin:0;padding:0 6px;font-size:11px;line-height:18px}@media (prefers-reduced-motion:reduce){.rNhiXq_detailsChevron{transition:none}}.rNhiXq_result,.rNhiXq_resultWarn{border-radius:var(--dsw-radius-md);background:color-mix(in srgb, var(--dsw-alias-state-success-primary) 10%, transparent);color:var(--dsw-alias-label-primary);margin:0;padding:8px 12px;font-size:13px;line-height:20px}.rNhiXq_resultWarn{background:var(--dsw-alias-state-warn-tertiary)}.rNhiXq_approval{border:.5px solid color-mix(in srgb, var(--dsw-alias-state-warn-primary) 40%, transparent);border-radius:var(--dsw-radius-lg);background:var(--dsw-alias-state-warn-tertiary);flex-direction:column;gap:8px;padding:12px 14px;display:flex}.rNhiXq_approvalTitle{color:var(--dsw-alias-label-primary);margin:0;font-size:13px;font-weight:600}.rNhiXq_approvalText{color:var(--dsw-alias-label-secondary);margin:0;font-size:12.5px;line-height:18px}.rNhiXq_approvalCaution{color:var(--dsw-alias-label-secondary);margin:0;font-size:12.5px;font-weight:500;line-height:18px}.rNhiXq_approvalList{flex-wrap:wrap;gap:6px;margin:0;padding:0;list-style:none;display:flex}.rNhiXq_approvalList code{border-radius:var(--dsw-radius-sm);background:var(--dsw-alias-bg-layer-3);font-family:var(--ds-font-family-code);color:var(--dsw-alias-label-primary);padding:2px 8px;font-size:12px;display:inline-block}.rNhiXq_terminal{--dsl-terminal-font:var(--dsw-font-markdown-code-block-small);--dsl-terminal-line-height:18px;--dsl-terminal-output-max-height:240px;border:.5px solid var(--dsw-alias-border-l1);margin:4px 0 0}.rNhiXq_dependents{color:var(--dsw-alias-label-secondary);margin:8px 0 0;padding-left:18px;font-size:13px;line-height:20px}.rNhiXq_dangerButton{--dsw-alias-button-primary-fill:var(--dsw-alias-state-error-primary);--dsw-alias-button-primary-hover:var(--dsw-alias-state-error-primary)}.rNhiXq_detail{flex-direction:column;display:flex}.rNhiXq_detailTop{flex-direction:column;padding-top:28px;display:flex}[data-platform=darwin] .rNhiXq_detailTop{padding-top:calc(28px + var(--dsh-frame-top-clearance,0px))}.rNhiXq_crumb{color:var(--dsw-alias-label-tertiary);font:inherit;cursor:pointer;background:0 0;border:0;align-items:center;gap:6px;padding:0;font-size:12.5px;display:inline-flex}.rNhiXq_crumb:hover{color:var(--dsw-alias-label-primary)}.rNhiXq_crumb:focus-visible{outline:var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color,var(--dsw-alias-state-business-primary));outline-offset:2px}.rNhiXq_crumbIcon{transform:rotate(90deg)}.rNhiXq_detailHead{justify-content:space-between;align-items:center;gap:12px;margin:32px 0 0;display:flex}.rNhiXq_detailMain{flex-direction:column;gap:8px;min-width:0;margin-top:20px;display:flex}.rNhiXq_detailTitle{margin:0;font-size:20px;font-weight:500;line-height:28px}.rNhiXq_versionTag{font-variant-numeric:tabular-nums;flex:none}.rNhiXq_detailDesc{color:var(--dsw-alias-label-secondary);margin:0;font-size:14px;line-height:22px}.rNhiXq_detailName{color:var(--dsw-alias-label-tertiary);overflow-wrap:anywhere;margin:0;font-size:12px;line-height:18px}.rNhiXq_detailName code{font-family:var(--dsw-font-mono,ui-monospace, SFMono-Regular, Menlo, monospace)}.rNhiXq_detail>.rNhiXq_detailDesc{margin-top:12px}.rNhiXq_detailSections{flex-direction:column;gap:32px;margin-top:32px;display:flex}.rNhiXq_detailSection{flex-direction:column;gap:12px;display:flex}.rNhiXq_sectionHead{align-items:baseline;gap:10px;display:flex}.rNhiXq_sectionTitle{margin:0;font-size:14px;font-weight:500;line-height:20px}.rNhiXq_sectionCount{color:var(--dsw-alias-label-secondary);font-size:12px;line-height:18px}.rNhiXq_cardArrow{color:var(--dsw-alias-label-tertiary);flex:none}.rNhiXq_rows{flex-direction:column;margin:0;padding:0;list-style:none;display:flex}.rNhiXq_row{border-bottom:.5px solid var(--dsw-alias-border-l2);padding:12px 2px}.rNhiXq_row:last-child{border-bottom:0}.rNhiXq_rowLine{align-items:center;gap:16px;min-width:0;display:flex}.rNhiXq_rowIcon{border:.5px solid var(--dsw-alias-border-l3);border-radius:var(--dsw-radius-md);width:40px;height:40px;color:var(--dsw-alias-label-secondary);flex:none;justify-content:center;align-items:center;display:inline-flex}.rNhiXq_rowMain{flex-direction:column;flex:1;gap:2px;min-width:0;display:flex}.rNhiXq_rowId{color:var(--dsw-alias-label-primary);overflow-wrap:anywhere;font-size:13.5px;font-weight:500;line-height:20px}.rNhiXq_row[data-state=off] .rNhiXq_rowId{color:var(--dsw-alias-label-secondary)}.rNhiXq_rowModule{font-family:var(--dsw-font-mono,ui-monospace, SFMono-Regular, Menlo, monospace);color:var(--dsw-alias-label-tertiary);overflow-wrap:anywhere;font-size:11.5px;line-height:16px}.rNhiXq_rowOpen{color:inherit;font:inherit;text-align:left;cursor:pointer;background:0 0;border:0;align-items:center;gap:2px;padding:0;display:inline-flex}.rNhiXq_rowOpen:hover .rNhiXq_rowId{text-underline-offset:3px;text-decoration:underline}.rNhiXq_rowOpenIcon{color:var(--dsw-alias-label-tertiary);flex:none}.rNhiXq_rowOpen:hover .rNhiXq_rowOpenIcon{color:var(--dsw-alias-label-primary)}.rNhiXq_rowState{color:var(--dsw-alias-label-secondary);white-space:nowrap;flex:none;align-items:center;gap:6px;font-size:12.5px;line-height:18px;display:inline-flex}.rNhiXq_row[data-state=failed] .rNhiXq_rowState{color:var(--dsw-alias-state-error-primary)}.rNhiXq_rowFailure{color:var(--dsw-alias-state-error-primary);overflow-wrap:anywhere;margin:4px 0 0 56px;font-size:12px;line-height:18px}";
 		const tagId = "@deepseek-ai/dsh-client-ui-plugin-manager/PluginManagerPage.module.css";
 		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId) + "]") === null) {
 			const tag = document.createElement("style");
@@ -1218,132 +1713,143 @@ window.__ModuleLoader__.load({
 			document.head.appendChild(tag);
 		}
 		var PluginManagerPage_module_css_default = {
-			"actions": "oypj0a_actions",
-			"addButton": "oypj0a_addButton",
-			"approval": "oypj0a_approval",
-			"approvalCaution": "oypj0a_approvalCaution",
-			"approvalList": "oypj0a_approvalList",
-			"approvalText": "oypj0a_approvalText",
-			"approvalTitle": "oypj0a_approvalTitle",
-			"attemptBadge": "oypj0a_attemptBadge",
-			"banner": "oypj0a_banner",
-			"card": "oypj0a_card",
-			"cardArrow": "oypj0a_cardArrow",
-			"cardDesc": "oypj0a_cardDesc",
-			"cardEnd": "oypj0a_cardEnd",
-			"cardHead": "oypj0a_cardHead",
-			"cardIcon": "oypj0a_cardIcon",
-			"cardLink": "oypj0a_cardLink",
-			"cardMain": "oypj0a_cardMain",
-			"cardOpen": "oypj0a_cardOpen",
-			"cardTitle": "oypj0a_cardTitle",
-			"cards": "oypj0a_cards",
-			"count": "oypj0a_count",
-			"crumb": "oypj0a_crumb",
-			"crumbIcon": "oypj0a_crumbIcon",
-			"danger": "oypj0a_danger",
-			"dangerButton": "oypj0a_dangerButton",
-			"deleteButton": "oypj0a_deleteButton",
-			"dependents": "oypj0a_dependents",
-			"detail": "oypj0a_detail",
-			"detailActions": "oypj0a_detailActions",
-			"detailDesc": "oypj0a_detailDesc",
-			"detailHead": "oypj0a_detailHead",
-			"detailMain": "oypj0a_detailMain",
-			"detailName": "oypj0a_detailName",
-			"detailSection": "oypj0a_detailSection",
-			"detailSections": "oypj0a_detailSections",
-			"detailTitle": "oypj0a_detailTitle",
-			"detailTop": "oypj0a_detailTop",
-			"detailsBody": "oypj0a_detailsBody",
-			"detailsChevron": "oypj0a_detailsChevron",
-			"detailsToggle": "oypj0a_detailsToggle",
-			"dsh-plugin-highlight": "oypj0a_dsh-plugin-highlight",
-			"empty": "oypj0a_empty",
-			"failure": "oypj0a_failure",
-			"footAction": "oypj0a_footAction",
-			"group": "oypj0a_group",
-			"groupHead": "oypj0a_groupHead",
-			"groupInfo": "oypj0a_groupInfo",
-			"groupTitle": "oypj0a_groupTitle",
-			"guide": "oypj0a_guide",
-			"guideChevron": "oypj0a_guideChevron",
-			"guideExample": "oypj0a_guideExample",
-			"guideExampleLabel": "oypj0a_guideExampleLabel",
-			"guideHint": "oypj0a_guideHint",
-			"guideIndex": "oypj0a_guideIndex",
-			"guideItem": "oypj0a_guideItem",
-			"guideList": "oypj0a_guideList",
-			"guideMain": "oypj0a_guideMain",
-			"guideSafety": "oypj0a_guideSafety",
-			"guideTitle": "oypj0a_guideTitle",
-			"guideToggle": "oypj0a_guideToggle",
-			"iconButton": "oypj0a_iconButton",
-			"iconWrap": "oypj0a_iconWrap",
-			"inputError": "oypj0a_inputError",
-			"installBody": "oypj0a_installBody",
-			"installContent": "oypj0a_installContent",
-			"installDialog": "oypj0a_installDialog",
-			"installField": "oypj0a_installField",
-			"installLocation": "oypj0a_installLocation",
-			"optionsRow": "oypj0a_optionsRow",
-			"packageImage": "oypj0a_packageImage",
-			"page": "oypj0a_page",
-			"pageHead": "oypj0a_pageHead",
-			"pageIntro": "oypj0a_pageIntro",
-			"pageTitle": "oypj0a_pageTitle",
-			"partsFilter": "oypj0a_partsFilter",
-			"partsHead": "oypj0a_partsHead",
-			"reason": "oypj0a_reason",
-			"registry": "oypj0a_registry",
-			"registryChosen": "oypj0a_registryChosen",
-			"registryCustomField": "oypj0a_registryCustomField",
-			"registryCustomPick": "oypj0a_registryCustomPick",
-			"registryHint": "oypj0a_registryHint",
-			"registryOption": "oypj0a_registryOption",
-			"registryTitle": "oypj0a_registryTitle",
-			"registryToggle": "oypj0a_registryToggle",
-			"result": "oypj0a_result",
-			"resultWarn": "oypj0a_resultWarn",
-			"row": "oypj0a_row",
-			"rowFailure": "oypj0a_rowFailure",
-			"rowIcon": "oypj0a_rowIcon",
-			"rowId": "oypj0a_rowId",
-			"rowLine": "oypj0a_rowLine",
-			"rowMain": "oypj0a_rowMain",
-			"rowModule": "oypj0a_rowModule",
-			"rowOpen": "oypj0a_rowOpen",
-			"rowOpenIcon": "oypj0a_rowOpenIcon",
-			"rowState": "oypj0a_rowState",
-			"rows": "oypj0a_rows",
-			"run": "oypj0a_run",
-			"sectionCount": "oypj0a_sectionCount",
-			"sectionHead": "oypj0a_sectionHead",
-			"sectionTitle": "oypj0a_sectionTitle",
-			"status": "oypj0a_status",
-			"statusTag": "oypj0a_statusTag",
-			"statusWithDot": "oypj0a_statusWithDot",
-			"subLabel": "oypj0a_subLabel",
-			"subject": "oypj0a_subject",
-			"subjectDesc": "oypj0a_subjectDesc",
-			"subjectMeta": "oypj0a_subjectMeta",
-			"subjectName": "oypj0a_subjectName",
-			"terminal": "oypj0a_terminal",
-			"titleRow": "oypj0a_titleRow",
-			"toolbar": "oypj0a_toolbar",
-			"versionTag": "oypj0a_versionTag",
-			"wide": "oypj0a_wide",
-			"wizard": "oypj0a_wizard",
-			"wizardActions": "oypj0a_wizardActions",
-			"wizardBack": "oypj0a_wizardBack",
-			"wizardClose": "oypj0a_wizardClose",
-			"wizardFoot": "oypj0a_wizardFoot",
-			"wizardHead": "oypj0a_wizardHead",
-			"wizardHero": "oypj0a_wizardHero",
-			"wizardIcon": "oypj0a_wizardIcon",
-			"wizardScroll": "oypj0a_wizardScroll",
-			"wizardSub": "oypj0a_wizardSub",
-			"wizardTitle": "oypj0a_wizardTitle"
+			"actions": "rNhiXq_actions",
+			"addButton": "rNhiXq_addButton",
+			"approval": "rNhiXq_approval",
+			"approvalCaution": "rNhiXq_approvalCaution",
+			"approvalList": "rNhiXq_approvalList",
+			"approvalText": "rNhiXq_approvalText",
+			"approvalTitle": "rNhiXq_approvalTitle",
+			"attemptBadge": "rNhiXq_attemptBadge",
+			"card": "rNhiXq_card",
+			"cardArrow": "rNhiXq_cardArrow",
+			"cardDesc": "rNhiXq_cardDesc",
+			"cardEnd": "rNhiXq_cardEnd",
+			"cardHead": "rNhiXq_cardHead",
+			"cardIcon": "rNhiXq_cardIcon",
+			"cardLink": "rNhiXq_cardLink",
+			"cardMain": "rNhiXq_cardMain",
+			"cardOpen": "rNhiXq_cardOpen",
+			"cardTitle": "rNhiXq_cardTitle",
+			"cards": "rNhiXq_cards",
+			"count": "rNhiXq_count",
+			"crumb": "rNhiXq_crumb",
+			"crumbIcon": "rNhiXq_crumbIcon",
+			"danger": "rNhiXq_danger",
+			"dangerButton": "rNhiXq_dangerButton",
+			"deleteButton": "rNhiXq_deleteButton",
+			"dependents": "rNhiXq_dependents",
+			"detail": "rNhiXq_detail",
+			"detailActions": "rNhiXq_detailActions",
+			"detailDesc": "rNhiXq_detailDesc",
+			"detailHead": "rNhiXq_detailHead",
+			"detailMain": "rNhiXq_detailMain",
+			"detailName": "rNhiXq_detailName",
+			"detailSection": "rNhiXq_detailSection",
+			"detailSections": "rNhiXq_detailSections",
+			"detailTitle": "rNhiXq_detailTitle",
+			"detailTop": "rNhiXq_detailTop",
+			"detailsBody": "rNhiXq_detailsBody",
+			"detailsChevron": "rNhiXq_detailsChevron",
+			"detailsToggle": "rNhiXq_detailsToggle",
+			"dsh-plugin-highlight": "rNhiXq_dsh-plugin-highlight",
+			"dsh-plugin-skeleton": "rNhiXq_dsh-plugin-skeleton",
+			"empty": "rNhiXq_empty",
+			"failure": "rNhiXq_failure",
+			"footAction": "rNhiXq_footAction",
+			"group": "rNhiXq_group",
+			"groupHead": "rNhiXq_groupHead",
+			"groupInfo": "rNhiXq_groupInfo",
+			"groupTitle": "rNhiXq_groupTitle",
+			"guide": "rNhiXq_guide",
+			"guideChevron": "rNhiXq_guideChevron",
+			"guideExample": "rNhiXq_guideExample",
+			"guideExampleLabel": "rNhiXq_guideExampleLabel",
+			"guideHint": "rNhiXq_guideHint",
+			"guideIndex": "rNhiXq_guideIndex",
+			"guideItem": "rNhiXq_guideItem",
+			"guideList": "rNhiXq_guideList",
+			"guideMain": "rNhiXq_guideMain",
+			"guideTitle": "rNhiXq_guideTitle",
+			"guideToggle": "rNhiXq_guideToggle",
+			"iconButton": "rNhiXq_iconButton",
+			"iconWrap": "rNhiXq_iconWrap",
+			"infoButton": "rNhiXq_infoButton",
+			"inputError": "rNhiXq_inputError",
+			"installBody": "rNhiXq_installBody",
+			"installContent": "rNhiXq_installContent",
+			"installDialog": "rNhiXq_installDialog",
+			"installField": "rNhiXq_installField",
+			"installFooter": "rNhiXq_installFooter",
+			"installLocation": "rNhiXq_installLocation",
+			"installSafety": "rNhiXq_installSafety",
+			"optionsRow": "rNhiXq_optionsRow",
+			"packageImage": "rNhiXq_packageImage",
+			"page": "rNhiXq_page",
+			"pageHead": "rNhiXq_pageHead",
+			"pageIntro": "rNhiXq_pageIntro",
+			"pageTitle": "rNhiXq_pageTitle",
+			"partsFilter": "rNhiXq_partsFilter",
+			"partsHead": "rNhiXq_partsHead",
+			"reason": "rNhiXq_reason",
+			"registry": "rNhiXq_registry",
+			"registryChosen": "rNhiXq_registryChosen",
+			"registryCustomField": "rNhiXq_registryCustomField",
+			"registryCustomPick": "rNhiXq_registryCustomPick",
+			"registryHint": "rNhiXq_registryHint",
+			"registryOption": "rNhiXq_registryOption",
+			"registryTitle": "rNhiXq_registryTitle",
+			"registryToggle": "rNhiXq_registryToggle",
+			"result": "rNhiXq_result",
+			"resultWarn": "rNhiXq_resultWarn",
+			"row": "rNhiXq_row",
+			"rowFailure": "rNhiXq_rowFailure",
+			"rowIcon": "rNhiXq_rowIcon",
+			"rowId": "rNhiXq_rowId",
+			"rowLine": "rNhiXq_rowLine",
+			"rowMain": "rNhiXq_rowMain",
+			"rowModule": "rNhiXq_rowModule",
+			"rowOpen": "rNhiXq_rowOpen",
+			"rowOpenIcon": "rNhiXq_rowOpenIcon",
+			"rowState": "rNhiXq_rowState",
+			"rows": "rNhiXq_rows",
+			"run": "rNhiXq_run",
+			"sectionCount": "rNhiXq_sectionCount",
+			"sectionHead": "rNhiXq_sectionHead",
+			"sectionTitle": "rNhiXq_sectionTitle",
+			"skeletonActions": "rNhiXq_skeletonActions",
+			"skeletonBar": "rNhiXq_skeletonBar",
+			"skeletonDescription": "rNhiXq_skeletonDescription",
+			"skeletonFill": "rNhiXq_skeletonFill",
+			"skeletonHeading": "rNhiXq_skeletonHeading",
+			"skeletonIcon": "rNhiXq_skeletonIcon",
+			"skeletonText": "rNhiXq_skeletonText",
+			"skeletonTitle": "rNhiXq_skeletonTitle",
+			"status": "rNhiXq_status",
+			"statusTag": "rNhiXq_statusTag",
+			"statusWithDot": "rNhiXq_statusWithDot",
+			"subLabel": "rNhiXq_subLabel",
+			"subject": "rNhiXq_subject",
+			"subjectDesc": "rNhiXq_subjectDesc",
+			"subjectMeta": "rNhiXq_subjectMeta",
+			"subjectName": "rNhiXq_subjectName",
+			"templateHint": "rNhiXq_templateHint",
+			"terminal": "rNhiXq_terminal",
+			"titleRow": "rNhiXq_titleRow",
+			"toolbar": "rNhiXq_toolbar",
+			"versionTag": "rNhiXq_versionTag",
+			"wide": "rNhiXq_wide",
+			"wizard": "rNhiXq_wizard",
+			"wizardActions": "rNhiXq_wizardActions",
+			"wizardBack": "rNhiXq_wizardBack",
+			"wizardClose": "rNhiXq_wizardClose",
+			"wizardFoot": "rNhiXq_wizardFoot",
+			"wizardHead": "rNhiXq_wizardHead",
+			"wizardHero": "rNhiXq_wizardHero",
+			"wizardIcon": "rNhiXq_wizardIcon",
+			"wizardScroll": "rNhiXq_wizardScroll",
+			"wizardSub": "rNhiXq_wizardSub",
+			"wizardTitle": "rNhiXq_wizardTitle"
 		};
 		//#endregion
 		//#region lib/types/client/PluginManagerPage.js
@@ -1638,6 +2144,54 @@ window.__ModuleLoader__.load({
 						children: end
 					})
 				]
+			});
+		}
+		/** First-read placeholders share the Official group's card and text-line layout. */
+		function ListSkeleton({ label }) {
+			return (0, react_jsx_runtime.jsxs)("section", {
+				className: PluginManagerPage_module_css_default.group,
+				role: "status",
+				"aria-label": label,
+				"data-plugin-loading": true,
+				children: [(0, react_jsx_runtime.jsx)("div", {
+					className: PluginManagerPage_module_css_default.groupHead,
+					"aria-hidden": "true",
+					children: (0, react_jsx_runtime.jsx)("span", {
+						className: `${PluginManagerPage_module_css_default.groupTitle} ${PluginManagerPage_module_css_default.skeletonText} ${PluginManagerPage_module_css_default.skeletonHeading}`,
+						children: (0, react_jsx_runtime.jsx)("span", { className: `${PluginManagerPage_module_css_default.skeletonFill} ${PluginManagerPage_module_css_default.skeletonBar}` })
+					})
+				}), (0, react_jsx_runtime.jsx)("ul", {
+					className: PluginManagerPage_module_css_default.cards,
+					"aria-hidden": "true",
+					children: [
+						0,
+						1,
+						2,
+						3
+					].map((index) => (0, react_jsx_runtime.jsx)("li", {
+						className: PluginManagerPage_module_css_default.card,
+						children: (0, react_jsx_runtime.jsxs)("div", {
+							className: PluginManagerPage_module_css_default.cardHead,
+							children: [
+								(0, react_jsx_runtime.jsx)("span", { className: `${PluginManagerPage_module_css_default.cardIcon} ${PluginManagerPage_module_css_default.skeletonFill} ${PluginManagerPage_module_css_default.skeletonIcon}` }),
+								(0, react_jsx_runtime.jsxs)("div", {
+									className: PluginManagerPage_module_css_default.cardMain,
+									children: [(0, react_jsx_runtime.jsx)("div", {
+										className: PluginManagerPage_module_css_default.titleRow,
+										children: (0, react_jsx_runtime.jsx)("span", {
+											className: `${PluginManagerPage_module_css_default.cardTitle} ${PluginManagerPage_module_css_default.skeletonText} ${PluginManagerPage_module_css_default.skeletonTitle}`,
+											children: (0, react_jsx_runtime.jsx)("span", { className: `${PluginManagerPage_module_css_default.skeletonFill} ${PluginManagerPage_module_css_default.skeletonBar}` })
+										})
+									}), (0, react_jsx_runtime.jsx)("span", {
+										className: `${PluginManagerPage_module_css_default.cardDesc} ${PluginManagerPage_module_css_default.skeletonText} ${PluginManagerPage_module_css_default.skeletonDescription}`,
+										children: (0, react_jsx_runtime.jsx)("span", { className: `${PluginManagerPage_module_css_default.skeletonFill} ${PluginManagerPage_module_css_default.skeletonBar}` })
+									})]
+								}),
+								(0, react_jsx_runtime.jsx)("div", { className: `${PluginManagerPage_module_css_default.cardEnd} ${PluginManagerPage_module_css_default.skeletonActions}` })
+							]
+						})
+					}, index))
+				})]
 			});
 		}
 		/** The top every page shares: the crumb that leads back, then the icon with the page's actions at its right. */
@@ -2075,13 +2629,17 @@ window.__ModuleLoader__.load({
 		function registryList(registries, t, resolved) {
 			return registries.map((registry) => registryText(registry, t, resolved).name).join(t("registryListSeparator"));
 		}
-		/** An option's label: the registry's name with the host it names, unless the host is the name. */
+		/** An option's name with its host in tertiary text, unless the host is the name. */
 		function registryOption(registry, t, resolved) {
 			const { name, host } = registryText(registry, t, resolved);
-			return name === host ? name : t("registryWithHost", {
+			return name === host ? name : (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [
 				name,
-				host
-			});
+				" ",
+				(0, react_jsx_runtime.jsx)("span", {
+					className: PluginManagerPage_module_css_default.registryHint,
+					children: host
+				})
+			] });
 		}
 		/**
 		* The failed screen's one line: a pnpm failure by its kind, a refusal by its
@@ -2131,6 +2689,37 @@ window.__ModuleLoader__.load({
 				]
 			});
 		}
+		/** Track one install field's composition, including Safari's 10ms post-composition Enter window. */
+		function useInstallComposition(active) {
+			const composition = (0, react.useRef)({
+				active: false,
+				until: 0
+			});
+			(0, react.useEffect)(() => {
+				composition.current = {
+					active: false,
+					until: 0
+				};
+			}, [active]);
+			return {
+				onCompositionStart: () => {
+					composition.current.active = true;
+				},
+				onCompositionEnd: () => {
+					composition.current = {
+						active: false,
+						until: Date.now() + 10
+					};
+				},
+				onBlur: () => {
+					composition.current = {
+						active: false,
+						until: 0
+					};
+				},
+				isComposing: (event) => event.isComposing || Reflect.get(event, "keyCode") === 229 || composition.current.active || Date.now() < composition.current.until
+			};
+		}
 		/**
 		* The install dialog: the spec and its check, then the installing, installed,
 		* and failed screens over the same subject card. A failed run that left
@@ -2138,15 +2727,20 @@ window.__ModuleLoader__.load({
 		*/
 		function InstallDialog({ install, t, onClose, onEditSpec, onRun, onCancel, onReconcile, onToggleDetails, onEnableNow, onApproveBuilds, onToggleRegistry, onChooseRegistry, onChangeRegistry, onUseGithubMirror }) {
 			const errorId = (0, react.useId)();
+			const templateHintId = (0, react.useId)();
 			const guideId = (0, react.useId)();
 			const approvalId = (0, react.useId)();
 			const registryId = (0, react.useId)();
 			const registryErrorId = (0, react.useId)();
 			const [guideOpen, setGuideOpen] = (0, react.useState)(false);
+			const [customRegistryDraft, setCustomRegistryDraft] = (0, react.useState)("");
 			const { phase } = install;
 			const registryToggleRef = (0, react.useRef)(null);
 			const registryPanelRef = (0, react.useRef)(null);
+			const registryCustomRef = (0, react.useRef)(null);
 			const registryShown = install.registryOpen && phase === "idle";
+			const specComposition = useInstallComposition(install.open && phase === "idle");
+			const registryComposition = useInstallComposition(install.open && registryShown);
 			const registryPosition = (0, _deepseek_ai_dsh_client_ui_primitives.useAnchoredPosition)({
 				open: registryShown,
 				anchorRef: registryToggleRef,
@@ -2155,6 +2749,10 @@ window.__ModuleLoader__.load({
 				gap: 6,
 				margin: 12
 			});
+			const registryReady = registryShown && registryPosition !== null;
+			(0, react.useEffect)(() => {
+				if (registryReady && install.registryError) registryCustomRef.current?.focus();
+			}, [registryReady, install.registryError]);
 			(0, _deepseek_ai_dsh_client_ui_primitives.useDismissOnOutsidePointer)(registryToggleRef, registryShown, onToggleRegistry, registryPanelRef);
 			(0, react.useEffect)(() => {
 				if (!registryShown) return;
@@ -2200,6 +2798,7 @@ window.__ModuleLoader__.load({
 				const inputProblem = install.inputError;
 				const askedByCheck = inputProblem?.registries ?? [];
 				const inputSentence = inputProblem === null ? null : inputProblem.problem === "network" && askedByCheck.length > 1 ? t("installProblemNetworkAll", { registries: registryList(askedByCheck, t, resolved) }) : t(INPUT_PROBLEM_KEYS[inputProblem.problem], { reason: inputProblem.reason });
+				const templateHint = install.spec === "https://github.com/author/dsh-plugin" ? t("installGitTemplateHint") : install.spec === "/Users/name/my-plugin" ? t("installPathTemplateHint") : null;
 				return (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Modal, {
 					open: install.open,
 					onClose,
@@ -2208,13 +2807,23 @@ window.__ModuleLoader__.load({
 					...install.mirrorRecovery ? {} : { description: t("installDescription") },
 					className: PluginManagerPage_module_css_default.installDialog,
 					contentClassName: PluginManagerPage_module_css_default.installContent,
-					footer: (0, react_jsx_runtime.jsxs)(_deepseek_ai_dsh_client_ui_primitives.Button, {
-						variant: "primary",
-						className: PluginManagerPage_module_css_default.wide,
-						disabled: checking || empty,
-						"aria-busy": checking,
-						onClick: onRun,
-						children: [checking ? (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.StateDot, { state: "ongoing" }) : null, t(checking ? "installChecking" : "installRun")]
+					footer: (0, react_jsx_runtime.jsxs)("div", {
+						className: PluginManagerPage_module_css_default.installFooter,
+						children: [(0, react_jsx_runtime.jsxs)("p", {
+							className: PluginManagerPage_module_css_default.installSafety,
+							role: "note",
+							children: [(0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconWarningOutlineRegular, {
+								size: 14,
+								"aria-hidden": "true"
+							}), (0, react_jsx_runtime.jsx)("span", { children: t("installGuideSafety") })]
+						}), (0, react_jsx_runtime.jsxs)(_deepseek_ai_dsh_client_ui_primitives.Button, {
+							variant: "primary",
+							className: PluginManagerPage_module_css_default.wide,
+							disabled: checking || empty,
+							"aria-busy": checking,
+							onClick: onRun,
+							children: [checking ? (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.StateDot, { state: "ongoing" }) : null, t(checking ? "installChecking" : "installRun")]
+						})]
 					}),
 					children: (0, react_jsx_runtime.jsxs)("div", {
 						className: PluginManagerPage_module_css_default.installBody,
@@ -2229,11 +2838,15 @@ window.__ModuleLoader__.load({
 									disabled: checking,
 									"aria-label": t(install.mirrorRecovery ? "installPackageLabel" : "installSpecLabel"),
 									"aria-invalid": install.inputError !== null,
-									"aria-describedby": install.inputError === null ? void 0 : errorId,
+									"aria-describedby": inputSentence !== null ? errorId : templateHint !== null ? templateHintId : void 0,
 									onChange: (event) => {
 										onEditSpec(event.currentTarget.value);
 									},
+									onCompositionStart: specComposition.onCompositionStart,
+									onCompositionEnd: specComposition.onCompositionEnd,
+									onBlur: specComposition.onBlur,
 									onKeyDown: (event) => {
+										if (specComposition.isComposing(event.nativeEvent)) return;
 										if (event.key === "Enter" && !empty && !checking) onRun();
 									}
 								})
@@ -2244,6 +2857,12 @@ window.__ModuleLoader__.load({
 								role: "alert",
 								children: inputSentence
 							}),
+							inputSentence === null && templateHint !== null ? (0, react_jsx_runtime.jsx)("p", {
+								id: templateHintId,
+								className: PluginManagerPage_module_css_default.templateHint,
+								role: "status",
+								children: templateHint
+							}) : null,
 							(0, react_jsx_runtime.jsxs)("div", {
 								className: PluginManagerPage_module_css_default.optionsRow,
 								children: [(0, react_jsx_runtime.jsxs)("button", {
@@ -2281,11 +2900,11 @@ window.__ModuleLoader__.load({
 									]
 								})]
 							}),
-							guideOpen ? (0, react_jsx_runtime.jsxs)("div", {
+							guideOpen ? (0, react_jsx_runtime.jsx)("div", {
 								id: guideId,
 								className: PluginManagerPage_module_css_default.guide,
 								"data-install-guide": true,
-								children: [(0, react_jsx_runtime.jsx)("ol", {
+								children: (0, react_jsx_runtime.jsx)("ol", {
 									className: PluginManagerPage_module_css_default.guideList,
 									children: GUIDE_EXAMPLES.map(({ key, titleKey, exampleKey, hintKey }, index) => (0, react_jsx_runtime.jsxs)("li", {
 										className: PluginManagerPage_module_css_default.guideItem,
@@ -2327,14 +2946,7 @@ window.__ModuleLoader__.load({
 											})
 										]
 									}, key))
-								}), (0, react_jsx_runtime.jsxs)("p", {
-									className: PluginManagerPage_module_css_default.guideSafety,
-									role: "note",
-									children: [(0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconWarningOutlineRegular, {
-										size: 14,
-										"aria-hidden": "true"
-									}), (0, react_jsx_runtime.jsx)("span", { children: t("installGuideSafety") })]
-								})]
+								})
 							}) : null,
 							registryShown ? (0, react_dom.createPortal)((0, react_jsx_runtime.jsxs)("fieldset", {
 								ref: registryPanelRef,
@@ -2347,6 +2959,19 @@ window.__ModuleLoader__.load({
 								},
 								"data-install-registry": true,
 								"aria-label": t("registryLegend"),
+								onKeyDown: (event) => {
+									if (event.key !== "Tab" || event.ctrlKey || event.altKey || event.metaKey || event.nativeEvent.isComposing) return;
+									event.preventDefault();
+									event.stopPropagation();
+									const radio = event.currentTarget.querySelector("input[type=\"radio\"]:checked");
+									const field = registryCustomRef.current;
+									if (event.shiftKey && event.target === field) radio?.focus();
+									else if (!event.shiftKey && event.target !== field) field?.focus();
+									else {
+										onToggleRegistry();
+										registryToggleRef.current?.focus();
+									}
+								},
 								children: [offeredRegistries(install.registries).map((registry) => {
 									const checked = choice.kind === "offered" && choice.registry === registry;
 									return (0, react_jsx_runtime.jsxs)("label", {
@@ -2357,6 +2982,7 @@ window.__ModuleLoader__.load({
 											name: registryId,
 											checked,
 											onChange: () => {
+												if (choice.kind === "custom") setCustomRegistryDraft(choice.url);
 												onChooseRegistry({
 													kind: "offered",
 													registry
@@ -2364,12 +2990,16 @@ window.__ModuleLoader__.load({
 											}
 										}), (0, react_jsx_runtime.jsx)("span", {
 											className: PluginManagerPage_module_css_default.registryTitle,
-											children: (0, react_jsx_runtime.jsx)("span", { children: registryOption(registry, t, resolved) })
+											children: registryOption(registry, t, resolved)
 										})]
 									}, registry ?? "");
 								}), (0, react_jsx_runtime.jsxs)("div", {
 									className: PluginManagerPage_module_css_default.registryOption,
 									"data-checked": choice.kind === "custom",
+									onClick: (event) => {
+										if (!(event.target instanceof HTMLInputElement)) event.preventDefault();
+										registryCustomRef.current?.focus();
+									},
 									children: [
 										(0, react_jsx_runtime.jsxs)("label", {
 											className: PluginManagerPage_module_css_default.registryCustomPick,
@@ -2380,8 +3010,9 @@ window.__ModuleLoader__.load({
 												onChange: () => {
 													onChooseRegistry({
 														kind: "custom",
-														url: ""
+														url: customRegistryDraft
 													});
+													registryCustomRef.current?.focus();
 												}
 											}), (0, react_jsx_runtime.jsx)("span", {
 												className: PluginManagerPage_module_css_default.registryTitle,
@@ -2389,21 +3020,31 @@ window.__ModuleLoader__.load({
 											})]
 										}),
 										(0, react_jsx_runtime.jsx)("input", {
+											ref: registryCustomRef,
 											type: "text",
 											className: PluginManagerPage_module_css_default.registryCustomField,
 											"aria-label": t("registryCustom"),
 											placeholder: t("registryCustomPlaceholder"),
-											value: choice.kind === "custom" ? choice.url : "",
-											disabled: choice.kind !== "custom",
+											value: choice.kind === "custom" ? choice.url : customRegistryDraft,
 											"aria-invalid": install.registryError,
 											"aria-describedby": install.registryError ? registryErrorId : void 0,
+											onFocus: () => {
+												if ((0, _deepseek_ai_dsh_client_ui_primitives.pointerModality)() && choice.kind !== "custom") onChooseRegistry({
+													kind: "custom",
+													url: customRegistryDraft
+												});
+											},
 											onChange: (event) => {
 												onChooseRegistry({
 													kind: "custom",
 													url: event.currentTarget.value
 												});
 											},
+											onCompositionStart: registryComposition.onCompositionStart,
+											onCompositionEnd: registryComposition.onCompositionEnd,
+											onBlur: registryComposition.onBlur,
 											onKeyDown: (event) => {
+												if (registryComposition.isComposing(event.nativeEvent)) return;
 												if (event.key === "Enter" && !empty) onRun();
 											}
 										}),
@@ -2716,11 +3357,12 @@ window.__ModuleLoader__.load({
 					clearTimeout(timer);
 				};
 			}, [highlight, clearHighlight]);
-			const noticeLine = state.notice === null ? null : noticeText(state.notice, t);
+			const noticeLine = state.notice === null || state.notice.kind === "refresh-failed" ? null : noticeText(state.notice, t);
 			const listed = state.packages.filter((pkg) => !BUILTIN_PROFILE_BUNDLES.has(pkg.name) && (pkg.installed || pkg.optional || pkg.error !== void 0));
 			const mine = listed.filter((pkg) => pkg.installed || !pkg.optional);
 			const official = listed.filter((pkg) => pkg.optional && !pkg.installed);
 			const loaded = state.status === "ready" || state.status === "error";
+			const refreshing = state.refreshStatus === "refreshing";
 			const openPkg = view.kind === "package" || view.kind === "row" ? listed.find((pkg) => pkg.name === view.name) : void 0;
 			const openItem = view.kind === "item" ? ledger.items.find((item) => item.id === view.id) : void 0;
 			const openRow = view.kind === "row" && openPkg !== void 0 ? openPkg.rows.find((row) => row.rowId === view.rowId) : void 0;
@@ -2791,7 +3433,7 @@ window.__ModuleLoader__.load({
 			return (0, react_jsx_runtime.jsxs)("section", {
 				className: PluginManagerPage_module_css_default.page,
 				"data-plugin-panel": true,
-				"aria-busy": state.status === "loading",
+				"aria-busy": state.status === "loading" || refreshing,
 				children: [
 					showsCards ? (0, react_jsx_runtime.jsxs)("header", {
 						className: PluginManagerPage_module_css_default.pageHead,
@@ -2799,22 +3441,50 @@ window.__ModuleLoader__.load({
 						children: [(0, react_jsx_runtime.jsxs)("div", { children: [(0, react_jsx_runtime.jsx)("h1", {
 							className: PluginManagerPage_module_css_default.pageTitle,
 							children: t("title")
-						}), (0, react_jsx_runtime.jsx)("p", {
+						}), (0, react_jsx_runtime.jsxs)("div", {
 							className: PluginManagerPage_module_css_default.pageIntro,
-							children: t("intro")
+							children: [(0, react_jsx_runtime.jsx)("span", { children: t("intro") }), (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Tooltip, {
+								label: t("infoDescription"),
+								side: "bottom",
+								delayMs: 300,
+								maxWidth: 300,
+								portal: true,
+								openOnClick: true,
+								children: (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
+									variant: "ghost",
+									size: "sm",
+									className: PluginManagerPage_module_css_default.infoButton,
+									"aria-label": t("infoLabel"),
+									children: (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconInfoOutlineRegular, {
+										size: 11,
+										"aria-hidden": "true"
+									})
+								})
+							})]
 						})] }), (0, react_jsx_runtime.jsxs)("div", {
 							className: PluginManagerPage_module_css_default.toolbar,
-							children: [(0, react_jsx_runtime.jsx)("button", {
-								type: "button",
-								className: PluginManagerPage_module_css_default.iconButton,
-								"aria-label": t("refresh"),
-								title: t("refresh"),
-								disabled: !loaded,
-								onClick: props.refresh,
-								children: (0, react_jsx_runtime.jsx)("span", {
-									className: PluginManagerPage_module_css_default.iconWrap,
-									"aria-hidden": "true",
-									children: (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconRefreshOutlineRegular, {})
+							children: [(0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Tooltip, {
+								label: t("refresh"),
+								delayMs: 500,
+								focusDelayMs: 500,
+								side: "bottom",
+								portal: true,
+								disabled: !loaded || refreshing,
+								children: (0, react_jsx_runtime.jsx)("button", {
+									type: "button",
+									className: PluginManagerPage_module_css_default.iconButton,
+									"aria-label": t("refresh"),
+									"aria-busy": refreshing,
+									disabled: !loaded || refreshing,
+									onClick: props.refresh,
+									children: (0, react_jsx_runtime.jsx)("span", {
+										className: PluginManagerPage_module_css_default.iconWrap,
+										"aria-hidden": "true",
+										children: refreshing ? (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.StateDot, {
+											state: "ongoing",
+											size: 18
+										}) : (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconRefreshOutlineRegular, {})
+									})
 								})
 							}), (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
 								variant: "primary",
@@ -2827,11 +3497,7 @@ window.__ModuleLoader__.load({
 							})]
 						})]
 					}) : null,
-					showsCards && state.status === "loading" ? (0, react_jsx_runtime.jsxs)("p", {
-						className: `${PluginManagerPage_module_css_default.status} ${PluginManagerPage_module_css_default.statusWithDot}`,
-						role: "status",
-						children: [(0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.StateDot, { state: "ongoing" }), t("loading")]
-					}) : null,
+					showsCards && state.status === "loading" ? (0, react_jsx_runtime.jsx)(ListSkeleton, { label: t("loading") }) : null,
 					showsCards && state.status === "unavailable" ? (0, react_jsx_runtime.jsxs)("p", {
 						className: `${PluginManagerPage_module_css_default.status} ${PluginManagerPage_module_css_default.statusWithDot}`,
 						role: "status",
@@ -2843,12 +3509,12 @@ window.__ModuleLoader__.load({
 						holdMs: toastHoldMs(noticeLine),
 						onDone: props.dismissNotice
 					}, state.notice.seq),
-					!showsCards && state.status === "error" ? (0, react_jsx_runtime.jsxs)("div", {
+					!showsCards && state.status === "error" && !refreshing ? (0, react_jsx_runtime.jsxs)("div", {
 						className: PluginManagerPage_module_css_default.failure,
 						children: [(0, react_jsx_runtime.jsxs)("p", {
 							className: PluginManagerPage_module_css_default.statusWithDot,
 							role: "alert",
-							children: [(0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.StateDot, { state: "error" }), t("error")]
+							children: [(0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.StateDot, { state: "error" }), t(state.refreshStatus === "failed" ? "refreshError" : "error")]
 						}), (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
 							variant: "outline",
 							size: "sm",
@@ -2905,12 +3571,12 @@ window.__ModuleLoader__.load({
 					}) : (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [
 						renderGroup("official", t("officialTitle"), officialCards),
 						renderGroup("bundles", t("bundlesTitle"), mine.map(packageCard)),
-						state.status === "error" ? (0, react_jsx_runtime.jsxs)("div", {
+						state.status === "error" && !refreshing ? (0, react_jsx_runtime.jsxs)("div", {
 							className: PluginManagerPage_module_css_default.failure,
 							children: [(0, react_jsx_runtime.jsxs)("p", {
 								className: PluginManagerPage_module_css_default.statusWithDot,
 								role: "alert",
-								children: [(0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.StateDot, { state: "error" }), t("error")]
+								children: [(0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.StateDot, { state: "error" }), t(state.refreshStatus === "failed" ? "refreshError" : "error")]
 							}), (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
 								variant: "outline",
 								size: "sm",
@@ -2961,6 +3627,22 @@ window.__ModuleLoader__.load({
 			});
 		}
 		//#endregion
+		//#region lib/types/client/PluginRefreshToast.js
+		/**
+		* Display refresh failures even after navigation leaves the Plugins panel.
+		* @param props - shared notice hook, dismissal action, and locale seat.
+		* @returns the refresh failure toast, or null for other notices.
+		*/
+		function PluginRefreshToast({ usePluginManager, dismissNotice, t }) {
+			const notice = usePluginManager((state) => state.notice);
+			if (notice?.kind !== "refresh-failed") return null;
+			return (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Toast, {
+				text: noticeText(notice, t),
+				icon: (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconWarningOutlineRegular, {}),
+				onDone: dismissNotice
+			}, notice.seq);
+		}
+		//#endregion
 		//#region lib/types/client/PluginsPanelIcon.js
 		/**
 		* Render the plugin glyph at the size the sidebar asks for.
@@ -2970,387 +3652,6 @@ window.__ModuleLoader__.load({
 		function PluginsPanelIcon({ size }) {
 			return (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconPluginPinwheelOutlineRegular, { size });
 		}
-		//#endregion
-		//#region lib/types/client/locales.js
-		/** Plugin management interface copy. */
-		/** Simplified Chinese dictionary and key source of truth. */
-		const zh = {
-			panel: "插件",
-			title: "插件",
-			intro: "添加和管理插件",
-			loading: "正在读取插件…",
-			error: "可能由于网络问题，无法读取全部插件",
-			unavailable: "本部署没有可管理的 profile，无法安装或启停插件。",
-			retry: "重试",
-			refresh: "刷新",
-			empty: "还没有安装任何插件。",
-			addPlugin: "添加插件",
-			restartNotice: "更改将在下次启动生效",
-			overriddenNotice: "{name} 已保存，但被更高优先级的配置覆盖，当前未生效",
-			bundlesTitle: "已安装",
-			officialTitle: "官方",
-			statusProblem: "异常",
-			statusBeta: "实验性",
-			reasonLabel: "原因",
-			metadataError: "包元信息错误：{error}",
-			versionTag: "v{version}",
-			partsLabel: "包含的组件",
-			partsEmpty: "这个插件包不包含任何组件。",
-			partsCountTotal: "共 {count} 个",
-			partsCountRunning: "{count} 运行中",
-			partsCountOff: "{count} 已停用",
-			partOff: "已关闭",
-			partsCountFailed: "{count} 异常",
-			partsFilter: "筛选组件",
-			partsFilterEmpty: "没有匹配的组件。",
-			partToggle: "启用组件 {name}",
-			rowPhasePending: "等待依赖",
-			rowPhaseLoading: "加载中",
-			rowPhaseActive: "运行中",
-			rowPhaseFailed: "异常",
-			rowPhaseUnloading: "卸载中",
-			enableToggle: "启用 {name}",
-			openDetail: "查看 {name}",
-			backToList: "返回插件列表",
-			crumbRoot: "插件列表",
-			backToPackage: "返回 {name}",
-			configureRow: "配置 {name}",
-			rowStateIdle: "未运行",
-			uninstall: "卸载",
-			uninstallLabel: "卸载 {name}",
-			installTitle: "添加插件",
-			installDescription: "输入插件的包名、GitHub 仓库地址或本地目录路径。",
-			installSpecLabel: "包名或地址",
-			installSpecPlaceholder: "例如 @deepseek-ai/dsh-subagent-codex",
-			installGuideToggle: "插件安装引导和示例",
-			installGuideHide: "收起引导",
-			installGuideIdTitle: "包名",
-			installGuideIdExample: "@deepseek-ai/dsh-subagent-codex",
-			installGuideIdHint: "插件包名即 npm 包名（如 dsh-xxx 或 @作者/插件名），社区插件的 README 安装命令中 dsh plugin add 或 pnpm add 之后的部分。",
-			installGuideGitTitle: "GitHub 仓库地址",
-			installGuideGitExample: "https://github.com/author/dsh-plugin",
-			installGuideGitHint: "插件在 GitHub 上的开源仓库地址，也支持其他 Git 仓库。",
-			installGuidePathTitle: "本地插件目录",
-			installGuidePathExample: "/Users/name/my-plugin",
-			installGuidePathHint: "本机上插件目录的绝对路径，适用于自行开发或已下载的插件。",
-			installGuideExampleLabel: "示例：",
-			installGuideFill: "填入示例",
-			installGuideFillAria: "填入示例 {example}",
-			installGuideSafety: "请确认插件来源可信。插件在本机以你的权限运行，来源不明的插件可能损坏 DeepSeek Harness，或读取和泄露你的数据。",
-			registryToggle: "安装源",
-			registryLegend: "从哪个 npm 源下载插件",
-			registryDefault: "默认安装源",
-			registryOfficial: "npm 官方源",
-			registryNpmmirror: "中国大陆镜像源",
-			registryWithHost: "{name}（{host}）",
-			registryCustom: "自定义地址",
-			registryCustomPlaceholder: "https://npm.example.com/",
-			registryCustomHint: "公司内网或私有 npm 源；需要登录的源，把凭据放在本机的 ~/.npmrc 里",
-			registryCustomInvalid: "请输入以 http:// 或 https:// 开头的地址",
-			registryListSeparator: "、",
-			installRun: "安装",
-			installChecking: "正在检查…",
-			installProblemInvalid: "无法识别这个包名或地址：{reason}",
-			installProblemInstalled: "该插件已安装",
-			installProblemNotFound: "未找到相关插件",
-			installProblemNotPackage: "该路径不存在或不是有效的插件包",
-			installProblemNotBundle: "这个包没有声明组合包，无法作为插件安装：{reason}",
-			installProblemNetwork: "无法连接插件源，请检查网络后重试",
-			installProblemNetworkAll: "所有安装源都无法连接（已尝试：{registries}），请检查网络或代理设置，或更换安装源",
-			installProblemUnknown: "无法获取插件信息：{reason}",
-			installingTitle: "插件安装中…",
-			installedTitle: "已安装",
-			installFailedTitle: "插件安装失败",
-			installGithubFailedTitle: "无法访问 GitHub",
-			installGithubTimeoutTitle: "连接 GitHub 超时",
-			installGithubFailedDescription: "请尝试其他安装来源。",
-			installUseGithubMirror: "改用国内镜像",
-			installTryAnotherWay: "试试其他方式",
-			installPackageLabel: "插件包名",
-			installEdit: "编辑",
-			installEditAria: "返回编辑",
-			installCancelAndEdit: "取消安装并返回编辑",
-			installApplyingCancellationError: "取消请求未得到确认；安装已进入收尾阶段，请等待结果。{reason}",
-			installReconcile: "核对安装状态",
-			installUnknownTitle: "未能获取安装结果",
-			installUnknownDescription: "后端当前没有此安装任务。请检查插件列表后再尝试安装。",
-			installResultUnconfirmed: "未收到安装结果，请核对安装状态。{reason}",
-			installAwaitingAcceptance: "正在等待后端接收安装任务，收到确认后会自动重试取消。",
-			installBackgroundUnknown: "未能获取安装结果，请检查插件列表。",
-			installCancel: "取消安装",
-			installCloseCancels: "取消安装并关闭",
-			installViewTask: "查看安装任务",
-			installUnconfirmedTitle: "安装状态尚未确认",
-			installBackgroundDone: "插件安装已完成，可查看安装结果。",
-			installBackgroundFailed: "插件安装失败，可查看安装详情。",
-			installBackgroundUnconfirmed: "安装状态暂未确认，请查看安装任务了解详情。",
-			installBackgroundApplying: "安装已进入收尾阶段，无法取消，可查看安装进度。",
-			installStarting: "正在准备安装…",
-			installCancelling: "正在停止安装…",
-			installApplying: "正在应用配置，请稍候…",
-			installCancelledShort: "已取消",
-			installCancelled: "已取消安装，插件未启用，下载的文件可能保留",
-			installCancelUnconfirmed: "尚未确认安装已停止，请重试取消或等待安装结果。{reason}",
-			installEnableNow: "立即启用",
-			installDetailsShow: "查看安装详情",
-			installDetailsHide: "收起安装详情",
-			installVersion: "版本 {version}",
-			installSubjectPath: "本地目录",
-			installSubjectGit: "Git 仓库",
-			installSubjectTarball: "压缩包",
-			installLocation: "安装位置：{dir}",
-			installRetry: "重试",
-			installChangeRegistry: "更换安装源",
-			installAttempt: "{previous} 不可用，正在改用 {registry} 重试（第 {index} 个源，共 {total} 个）",
-			installAttemptBadge: "第 {index} 次 · {registry}",
-			installFailureNetwork: "网络连接失败",
-			installFailureNetworkAll: "所有安装源都无法连接（已尝试：{registries}）。请检查网络或代理设置，或更换安装源后重试。",
-			installFailureNetworkHost: "无法连接 {host}。GitHub 地址和 .tgz 直链不经过安装源，需要本机能直接访问它或配置代理；如果这个插件也发布到了 npm，请改填包名。",
-			installFailureNotFound: "未找到相关插件",
-			installFailureNoMatchingVersion: "没有匹配的版本",
-			installFailureDiskFull: "磁盘空间不足，安装已停止",
-			installFailurePermission: "没有写入权限，无法安装",
-			installFailureBuildBlocked: "有依赖的安装脚本需要你允许后才能继续",
-			installFailureBuildBlockedManual: "有依赖的安装脚本被 pnpm 拦下，请在 profile 的 pnpm-workspace.yaml 的 allowBuilds 中放行后重试",
-			installFailureIntegrity: "下载的安装包校验失败",
-			installFailureTimeout: "安装超时",
-			installFailurePnpmMissing: "没有找到 pnpm，无法安装",
-			installFailureGeneric: "安装过程中出错，原因见安装详情",
-			terminalRunning: "运行中",
-			terminalFailed: "失败",
-			terminalDone: "已完成",
-			terminalCopy: "复制",
-			terminalCopied: "复制成功",
-			terminalNoOutput: "无输出",
-			terminalCollapseAria: "收起输出",
-			terminalCollapse: "收起",
-			terminalExpandAria: "展开其余 {n} 行输出",
-			terminalExpand: "… 其余 {n} 行",
-			terminalExitCode: "退出码 {code}",
-			terminalSignal: "信号 {signal}",
-			terminalNoExitCode: "未正常退出",
-			installDoneNothing: "安装完成，没有新增依赖。",
-			installDoneRestart: "已安装，下次启动后加载。",
-			installDoneApproved: "已允许运行安装脚本：{names}",
-			installApprovalTitle: "需要允许安装脚本",
-			installApprovalDescription: "以下包声明了安装脚本，pnpm 默认不运行。",
-			installApprovalConsequence: "允许后，脚本会以你的权限在本机运行，授权保存在当前 profile，之后不再询问。",
-			installApprovalCaution: "只在信任这些包时允许。",
-			installApproveAndRetry: "允许这些脚本并重试",
-			installClose: "完成",
-			close: "关闭",
-			cancel: "取消",
-			confirmUninstallTitle: "卸载「{name}」？",
-			confirmUninstallDescription: "卸载后它提供的功能会消失。",
-			confirmUninstall: "卸载",
-			failedEnable: "启用失败：{reason}",
-			failedDisable: "停用失败：{reason}",
-			failedUninstall: "卸载失败：{reason}",
-			failedRowEnable: "组件启用失败：{reason}",
-			failedRowDisable: "组件停用失败：{reason}",
-			reasonManagementRequired: "插件管理所需，不能停用或卸载",
-			reasonUnaddressable: "当前 profile 的 patch 无法唯一定位这一项",
-			reasonUnknownPlugin: "找不到该插件",
-			reasonInvalidSpec: "请输入有效的包名或地址",
-			reasonAmbiguousInstall: "无法从依赖变更中确定安装了哪一个包",
-			reasonNotBundle: "这个包没有声明组合包，不能作为插件管理",
-			reasonNotRemovable: "这个包不属于当前 profile，或者是插件管理所需的组件",
-			reasonStopProfile: "这个 profile 没有启用 HMR，正在使用的包要停止后用 dsh plugin 卸载",
-			reasonBundleInUse: "其他配置仍在使用这个组合包的组件，请先停用它们",
-			reasonStaleApproval: "待允许的安装脚本列表已变化，请重新安装以刷新",
-			reasonIncompatibleVersion: "{plugin} 与 DSH {runtime} 不兼容（要求 {peers}），运行它可能导致崩溃或数据丢失。请安装与当前 DSH 兼容的插件版本。",
-			reasonIncompatibleVersionUnnamed: "这个插件与当前 DSH 版本不兼容，运行它可能导致崩溃或数据丢失",
-			reasonOperationError: "Host 报告了一个错误"
-		};
-		/** English dictionary checked against the Chinese key set. */
-		const en = {
-			panel: "Plugins",
-			title: "Plugins",
-			intro: "Add and manage plugins",
-			loading: "Reading plugins…",
-			error: "Could not read all plugins, possibly due to a network problem",
-			unavailable: "This deployment runs without a manageable profile, so plugins cannot be installed or switched here.",
-			retry: "Retry",
-			refresh: "Refresh",
-			empty: "No plugins are installed yet.",
-			addPlugin: "Add plugin",
-			restartNotice: "The change takes effect at the next start",
-			overriddenNotice: "{name} was saved, but a higher-priority configuration overrides it, so it is not in effect",
-			bundlesTitle: "Installed",
-			officialTitle: "Official",
-			statusProblem: "Problem",
-			statusBeta: "Experimental",
-			reasonLabel: "Reason",
-			metadataError: "Package metadata error: {error}",
-			versionTag: "v{version}",
-			partsLabel: "Components",
-			partsEmpty: "This plugin pack contains no components.",
-			partsCountTotal: "{count} total",
-			partsCountRunning: "{count} running",
-			partsCountOff: "{count} off",
-			partOff: "Off",
-			partsCountFailed: "{count} failed",
-			partsFilter: "Filter components",
-			partsFilterEmpty: "No component matches.",
-			partToggle: "Enable component {name}",
-			rowPhasePending: "Waiting for dependencies",
-			rowPhaseLoading: "Loading",
-			rowPhaseActive: "Running",
-			rowPhaseFailed: "Problem",
-			rowPhaseUnloading: "Unloading",
-			enableToggle: "Enable {name}",
-			openDetail: "View {name}",
-			backToList: "Back to plugins",
-			crumbRoot: "Plugins",
-			backToPackage: "Back to {name}",
-			configureRow: "Configure {name}",
-			rowStateIdle: "Not running",
-			uninstall: "Uninstall",
-			uninstallLabel: "Uninstall {name}",
-			installTitle: "Add plugin",
-			installDescription: "Enter the plugin's package name, GitHub repository address, or local directory path.",
-			installSpecLabel: "Package name or address",
-			installSpecPlaceholder: "for example @deepseek-ai/dsh-subagent-codex",
-			installGuideToggle: "Install guide and examples",
-			installGuideHide: "Hide the guide",
-			installGuideIdTitle: "Package name",
-			installGuideIdExample: "@deepseek-ai/dsh-subagent-codex",
-			installGuideIdHint: "The plugin package name is the npm package name (like dsh-xxx or @author/plugin): the part after dsh plugin add or pnpm add in a community plugin's README install command.",
-			installGuideGitTitle: "GitHub repository address",
-			installGuideGitExample: "https://github.com/author/dsh-plugin",
-			installGuideGitHint: "The address of the plugin's open-source repository on GitHub; other Git hosts work too.",
-			installGuidePathTitle: "Local plugin directory",
-			installGuidePathExample: "/Users/name/my-plugin",
-			installGuidePathHint: "The absolute path of a plugin directory on this machine, developed here or downloaded.",
-			installGuideExampleLabel: "Example: ",
-			installGuideFill: "Use example",
-			installGuideFillAria: "Use the example {example}",
-			installGuideSafety: "Install only plugins you trust: they run with your permissions and can damage DeepSeek Harness or leak your data.",
-			registryToggle: "Registry",
-			registryLegend: "The npm registry the plugin is downloaded from",
-			registryDefault: "Default registry",
-			registryOfficial: "Official npm registry",
-			registryNpmmirror: "Mainland China mirror",
-			registryWithHost: "{name} ({host})",
-			registryCustom: "Custom address",
-			registryCustomPlaceholder: "https://npm.example.com/",
-			registryCustomHint: "A company or private npm registry; for one that needs a login, keep the credentials in ~/.npmrc on this machine",
-			registryCustomInvalid: "Enter an address starting with http:// or https://",
-			registryListSeparator: ", ",
-			installRun: "Install",
-			installChecking: "Checking…",
-			installProblemInvalid: "This is not a package name or address that can be installed: {reason}",
-			installProblemInstalled: "This plugin is already installed",
-			installProblemNotFound: "No such plugin was found",
-			installProblemNotPackage: "The path does not exist or is not a valid plugin package",
-			installProblemNotBundle: "This package declares no bundle, so it cannot be installed as a plugin: {reason}",
-			installProblemNetwork: "The plugin registry could not be reached; check the network and try again",
-			installProblemNetworkAll: "No registry could be reached (tried: {registries}); check the network or proxy settings, or change the registry",
-			installProblemUnknown: "The plugin could not be looked up: {reason}",
-			installingTitle: "Installing the plugin…",
-			installedTitle: "Installed",
-			installFailedTitle: "The plugin could not be installed",
-			installGithubFailedTitle: "Cannot access GitHub",
-			installGithubTimeoutTitle: "GitHub connection timed out",
-			installGithubFailedDescription: "Try another installation source.",
-			installUseGithubMirror: "Use mainland China mirror",
-			installTryAnotherWay: "Try another way",
-			installPackageLabel: "Plugin package name",
-			installEdit: "Edit",
-			installEditAria: "Back to editing",
-			installCancelAndEdit: "Cancel installation and return to editing",
-			installApplyingCancellationError: "Cancellation was not confirmed. Installation is being applied; wait for its result. {reason}",
-			installReconcile: "Check installation status",
-			installUnknownTitle: "Installation result unavailable",
-			installUnknownDescription: "The Host has no active installation with this request id. Check the plugin list before trying again.",
-			installResultUnconfirmed: "The installation result was not received. Check installation status. {reason}",
-			installAwaitingAcceptance: "Waiting for the Host to accept installation. Cancellation will retry automatically after confirmation.",
-			installBackgroundUnknown: "Installation result unavailable. Check the plugin list.",
-			installCancel: "Cancel install",
-			installCloseCancels: "Cancel install and close",
-			installViewTask: "View installation",
-			installUnconfirmedTitle: "Installation status unconfirmed",
-			installBackgroundDone: "Installation finished. View installation details.",
-			installBackgroundFailed: "Installation failed. View installation details.",
-			installBackgroundUnconfirmed: "Installation status is unconfirmed. View the installation for details.",
-			installBackgroundApplying: "Installation is being applied and cannot be cancelled. View installation progress.",
-			installStarting: "Preparing installation…",
-			installCancelling: "Stopping installation…",
-			installApplying: "Applying configuration, please wait…",
-			installCancelledShort: "Cancelled",
-			installCancelled: "Installation cancelled; the plugin is not enabled, and downloaded files may remain",
-			installCancelUnconfirmed: "Installation has not been confirmed stopped. Retry cancellation or wait for the installation result. {reason}",
-			installEnableNow: "Enable now",
-			installDetailsShow: "Show install details",
-			installDetailsHide: "Hide install details",
-			installVersion: "Version {version}",
-			installSubjectPath: "Local directory",
-			installSubjectGit: "Git repository",
-			installSubjectTarball: "Tarball",
-			installLocation: "Installs into {dir}",
-			installRetry: "Retry",
-			installChangeRegistry: "Change registry",
-			installAttempt: "{previous} could not serve the package; retrying through {registry} (registry {index} of {total})",
-			installAttemptBadge: "Attempt {index} · {registry}",
-			installFailureNetwork: "The network connection failed",
-			installFailureNetworkAll: "No registry could be reached (tried: {registries}). Check the network or proxy settings, or change the registry and retry.",
-			installFailureNetworkHost: "{host} could not be reached. A GitHub address or a .tgz link is not fetched through the registry: this machine must reach it directly or through a proxy. If the plugin is also published to npm, enter its package name instead.",
-			installFailureNotFound: "No such plugin was found",
-			installFailureNoMatchingVersion: "No version matches the request",
-			installFailureDiskFull: "The disk is full; the install stopped",
-			installFailurePermission: "No write permission; the plugin cannot be installed",
-			installFailureBuildBlocked: "A dependency's install scripts need your permission before the install can continue",
-			installFailureBuildBlockedManual: "pnpm blocked install scripts; allow them under allowBuilds in pnpm-workspace.yaml and retry",
-			installFailureIntegrity: "The downloaded package failed its integrity check",
-			installFailureTimeout: "The install timed out",
-			installFailurePnpmMissing: "pnpm was not found, so nothing can be installed",
-			installFailureGeneric: "Something went wrong during the install; the details say what",
-			terminalRunning: "Running",
-			terminalFailed: "Failed",
-			terminalDone: "Done",
-			terminalCopy: "Copy",
-			terminalCopied: "Copied",
-			terminalNoOutput: "No output",
-			terminalCollapseAria: "Collapse output",
-			terminalCollapse: "Collapse",
-			terminalExpandAria: "Expand the remaining {n} output lines",
-			terminalExpand: "… {n} more lines",
-			terminalExitCode: "exit code {code}",
-			terminalSignal: "signal {signal}",
-			terminalNoExitCode: "no exit code",
-			installDoneNothing: "Install finished with no new dependency.",
-			installDoneRestart: "Installed; it loads at the next start.",
-			installDoneApproved: "Install scripts allowed for {names}",
-			installApprovalTitle: "Install scripts need permission",
-			installApprovalDescription: "These packages have install scripts that pnpm did not run.",
-			installApprovalConsequence: "Once allowed, the scripts run here with your permissions, and the permission is saved in this profile.",
-			installApprovalCaution: "Allow only packages you trust.",
-			installApproveAndRetry: "Allow these scripts and retry",
-			installClose: "Done",
-			close: "Close",
-			cancel: "Cancel",
-			confirmUninstallTitle: "Uninstall \"{name}\"?",
-			confirmUninstallDescription: "What it provides goes away once it is uninstalled.",
-			confirmUninstall: "Uninstall",
-			failedEnable: "Could not enable: {reason}",
-			failedDisable: "Could not disable: {reason}",
-			failedUninstall: "Could not uninstall: {reason}",
-			failedRowEnable: "Could not enable the component: {reason}",
-			failedRowDisable: "Could not disable the component: {reason}",
-			reasonManagementRequired: "Plugin management needs it; it cannot be switched off or uninstalled.",
-			reasonUnaddressable: "The profile patch cannot address this one uniquely.",
-			reasonUnknownPlugin: "No such plugin.",
-			reasonInvalidSpec: "Enter a valid package name or address.",
-			reasonAmbiguousInstall: "Which package was installed cannot be told from the dependency change.",
-			reasonNotBundle: "This package declares no bundle, so it cannot be managed as a plugin.",
-			reasonNotRemovable: "This package is not owned by the profile, or plugin management needs it.",
-			reasonStopProfile: "This profile runs without HMR; stop it and uninstall the package with dsh plugin.",
-			reasonBundleInUse: "Other configuration still uses this bundle's components; switch them off first.",
-			reasonStaleApproval: "The pending script approvals changed; install again to refresh them.",
-			reasonIncompatibleVersion: "{plugin} is incompatible with DSH {runtime} (requires {peers}); running it may cause crashes or data loss. Install a plugin version compatible with this DSH.",
-			reasonIncompatibleVersionUnnamed: "This plugin is incompatible with the running DSH version; running it may cause crashes or data loss.",
-			reasonOperationError: "The Host reported an error."
-		};
 		//#endregion
 		//#region lib/types/client/navigation-store.js
 		/** Plugin page selection shared by the page and cross-plugin navigation. */
@@ -3368,14 +3669,6 @@ window.__ModuleLoader__.load({
 		}
 		//#endregion
 		//#region lib/types/client/index.js
-		/**
-		* Plugin manager, browser half: the **Plugins** entry of the sidebar and the
-		* management page it opens in the main column. The page installs, enables,
-		* disables, and removes the bundles of the Host's profile through the
-		* `pluginManager` Remote and switches their rows in the profile's user layer.
-		* A plugin that carries its own configuration renders it on this page through
-		* the slots the page declares (`slot-contract.ts`).
-		*/
 		/** Dictionary namespace owned by this plugin. */
 		const NS = "pluginManager";
 		/** The id shared by the sidebar entry and the main panel it opens. */
@@ -3425,6 +3718,16 @@ window.__ModuleLoader__.load({
 				};
 			}, "ui-plugin-manager: host invalidations");
 			const configLedger = configLedgerSource(ctx);
+			const face = controller.inject(configLedger, (text) => ctx.locale.resolveText(text));
+			ctx.slots.inject("shell.overlay", () => ctx.slots.register({
+				name: "shell.overlay",
+				id: "plugin-manager.refresh-toast",
+				locale: NS,
+				inject: () => ({
+					hooks: { pluginManager: face.hooks.pluginManager },
+					dismissNotice: face.dismissNotice
+				})
+			}, PluginRefreshToast));
 			ctx.slots.inject("main", function* () {
 				const handle = createNavigationStore(), instance = handle.create();
 				const store = {
@@ -3436,7 +3739,7 @@ window.__ModuleLoader__.load({
 					key: PANEL_ID,
 					locale: NS,
 					store,
-					inject: () => controller.inject(configLedger, (text) => ctx.locale.resolveText(text)),
+					inject: () => face,
 					children: {
 						"plugins.item": {
 							kind: "list",
@@ -3499,4 +3802,4 @@ window.__ModuleLoader__.load({
 	}
 });
 ;
-//# sourceMappingURL=??@deepseek-ai/dsh-client-ui-plugin-manager/client.js.map&rev=b44f53206bdc
+//# sourceMappingURL=??@deepseek-ai/dsh-client-ui-plugin-manager/client.js.map&rev=781acb68523e

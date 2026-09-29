@@ -53,8 +53,8 @@ window.__ModuleLoader__.load({
 			};
 		}
 		//#endregion
-		//#region \0dsh-css:D:\Agent Router\deepseek-harness\packages\client\ui-settings-plugin-inventory\src\client\PluginInventorySettingsTab.module.css.mjs
-		const css = ".J65IQa_section{width:100%;max-width:760px;color:var(--dsw-alias-label-primary);flex-direction:column;gap:14px;display:flex}.J65IQa_catalogHeading h3,.J65IQa_status,.J65IQa_failure p{margin:0}.J65IQa_status,.J65IQa_failure{color:var(--dsw-alias-label-tertiary);font-size:13px;line-height:20px}.J65IQa_failure{color:var(--dsw-alias-state-error-primary);align-items:center;gap:10px;display:flex}.J65IQa_statusWithDot{align-items:center;gap:6px;display:inline-flex}.J65IQa_failure button{border:.5px solid var(--dsw-alias-border-l3);border-radius:var(--dsw-radius-sm);color:var(--dsw-alias-label-primary);font:inherit;cursor:pointer;background:0 0;padding:4px 10px}.J65IQa_catalog{flex-direction:column;gap:12px;display:flex}.J65IQa_search{width:100%;color:var(--dsw-alias-label-tertiary);align-items:center;display:flex;position:relative}.J65IQa_search>svg{pointer-events:none;position:absolute;left:12px}.J65IQa_search input{border:.5px solid var(--dsw-alias-border-l4);border-radius:var(--dsw-radius-md);background:var(--dsw-alias-bg-layer-1);width:100%;height:36px;color:var(--dsw-alias-label-primary);font:inherit;outline:none;padding:0 34px 0 36px;font-size:13px}.J65IQa_search input::placeholder{color:var(--dsw-alias-label-tertiary)}.J65IQa_search input:focus-visible{border-color:var(--dsw-focus-ring-color,var(--dsw-alias-state-business-primary));box-shadow:0 0 0 2px color-mix(in srgb, var(--dsw-focus-ring-color,var(--dsw-alias-state-business-primary)) 18%, transparent)}.J65IQa_catalogHeading{align-items:baseline;gap:7px;padding:0 2px;display:flex}.J65IQa_catalogHeading h3{font-size:13px;font-weight:600;line-height:20px}.J65IQa_catalogHeading span{color:var(--dsw-alias-label-tertiary);font-variant-numeric:tabular-nums;font-size:12px;line-height:18px}.J65IQa_cards{grid-template-columns:repeat(2,minmax(0,1fr));align-items:start;gap:10px;margin:0;padding:0;list-style:none;display:grid}.J65IQa_card{border:.5px solid var(--dsw-alias-settings-card-stroke);border-radius:var(--dsw-radius-xl);background:var(--dsw-alias-settings-card-fill);min-width:0;overflow:hidden}.J65IQa_card[data-open=true]{border-color:var(--dsw-alias-border-l3)}.J65IQa_cardContent{box-sizing:border-box;width:100%;min-height:52px;color:inherit;font:inherit;text-align:left;cursor:pointer;background:0 0;border:0;flex-direction:column;align-items:stretch;padding:12px 14px;display:flex}.J65IQa_cardContent:hover,.J65IQa_card[data-open=true]>.J65IQa_cardContent{background:var(--dsw-alias-interactive-bg-hover)}.J65IQa_cardContent:focus-visible{outline:var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color,var(--dsw-alias-state-business-primary));outline-offset:-2px}.J65IQa_cardMainRow{justify-content:space-between;align-items:center;gap:12px;min-width:0;display:flex}.J65IQa_cardTitle,.J65IQa_cardIdentity{text-overflow:ellipsis;white-space:nowrap;overflow:hidden}.J65IQa_cardTitle{flex:1;min-width:0;font-size:14px;font-weight:600;line-height:20px}.J65IQa_cardIdentity,.J65IQa_entryValue{font-family:var(--ds-font-family-code);font-size:12px;line-height:18px}.J65IQa_cardIdentity{width:100%;color:var(--dsw-alias-label-tertiary);display:block}.J65IQa_cardTrailing{color:var(--dsw-alias-label-tertiary);flex:none;align-items:center;gap:7px;display:inline-flex}.J65IQa_phaseDot{flex:none;display:inline-flex}.J65IQa_group{flex-direction:column;gap:10px;display:flex}.J65IQa_groupTitleRow{align-items:center;gap:8px;min-height:32px;display:flex}.J65IQa_group+.J65IQa_group{border-top:.5px solid var(--dsw-alias-border-l2);padding-top:14px}.J65IQa_headerEnd{margin-left:auto}.J65IQa_groupToggle{color:inherit;font:inherit;text-align:left;cursor:pointer;background:0 0;border:0;flex:none;align-items:center;gap:8px;padding:0;display:flex}.J65IQa_groupToggle:focus-visible{outline:var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color,var(--dsw-alias-state-business-primary));outline-offset:2px}.J65IQa_groupToggle>.J65IQa_chevron{transform:rotate(-90deg)}.J65IQa_groupToggle[aria-expanded=true]>.J65IQa_chevron{transform:none}.J65IQa_groupTitle{color:var(--dsw-alias-label-primary);font-size:14px;font-weight:400;line-height:22px}.J65IQa_groupSub{color:var(--dsw-alias-label-tertiary);font-variant-numeric:tabular-nums;flex-wrap:wrap;gap:4px 8px;margin:-6px 0 0 20px;font-size:12px;line-height:18px;display:flex}.J65IQa_failedCount{color:var(--dsw-alias-state-error-primary)}.J65IQa_switcher{white-space:nowrap;border-radius:var(--dsw-radius-md);background:var(--dsw-alias-bg-module-platform);height:36px;color:var(--dsw-alias-label-primary);font:inherit;cursor:pointer;border:none;flex:none;align-items:center;gap:12px;padding:0 14px;font-size:14px;line-height:22px;display:inline-flex}.J65IQa_switcher:hover{background:var(--dsw-alias-interactive-bg-hover)}.J65IQa_switcher:focus-visible{outline:var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color,var(--dsw-alias-state-business-primary));outline-offset:2px}.J65IQa_switcher>.J65IQa_chevron{flex:none}.J65IQa_switcherLabel{text-overflow:ellipsis;max-width:240px;overflow:hidden}.J65IQa_groupBody{flex-direction:column;gap:10px;display:flex}.J65IQa_brokenNote{border-radius:var(--dsw-radius-lg);background:color-mix(in srgb, var(--dsw-alias-state-error-primary) 8%, transparent);color:var(--dsw-alias-state-error-primary);overflow-wrap:anywhere;white-space:pre-line;margin:0;padding:8px 10px;font-size:12.5px;line-height:18px}.J65IQa_hint{color:var(--dsw-alias-label-tertiary);flex-wrap:wrap;align-items:baseline;gap:4px 8px;margin:0;font-size:12.5px;line-height:18px;display:flex}.J65IQa_jumpLink{color:var(--dsw-alias-state-business-primary);font:inherit;cursor:pointer;background:0 0;border:0;padding:0;font-size:12.5px}.J65IQa_enabledIn{flex-wrap:wrap;align-items:baseline;gap:4px 10px;display:flex}.J65IQa_card[data-failed=true]{border-color:color-mix(in srgb, var(--dsw-alias-state-error-primary) 45%, transparent)}.J65IQa_chevron{color:var(--dsw-alias-label-tertiary);flex:none}.J65IQa_card[data-open=true] .J65IQa_chevron{transform:rotate(180deg)}.J65IQa_cardDetails{border-top:.5px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-module-platform);padding:10px 14px 12px}.J65IQa_entryValue{overflow-wrap:anywhere;color:var(--dsw-alias-label-primary);display:block}.J65IQa_details{grid-template-columns:76px minmax(0,1fr);gap:6px 10px;margin:8px 0 0;display:grid}.J65IQa_details div{display:contents}.J65IQa_details dt{color:var(--dsw-alias-label-tertiary);font-size:11px;line-height:17px}.J65IQa_details dd{overflow-wrap:anywhere;min-width:0;color:var(--dsw-alias-label-secondary);margin:0;font-size:12px;line-height:17px}.J65IQa_visuallyHidden{clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap;width:1px;height:1px;position:absolute;overflow:hidden}@media (prefers-reduced-motion:no-preference){.J65IQa_chevron{transition:transform .14s var(--ds-ease-in-out)}}@media (width<=680px){.J65IQa_cards{grid-template-columns:minmax(0,1fr)}}";
+		//#region \0dsh-css:D:\deepseek-harness\packages\client\ui-settings-plugin-inventory\src\client\PluginInventorySettingsTab.module.css.mjs
+		const css = ".Uc6fpG_section{width:100%;max-width:760px;color:var(--dsw-alias-label-primary);flex-direction:column;gap:14px;display:flex;container:Uc6fpG_plugin-inventory/inline-size}.Uc6fpG_status,.Uc6fpG_failure p{margin:0}.Uc6fpG_status,.Uc6fpG_failure{color:var(--dsw-alias-label-tertiary);font-size:13px;line-height:20px}.Uc6fpG_failure{color:var(--dsw-alias-state-error-primary);align-items:center;gap:10px;display:flex}.Uc6fpG_statusWithDot{align-items:center;gap:6px;display:inline-flex}.Uc6fpG_failure button{border:.5px solid var(--dsw-alias-border-l3);border-radius:var(--dsw-radius-sm);color:var(--dsw-alias-label-primary);font:inherit;cursor:pointer;background:0 0;padding:4px 10px}.Uc6fpG_catalog{flex-direction:column;gap:12px;display:flex}.Uc6fpG_search{width:100%;color:var(--dsw-alias-label-tertiary);align-items:center;display:flex;position:relative}.Uc6fpG_search>svg{pointer-events:none;position:absolute;left:12px}.Uc6fpG_search input{border:.5px solid var(--dsw-alias-border-l4);border-radius:var(--dsw-radius-md);background:var(--dsw-alias-bg-layer-1);width:100%;height:36px;color:var(--dsw-alias-label-primary);font:inherit;outline:none;padding:0 34px 0 36px;font-size:13px}.Uc6fpG_search input::placeholder{color:var(--dsw-alias-label-tertiary)}.Uc6fpG_search input:focus-visible{border-color:var(--dsw-focus-ring-color,var(--dsw-alias-state-business-primary));box-shadow:0 0 0 2px color-mix(in srgb, var(--dsw-focus-ring-color,var(--dsw-alias-state-business-primary)) 18%, transparent)}.Uc6fpG_cards{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:0;padding:0;list-style:none;display:grid}.Uc6fpG_card{border:.5px solid var(--dsw-alias-settings-card-stroke);border-radius:var(--dsw-radius-xl);background:var(--dsw-alias-settings-card-fill);flex-direction:column;min-width:0;display:flex;overflow:hidden}.Uc6fpG_card[data-open=true]{border-color:var(--dsw-alias-border-l3)}.Uc6fpG_card:nth-child(odd)[data-open=true]+.Uc6fpG_card,.Uc6fpG_card:nth-child(odd):has(+.Uc6fpG_card[data-open=true]){align-self:start}.Uc6fpG_cardContent{box-sizing:border-box;width:100%;min-height:52px;color:inherit;font:inherit;text-align:left;cursor:pointer;background:0 0;border:0;flex-direction:column;flex:auto;align-items:stretch;gap:2px;padding:12px 14px;display:flex}.Uc6fpG_cardContent:hover,.Uc6fpG_card[data-open=true]>.Uc6fpG_cardContent{background:var(--dsw-alias-interactive-bg-hover)}.Uc6fpG_cardContent:focus-visible{outline:var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color,var(--dsw-alias-state-business-primary));outline-offset:-2px}.Uc6fpG_cardMainRow{justify-content:space-between;align-items:center;gap:12px;min-width:0;display:flex}.Uc6fpG_cardTitle,.Uc6fpG_cardIdentity{text-overflow:ellipsis;white-space:nowrap;overflow:hidden}.Uc6fpG_cardTitle{flex:1;min-width:0;font-size:14px;font-weight:500;line-height:20px}.Uc6fpG_cardDescription{color:var(--dsw-alias-label-tertiary);text-wrap:pretty;-webkit-line-clamp:2;-webkit-box-orient:vertical;font-size:12px;line-height:18px;display:-webkit-box;overflow:hidden}.Uc6fpG_card[data-open=true] .Uc6fpG_cardDescription{display:block}.Uc6fpG_cardMeta{margin-top:auto;padding-top:6px;display:flex}.Uc6fpG_cardIdentity,.Uc6fpG_entryValue{font-family:var(--ds-font-family-code);font-size:12px;line-height:18px}.Uc6fpG_cardIdentity{box-sizing:border-box;border-radius:var(--dsw-radius-xs);background:var(--dsw-alias-bg-module-platform);max-width:100%;color:var(--dsw-alias-label-secondary);padding:1px 6px;display:block}.Uc6fpG_cardTrailing{color:var(--dsw-alias-label-tertiary);flex:none;align-items:center;gap:8px;display:inline-flex}.Uc6fpG_phaseDot{flex:none;display:inline-flex}.Uc6fpG_group{flex-direction:column;gap:10px;display:flex}.Uc6fpG_groupTitleRow{align-items:center;gap:8px;min-height:36px;display:flex}.Uc6fpG_group+.Uc6fpG_group{border-top:.5px solid var(--dsw-alias-border-l2);padding-top:14px}.Uc6fpG_headerEnd{margin-left:auto}.Uc6fpG_groupToggle{color:inherit;font:inherit;text-align:left;cursor:pointer;background:0 0;border:0;flex:none;align-items:center;gap:8px;padding:0;display:flex}.Uc6fpG_groupToggle:focus-visible{outline:var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color,var(--dsw-alias-state-business-primary));outline-offset:2px}.Uc6fpG_groupToggle>.Uc6fpG_chevron{transform:rotate(-90deg)}.Uc6fpG_groupToggle[aria-expanded=true]>.Uc6fpG_chevron{transform:none}.Uc6fpG_groupTitle{color:var(--dsw-alias-label-primary);font-size:14px;font-weight:400;line-height:22px}.Uc6fpG_groupSub{color:var(--dsw-alias-label-tertiary);font-variant-numeric:tabular-nums;flex-wrap:wrap;row-gap:4px;margin:-6px 0 0 20px;font-size:12px;line-height:18px;display:flex}.Uc6fpG_groupSub>*+:before{content:\"·\";color:var(--dsw-alias-label-tertiary);padding:0 6px}.Uc6fpG_failedCount{color:var(--dsw-alias-state-error-primary)}.Uc6fpG_switcher{white-space:nowrap;border-radius:var(--dsw-radius-md);background:var(--dsw-alias-bg-module-platform);height:36px;color:var(--dsw-alias-label-primary);font:inherit;cursor:pointer;border:none;flex:none;align-items:center;gap:12px;padding:0 14px;font-size:14px;line-height:22px;display:inline-flex}.Uc6fpG_switcher:hover{background:var(--dsw-alias-interactive-bg-hover)}.Uc6fpG_switcher:focus-visible{outline:var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color,var(--dsw-alias-state-business-primary));outline-offset:2px}.Uc6fpG_switcher>.Uc6fpG_chevron{flex:none}.Uc6fpG_switcherLabel{text-overflow:ellipsis;max-width:240px;overflow:hidden}.Uc6fpG_groupBody{flex-direction:column;gap:10px;display:flex}.Uc6fpG_brokenNote{border-radius:var(--dsw-radius-lg);background:color-mix(in srgb, var(--dsw-alias-state-error-primary) 8%, transparent);color:var(--dsw-alias-state-error-primary);overflow-wrap:anywhere;white-space:pre-line;margin:0;padding:8px 10px;font-size:12px;line-height:18px}.Uc6fpG_hint{color:var(--dsw-alias-label-tertiary);flex-wrap:wrap;align-items:baseline;gap:4px 8px;margin:0;font-size:12px;line-height:18px;display:flex}.Uc6fpG_jumpLink{color:var(--dsw-alias-state-business-primary);font:inherit;cursor:pointer;background:0 0;border:0;padding:0;font-size:12px}.Uc6fpG_skeletonCard{border:.5px solid var(--dsw-alias-settings-card-stroke);border-radius:var(--dsw-radius-xl);background:var(--dsw-alias-settings-card-fill);flex-direction:column;gap:8px;padding:15px 14px;display:flex}.Uc6fpG_skeletonBar{border-radius:var(--dsw-radius-xs);background:var(--dsw-alias-bg-skeleton);width:40%;height:14px}.Uc6fpG_skeletonBar+.Uc6fpG_skeletonBar{width:80%;height:12px}.Uc6fpG_enabledIn{flex-wrap:wrap;align-items:baseline;gap:4px 10px;display:flex}.Uc6fpG_card[data-failed=true]{border-color:color-mix(in srgb, var(--dsw-alias-state-error-primary) 45%, transparent)}.Uc6fpG_chevron{color:var(--dsw-alias-label-tertiary);flex:none}.Uc6fpG_card[data-open=true] .Uc6fpG_chevron{transform:rotate(180deg)}.Uc6fpG_cardDetails{border-top:.5px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-module-platform);padding:10px 14px 12px}.Uc6fpG_entryValue{overflow-wrap:anywhere;color:var(--dsw-alias-label-primary);display:block}.Uc6fpG_details{grid-template-columns:76px minmax(0,1fr);gap:6px 10px;margin:8px 0 0;display:grid}.Uc6fpG_details div{display:contents}.Uc6fpG_details dt{color:var(--dsw-alias-label-tertiary);font-size:11px;line-height:17px}.Uc6fpG_details dd{overflow-wrap:anywhere;min-width:0;color:var(--dsw-alias-label-secondary);margin:0;font-size:12px;line-height:17px}.Uc6fpG_visuallyHidden{clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap;width:1px;height:1px;position:absolute;overflow:hidden}@media (prefers-reduced-motion:no-preference){.Uc6fpG_chevron{transition:transform .14s var(--ds-ease-in-out)}.Uc6fpG_skeletonBar{animation:2s cubic-bezier(.36,0,.64,1) infinite Uc6fpG_plugin-inventory-skeleton}}@keyframes Uc6fpG_plugin-inventory-skeleton{0%{opacity:1}40%{opacity:.6}80%,to{opacity:1}}@container Uc6fpG_plugin-inventory (width<=520px){.Uc6fpG_cards{grid-template-columns:minmax(0,1fr)}}";
 		const tagId = "@deepseek-ai/dsh-client-ui-settings-plugin-inventory/PluginInventorySettingsTab.module.css";
 		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId) + "]") === null) {
 			const tag = document.createElement("style");
@@ -64,40 +64,45 @@ window.__ModuleLoader__.load({
 			document.head.appendChild(tag);
 		}
 		var PluginInventorySettingsTab_module_css_default = {
-			"brokenNote": "J65IQa_brokenNote",
-			"card": "J65IQa_card",
-			"cardContent": "J65IQa_cardContent",
-			"cardDetails": "J65IQa_cardDetails",
-			"cardIdentity": "J65IQa_cardIdentity",
-			"cardMainRow": "J65IQa_cardMainRow",
-			"cardTitle": "J65IQa_cardTitle",
-			"cardTrailing": "J65IQa_cardTrailing",
-			"cards": "J65IQa_cards",
-			"catalog": "J65IQa_catalog",
-			"catalogHeading": "J65IQa_catalogHeading",
-			"chevron": "J65IQa_chevron",
-			"details": "J65IQa_details",
-			"enabledIn": "J65IQa_enabledIn",
-			"entryValue": "J65IQa_entryValue",
-			"failedCount": "J65IQa_failedCount",
-			"failure": "J65IQa_failure",
-			"group": "J65IQa_group",
-			"groupBody": "J65IQa_groupBody",
-			"groupSub": "J65IQa_groupSub",
-			"groupTitle": "J65IQa_groupTitle",
-			"groupTitleRow": "J65IQa_groupTitleRow",
-			"groupToggle": "J65IQa_groupToggle",
-			"headerEnd": "J65IQa_headerEnd",
-			"hint": "J65IQa_hint",
-			"jumpLink": "J65IQa_jumpLink",
-			"phaseDot": "J65IQa_phaseDot",
-			"search": "J65IQa_search",
-			"section": "J65IQa_section",
-			"status": "J65IQa_status",
-			"statusWithDot": "J65IQa_statusWithDot",
-			"switcher": "J65IQa_switcher",
-			"switcherLabel": "J65IQa_switcherLabel",
-			"visuallyHidden": "J65IQa_visuallyHidden"
+			"brokenNote": "Uc6fpG_brokenNote",
+			"card": "Uc6fpG_card",
+			"cardContent": "Uc6fpG_cardContent",
+			"cardDescription": "Uc6fpG_cardDescription",
+			"cardDetails": "Uc6fpG_cardDetails",
+			"cardIdentity": "Uc6fpG_cardIdentity",
+			"cardMainRow": "Uc6fpG_cardMainRow",
+			"cardMeta": "Uc6fpG_cardMeta",
+			"cardTitle": "Uc6fpG_cardTitle",
+			"cardTrailing": "Uc6fpG_cardTrailing",
+			"cards": "Uc6fpG_cards",
+			"catalog": "Uc6fpG_catalog",
+			"chevron": "Uc6fpG_chevron",
+			"details": "Uc6fpG_details",
+			"enabledIn": "Uc6fpG_enabledIn",
+			"entryValue": "Uc6fpG_entryValue",
+			"failedCount": "Uc6fpG_failedCount",
+			"failure": "Uc6fpG_failure",
+			"group": "Uc6fpG_group",
+			"groupBody": "Uc6fpG_groupBody",
+			"groupSub": "Uc6fpG_groupSub",
+			"groupTitle": "Uc6fpG_groupTitle",
+			"groupTitleRow": "Uc6fpG_groupTitleRow",
+			"groupToggle": "Uc6fpG_groupToggle",
+			"headerEnd": "Uc6fpG_headerEnd",
+			"hint": "Uc6fpG_hint",
+			"jumpLink": "Uc6fpG_jumpLink",
+			"phaseDot": "Uc6fpG_phaseDot",
+			"plugin-inventory": "Uc6fpG_plugin-inventory",
+			"plugin-inventory-skeleton": "Uc6fpG_plugin-inventory-skeleton",
+			"search": "Uc6fpG_search",
+			"section": "Uc6fpG_section",
+			"skeletonBar": "Uc6fpG_skeletonBar",
+			"skeletonCard": "Uc6fpG_skeletonCard",
+			"status": "Uc6fpG_status",
+			"statusWithDot": "Uc6fpG_statusWithDot",
+			"switcher": "Uc6fpG_switcher",
+			"switcherLabel": "Uc6fpG_switcherLabel",
+			"visuallyHidden": "Uc6fpG_visuallyHidden"
 		};
 		//#endregion
 		//#region lib/types/client/PluginInventorySettingsTab.js
@@ -108,6 +113,13 @@ window.__ModuleLoader__.load({
 			failed: "failed",
 			unloading: "unloading"
 		};
+		/** Placeholder cards the loading skeleton lays out in the cards grid. */
+		const SKELETON_CARDS = [
+			0,
+			1,
+			2,
+			3
+		];
 		/** Localized accessible label for one root Fiber phase. */
 		function phaseLabel(phase, t) {
 			return phase === null ? t("unobserved") : t(PHASE_KEYS[phase]);
@@ -119,6 +131,14 @@ window.__ModuleLoader__.load({
 		/** Display an entry identity without the composition-only `include:` marker. */
 		function entrySubtitle(entryId) {
 			return entryId.replace(/^include:/, "");
+		}
+		/** Whether a card shows its entry id: the id exists and, without its `include:` marker, differs from the title. */
+		function idAddsToTitle(entryId, title) {
+			return entryId !== null && entrySubtitle(entryId) !== title;
+		}
+		/** Accessible card name: the title, the complete entry id when the card shows one, then the enablement state. */
+		function cardLabel(title, entryId, state) {
+			return idAddsToTitle(entryId, title) ? `${title}, ${entryId}, ${state}` : `${title}, ${state}`;
 		}
 		/** Preserve translated titles and shorten literal package or module name fallbacks in Settings. */
 		function pluginText(row, resolveText) {
@@ -189,15 +209,18 @@ window.__ModuleLoader__.load({
 								})]
 							}),
 							description === void 0 ? null : (0, react_jsx_runtime.jsx)("span", {
-								className: PluginInventorySettingsTab_module_css_default.hint,
+								className: PluginInventorySettingsTab_module_css_default.cardDescription,
 								id: descriptionId,
 								children: description
 							}),
-							entryId === null ? null : (0, react_jsx_runtime.jsx)("code", {
-								className: PluginInventorySettingsTab_module_css_default.cardIdentity,
-								title: entryId,
-								children: entrySubtitle(entryId)
-							})
+							idAddsToTitle(entryId, title) ? (0, react_jsx_runtime.jsx)("span", {
+								className: PluginInventorySettingsTab_module_css_default.cardMeta,
+								children: (0, react_jsx_runtime.jsx)("code", {
+									className: PluginInventorySettingsTab_module_css_default.cardIdentity,
+									title: entryId,
+									children: entrySubtitle(entryId)
+								})
+							}) : null
 						]
 					}),
 					metadataError === void 0 ? null : (0, react_jsx_runtime.jsx)("p", {
@@ -246,15 +269,14 @@ window.__ModuleLoader__.load({
 			});
 		}
 		const TAG_TONES = {
-			enabled: "success",
 			disabled: "neutral",
 			conditional: "warning",
 			preset: "info",
 			failed: "danger"
 		};
-		/** Enablement tag; `kind` selects the palette. */
+		/** Enablement tag for the states that depart from the default; a plainly enabled row carries none. */
 		function StateTag({ kind, label }) {
-			return (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Tag, {
+			return kind === "enabled" ? null : (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Tag, {
 				tone: TAG_TONES[kind],
 				children: label
 			});
@@ -314,7 +336,7 @@ window.__ModuleLoader__.load({
 			const selectedRows = selected === void 0 ? [] : selected.rows.filter(rowMatch);
 			const otherPresetMatches = searching ? presets.filter((preset) => preset !== selected && preset.rows.some(rowMatch)) : [];
 			const otherMatchCount = otherPresetMatches.reduce((total, preset) => total + preset.rows.filter(rowMatch).length, 0);
-			const presetEffectiveOpen = searching || (presetOpen ?? false);
+			const presetEffectiveOpen = searching || (presetOpen ?? true);
 			const globalEffectiveOpen = searching || (globalOpen ?? false);
 			const nothingMatches = searching && globalCount === 0 && selectedRows.length === 0 && otherPresetMatches.length === 0;
 			const retry = () => {
@@ -341,7 +363,7 @@ window.__ModuleLoader__.load({
 					failed,
 					expanded,
 					onToggle: toggleRow,
-					ariaLabel: `${title}${row.entryId === null ? "" : `, ${row.entryId}`}, ${stateText}`,
+					ariaLabel: cardLabel(title, row.entryId, stateText),
 					trailing: (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [row.enabled === true && showsPhaseDot(row.fiberPhase) ? (0, react_jsx_runtime.jsx)(PhaseDot, {
 						phase: row.fiberPhase,
 						t
@@ -379,7 +401,7 @@ window.__ModuleLoader__.load({
 					failed,
 					expanded,
 					onToggle: toggleRow,
-					ariaLabel: `${title}, ${entry.entryId}, ${stateText}`,
+					ariaLabel: cardLabel(title, entry.entryId, stateText),
 					trailing: (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [entry.enabled && showsPhaseDot(entry.fiberPhase) ? (0, react_jsx_runtime.jsx)(PhaseDot, {
 						phase: entry.fiberPhase,
 						t
@@ -436,10 +458,17 @@ window.__ModuleLoader__.load({
 							})
 						]
 					}),
-					state.status === "loading" ? (0, react_jsx_runtime.jsxs)("p", {
-						className: `${PluginInventorySettingsTab_module_css_default.status} ${PluginInventorySettingsTab_module_css_default.statusWithDot}`,
+					state.status === "loading" ? (0, react_jsx_runtime.jsxs)("div", {
+						className: PluginInventorySettingsTab_module_css_default.cards,
 						role: "status",
-						children: [(0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.StateDot, { state: "ongoing" }), t("loading")]
+						children: [(0, react_jsx_runtime.jsx)("span", {
+							className: PluginInventorySettingsTab_module_css_default.visuallyHidden,
+							children: t("loading")
+						}), SKELETON_CARDS.map((slot) => (0, react_jsx_runtime.jsxs)("div", {
+							className: PluginInventorySettingsTab_module_css_default.skeletonCard,
+							"aria-hidden": "true",
+							children: [(0, react_jsx_runtime.jsx)("span", { className: PluginInventorySettingsTab_module_css_default.skeletonBar }), (0, react_jsx_runtime.jsx)("span", { className: PluginInventorySettingsTab_module_css_default.skeletonBar })]
+						}, slot))]
 					}) : null,
 					state.status === "error" ? (0, react_jsx_runtime.jsxs)("div", {
 						className: PluginInventorySettingsTab_module_css_default.failure,
@@ -546,9 +575,9 @@ window.__ModuleLoader__.load({
 									}),
 									(0, react_jsx_runtime.jsxs)("p", {
 										className: PluginInventorySettingsTab_module_css_default.groupSub,
-										children: [t("presetSubtitle"), (0, react_jsx_runtime.jsx)("span", {
+										children: [(0, react_jsx_runtime.jsx)("span", { children: t("presetSubtitle") }), (0, react_jsx_runtime.jsx)("span", {
 											"data-preset-plugin-count": selectedRows.length,
-											children: ` · ${String(selectedRows.length)} ${t("countUnit")}`
+											children: `${String(selectedRows.length)} ${t("countUnit")}`
 										})]
 									}),
 									presetEffectiveOpen ? (0, react_jsx_runtime.jsxs)("div", {
@@ -606,10 +635,10 @@ window.__ModuleLoader__.load({
 									(0, react_jsx_runtime.jsxs)("p", {
 										className: PluginInventorySettingsTab_module_css_default.groupSub,
 										children: [
-											t("globalSubtitle"),
+											(0, react_jsx_runtime.jsx)("span", { children: t("globalSubtitle") }),
 											(0, react_jsx_runtime.jsx)("span", {
 												"data-plugin-count": globalCount,
-												children: ` · ${String(globalCount)} ${t("countUnit")}`
+												children: `${String(globalCount)} ${t("countUnit")}`
 											}),
 											filteredFailed.length > 0 ? (0, react_jsx_runtime.jsxs)("span", {
 												className: PluginInventorySettingsTab_module_css_default.failedCount,
@@ -708,7 +737,7 @@ window.__ModuleLoader__.load({
 			enabledTag: "Enabled",
 			disabledTag: "Disabled",
 			conditionalTag: "Conditional",
-			presetEnabledTag: "Enabled via presets",
+			presetEnabledTag: "Via presets",
 			failedTag: "Failed",
 			moduleLabel: "Module",
 			fromPreset: "From",
@@ -777,4 +806,4 @@ window.__ModuleLoader__.load({
 	}
 });
 ;
-//# sourceMappingURL=??@deepseek-ai/dsh-client-ui-settings-plugin-inventory/client.js.map&rev=021a6df24ebb
+//# sourceMappingURL=??@deepseek-ai/dsh-client-ui-settings-plugin-inventory/client.js.map&rev=eedb9354c7b1

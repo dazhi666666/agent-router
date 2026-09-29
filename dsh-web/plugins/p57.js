@@ -1,470 +1,187 @@
 window.__ModuleLoader__.load({
-	id: "@deepseek-ai/dsh-client-ui-user-questions",
+	id: "@deepseek-ai/dsh-client-ui-plan",
 	factory: (require) => {
 		var module = { exports: {} };
 		var exports = module.exports;
 		Object.defineProperty(exports, Symbol.toStringTag, { value: "Module" });
-		let _deepseek_ai_dsh_client_store = require("@deepseek-ai/dsh-client-store");
+		let _deepseek_ai_dsh_client_ui_primitives = require("@deepseek-ai/dsh-client-ui-primitives");
 		let react_jsx_runtime = require("react/jsx-runtime");
 		let react = require("react");
-		let _deepseek_ai_dsh_client_ui_primitives = require("@deepseek-ai/dsh-client-ui-primitives");
-		//#region lib/types/client/contract/slots.js
-		function settlePendingComposer(settle, failureMessage) {
-			try {
-				settle();
-				return Promise.resolve();
-			} catch (error) {
-				return Promise.reject(error instanceof Error ? error : new Error(failureMessage, { cause: error }));
-			}
-		}
+		require("@deepseek-ai/cordis");
+		let _deepseek_ai_dsh_client_store = require("@deepseek-ai/dsh-client-store");
+		//#region ../../util/crypto/src/index.ts
 		/**
-		* Narrow a request to a renderable plan review, or return undefined to leave it
-		* to the generic question flow.
-		*
-		* The card offers approval and a return to the composer for change requests.
-		* It accepts one question carrying the plan as detail and the named approve
-		* option, with at most one alternative and no multi-select. Larger choices
-		* remain in the generic question flow.
-		*
-		* @param questions - the request's whole question batch.
-		* @returns The narrowed review, or undefined when the generic flow owns it.
+		* Random v4 UUID, minted from `crypto.getRandomValues`.
+		* @returns the UUID string.
 		*/
-		function planReviewOf(questions) {
-			if (questions.length !== 1) return void 0;
-			const question = questions[0];
-			const intent = question.intent;
-			if (intent?.kind !== "plan-review" || question.detail === void 0) return void 0;
-			if (question.multiSelect === true) return void 0;
-			const options = question.options ?? [];
-			if (options.length > 2) return void 0;
-			const approve = options.find((option) => option.label === intent.approve);
-			if (approve === void 0) return void 0;
-			const decline = options.find((option) => option.label !== intent.approve);
-			return {
-				id: question.id,
-				question: question.question,
-				plan: question.detail,
-				...intent.callId === void 0 ? {} : { callId: intent.callId },
-				approve,
-				...decline === void 0 ? {} : { decline }
-			};
-		}
-		let nextQuestionKey = 0;
-		/** Create a wire-preserved user-question rejection. */
-		function questionError(message, code) {
-			const error = new Error(message);
-			error.name = "UserQuestionError";
-			error.code = code;
-			return error;
-		}
-		/** One answerable Client presentation of a pending Host waterfall. */
-		var PendingQuestion = class {
-			sessionId;
-			/** Presentation discriminator used by Session pending-interaction consumers. */
-			kind;
-			/** Opaque render identity and request key for the Session-scoped draft store. */
-			key;
-			/** The request's question list. */
-			questions;
-			/** Result returned by the Remote Event listener to the Host waterfall. */
-			result;
-			#resolve;
-			#reject;
-			#signal;
-			#onAbort;
-			#delegated = Symbol("pending question delegated");
-			#settled = false;
-			/**
-			* @param sessionId - Agent/Session identity owning the scoped request.
-			* @param questions - complete question batch.
-			* @param signal - Host request and delivery lifetime.
-			*/
-			constructor(sessionId, questions, signal) {
-				this.sessionId = sessionId;
-				nextQuestionKey += 1;
-				this.key = `question:${String(nextQuestionKey)}`;
-				this.questions = questions;
-				this.kind = planReviewOf(questions) === void 0 ? "question" : "plan-review";
-				const completion = Promise.withResolvers();
-				this.result = completion.promise;
-				this.#resolve = completion.resolve;
-				this.#reject = completion.reject;
-				this.#signal = signal;
-				if (signal === void 0) {
-					this.#onAbort = void 0;
-					return;
-				}
-				const onAbort = () => {
-					this.abort(questionError("ask_user_question was aborted before the user answered", "ASK_ABORTED"));
-				};
-				this.#onAbort = onAbort;
-				signal.addEventListener("abort", onAbort, { once: true });
-				if (signal.aborted) onAbort();
-			}
-			/**
-			* Resolve the Host waterfall with the whole answer batch.
-			* @param answer - complete structured answer batch.
-			*/
-			answer(answer) {
-				return settlePendingComposer(() => {
-					this.finish(() => {
-						this.#resolve(answer);
-					});
-				}, "pending question settlement failed");
-			}
-			/** Delegate an unanswered request to the next waterfall listener. */
-			delegate() {
-				if (this.#settled) return;
-				this.finish(() => {
-					this.#reject(this.#delegated);
-				});
-			}
-			/**
-			* Test whether a rejection requests waterfall delegation.
-			* @param reason - rejection received from {@link PendingQuestion.result}.
-			* @returns whether {@link PendingQuestion.delegate} produced it.
-			*/
-			isDelegation(reason) {
-				return reason === this.#delegated;
-			}
-			/** Reject the Host waterfall because the user closed the question. */
-			cancel() {
-				return settlePendingComposer(() => {
-					this.finish(() => {
-						this.#reject(questionError("the user cancelled ask_user_question", "ASK_CANCELLED"));
-					});
-				}, "pending question cancellation failed");
-			}
-			/**
-			* End an unanswered presentation when its transport, scope, or plugin lifetime ends.
-			* @param reason - rejection exposed to the waiting Remote Event listener.
-			*/
-			abort(reason) {
-				if (this.#settled) return;
-				this.finish(() => {
-					this.#reject(reason);
-				});
-			}
-			finish(settle) {
-				if (this.#settled) throw new Error(`pending question ${this.key} is already settled`);
-				this.#settled = true;
-				if (this.#signal !== void 0 && this.#onAbort !== void 0) this.#signal.removeEventListener("abort", this.#onAbort);
-				settle();
-			}
-		};
-		//#endregion
-		//#region lib/types/client/draft-store.js
-		/**
-		* Session-scoped draft state for the generic question composer. The Slot
-		* registry owns store instances; this module exports only the factory so a
-		* plugin reload cannot reuse a module-global handle.
-		*/
-		const emptyProgress = () => ({
-			index: 0,
-			drafts: []
-		});
-		/**
-		* Declare the question composer's transient Session store.
-		* @returns a non-persisted store handle whose instance is owned by the Slot registry.
-		*/
-		function createQuestionDraftStore() {
-			return (0, _deepseek_ai_dsh_client_store.defineStore)({
-				init: () => ({ progress: emptyProgress() }),
-				actions: {
-					replace: (draft, requestKey, progress) => {
-						draft.requestKey = requestKey;
-						draft.progress = progress;
-					},
-					clear: (draft, requestKey) => {
-						if (draft.requestKey !== requestKey) return;
-						delete draft.requestKey;
-						draft.progress = emptyProgress();
-					}
-				}
-			});
+		function randomUUID() {
+			const bytes = globalThis.crypto.getRandomValues(new Uint8Array(16));
+			const hex = Array.from(bytes, (byte, index) => {
+				return (index === 6 ? byte & 15 | 64 : index === 8 ? byte & 63 | 128 : byte).toString(16).padStart(2, "0");
+			}).join("");
+			return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
 		}
 		//#endregion
-		//#region ../../../node_modules/.pnpm/clsx@2.1.1/node_modules/clsx/dist/clsx.mjs
-		function r(e) {
-			var t, f, n = "";
-			if ("string" == typeof e || "number" == typeof e) n += e;
-			else if ("object" == typeof e) if (Array.isArray(e)) {
-				var o = e.length;
-				for (t = 0; t < o; t++) e[t] && (f = r(e[t])) && (n && (n += " "), n += f);
-			} else for (f in e) e[f] && (n && (n += " "), n += f);
-			return n;
-		}
-		function clsx() {
-			for (var e, t, f = 0, n = "", o = arguments.length; f < o; f++) (e = arguments[f]) && (t = r(e)) && (n && (n += " "), n += t);
-			return n;
-		}
-		//#endregion
-		//#region \0dsh-css:D:\Agent Router\deepseek-harness\packages\client\ui-user-questions\src\client\PlanReviewPanel.module.css.mjs
-		const css$1 = ".Wx3jpG_frame{padding:6px calc(var(--dsh-composer-side-clearance) + 16px) 10px;justify-content:center;display:flex}.Wx3jpG_card{width:100%;max-width:var(--dsh-chat-content-width);--dsw-elevation-stroke-color:var(--dsw-alias-border-l2);border-radius:var(--dsw-radius-xl);background:var(--dsw-specific-input-major);box-shadow:var(--dsw-elevation-panel);color:var(--dsw-alias-label-primary);border:0;flex-direction:column;display:flex;overflow:hidden}.Wx3jpG_card,.Wx3jpG_card *{box-sizing:border-box}.Wx3jpG_strip{background:var(--dsw-alias-state-warn-tertiary);color:var(--dsw-alias-state-warn-primary);flex-shrink:0;align-items:center;gap:8px;padding:12px 16px;font-size:14px;line-height:20px;display:flex}.Wx3jpG_footer{flex-shrink:0;justify-content:space-between;align-items:center;gap:12px;padding:8px 16px 12px;display:flex}.Wx3jpG_feedback{min-height:16px;color:var(--dsw-alias-state-error-primary);font-size:11px;line-height:16px}.Wx3jpG_actions{flex-shrink:0;align-items:center;gap:8px;display:flex}.Wx3jpG_summary{min-width:0;padding:14px 16px 12px}.Wx3jpG_title{text-overflow:ellipsis;white-space:nowrap;margin:0;font-size:15px;font-weight:500;line-height:22px;overflow:hidden}.Wx3jpG_description{-webkit-line-clamp:2;color:var(--dsw-alias-label-secondary);-webkit-box-orient:vertical;margin:8px 0 0;font-size:14px;line-height:24px;display:-webkit-box;overflow:hidden}.Wx3jpG_discuss{gap:6px}@media (width<=720px){.Wx3jpG_card{border-radius:var(--dsw-radius-xl)}.Wx3jpG_footer{align-items:flex-end;padding:8px 12px 10px}}.Wx3jpG_previewActions{align-items:center;margin-left:auto;display:flex}";
-		const tagId$1 = "@deepseek-ai/dsh-client-ui-user-questions/PlanReviewPanel.module.css";
+		//#region \0dsh-css:D:\deepseek-harness\packages\client\ui-plan\src\client\PlanPreview.module.css.mjs
+		const css$1 = ".BuANLq_cards{flex-direction:column;gap:10px;display:flex}.BuANLq_card{--plan-card-fill:var(--dsw-static-neutral-50);--plan-card-hover:var(--dsw-static-neutral-100);box-sizing:border-box;border:.5px solid var(--dsw-alias-border-l1);border-radius:var(--dsw-radius-xl);background:var(--plan-card-fill);width:100%;min-width:0;height:60px;color:var(--dsw-alias-label-primary);font:inherit;text-align:left;cursor:pointer;align-items:center;gap:10px;margin:0;padding:8px 10px;transition:background-color .12s;display:flex}body[data-ds-dark-theme] .BuANLq_card{--plan-card-fill:var(--dsw-static-neutral-850);--plan-card-hover:var(--dsw-static-neutral-800)}.BuANLq_card:hover{background:var(--plan-card-hover)}.BuANLq_card:focus-visible{outline:var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color,var(--dsw-alias-state-business-primary));outline-offset:3px}.BuANLq_cardIcon{box-sizing:border-box;border:.5px solid var(--dsw-alias-border-l1);border-radius:var(--dsw-radius-md);background:var(--plan-card-fill);flex:none;place-items:center;width:40px;height:40px;display:grid}.BuANLq_cardDetails{flex-direction:column;flex:1;gap:2px;min-width:0;display:flex}.BuANLq_cardTitle{text-overflow:ellipsis;white-space:nowrap;font-size:13px;font-weight:500;line-height:20px;overflow:hidden}.BuANLq_cardDescription{text-overflow:ellipsis;white-space:nowrap;color:var(--dsw-alias-label-tertiary);font-size:10px;line-height:16px;overflow:hidden}.BuANLq_cardOpen{box-sizing:border-box;border:.5px solid var(--dsw-alias-border-l3);border-radius:var(--dsw-radius-sm);background:var(--dsw-alias-button-floating-fill);flex:none;align-items:center;height:28px;padding:4px 8px;font-size:12px;line-height:18px;display:inline-flex}.BuANLq_reviewLink{color:var(--dsw-alias-label-secondary);font:inherit;cursor:pointer;background:0 0;border:0;align-items:center;gap:4px;padding:0;display:inline-flex}.BuANLq_reviewLink:hover{color:var(--dsw-alias-label-primary)}.BuANLq_reviewLink:focus-visible{outline:var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color,var(--dsw-alias-state-business-primary));outline-offset:3px}.BuANLq_preview{box-sizing:border-box;height:100%;padding:20px 24px 40px;position:relative;overflow:auto}.BuANLq_document{color:var(--dsw-alias-label-primary);overflow-wrap:anywhere;font-size:14px;line-height:1.75}.BuANLq_message{color:var(--dsw-alias-label-secondary);padding:24px;font-size:14px}.BuANLq_titleIcon{flex:none}@media (width<=767px){.BuANLq_preview{padding:16px 18px 32px}}";
+		const tagId$1 = "@deepseek-ai/dsh-client-ui-plan/PlanPreview.module.css";
 		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId$1) + "]") === null) {
 			const tag = document.createElement("style");
-			tag.dataset.plugin = "@deepseek-ai/dsh-client-ui-user-questions";
+			tag.dataset.plugin = "@deepseek-ai/dsh-client-ui-plan";
 			tag.dataset.pluginCss = tagId$1;
 			tag.textContent = css$1;
 			document.head.appendChild(tag);
 		}
-		var PlanReviewPanel_module_css_default = {
-			"actions": "Wx3jpG_actions",
-			"card": "Wx3jpG_card",
-			"description": "Wx3jpG_description",
-			"discuss": "Wx3jpG_discuss",
-			"feedback": "Wx3jpG_feedback",
-			"footer": "Wx3jpG_footer",
-			"frame": "Wx3jpG_frame",
-			"previewActions": "Wx3jpG_previewActions",
-			"strip": "Wx3jpG_strip",
-			"summary": "Wx3jpG_summary",
-			"title": "Wx3jpG_title"
+		var PlanPreview_module_css_default = {
+			"card": "BuANLq_card",
+			"cardDescription": "BuANLq_cardDescription",
+			"cardDetails": "BuANLq_cardDetails",
+			"cardIcon": "BuANLq_cardIcon",
+			"cardOpen": "BuANLq_cardOpen",
+			"cardTitle": "BuANLq_cardTitle",
+			"cards": "BuANLq_cards",
+			"document": "BuANLq_document",
+			"message": "BuANLq_message",
+			"preview": "BuANLq_preview",
+			"reviewLink": "BuANLq_reviewLink",
+			"titleIcon": "BuANLq_titleIcon"
 		};
 		//#endregion
-		//#region lib/types/client/PlanReviewPanel.js
+		//#region lib/types/client/PlanCard.js
+		/** Persistent transcript cards and pending-review sidebar navigation. */
 		/**
-		* Optional-prop spread for a decision button's tooltip: `title` is optional on
-		* the DOM props, and exactOptionalPropertyTypes rejects an explicit undefined.
-		*
-		* @param description - the asker's option description, when it carries one.
-		* @returns The `title` prop to spread, or nothing.
+		* Render the completed Turn's submitted plans in invocation order.
+		* @param props - Logged plan, localized copy, and Session-bound navigation.
+		* @returns keyboard-accessible plan cards, or null for a Turn without plans.
 		*/
-		function tooltip(description) {
-			return description === void 0 ? {} : { title: description };
-		}
-		/**
-		* Render plan review controls; the submitted document opens in the sidebar.
-		*
-		* @param props - the question domain face, the narrowed plan review, and `t`.
-		* @returns The plan-review takeover for this request.
-		*/
-		function PlanReviewPanel({ pending, review, t, renderSlot }) {
-			const [busy, setBusy] = (0, react.useState)(false);
-			const [error, setError] = (0, react.useState)(null);
-			const settle = (send) => {
-				setBusy(true);
-				setError(null);
-				send().catch((cause) => {
-					setBusy(false);
-					setError(cause instanceof Error ? cause.message : String(cause));
-				});
-			};
-			const decide = (label) => {
-				settle(() => pending.answer({ answers: [{
-					id: review.id,
-					selected: [label]
-				}] }));
-			};
-			const summary = (0, react.useMemo)(() => {
-				const title = (0, _deepseek_ai_dsh_client_ui_primitives.extractMarkdownPlainText)(review.plan, { mode: "first-line" });
-				const description = (0, _deepseek_ai_dsh_client_ui_primitives.extractMarkdownPlainText)(review.plan, { mode: "first-paragraph" });
-				return {
-					title,
-					description: description === title ? "" : description
-				};
-			}, [review.plan]);
+		function PlanCards({ turn, usePlans, openPlan, t }) {
+			const plans = usePlans(String(turn.turn));
+			if (plans === void 0 || plans.length === 0) return null;
 			return (0, react_jsx_runtime.jsx)("div", {
-				className: PlanReviewPanel_module_css_default.frame,
-				"data-plan-review-key": pending.key,
-				children: (0, react_jsx_runtime.jsxs)("section", {
-					className: PlanReviewPanel_module_css_default.card,
-					"aria-label": review.question,
-					"aria-busy": busy,
+				className: PlanPreview_module_css_default.cards,
+				"data-plan-artifacts": true,
+				children: plans.map((plan) => (0, react_jsx_runtime.jsxs)("button", {
+					type: "button",
+					className: PlanPreview_module_css_default.card,
+					"data-plan-card": plan.callId,
+					"aria-label": t("preview.openNamed", { title: plan.title }),
+					onClick: () => {
+						openPlan(plan.callId);
+					},
 					children: [
-						(0, react_jsx_runtime.jsxs)("div", {
-							className: PlanReviewPanel_module_css_default.strip,
-							children: [
-								(0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.StateDot, { state: busy ? "ongoing" : "warning" }),
-								t("plan.header"),
-								(0, react_jsx_runtime.jsx)("div", {
-									className: PlanReviewPanel_module_css_default.previewActions,
-									children: renderSlot("conversation.plan-review.actions", {
-										review,
-										requestKey: pending.key
-									})
-								})
-							]
+						(0, react_jsx_runtime.jsx)("span", {
+							className: PlanPreview_module_css_default.cardIcon,
+							children: (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.FileTypeIcon, {
+								kind: "markdown",
+								size: 20
+							})
 						}),
-						(0, react_jsx_runtime.jsxs)("div", {
-							className: PlanReviewPanel_module_css_default.summary,
-							children: [(0, react_jsx_runtime.jsx)("h3", {
-								className: PlanReviewPanel_module_css_default.title,
-								children: summary.title
-							}), summary.description !== "" && (0, react_jsx_runtime.jsx)("p", {
-								className: PlanReviewPanel_module_css_default.description,
-								children: summary.description
+						(0, react_jsx_runtime.jsxs)("span", {
+							className: PlanPreview_module_css_default.cardDetails,
+							children: [(0, react_jsx_runtime.jsx)("span", {
+								className: PlanPreview_module_css_default.cardTitle,
+								children: plan.title
+							}), (0, react_jsx_runtime.jsx)("span", {
+								className: PlanPreview_module_css_default.cardDescription,
+								children: t("preview.document")
 							})]
 						}),
-						(0, react_jsx_runtime.jsxs)("div", {
-							className: PlanReviewPanel_module_css_default.footer,
-							children: [(0, react_jsx_runtime.jsx)("div", {
-								className: PlanReviewPanel_module_css_default.feedback,
-								role: "status",
-								children: error
-							}), (0, react_jsx_runtime.jsxs)("div", {
-								className: PlanReviewPanel_module_css_default.actions,
-								children: [(0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
-									variant: "outline",
-									className: PlanReviewPanel_module_css_default.discuss,
-									icon: (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconEditOutlineRegular, { size: 14 }),
-									disabled: busy,
-									onClick: () => {
-										settle(() => pending.cancel());
-									},
-									children: t("plan.discuss")
-								}), (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
-									variant: "primary",
-									...tooltip(review.approve.description),
-									disabled: busy,
-									onClick: () => {
-										decide(review.approve.label);
-									},
-									children: t("plan.approve")
-								})]
-							})]
+						(0, react_jsx_runtime.jsx)("span", {
+							className: PlanPreview_module_css_default.cardOpen,
+							children: t("preview.action")
 						})
 					]
-				})
-			});
-		}
-		//#endregion
-		//#region \0dsh-css:D:\Agent Router\deepseek-harness\packages\client\ui-user-questions\src\client\QuestionComposer.module.css.mjs
-		const css = ".ARIjLW_frame{padding:6px calc(var(--dsh-composer-side-clearance) + 16px) 10px;justify-content:center;display:flex}.ARIjLW_card{width:100%;max-width:var(--dsh-chat-content-width);--dsw-elevation-stroke-color:var(--dsw-alias-border-l2-darkmode-thin);border-radius:var(--dsw-radius-xl);background:var(--dsw-specific-input-major);max-height:min(60vh,520px);box-shadow:var(--dsw-elevation-panel);color:var(--dsw-alias-label-primary);--dsh-scrollbar-thumb:var(--dsw-alias-scrollbar-bg-l2);--dsh-scrollbar-thumb-hover:var(--dsw-alias-scrollbar-hover-l2);border:0;flex-direction:column;padding:0 0 10px;display:flex;overflow:hidden}.ARIjLW_card,.ARIjLW_card *{box-sizing:border-box}.ARIjLW_cardMinimized{max-height:none}.ARIjLW_cardMinimized .ARIjLW_header{padding-bottom:14px}.ARIjLW_headerActions{flex-shrink:0;align-items:center;gap:4px;display:flex}.ARIjLW_header{flex-shrink:0;justify-content:space-between;align-items:flex-start;gap:16px;padding:20px 16px 0 24px;display:flex}.ARIjLW_headingBlock{min-width:0}.ARIjLW_eyebrow{color:var(--dsw-alias-label-tertiary);margin-bottom:5px;font-size:11px;line-height:16px}.ARIjLW_title{margin:0;font-size:16px;font-weight:500;line-height:22px}.ARIjLW_detail{margin:0 2px 8px}.ARIjLW_footerActions{flex-shrink:0;align-items:center;gap:12px;display:flex}.ARIjLW_pager{flex-shrink:0;align-items:center;gap:6px;display:flex}.ARIjLW_progress{color:var(--dsw-alias-label-secondary);white-space:nowrap;word-spacing:-2px;padding:0 4px;font-size:14px;font-weight:500;line-height:24px}.ARIjLW_iconButton{corner-shape:round;width:24px;height:24px;color:var(--dsw-alias-label-tertiary);cursor:pointer;background:0 0;border:none;border-radius:999px;place-items:center;padding:0;display:grid}.ARIjLW_iconButton:hover:not(:disabled){background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-primary)}.ARIjLW_iconButton:disabled{color:var(--dsw-alias-label-dimmed);cursor:default}.ARIjLW_body{overscroll-behavior:contain;flex-direction:column;flex:auto;min-height:0;display:flex;overflow-y:auto}.ARIjLW_options{flex-direction:column;gap:1px;margin:8px 0 0;padding:4px 12px;display:flex}.ARIjLW_option{border-radius:var(--dsw-radius-md);width:100%;min-height:40px;color:inherit;text-align:left;cursor:pointer;background:0 0;border:1px solid #0000;flex-shrink:0;align-items:flex-start;gap:8px;padding:8px 12px 8px 8px;transition:background-color .12s,border-color .12s;display:flex}.ARIjLW_option:hover:not(:disabled),.ARIjLW_optionSelected{background:var(--dsw-alias-interactive-bg-hover)}.ARIjLW_optionSelected{border-color:var(--dsw-alias-border-l2)}.ARIjLW_option:disabled{cursor:default}.ARIjLW_number{border-radius:var(--dsw-radius-xs);background:var(--dsw-alias-bg-overlay);width:20px;height:20px;color:var(--dsw-alias-label-secondary);flex:0 0 20px;place-items:center;margin-top:2px;font-size:12px;font-weight:500;line-height:18px;display:grid}.ARIjLW_checkbox{flex:0 0 20px;place-items:center;width:20px;height:20px;margin-top:2px;display:grid}.ARIjLW_checkbox:before{content:\"\";border:.5px solid var(--dsw-alias-border-l4);border-radius:var(--dsw-radius-xs);grid-area:1/1;width:14px;height:14px;transition:background-color .12s,border-color .12s}.ARIjLW_checkbox>svg{grid-area:1/1}.ARIjLW_checkboxChecked{color:var(--dsw-alias-label-primary-foreground)}.ARIjLW_checkboxChecked:before{border-color:var(--dsw-alias-label-primary);background:var(--dsw-alias-label-primary)}.ARIjLW_optionCopy{flex:1;min-width:0}.ARIjLW_optionLine{flex-wrap:wrap;align-items:baseline;gap:2px 6px;display:flex}.ARIjLW_optionLabel{font-size:14px;font-weight:500;line-height:24px}.ARIjLW_badge{border-radius:var(--dsw-radius-xs);background:var(--dsw-specific-sidebar-nav-item-active-accent);color:var(--dsw-alias-button-info-fill);padding:0 4px;font-size:11px;font-weight:600;line-height:18px}.ARIjLW_description{color:var(--dsw-alias-label-tertiary);font-size:14px;font-weight:400;line-height:24px}.ARIjLW_customRow{border-radius:var(--dsw-radius-md);border:1px solid #0000;flex-shrink:0;align-items:flex-start;gap:8px;width:100%;min-height:40px;padding:8px 12px 8px 8px;transition:background-color .12s,border-color .12s;display:flex}.ARIjLW_customRow:hover,.ARIjLW_customRow:focus-within,.ARIjLW_customRowActive{background:var(--dsw-alias-interactive-bg-hover)}.ARIjLW_customRow:focus-within,.ARIjLW_customRowActive{border-color:var(--dsw-alias-border-l2)}.ARIjLW_field{--dsh-answer-field-padding:0;min-width:0;display:grid}.ARIjLW_field>*{min-width:0;padding:var(--dsh-answer-field-padding);font:inherit;white-space:pre-wrap;word-break:break-word;overflow-wrap:anywhere;grid-area:1/1;font-size:14px;line-height:24px}.ARIjLW_fieldMirror{box-sizing:content-box;visibility:hidden;max-height:144px;overflow:hidden}.ARIjLW_fieldInput{resize:none;color:var(--dsw-alias-label-primary);caret-color:var(--dsw-alias-state-business-primary);background:0 0;border:none;outline:none;overflow-y:auto}.ARIjLW_fieldInput::placeholder{color:var(--dsw-alias-label-caption)}.ARIjLW_customInline{flex:1}.ARIjLW_customBlock{border:.5px solid var(--dsw-alias-border-l4);border-radius:var(--dsw-radius-lg);background:var(--dsw-alias-bg-module-platform);--dsh-answer-field-padding:8px 12px;flex-shrink:0;min-height:64px;margin:0 12px}.ARIjLW_customBlock:focus-within{border-color:var(--dsw-alias-state-business-primary)}.ARIjLW_footer{flex-shrink:0;justify-content:space-between;align-items:center;gap:12px;margin-top:12px;padding:0 10px 0 18px;display:flex}.ARIjLW_feedback{min-height:16px;color:var(--dsw-alias-state-error-primary);text-align:right;flex:1;font-size:11px;line-height:16px}@media (width<=720px){.ARIjLW_card{border-radius:var(--dsw-radius-xl)}.ARIjLW_header{padding:10px 12px 0 18px}.ARIjLW_options{padding:4px 8px}.ARIjLW_title{font-size:15px;line-height:21px}.ARIjLW_option,.ARIjLW_customRow{padding:8px 6px}.ARIjLW_footer{align-items:flex-end;padding:0 10px}.ARIjLW_footerActions{flex-shrink:0}}@media (prefers-reduced-motion:reduce){.ARIjLW_option,.ARIjLW_customRow{transition:none}}";
-		const tagId = "@deepseek-ai/dsh-client-ui-user-questions/QuestionComposer.module.css";
-		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId) + "]") === null) {
-			const tag = document.createElement("style");
-			tag.dataset.plugin = "@deepseek-ai/dsh-client-ui-user-questions";
-			tag.dataset.pluginCss = tagId;
-			tag.textContent = css;
-			document.head.appendChild(tag);
-		}
-		var QuestionComposer_module_css_default = {
-			"badge": "ARIjLW_badge",
-			"body": "ARIjLW_body",
-			"card": "ARIjLW_card",
-			"cardMinimized": "ARIjLW_cardMinimized",
-			"checkbox": "ARIjLW_checkbox",
-			"checkboxChecked": "ARIjLW_checkboxChecked",
-			"customBlock": "ARIjLW_customBlock",
-			"customInline": "ARIjLW_customInline",
-			"customRow": "ARIjLW_customRow",
-			"customRowActive": "ARIjLW_customRowActive",
-			"description": "ARIjLW_description",
-			"detail": "ARIjLW_detail",
-			"eyebrow": "ARIjLW_eyebrow",
-			"feedback": "ARIjLW_feedback",
-			"field": "ARIjLW_field",
-			"fieldInput": "ARIjLW_fieldInput",
-			"fieldMirror": "ARIjLW_fieldMirror",
-			"footer": "ARIjLW_footer",
-			"footerActions": "ARIjLW_footerActions",
-			"frame": "ARIjLW_frame",
-			"header": "ARIjLW_header",
-			"headerActions": "ARIjLW_headerActions",
-			"headingBlock": "ARIjLW_headingBlock",
-			"iconButton": "ARIjLW_iconButton",
-			"number": "ARIjLW_number",
-			"option": "ARIjLW_option",
-			"optionCopy": "ARIjLW_optionCopy",
-			"optionLabel": "ARIjLW_optionLabel",
-			"optionLine": "ARIjLW_optionLine",
-			"optionSelected": "ARIjLW_optionSelected",
-			"options": "ARIjLW_options",
-			"pager": "ARIjLW_pager",
-			"progress": "ARIjLW_progress",
-			"title": "ARIjLW_title"
-		};
-		//#endregion
-		//#region lib/types/client/QuestionComposer.js
-		/**
-		* Split the conventional recommendation suffix without changing the answer value.
-		* @param label - Original option label returned if selected.
-		* @returns Display label plus recommendation state.
-		*/
-		function parseRecommendedLabel(label) {
-			const suffix = /\s*(?:\((?:recommended|推荐)\)|（(?:recommended|推荐)）)\s*$/i;
-			return suffix.test(label) ? {
-				label: label.replace(suffix, ""),
-				recommended: true
-			} : {
-				label,
-				recommended: false
-			};
-		}
-		/** Return whether a text-field key event belongs to an active IME composition. */
-		function isComposing(event) {
-			return event.nativeEvent.isComposing || Reflect.get(event.nativeEvent, "keyCode") === 229;
-		}
-		/**
-		* Auto-growing free-text answer: a textarea, so a long answer soft-wraps and
-		* Shift+Enter breaks a line, over a hidden mirror that owns the height.
-		*
-		* The mirror renders the draft plus a trailing newline in normal flow and so
-		* sizes the grid row (counting rows by '\n' cannot see soft wraps); the
-		* textarea shares that one cell and stretches to it, and `rows={1}` keeps the
-		* control's own intrinsic height out of the row sizing so the mirror alone
-		* decides. Past the mirror's cap the textarea scrolls itself — it is the only
-		* scrollport in the stack, there being no second glyph layer to keep aligned.
-		* Mirror and textarea MUST share font, line-height, padding and wrapping rules
-		* or the two heights diverge.
-		*
-		* @param props - visual variant, draft text, and the field's event handlers.
-		* @returns The mirrored auto-growing field.
-		*/
-		function AnswerField(props) {
-			return (0, react_jsx_runtime.jsxs)("div", {
-				className: clsx(QuestionComposer_module_css_default.field, props.variant === "inline" ? QuestionComposer_module_css_default.customInline : QuestionComposer_module_css_default.customBlock),
-				children: [(0, react_jsx_runtime.jsx)("div", {
-					"aria-hidden": true,
-					className: QuestionComposer_module_css_default.fieldMirror,
-					children: `${props.value}\n`
-				}), (0, react_jsx_runtime.jsx)("textarea", {
-					autoFocus: props.autoFocus,
-					className: QuestionComposer_module_css_default.fieldInput,
-					value: props.value,
-					disabled: props.disabled,
-					rows: 1,
-					placeholder: props.placeholder,
-					onFocus: props.onFocus,
-					onChange: props.onChange,
-					onKeyDown: props.onKeyDown
-				})]
+				}, plan.callId))
 			});
 		}
 		/**
-		* Composer takeover router. Generic-question drafts live in this entry's
-		* Session-scoped Slot store, keyed by the pending carrier, so a strict Session
-		* entry remount restores the same request without exposing it to another one.
+		* Open each pending plan automatically and retain a manual opener without answering it.
 		*
-		* One takeover, two presentations: a request that declares a presentation intent this
-		* package renders uses that presentation (a plan review is one decision over one
-		* plan, not a question set), and every other request takes the generic flow.
-		* The routing lives here, at the one entry that owns the composer seat, so
-		* neither presentation can claim a request the other is already rendering.
-		*
-		* @param props - the selector-matched pending question carrier plus the framework standard kit.
-		* @returns The question flow, or the intent's own surface, for this request.
+		* The automatic open waits for a mounted Sidebar seat: a review that arrives
+		* while the Conversation is off screen mounts in the same commit as the seat,
+		* ahead of it, and the seat binds from its own effect. Reading the bound
+		* session through the hook opens once that binding exists.
+		* @param props - Review identity, Session store, localized copy, and navigation.
+		* @returns an opener for either logged or temporary plan text.
 		*/
-		function QuestionComposer(props) {
-			const question = props.matched;
-			const review = (0, react.useMemo)(() => planReviewOf(question.questions), [question]);
-			return review === void 0 ? (0, react_jsx_runtime.jsx)(QuestionFlow, {
-				pending: question,
-				t: props.t,
-				useStore: props.useStore,
-				actions: props.actions
-			}, question.key) : (0, react_jsx_runtime.jsx)(PlanReviewPanel, {
-				pending: question,
+		function PlanReviewOpen({ review, requestKey, openReview, useSidebarMounted, t, useStore, actions }) {
+			const identity = review.callId === void 0 ? `review:${requestKey}` : `call:${review.callId}`;
+			const opened = useStore((state) => state.opened[identity] === true);
+			const mounted = useSidebarMounted((session) => session !== void 0);
+			(0, react.useEffect)(() => {
+				if (opened || !mounted) return;
+				openReview(review, requestKey);
+				actions.markOpened(identity);
+			}, [
+				identity,
+				opened,
+				mounted,
+				openReview,
 				review,
-				t: props.t,
-				renderSlot: props.renderSlot
-			}, question.key);
+				requestKey,
+				actions
+			]);
+			return (0, react_jsx_runtime.jsxs)("button", {
+				type: "button",
+				className: PlanPreview_module_css_default.reviewLink,
+				title: t("preview.open"),
+				"aria-label": t("preview.open"),
+				onClick: () => {
+					openReview(review, requestKey);
+				},
+				children: [t("preview.full"), (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconChevronRightOutlineRegular, { size: 14 })]
+			});
 		}
-		function QuestionFlow({ pending, t, useStore, actions }) {
-			const questions = pending.questions;
-			const markdownLabels = (0, react.useMemo)(() => ({
+		//#endregion
+		//#region lib/types/client/review-preview.js
+		/**
+		* Name one temporary review within its browser lifetime and Session.
+		* @param sessionId - Session displaying the review.
+		* @param requestKey - Browser-unique pending request identity.
+		* @returns the address used to focus or reopen its preview.
+		*/
+		function reviewPreviewAddress(sessionId, requestKey) {
+			return `dsh-resource://plan-review/${encodeURIComponent(sessionId)}/${encodeURIComponent(requestKey)}`;
+		}
+		/**
+		* Recognize temporary plan navigation without interpreting it as logged history.
+		* @param address - Saved or caller-supplied navigation address.
+		* @returns whether the address identifies a temporary review preview.
+		*/
+		function isReviewPreviewAddress(address) {
+			return /^dsh-resource:\/\/plan-review\/[^/?#]+\/[^/?#]+$/.test(address);
+		}
+		//#endregion
+		//#region lib/types/client/failure-line.js
+		/**
+		* Explain a failed plan read in the current locale.
+		* @param t - Plan namespace translator.
+		* @param failure - Failure reported by the resource provider.
+		* @returns localized plan copy, or the external failure's diagnostic.
+		*/
+		function planFailureLine(t, failure) {
+			switch (failure.code) {
+				case "plan/invalid-address": return t("preview.invalidAddress");
+				case "plan/unavailable": return t("preview.historyUnavailable");
+				case "plan/not-found": return t("preview.notFound");
+				default: return failure.message;
+			}
+		}
+		//#endregion
+		//#region lib/types/client/PlanPreview.js
+		/** Read-only Markdown viewer for logged plans and temporary review documents. */
+		/**
+		* Render the submitted plan with its complete Markdown.
+		* @param props - Framework-bound tab identity, resource, and copy.
+		* @returns the plan document or a localized loading/failure state.
+		*/
+		function PlanPreview({ useTabInfo, useResource, t }) {
+			const tab = useTabInfo();
+			const resource = useResource(tab.tab.navigation.address);
+			const temporary = isReviewPreviewAddress(tab.tab.navigation.address);
+			const params = tab.tab.navigation.params;
+			const plan = temporary ? params !== void 0 && "planReview" in params ? params.planReview : void 0 : resource.value;
+			const labels = (0, react.useMemo)(() => ({
 				code: {
 					copyLabel: t("copy"),
 					copiedLabel: t("copied"),
@@ -476,418 +193,520 @@ window.__ModuleLoader__.load({
 				},
 				footnotes: t("markdown.footnotes")
 			}), [t]);
-			const initialProgress = (0, react.useMemo)(() => ({
-				index: 0,
-				drafts: questions.map(() => ({
-					selected: [],
-					custom: "",
-					skipped: false
-				}))
-			}), [questions]);
-			const { index, drafts } = useStore((state) => state.requestKey === pending.key && state.progress.drafts.length === questions.length ? state.progress : void 0) ?? initialProgress;
-			const [busy, setBusy] = (0, react.useState)(null);
-			const [error, setError] = (0, react.useState)(null);
-			const [minimized, setMinimized] = (0, react.useState)(false);
-			const focusedQuestions = (0, react.useRef)(/* @__PURE__ */ new Set());
-			const question = questions[index];
-			const draft = drafts[index];
-			const hasOptions = (question.options?.length ?? 0) > 0;
-			const replaceProgress = (nextIndex, nextDrafts) => {
-				actions.replace(pending.key, {
-					index: nextIndex,
-					drafts: nextDrafts
-				});
+			if (plan === void 0) return (0, react_jsx_runtime.jsxs)("div", {
+				className: PlanPreview_module_css_default.message,
+				role: "status",
+				children: [temporary ? t("preview.expired") : resource.status === "none" ? t("preview.unavailable") : resource.status === "failed" ? t("preview.failed") : t("preview.loading"), !temporary && resource.failure !== void 0 && (0, react_jsx_runtime.jsx)("p", { children: planFailureLine(t, resource.failure) })]
+			});
+			return (0, react_jsx_runtime.jsx)("section", {
+				className: PlanPreview_module_css_default.preview,
+				"data-plan-preview": "callId" in plan ? plan.callId : tab.tab.navigation.address,
+				"aria-label": plan.title,
+				children: (0, react_jsx_runtime.jsx)("div", {
+					className: PlanPreview_module_css_default.document,
+					children: (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.MarkdownText, {
+						text: plan.markdown,
+						labels
+					})
+				})
+			});
+		}
+		/**
+		* Display a plain file icon and the heading in its tab after resource recovery.
+		* @param props - Framework-bound tab identity and resource reader.
+		* @returns a decorative file icon followed by the recovered title or initial localized label.
+		*/
+		function PlanTitle({ useTabInfo, useResource }) {
+			const tab = useTabInfo();
+			const resource = useResource(tab.tab.navigation.address);
+			const params = tab.tab.navigation.params;
+			const plan = isReviewPreviewAddress(tab.tab.navigation.address) ? params !== void 0 && "planReview" in params ? params.planReview : void 0 : resource.value;
+			return (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [(0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.FileTypeIcon, {
+				kind: "other",
+				size: 16,
+				className: PlanPreview_module_css_default.titleIcon
+			}), plan?.title ?? tab.tab.title] });
+		}
+		//#endregion
+		//#region lib/types/client/plan.js
+		function record(value) {
+			return typeof value === "object" && value !== null && !Array.isArray(value);
+		}
+		/**
+		* Read a complete plan from untrusted logged arguments.
+		* @param event - Native call or PTC dispatch event from Session history.
+		* @returns the submitted plan, or undefined for unrelated or malformed data.
+		*/
+		function submittedPlan(event) {
+			if (event.type !== "tool/call" && event.type !== "tool/ptc-dispatch-start" && event.type !== "tool/ptc-dispatch") return void 0;
+			const data = event.data;
+			if (!record(data) || data.name !== "exit_plan_mode") return void 0;
+			const callId = event.type === "tool/call" ? data.callId : data.subCallId;
+			if (typeof callId !== "string" || callId === "") return void 0;
+			let args = data.arguments;
+			if (event.type === "tool/call") {
+				if (typeof args !== "string") return void 0;
+				try {
+					args = JSON.parse(args);
+				} catch (_error) {
+					return;
+				}
+			}
+			if (!record(args) || typeof args.plan !== "string") return void 0;
+			const markdown = args.plan;
+			const title = /^#\s+(\S[^\r\n]*)/.exec(markdown.trim())?.[1];
+			return title === void 0 ? void 0 : {
+				callId,
+				markdown,
+				title
 			};
-			const cancelFlow = () => {
-				setBusy("cancel");
-				setError(null);
-				pending.cancel().then(() => {
-					actions.clear(pending.key);
-				}).catch((cause) => {
-					setBusy(null);
-					setError({ text: cause instanceof Error ? cause.message : String(cause) });
-				});
-			};
-			const updateDraft = (update, nextIndex = index) => {
-				replaceProgress(nextIndex, drafts.map((item, itemIndex) => itemIndex === index ? update(item) : item));
-				setError(null);
-			};
-			const choose = (label) => {
-				updateDraft((current) => {
-					if (question.multiSelect === true) {
-						const selected = current.selected.includes(label) ? current.selected.filter((item) => item !== label) : [...current.selected, label];
-						return {
-							...current,
-							selected,
-							skipped: false
+		}
+		/**
+		* Encode the durable identity of a plan without retaining its text in layout storage.
+		* @param target - Session and tool-call identity.
+		* @returns the plan resource address.
+		*/
+		function planAddress(target) {
+			const { session, callId } = target;
+			return `dsh-resource://plan/${(session.kind === "session" ? [session.sessionId, callId] : [
+				"subagent",
+				session.parentSessionId,
+				session.childSessionId,
+				session.mode,
+				callId
+			]).map(encodeURIComponent).join("/")}`;
+		}
+		/**
+		* Validate a saved or caller-supplied plan resource address.
+		* @param address - Address submitted to the sidebar or resource provider.
+		* @returns the decoded identity, or undefined for an unsupported address.
+		*/
+		function parsePlanAddress(address) {
+			const match = /^dsh-resource:\/\/plan\/([^?#]+)$/.exec(address);
+			if (match === null) return void 0;
+			try {
+				const parts = match[1].split("/").map(decodeURIComponent);
+				if (parts.some((part) => part === "")) return void 0;
+				if (parts.length === 2) return {
+					session: {
+						kind: "session",
+						sessionId: parts[0]
+					},
+					callId: parts[1]
+				};
+				if (parts.length === 5 && parts[0] === "subagent" && (parts[3] === "one-shot" || parts[3] === "continuable" || parts[3] === "unknown")) return {
+					session: {
+						kind: "subagent",
+						parentSessionId: parts[1],
+						childSessionId: parts[2],
+						mode: parts[3]
+					},
+					callId: parts[4]
+				};
+				return;
+			} catch (_error) {
+				return;
+			}
+		}
+		//#endregion
+		//#region lib/types/client/plan-definition.js
+		/** One card per invocation; a later PTC settlement retains the original card position. */
+		const planDefinition = {
+			kind: "submitted-plan",
+			target: "chat",
+			match: (event) => {
+				const plan = submittedPlan(event);
+				return plan === void 0 ? null : {
+					id: plan.callId,
+					role: event.type === "tool/ptc-dispatch" ? "update" : "start"
+				};
+			},
+			start: (_context, match) => submittedPlan(match.event),
+			update: (context) => context.state,
+			buildViewNode: (context) => {
+				const start = context.start ?? context.matches[0];
+				const data = context.state ?? (start === void 0 ? void 0 : submittedPlan(start.event));
+				if (data === void 0 || start === void 0) return null;
+				return {
+					key: context.key,
+					kind: "submitted-plan",
+					id: context.id,
+					target: "chat",
+					anchorSeq: start.event.seq,
+					location: start.location,
+					visibility: "hidden",
+					data
+				};
+			}
+		};
+		//#endregion
+		//#region ../../typert/protocol/src/remote-error.ts
+		/**
+		* One Remote call failure: a real Error carrying its stable code and typed
+		* details. Owners throw it at the failure point; the Host Gateway encodes it
+		* onto the wire unchanged; the Client face rebuilds an instance for the
+		* `RemoteResult` error branch, so `throw result.error` keeps throw semantics.
+		* Discrimination is always by `code`, never by instanceof.
+		*/
+		var RemoteError = class extends Error {
+			code;
+			details;
+			/** Structural marker: cross-realm/bundle identification never uses instanceof. */
+			isDSHRemoteError = true;
+			/**
+			* @param code - stable failure code declared in {@link RemoteErrorDetailsMap}.
+			* @param message - human diagnostic carried across the wire.
+			* @param details - structured payload typed by the code.
+			* @param options - standard Error options (`cause` survives in-process only).
+			*/
+			constructor(code, message, details, options) {
+				super(message, options);
+				this.code = code;
+				this.details = details;
+				this.name = "RemoteError";
+			}
+		};
+		/**
+		* Structurally identify a RemoteError thrown across module or realm copies of
+		* this class. Mechanism-internal: the Gateway and test assertions use it;
+		* business code receives typed failures and never needs it.
+		* @param value - a caught value.
+		* @returns the failure when the marker matches, otherwise undefined.
+		*/
+		function remoteErrorOf(value) {
+			if (typeof value === "object" && value !== null && value.isDSHRemoteError === true && typeof value.code === "string") return value;
+		}
+		//#endregion
+		//#region ../../typert/protocol/src/index.ts
+		/**
+		* Remote decorators and explicit Gateway bindings backed by versioned
+		* descriptors carried on decorated class prototypes. Strict reflection
+		* remains a Typert compiler responsibility.
+		* @module @deepseek-ai/dsh-typert-protocol
+		*/
+		//#endregion
+		//#region lib/types/client/plan-resource.js
+		/**
+		* Bind plan reads to the generated Session Remote face.
+		* Opening a follow reads projections and may activate a prepared Session on the Host.
+		* Generated Remote streams can throw carrier failures; the provider reports failed
+		* reads as resource failure frames and preserves Remote error codes.
+		* @param remote - Existing Session history API.
+		* @returns a provider whose reads stop after finding the exact invocation.
+		*/
+		function planResourceProvider(remote) {
+			return {
+				protocol: "plan",
+				async *open(address, { signal }) {
+					const aborted = () => signal.aborted;
+					if (aborted()) return;
+					const target = parsePlanAddress(address);
+					if (target === void 0) {
+						yield {
+							ok: false,
+							error: new RemoteError("plan/invalid-address", "Invalid plan resource address.", {})
+						};
+						return;
+					}
+					const sessionAddress = target.session;
+					try {
+						let snapshot;
+						for await (const frame of remote.follow({ address: sessionAddress }, signal)) if (frame.type === "snapshot") {
+							snapshot = frame;
+							break;
+						}
+						if (aborted()) return;
+						if (snapshot === void 0) throw new RemoteError("plan/unavailable", "Session history ended before the plan could be read.", {});
+						let page = {
+							records: snapshot.records,
+							hasMore: snapshot.hasMore
+						};
+						while (true) {
+							for (const entry of page.records) {
+								const plan = submittedPlan(entry.event);
+								if (plan?.callId === target.callId) {
+									yield {
+										ok: true,
+										value: plan
+									};
+									return;
+								}
+							}
+							const beforeSeq = page.records[0]?.event.seq;
+							if (!page.hasMore || beforeSeq === void 0) break;
+							const next = await remote.page({
+								address: sessionAddress,
+								throughSeq: snapshot.cursor,
+								beforeSeq
+							}, signal);
+							if (aborted()) return;
+							if (!next.ok) {
+								yield next;
+								return;
+							}
+							page = next.value;
+						}
+						yield {
+							ok: false,
+							error: new RemoteError("plan/not-found", "The submitted plan was not found in this Session.", {})
+						};
+					} catch (error) {
+						if (!aborted()) yield {
+							ok: false,
+							error: remoteErrorOf(error) ?? new RemoteError("plan/read-failed", error instanceof Error ? error.message : String(error), {})
 						};
 					}
-					return {
-						selected: [label],
-						custom: "",
-						skipped: false
-					};
-				}, question.multiSelect !== true && index < questions.length - 1 ? index + 1 : index);
-			};
-			const answered = (item) => item.selected.length > 0 || item.custom.trim() !== "";
-			const completed = (item) => answered(item) || item.skipped;
-			const submitDrafts = (values) => {
-				const missing = values.findIndex((item) => !completed(item));
-				if (missing >= 0) {
-					replaceProgress(missing, values);
-					setError({ key: "error.incomplete" });
-					return;
 				}
-				const answer = { answers: questions.map((item, itemIndex) => {
-					const value = values[itemIndex];
-					if (value.skipped) return {
-						id: item.id,
-						selected: []
-					};
-					const custom = value.custom.trim();
-					return {
-						id: item.id,
-						selected: custom === "" || item.multiSelect === true ? value.selected : [],
-						...custom === "" ? {} : { custom }
-					};
-				}) };
-				setBusy("answer");
+			};
+		}
+		//#endregion
+		//#region lib/types/client/review-store.js
+		/** Session-owned memory of pending plans already opened automatically. */
+		/**
+		* Keep manual sidebar closure effective across review component remounts.
+		* @returns a transient store handle whose instances belong to Session scopes.
+		*/
+		function createPlanReviewStore() {
+			return (0, _deepseek_ai_dsh_client_store.defineStore)({
+				init: () => ({ opened: {} }),
+				actions: { markOpened: (draft, reviewKey) => {
+					draft.opened[reviewKey] = true;
+				} }
+			});
+		}
+		//#endregion
+		//#region \0dsh-css:D:\deepseek-harness\packages\client\ui-plan\src\client\PlanModeControl.module.css.mjs
+		const css = ".UDn0QW_wrap{align-items:center;gap:6px;display:inline-flex}.UDn0QW_chip{border-radius:var(--dsw-radius-sm);background:var(--dsw-alias-state-business-tertiary);min-width:34px;height:28px;color:var(--dsw-alias-state-business-primary);cursor:pointer;border:none;align-items:center;gap:4px;padding:0 8px;font-size:13px;font-weight:500;line-height:20px;display:inline-flex}.UDn0QW_chip:hover:not(:disabled){background:color-mix(in srgb, var(--dsw-alias-state-business-tertiary), var(--dsw-alias-state-business-primary) 6%)}.UDn0QW_chip:focus-visible{outline:var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color,var(--dsw-alias-state-business-primary));outline-offset:2px}.UDn0QW_chip:disabled{opacity:.6;cursor:default}.UDn0QW_glyph{color:currentColor;flex:none;width:14px;height:14px;display:inline-flex}.UDn0QW_hoverGlyph,.UDn0QW_chip:hover:not(:disabled) .UDn0QW_restGlyph,.UDn0QW_chip:focus-visible .UDn0QW_restGlyph{display:none}.UDn0QW_chip:hover:not(:disabled) .UDn0QW_hoverGlyph,.UDn0QW_chip:focus-visible .UDn0QW_hoverGlyph{display:block}.UDn0QW_error{color:var(--dsw-alias-state-error-primary);font-size:12px;line-height:18px}";
+		const tagId = "@deepseek-ai/dsh-client-ui-plan/PlanModeControl.module.css";
+		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId) + "]") === null) {
+			const tag = document.createElement("style");
+			tag.dataset.plugin = "@deepseek-ai/dsh-client-ui-plan";
+			tag.dataset.pluginCss = tagId;
+			tag.textContent = css;
+			document.head.appendChild(tag);
+		}
+		var PlanModeControl_module_css_default = {
+			"chip": "UDn0QW_chip",
+			"error": "UDn0QW_error",
+			"glyph": "UDn0QW_glyph",
+			"hoverGlyph": "UDn0QW_hoverGlyph",
+			"restGlyph": "UDn0QW_restGlyph",
+			"wrap": "UDn0QW_wrap"
+		};
+		//#endregion
+		//#region lib/types/client/PlanModeControl.js
+		/**
+		* Plan-mode status over the host-computed `plan` projection. The chip renders
+		* only while the effective target is plan mode (`pending ? !active : active`
+		* — a folded host value, not client optimism) and executes /plan off.
+		*/
+		function PlanChip({ useProjection, locked, exitPlanMode, t }) {
+			const plan = useProjection("plan");
+			const [leaving, setLeaving] = (0, react.useState)(false);
+			const [error, setError] = (0, react.useState)(null);
+			const aliveRef = (0, react.useRef)(true);
+			(0, react.useEffect)(() => {
+				aliveRef.current = true;
+				return () => {
+					aliveRef.current = false;
+				};
+			}, []);
+			if (plan === void 0) return null;
+			if (!(plan.pending ? !plan.active : plan.active)) return null;
+			const off = () => {
+				setLeaving(true);
 				setError(null);
-				pending.answer(answer).then(() => {
-					actions.clear(pending.key);
-				}).catch((cause) => {
-					setBusy(null);
-					setError({ text: cause instanceof Error ? cause.message : String(cause) });
+				exitPlanMode().then((failure) => {
+					if (!aliveRef.current) return;
+					setLeaving(false);
+					setError(failure);
+				}, (reason) => {
+					if (!aliveRef.current) return;
+					setLeaving(false);
+					setError(reason instanceof Error ? reason.message : String(reason));
 				});
 			};
-			const continueFlow = () => {
-				if (!answered(draft)) {
-					setError({ key: "error.unanswered" });
-					return;
-				}
-				if (index < questions.length - 1) {
-					replaceProgress(index + 1, drafts);
-					setError(null);
-					return;
-				}
-				submitDrafts(drafts);
-			};
-			const draftCustom = (event) => {
-				const value = event.target.value;
-				updateDraft((current) => ({
-					...current,
-					selected: question.multiSelect === true ? current.selected : [],
-					custom: value,
-					skipped: false
-				}));
-			};
-			const continueFromCustom = (event) => {
-				if (event.key !== "Enter" || event.shiftKey || isComposing(event)) return;
-				event.preventDefault();
-				continueFlow();
-			};
-			const skipQuestion = () => {
-				const nextDrafts = drafts.map((item, itemIndex) => itemIndex === index ? {
-					selected: [],
-					custom: "",
-					skipped: true
-				} : item);
-				replaceProgress(index < questions.length - 1 ? index + 1 : index, nextDrafts);
-				setError(null);
-				if (index < questions.length - 1) return;
-				submitDrafts(nextDrafts);
-			};
-			return (0, react_jsx_runtime.jsx)("div", {
-				className: QuestionComposer_module_css_default.frame,
-				"data-question-key": pending.key,
-				children: (0, react_jsx_runtime.jsxs)("section", {
-					className: clsx(QuestionComposer_module_css_default.card, minimized && QuestionComposer_module_css_default.cardMinimized),
-					"aria-labelledby": `question-${pending.key}-${String(index)}`,
-					children: [(0, react_jsx_runtime.jsxs)("header", {
-						className: QuestionComposer_module_css_default.header,
-						children: [(0, react_jsx_runtime.jsxs)("div", {
-							className: QuestionComposer_module_css_default.headingBlock,
-							children: [question.header !== void 0 && (0, react_jsx_runtime.jsx)("div", {
-								className: QuestionComposer_module_css_default.eyebrow,
-								children: question.header
-							}), (0, react_jsx_runtime.jsx)("h2", {
-								className: QuestionComposer_module_css_default.title,
-								id: `question-${pending.key}-${String(index)}`,
-								children: question.question
-							})]
-						}), (0, react_jsx_runtime.jsxs)("div", {
-							className: QuestionComposer_module_css_default.headerActions,
-							children: [(0, react_jsx_runtime.jsx)("button", {
-								type: "button",
-								className: QuestionComposer_module_css_default.iconButton,
-								"aria-label": t(minimized ? "nav.maximize" : "nav.minimize"),
-								title: t(minimized ? "nav.maximize" : "nav.minimize"),
-								"aria-expanded": !minimized,
-								disabled: busy !== null,
-								onClick: () => {
-									setMinimized((current) => !current);
-								},
-								children: minimized ? (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconChevronUpOutlineRegular, {}) : (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconChevronDownOutlineRegular, {})
-							}), (0, react_jsx_runtime.jsx)("button", {
-								type: "button",
-								className: QuestionComposer_module_css_default.iconButton,
-								"aria-label": t("nav.cancel"),
-								title: t("nav.cancel"),
-								disabled: busy !== null,
-								onClick: cancelFlow,
-								children: (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconCloseOutlineRegular, {})
-							})]
+			return (0, react_jsx_runtime.jsxs)("span", {
+				className: PlanModeControl_module_css_default.wrap,
+				children: [(0, react_jsx_runtime.jsxs)("button", {
+					type: "button",
+					className: PlanModeControl_module_css_default.chip,
+					"aria-label": t("chip.on.aria"),
+					title: t("chip.on.title"),
+					disabled: locked || leaving,
+					onClick: off,
+					children: [(0, react_jsx_runtime.jsxs)("span", {
+						className: PlanModeControl_module_css_default.glyph,
+						"aria-hidden": true,
+						children: [(0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconPlanOutlineRegular, {
+							className: PlanModeControl_module_css_default.restGlyph,
+							size: 14
+						}), (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconCloseCircleFillRegular, {
+							className: PlanModeControl_module_css_default.hoverGlyph,
+							size: 14
 						})]
-					}), !minimized && (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [(0, react_jsx_runtime.jsxs)("div", {
-						className: QuestionComposer_module_css_default.body,
-						"data-question-scroll": true,
-						children: [question.detail !== void 0 && (0, react_jsx_runtime.jsx)("div", {
-							className: QuestionComposer_module_css_default.detail,
-							children: (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.MarkdownText, {
-								text: question.detail,
-								labels: markdownLabels
-							})
-						}), (0, react_jsx_runtime.jsxs)("div", {
-							className: QuestionComposer_module_css_default.options,
-							role: question.multiSelect === true ? "group" : "radiogroup",
-							children: [(question.options ?? []).map((option, optionIndex) => {
-								const selected = draft.selected.includes(option.label);
-								const display = parseRecommendedLabel(option.label);
-								return (0, react_jsx_runtime.jsxs)("button", {
-									type: "button",
-									className: clsx(QuestionComposer_module_css_default.option, selected && question.multiSelect !== true && QuestionComposer_module_css_default.optionSelected),
-									role: question.multiSelect === true ? "checkbox" : "radio",
-									"aria-checked": selected,
-									"aria-label": display.label,
-									disabled: busy !== null,
-									onClick: () => {
-										choose(option.label);
-									},
-									onKeyDown: (event) => {
-										if (event.key !== "Enter" || !drafts.every(completed)) return;
-										event.preventDefault();
-										submitDrafts(drafts);
-									},
-									children: [question.multiSelect === true ? (0, react_jsx_runtime.jsx)("span", {
-										className: clsx(QuestionComposer_module_css_default.checkbox, selected && QuestionComposer_module_css_default.checkboxChecked),
-										"aria-hidden": "true",
-										children: selected && (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconCheckOutlineRegular, { size: 12 })
-									}) : (0, react_jsx_runtime.jsx)("span", {
-										className: QuestionComposer_module_css_default.number,
-										children: optionIndex + 1
-									}), (0, react_jsx_runtime.jsx)("span", {
-										className: QuestionComposer_module_css_default.optionCopy,
-										children: (0, react_jsx_runtime.jsxs)("span", {
-											className: QuestionComposer_module_css_default.optionLine,
-											children: [
-												(0, react_jsx_runtime.jsx)("span", {
-													className: QuestionComposer_module_css_default.optionLabel,
-													children: display.label
-												}),
-												display.recommended && (0, react_jsx_runtime.jsx)("span", {
-													className: QuestionComposer_module_css_default.badge,
-													children: t("option.recommended")
-												}),
-												option.description !== void 0 && (0, react_jsx_runtime.jsx)("span", {
-													className: QuestionComposer_module_css_default.description,
-													children: option.description
-												})
-											]
-										})
-									})]
-								}, `${option.label}-${String(optionIndex)}`);
-							}), hasOptions ? (0, react_jsx_runtime.jsxs)("div", {
-								className: clsx(QuestionComposer_module_css_default.customRow, draft.custom !== "" && QuestionComposer_module_css_default.customRowActive),
-								children: [question.multiSelect === true ? (0, react_jsx_runtime.jsx)("span", {
-									className: clsx(QuestionComposer_module_css_default.checkbox, draft.custom !== "" && QuestionComposer_module_css_default.checkboxChecked),
-									"aria-hidden": "true",
-									children: draft.custom !== "" && (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconCheckOutlineRegular, { size: 12 })
-								}) : (0, react_jsx_runtime.jsx)("span", {
-									className: QuestionComposer_module_css_default.number,
-									"aria-hidden": "true",
-									children: (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconEditOutlineRegular, { size: 12 })
-								}), (0, react_jsx_runtime.jsx)(AnswerField, {
-									variant: "inline",
-									value: draft.custom,
-									disabled: busy !== null,
-									placeholder: t("custom.placeholder"),
-									onChange: draftCustom,
-									onKeyDown: continueFromCustom
-								})]
-							}) : (0, react_jsx_runtime.jsx)(AnswerField, {
-								autoFocus: !focusedQuestions.current.has(index),
-								variant: "block",
-								value: draft.custom,
-								disabled: busy !== null,
-								placeholder: t("custom.placeholder"),
-								onFocus: () => {
-									focusedQuestions.current.add(index);
-								},
-								onChange: draftCustom,
-								onKeyDown: continueFromCustom
-							})]
-						})]
-					}), (0, react_jsx_runtime.jsxs)("footer", {
-						className: QuestionComposer_module_css_default.footer,
-						children: [
-							(0, react_jsx_runtime.jsxs)("div", {
-								className: QuestionComposer_module_css_default.pager,
-								children: [
-									(0, react_jsx_runtime.jsx)("button", {
-										type: "button",
-										className: QuestionComposer_module_css_default.iconButton,
-										"aria-label": t("nav.prev"),
-										disabled: index === 0 || busy !== null,
-										onClick: () => {
-											replaceProgress(index - 1, drafts);
-											setError(null);
-										},
-										children: (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconChevronLeftOutlineRegular, {})
-									}),
-									(0, react_jsx_runtime.jsxs)("span", {
-										className: QuestionComposer_module_css_default.progress,
-										children: [
-											index + 1,
-											" / ",
-											questions.length
-										]
-									}),
-									(0, react_jsx_runtime.jsx)("button", {
-										type: "button",
-										className: QuestionComposer_module_css_default.iconButton,
-										"aria-label": t("nav.next"),
-										disabled: index === questions.length - 1 || busy !== null,
-										onClick: () => {
-											replaceProgress(index + 1, drafts);
-											setError(null);
-										},
-										children: (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconChevronRightOutlineRegular, {})
-									})
-								]
-							}),
-							(0, react_jsx_runtime.jsx)("div", {
-								className: QuestionComposer_module_css_default.feedback,
-								role: "status",
-								children: error === null ? null : "key" in error ? t(error.key) : error.text
-							}),
-							(0, react_jsx_runtime.jsxs)("div", {
-								className: QuestionComposer_module_css_default.footerActions,
-								children: [(0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
-									variant: "outline",
-									disabled: busy !== null,
-									onClick: skipQuestion,
-									children: t("action.skip")
-								}), (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
-									variant: "primary",
-									disabled: busy !== null || !answered(draft),
-									onClick: continueFlow,
-									children: busy === "answer" ? t("submitting") : index === questions.length - 1 ? t("submit") : t("action.next")
-								})]
-							})
-						]
-					})] })]
-				})
+					}), t("chip.label")]
+				}), error !== null && (0, react_jsx_runtime.jsx)("span", {
+					className: PlanModeControl_module_css_default.error,
+					role: "status",
+					title: error,
+					children: t("chip.exitFailed")
+				})]
 			});
 		}
 		//#endregion
 		//#region lib/types/client/locales.js
-		/** `question` namespace dictionaries. */
+		/** `plan` namespace dictionaries (the composer plan chip's copy). */
 		/** Simplified Chinese dictionary (the key-set source of truth). */
 		const zh = {
-			"error.incomplete": "请先完成这道问题。",
-			"error.unanswered": "请选择一个选项或填写自定义答案。",
-			"nav.prev": "上一题",
-			"nav.next": "下一题",
-			"nav.minimize": "收起问题卡片",
-			"nav.maximize": "展开问题卡片",
-			"nav.cancel": "放弃整组问题",
-			"option.recommended": "推荐",
-			"custom.placeholder": "输入你的答案",
-			"action.skip": "跳过",
-			"action.next": "下一题",
-			"plan.header": "计划待审",
-			"plan.approve": "同意执行",
-			"plan.decline": "拒绝",
-			"plan.discuss": "要求修改"
+			"chip.label": "计划",
+			"preview.title": "计划",
+			"preview.document": "计划 · Markdown",
+			"preview.action": "打开",
+			"preview.open": "在侧边栏打开计划",
+			"preview.full": "查看全文",
+			"preview.openNamed": "打开计划：{title}",
+			"preview.loading": "正在读取计划…",
+			"preview.failed": "无法读取计划",
+			"preview.invalidAddress": "计划地址无效",
+			"preview.historyUnavailable": "无法读取会话历史",
+			"preview.notFound": "未找到这份计划",
+			"preview.unavailable": "计划预览不可用",
+			"preview.expired": "临时计划预览已失效，请从仍在等待审批的卡片重新打开。",
+			"chip.on.aria": "计划模式已开启，按下关闭",
+			"chip.on.title": "计划模式已开启 — 点击关闭（/plan off）",
+			"chip.exitFailed": "退出计划模式失败"
 		};
 		/** English dictionary, checked complete against the zh key set. */
 		const en = {
-			"error.incomplete": "Please complete this question first.",
-			"error.unanswered": "Please select an option or enter a custom answer.",
-			"nav.prev": "Previous question",
-			"nav.next": "Next question",
-			"nav.minimize": "Collapse the question card",
-			"nav.maximize": "Expand the question card",
-			"nav.cancel": "Dismiss all questions",
-			"option.recommended": "Recommended",
-			"custom.placeholder": "Type your answer",
-			"action.skip": "Skip",
-			"action.next": "Next",
-			"plan.header": "Plan review",
-			"plan.approve": "Approve",
-			"plan.decline": "Refuse",
-			"plan.discuss": "Request changes"
+			"chip.label": "Plan",
+			"preview.title": "Plan",
+			"preview.document": "Plan · Markdown",
+			"preview.action": "Open",
+			"preview.open": "Open plan in sidebar",
+			"preview.full": "View full plan",
+			"preview.openNamed": "Open plan: {title}",
+			"preview.loading": "Loading plan…",
+			"preview.failed": "Could not load plan",
+			"preview.invalidAddress": "Invalid plan address",
+			"preview.historyUnavailable": "Session history is unavailable",
+			"preview.notFound": "This plan was not found",
+			"preview.unavailable": "Plan preview is unavailable",
+			"preview.expired": "This temporary plan preview has expired. Reopen it from the pending review card.",
+			"chip.on.aria": "Plan mode on, press to turn off",
+			"chip.on.title": "Plan mode on — click to turn off (/plan off)",
+			"chip.exitFailed": "Failed to exit plan mode"
 		};
 		//#endregion
 		//#region lib/types/client/index.js
 		/** Dictionary namespace owned by this plugin. */
-		const NS = "question";
-		/** Required services: Agent scopes, Remote Events, Session UI, Slot registry, and copy. */
+		const NS = "plan";
+		/** Services for plan controls, Conversation projection, and resource navigation. */
 		const inject = [
-			"sessions",
-			"remote",
-			"uiSession",
 			"slots",
-			"locale"
+			"remote",
+			"remote.commands",
+			"remote.session",
+			"sessions",
+			"locale",
+			"uiConversation",
+			"resources",
+			"sidebarRight",
+			"sidebarRightTabs"
 		];
-		/** Present one request until the user answers, cancels, or its lifetime ends. */
-		async function answerQuestion(ctx, owner, request, next, registerPendingInteraction) {
-			const sessionId = ctx.sessions.scopeOf(owner);
-			if (sessionId === void 0) return next();
-			const pending = new PendingQuestion(sessionId, request.questions, request.signal);
-			const completed = Promise.withResolvers();
-			const remove = registerPendingInteraction(pending, async () => {
-				pending.delegate();
-				await completed.promise;
-			});
-			try {
-				try {
-					return await pending.result;
-				} catch (error) {
-					if (pending.isDelegation(error)) return await next();
-					throw error;
-				}
-			} finally {
-				remove();
-				completed.resolve();
-			}
-		}
 		/**
-		* Client plugin body: register the `question` dictionaries and the question
-		* composer into the composer chain. Zero business face — data and verbs live
-		* on the matched carrier; t rides the standard locale seat.
+		* Register plan controls, permanent Chat cards, and sidebar document reading.
 		* @param ctx - client root context.
 		*/
 		function apply(ctx) {
 			ctx.effect(() => ctx.locale.register(NS, {
 				zh,
 				en
-			}), "ui-user-questions: dictionaries");
-			const questionDraftStore = createQuestionDraftStore();
-			const registerPendingInteraction = ctx.uiSession.registerPendingInteraction((pending) => pending.kind === "plan-review" ? 2 : 1);
-			ctx.slots.inject("conversation.composer", () => ctx.slots.register({
-				name: "conversation.composer",
-				select: ({ pendingInteraction }) => pendingInteraction instanceof PendingQuestion ? pendingInteraction : null,
+			}), "ui-plan: dictionaries");
+			const previewId = "@deepseek-ai/dsh-client-ui-plan";
+			const t = ctx.locale.bind(NS);
+			ctx.effect(() => ctx.uiConversation.events.register(planDefinition), "ui-plan: conversation definition");
+			ctx.effect(() => ctx.resources.register(planResourceProvider(ctx.remote.session)), "ui-plan: resources");
+			ctx.effect(() => ctx.sidebarRightTabs.register({
+				id: previewId,
+				kind: "plan",
+				patterns: ["dsh-resource://plan/**", "dsh-resource://plan-review/**"],
+				priority: "builtin",
+				canOpen: (address) => parsePlanAddress(address) !== void 0 || isReviewPreviewAddress(address),
+				title: () => t("preview.title")
+			}), "ui-plan: sidebar type");
+			const open = (sessionId) => ({ openPlan: (callId) => {
+				const child = ctx.sessions.subagentAddress(sessionId);
+				const session = child === void 0 ? {
+					kind: "session",
+					sessionId
+				} : {
+					kind: "subagent",
+					...child
+				};
+				ctx.sidebarRight.openResource(planAddress({
+					session,
+					callId
+				}));
+			} });
+			const reviewWindow = randomUUID();
+			const reviewStore = createPlanReviewStore();
+			ctx.slots.inject("conversation.chat.turnTail", () => ctx.slots.register({
+				name: "conversation.chat.turnTail",
+				id: previewId,
 				locale: NS,
-				store: questionDraftStore,
-				children: { "conversation.plan-review.actions": {
-					kind: "list",
-					scope: "session"
-				} }
-			}, QuestionComposer));
-			ctx.remote.$on("user-questions/request", function(request, next) {
-				return answerQuestion(ctx, this, request, next, registerPendingInteraction);
-			});
+				inject: (sessionId) => {
+					const binding = ctx.sessions.binding(sessionId);
+					if (binding === void 0) throw new Error(`ui-plan: unknown session "${sessionId}"`);
+					const chat = ctx.uiConversation.binding(binding).target("chat");
+					return {
+						...open(sessionId),
+						keyedHooks: { plans: (turn) => {
+							const snapshot = chat.getSnapshot();
+							if (snapshot === void 0) throw new Error("ui-plan: Chat target is unavailable");
+							return snapshot.nodes.turnDataSource(Number(turn), "submitted-plan");
+						} }
+					};
+				}
+			}, PlanCards));
+			ctx.slots.inject("conversation.plan-review.actions", () => ctx.slots.register({
+				name: "conversation.plan-review.actions",
+				id: previewId,
+				locale: NS,
+				store: reviewStore,
+				inject: (sessionId) => ({
+					openReview: (review, requestKey) => {
+						if (review.callId !== void 0) {
+							open(sessionId).openPlan(review.callId);
+							return;
+						}
+						ctx.sidebarRight.openResource(reviewPreviewAddress(sessionId, `${reviewWindow}:${requestKey}`), { params: { planReview: {
+							markdown: review.plan,
+							title: (0, _deepseek_ai_dsh_client_ui_primitives.extractMarkdownPlainText)(review.plan, { mode: "first-line" })
+						} } });
+					},
+					hooks: { sidebarMounted: ctx.sidebarRight.mounted }
+				})
+			}, PlanReviewOpen));
+			ctx.slots.inject("sidebar.right.pane.tab", () => ctx.slots.register({
+				name: "sidebar.right.pane.tab",
+				key: previewId,
+				locale: NS
+			}, PlanPreview));
+			ctx.slots.inject("sidebar.right.pane.tab.title", () => ctx.slots.register({
+				name: "sidebar.right.pane.tab.title",
+				key: previewId
+			}, PlanTitle));
+			ctx.slots.inject("conversation.input.plan", () => ctx.slots.register({
+				name: "conversation.input.plan",
+				locale: NS,
+				inject: (sessionId) => ({ exitPlanMode: async () => {
+					const result = await ctx.remote.commands.execute(sessionId, "/plan off", []);
+					if (!result.ok) return `${result.error.message} (${result.error.code})`;
+					if (result.value === void 0) return "unknown command: /plan off";
+					return null;
+				} })
+			}, PlanChip));
 		}
 		//#endregion
 		exports.apply = apply;
@@ -896,4 +715,4 @@ window.__ModuleLoader__.load({
 	}
 });
 ;
-//# sourceMappingURL=??@deepseek-ai/dsh-client-ui-user-questions/client.js.map&rev=3dbe70c8d34d
+//# sourceMappingURL=??@deepseek-ai/dsh-client-ui-plan/client.js.map&rev=0f9c3c3ea130

@@ -1856,4 +1856,4 @@ window.__ModuleLoader__.load({
 	}
 });
 ;
-//# sourceMappingURL=??@deepseek-ai/dsh-client-ui-renderer/client.js.map&rev=cf8ba1d6ef17
+//# sourceMappingURL=??@deepseek-ai/dsh-client-ui-renderer/client.js.map&rev=c947db26e518

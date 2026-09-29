@@ -65,8 +65,8 @@ window.__ModuleLoader__.load({
 			return sessionFileAddress(sessionId, normalized);
 		}
 		//#endregion
-		//#region \0dsh-css:D:\Agent Router\deepseek-harness\packages\client\ui-skill\src\client\SkillRow.module.css.mjs
-		const css = ".w5gDLW_card{flex-direction:column;display:flex}.w5gDLW_row{height:calc(24px + var(--dsh-content-font-delta,0px));align-items:center;min-width:0;display:flex;position:relative;overflow:hidden}.w5gDLW_row[data-expandable]{cursor:pointer}.w5gDLW_card[data-state=running] .w5gDLW_row:after,.w5gDLW_card[data-state=preparing] .w5gDLW_row:after{content:\"\";background:linear-gradient(90deg, transparent 0%, color-mix(in srgb, var(--dsw-alias-bg-base) 60%, transparent) 55%, transparent 100%);pointer-events:none;width:300px;animation:2.6s ease-out infinite w5gDLW_dsh-skill-row-sweep;position:absolute;inset:0 auto 0 0}@keyframes w5gDLW_dsh-skill-row-sweep{0%{left:-300px}90%,to{left:100%}}.w5gDLW_leading{width:calc(16px + var(--dsh-content-font-delta,0px));height:calc(16px + var(--dsh-content-font-delta,0px));color:var(--dsw-alias-label-tertiary);flex:none;justify-content:center;align-items:center;margin-right:6px;display:inline-flex;position:relative}.w5gDLW_leading svg{width:calc(14px + var(--dsh-content-font-delta,0px));height:calc(14px + var(--dsh-content-font-delta,0px))}.w5gDLW_chevron{color:var(--dsw-alias-label-secondary)}.w5gDLW_iconIdle{opacity:1;transition:opacity .1s;display:inline-flex}.w5gDLW_chevronHover{opacity:0;margin:auto;transition:opacity .1s;position:absolute;inset:0}.w5gDLW_row:hover .w5gDLW_iconIdle{opacity:0}.w5gDLW_row:hover .w5gDLW_chevronHover{opacity:1}.w5gDLW_title{font-size:var(--dsh-content-font-size-secondary,13px);line-height:calc(24px + var(--dsh-content-font-delta,0px));color:var(--dsw-alias-label-secondary);flex:none}.w5gDLW_separator{background:var(--dsw-alias-label-caption);border-radius:1px;flex:none;width:2px;height:2px;margin:0 8px}.w5gDLW_summary{text-overflow:ellipsis;white-space:nowrap;min-width:0;font-size:var(--dsh-content-font-size-secondary,13px);line-height:calc(24px + var(--dsh-content-font-delta,0px));color:var(--dsw-alias-label-tertiary);flex:auto;overflow:hidden}.w5gDLW_errorSummary{color:var(--dsw-alias-state-error-primary)}.w5gDLW_stoppedSummary{color:var(--dsw-alias-state-warn-label)}.w5gDLW_bodyWrap{flex-direction:column;display:flex}.w5gDLW_instructionsCard{border:.5px solid var(--dsw-alias-border-l1);border-radius:var(--dsw-radius-lg);background:var(--dsw-alias-markdown-code-block);flex-direction:column;max-height:260px;margin:4px 0 4px 4px;display:flex;overflow:hidden}.w5gDLW_instructionsHeader{border-bottom:.5px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-markdown-code-block-banner);color:var(--dsw-alias-label-caption);text-transform:uppercase;letter-spacing:.04em;flex:none;padding:8px 12px;font-size:11px;font-weight:500;line-height:16px}.w5gDLW_instructions{white-space:pre-wrap;overflow-wrap:anywhere;min-height:0;font:var(--dsw-font-markdown-code-block-small);color:var(--dsw-alias-label-secondary);margin:0;padding:10px 12px 12px;overflow:auto}.w5gDLW_instructions[data-error]{color:var(--dsw-alias-state-error-primary)}.w5gDLW_instructions::-webkit-scrollbar-thumb{border-radius:var(--dsw-radius-sm);background-clip:padding-box;border:2px solid #0000}.w5gDLW_instructions::-webkit-scrollbar-track{margin:6px 0}.w5gDLW_inspectButton{border:.5px solid var(--dsw-alias-border-l4);corner-shape:round;background:var(--dsw-alias-bg-base);color:var(--dsw-alias-label-secondary);cursor:pointer;opacity:0;border-radius:999px;align-self:flex-start;align-items:center;gap:4px;margin:4px 0 2px 4px;padding:2px 8px;font-size:11px;line-height:16px;transition:opacity .1s;display:inline-flex}.w5gDLW_card:hover .w5gDLW_inspectButton,.w5gDLW_inspectButton:focus-visible{opacity:1}.w5gDLW_inspectButton:hover{background:var(--dsw-alias-interactive-bg-hover-solid);color:var(--dsw-alias-label-primary)}.w5gDLW_visuallyHidden{clip:rect(0 0 0 0);white-space:nowrap;width:1px;height:1px;position:absolute;overflow:hidden}@media (prefers-reduced-motion:reduce){.w5gDLW_card[data-state=running] .w5gDLW_row:after{animation:none;display:none}.w5gDLW_iconIdle,.w5gDLW_chevronHover,.w5gDLW_inspectButton{transition:none}}";
+		//#region \0dsh-css:D:\deepseek-harness\packages\client\ui-skill\src\client\SkillRow.module.css.mjs
+		const css = ".dT6IOG_card{flex-direction:column;display:flex}.dT6IOG_row{height:calc(24px + var(--dsh-content-font-delta,0px));align-items:center;min-width:0;display:flex;position:relative;overflow:hidden}.dT6IOG_row[data-expandable]{cursor:pointer}.dT6IOG_leading{width:calc(16px + var(--dsh-content-font-delta,0px));height:calc(16px + var(--dsh-content-font-delta,0px));color:var(--dsw-alias-label-tertiary);flex:none;justify-content:center;align-items:center;margin-right:6px;display:inline-flex;position:relative}.dT6IOG_leading svg{width:calc(14px + var(--dsh-content-font-delta,0px));height:calc(14px + var(--dsh-content-font-delta,0px))}.dT6IOG_chevron{color:var(--dsw-alias-label-secondary)}.dT6IOG_iconIdle{opacity:1;transition:opacity .1s;display:inline-flex}.dT6IOG_chevronHover{opacity:0;margin:auto;transition:opacity .1s;position:absolute;inset:0}.dT6IOG_row:hover .dT6IOG_iconIdle{opacity:0}.dT6IOG_row:hover .dT6IOG_chevronHover{opacity:1}.dT6IOG_title{font-size:var(--dsh-content-font-size-secondary,13px);line-height:calc(24px + var(--dsh-content-font-delta,0px));color:var(--dsw-alias-label-secondary);flex:none}.dT6IOG_separator{background:var(--dsw-alias-label-caption);border-radius:1px;flex:none;width:2px;height:2px;margin:0 8px}.dT6IOG_summary{text-overflow:ellipsis;white-space:nowrap;min-width:0;font-size:var(--dsh-content-font-size-secondary,13px);line-height:calc(24px + var(--dsh-content-font-delta,0px));color:var(--dsw-alias-label-tertiary);flex:auto;overflow:hidden}.dT6IOG_errorSummary{color:var(--dsw-alias-state-error-primary)}.dT6IOG_stoppedSummary{color:var(--dsw-alias-state-warn-label)}.dT6IOG_bodyWrap{flex-direction:column;display:flex}.dT6IOG_instructionsCard{border:.5px solid var(--dsw-alias-border-l1);border-radius:var(--dsw-radius-lg);background:var(--dsw-alias-markdown-code-block);flex-direction:column;max-height:260px;margin:4px 0 4px 4px;display:flex;overflow:hidden}.dT6IOG_instructionsHeader{border-bottom:.5px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-markdown-code-block-banner);color:var(--dsw-alias-label-caption);text-transform:uppercase;letter-spacing:.04em;flex:none;padding:8px 12px;font-size:11px;font-weight:500;line-height:16px}.dT6IOG_instructions{white-space:pre-wrap;overflow-wrap:anywhere;min-height:0;font:var(--dsw-font-markdown-code-block-small);color:var(--dsw-alias-label-secondary);margin:0;padding:10px 12px 12px;overflow:auto}.dT6IOG_instructions[data-error]{color:var(--dsw-alias-state-error-primary)}.dT6IOG_instructions::-webkit-scrollbar-thumb{border-radius:var(--dsw-radius-sm);background-clip:padding-box;border:2px solid #0000}.dT6IOG_instructions::-webkit-scrollbar-track{margin:6px 0}.dT6IOG_inspectButton{border:.5px solid var(--dsw-alias-border-l4);corner-shape:round;background:var(--dsw-alias-bg-base);color:var(--dsw-alias-label-secondary);cursor:pointer;opacity:0;border-radius:999px;align-self:flex-start;align-items:center;gap:4px;margin:4px 0 2px 4px;padding:2px 8px;font-size:11px;line-height:16px;transition:opacity .1s;display:inline-flex}.dT6IOG_card:hover .dT6IOG_inspectButton,.dT6IOG_inspectButton:focus-visible{opacity:1}.dT6IOG_inspectButton:hover{background:var(--dsw-alias-interactive-bg-hover-solid);color:var(--dsw-alias-label-primary)}.dT6IOG_visuallyHidden{clip:rect(0 0 0 0);white-space:nowrap;width:1px;height:1px;position:absolute;overflow:hidden}@media (prefers-reduced-motion:reduce){.dT6IOG_iconIdle,.dT6IOG_chevronHover,.dT6IOG_inspectButton{transition:none}}";
 		const tagId = "@deepseek-ai/dsh-client-ui-skill/SkillRow.module.css";
 		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId) + "]") === null) {
 			const tag = document.createElement("style");
@@ -76,24 +76,23 @@ window.__ModuleLoader__.load({
 			document.head.appendChild(tag);
 		}
 		var SkillRow_module_css_default = {
-			"bodyWrap": "w5gDLW_bodyWrap",
-			"card": "w5gDLW_card",
-			"chevron": "w5gDLW_chevron",
-			"chevronHover": "w5gDLW_chevronHover",
-			"dsh-skill-row-sweep": "w5gDLW_dsh-skill-row-sweep",
-			"errorSummary": "w5gDLW_errorSummary",
-			"iconIdle": "w5gDLW_iconIdle",
-			"inspectButton": "w5gDLW_inspectButton",
-			"instructions": "w5gDLW_instructions",
-			"instructionsCard": "w5gDLW_instructionsCard",
-			"instructionsHeader": "w5gDLW_instructionsHeader",
-			"leading": "w5gDLW_leading",
-			"row": "w5gDLW_row",
-			"separator": "w5gDLW_separator",
-			"stoppedSummary": "w5gDLW_stoppedSummary",
-			"summary": "w5gDLW_summary",
-			"title": "w5gDLW_title",
-			"visuallyHidden": "w5gDLW_visuallyHidden"
+			"bodyWrap": "dT6IOG_bodyWrap",
+			"card": "dT6IOG_card",
+			"chevron": "dT6IOG_chevron",
+			"chevronHover": "dT6IOG_chevronHover",
+			"errorSummary": "dT6IOG_errorSummary",
+			"iconIdle": "dT6IOG_iconIdle",
+			"inspectButton": "dT6IOG_inspectButton",
+			"instructions": "dT6IOG_instructions",
+			"instructionsCard": "dT6IOG_instructionsCard",
+			"instructionsHeader": "dT6IOG_instructionsHeader",
+			"leading": "dT6IOG_leading",
+			"row": "dT6IOG_row",
+			"separator": "dT6IOG_separator",
+			"stoppedSummary": "dT6IOG_stoppedSummary",
+			"summary": "dT6IOG_summary",
+			"title": "dT6IOG_title",
+			"visuallyHidden": "dT6IOG_visuallyHidden"
 		};
 		//#endregion
 		//#region lib/types/client/SkillRow.js
@@ -174,7 +173,8 @@ window.__ModuleLoader__.load({
 							className: SkillRow_module_css_default.visuallyHidden,
 							children: props.t("row.preparing")
 						}),
-						(0, react_jsx_runtime.jsx)("span", {
+						(0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.TextShimmer, {
+							active: true,
 							className: SkillRow_module_css_default.title,
 							children: props.t("row.title")
 						})
@@ -189,6 +189,7 @@ window.__ModuleLoader__.load({
 			const expandable = model.output !== null;
 			const open = expanded && expandable;
 			const status = stateStatus(model.state, t);
+			const running = model.state === "running";
 			const summary = model.state === "stopped" ? t("row.stopped") : model.errorSummary ?? model.name;
 			const toggleExpand = () => {
 				setExpanded((value) => !value);
@@ -223,17 +224,23 @@ window.__ModuleLoader__.load({
 							className: SkillRow_module_css_default.visuallyHidden,
 							children: status
 						}) : null,
-						(0, react_jsx_runtime.jsx)("span", {
-							className: SkillRow_module_css_default.title,
-							children: t("row.title")
-						}),
-						(0, react_jsx_runtime.jsx)("span", {
-							className: SkillRow_module_css_default.separator,
-							"aria-hidden": true
-						}),
-						(0, react_jsx_runtime.jsx)("span", {
-							className: `${SkillRow_module_css_default.summary}${model.state === "error" ? ` ${SkillRow_module_css_default.errorSummary}` : model.state === "stopped" ? ` ${SkillRow_module_css_default.stoppedSummary}` : ""}`,
-							children: summary
+						(0, react_jsx_runtime.jsxs)(_deepseek_ai_dsh_client_ui_primitives.TextShimmer, {
+							active: running,
+							children: [
+								(0, react_jsx_runtime.jsx)("span", {
+									className: SkillRow_module_css_default.title,
+									children: (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.TextShimmer, { children: t("row.title") })
+								}),
+								(0, react_jsx_runtime.jsx)("span", {
+									className: SkillRow_module_css_default.separator,
+									"data-shimmer-decoration": true,
+									"aria-hidden": true
+								}),
+								(0, react_jsx_runtime.jsx)("span", {
+									className: `${SkillRow_module_css_default.summary}${model.state === "error" ? ` ${SkillRow_module_css_default.errorSummary}` : model.state === "stopped" ? ` ${SkillRow_module_css_default.stoppedSummary}` : ""}`,
+									children: (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.TextShimmer, { children: summary })
+								})
+							]
 						})
 					]
 				}), open ? (0, react_jsx_runtime.jsxs)("div", {
@@ -436,4 +443,4 @@ window.__ModuleLoader__.load({
 	}
 });
 ;
-//# sourceMappingURL=??@deepseek-ai/dsh-client-ui-skill/client.js.map&rev=50441ca7671d
+//# sourceMappingURL=??@deepseek-ai/dsh-client-ui-skill/client.js.map&rev=cd8d526424c5

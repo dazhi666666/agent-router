@@ -7,8 +7,8 @@ window.__ModuleLoader__.load({
 		let react_jsx_runtime = require("react/jsx-runtime");
 		let react = require("react");
 		let _deepseek_ai_dsh_client_ui_primitives = require("@deepseek-ai/dsh-client-ui-primitives");
-		//#region \0dsh-css:D:\Agent Router\deepseek-harness\packages\client\ui-jobs\src\client\JobListAction.module.css.mjs
-		const css = ".NofXSG_root{position:relative}.NofXSG_trigger{border-radius:var(--dsw-radius-sm);min-height:28px;color:var(--dsw-alias-label-tertiary);cursor:pointer;background:0 0;border:0;align-items:center;gap:3px;padding:3px 2px;font-size:12px;line-height:18px;display:inline-flex}.NofXSG_trigger:hover,.NofXSG_trigger:focus-visible{color:var(--dsw-alias-label-secondary)}.NofXSG_trigger svg{transition:transform .12s}.NofXSG_triggerOpen{transform:rotate(180deg)}.NofXSG_triggerDot{flex:none}.NofXSG_count{margin:0 5px}.NofXSG_menu{z-index:100;box-sizing:border-box;border-radius:var(--dsw-radius-lg);background:var(--dsw-specific-menu);width:500px;max-width:min(560px,100vw - 32px);max-height:min(480px,100vh - 140px);backdrop-filter:var(--dsw-menu-backdrop-filter);--dsh-scrollbar-thumb:var(--dsw-alias-scrollbar-bg-l2);--dsh-scrollbar-thumb-hover:var(--dsw-alias-scrollbar-hover-l2);--dsw-elevation-stroke-color:var(--dsw-alias-border-l1);box-shadow:var(--dsw-elevation-prominent);border:0;flex-direction:column;gap:1px;margin:0;padding:3px;list-style:none;display:flex;position:absolute;top:calc(100% + 5px);left:0;overflow:auto}.NofXSG_sectionHeader{border-top:.5px solid var(--dsw-alias-border-l1);color:var(--dsw-alias-label-tertiary);justify-content:space-between;align-items:center;margin:4px 4px 1px;padding:4px 0 3px;font-size:11px;line-height:16px;display:flex}.NofXSG_sectionHeader:first-child{border-top:0;margin-top:0}.NofXSG_sectionToggle,.NofXSG_sectionClear{border-radius:var(--dsw-radius-sm);color:var(--dsw-alias-label-tertiary);cursor:pointer;background:0 0;border:0;align-items:center;gap:3px;padding:2px 4px;font-size:11px;line-height:16px;display:inline-flex}.NofXSG_sectionToggle:hover,.NofXSG_sectionToggle:focus-visible,.NofXSG_sectionClear:hover,.NofXSG_sectionClear:focus-visible{background:var(--dsw-alias-fill-l1);color:var(--dsw-alias-label-secondary)}.NofXSG_sectionChevron{transition:transform .12s;transform:rotate(-90deg)}.NofXSG_sectionChevronOpen{transform:none}.NofXSG_item{flex-direction:column;display:flex}.NofXSG_rowLine{align-items:stretch;gap:6px;display:flex}.NofXSG_rowLineLive{border-radius:var(--dsw-radius-md);background:var(--dsw-alias-fill-l2);padding:4px 8px 4px 2px}.NofXSG_rowLineLive:hover{background:color-mix(in srgb, var(--dsw-alias-label-primary) 9%, transparent)}.NofXSG_rowLineLive .NofXSG_kind{background:var(--dsw-specific-menu)}.NofXSG_rowLine .NofXSG_row{flex:1;min-width:0}.NofXSG_rowLineLive .NofXSG_row:hover{background:0 0}.NofXSG_rowLineLive .NofXSG_row:focus-visible{background:color-mix(in srgb, var(--dsw-alias-label-primary) 6%, transparent)}.NofXSG_chevronBox{border:.5px solid var(--dsw-alias-border-l2);border-radius:var(--dsw-radius-sm);background:var(--dsw-specific-menu);flex:none;justify-content:center;align-self:center;align-items:center;width:20px;height:20px;display:inline-flex}.NofXSG_stop{border:.5px solid var(--dsw-alias-border-l2);border-radius:var(--dsw-radius-sm);background:var(--dsw-specific-menu);width:20px;height:20px;color:var(--dsw-alias-label-secondary);cursor:pointer;flex:none;justify-content:center;align-self:center;align-items:center;padding:0;display:inline-flex}.NofXSG_stop:hover,.NofXSG_stop:focus-visible{border-color:color-mix(in srgb, var(--dsw-alias-state-error-primary) 45%, transparent);color:var(--dsw-alias-state-error-primary)}.NofXSG_stopArmed,.NofXSG_stopArmed:hover,.NofXSG_stopArmed:focus-visible{border-color:color-mix(in srgb, var(--dsw-alias-state-error-primary) 45%, transparent);background:color-mix(in srgb, var(--dsw-alias-state-error-primary) 12%, transparent);width:auto;color:var(--dsw-alias-state-error-primary);gap:4px;padding:0 7px}.NofXSG_stopLabel{white-space:nowrap;font-size:11px;line-height:18px}.NofXSG_stopFailed{color:var(--dsw-alias-state-error-primary)}.NofXSG_row{box-sizing:border-box;border-radius:var(--dsw-radius-sm);width:100%;min-height:28px;color:var(--dsw-alias-label-primary);text-align:left;cursor:pointer;background:0 0;border:0;align-items:center;gap:6px;padding:4px 7px;font-size:12px;line-height:17px;display:flex}.NofXSG_row:hover,.NofXSG_row:focus-visible{background:var(--dsw-alias-fill-l1)}.NofXSG_rowStatic{cursor:default}.NofXSG_rowStatic:hover{background:0 0}.NofXSG_rowSettled{color:var(--dsw-alias-label-tertiary)}.NofXSG_row .NofXSG_rowDot{flex:none}.NofXSG_main{flex-direction:column;flex:1;gap:2px;min-width:0;display:flex}.NofXSG_primary{align-items:baseline;gap:8px;min-width:0;display:flex}.NofXSG_secondary{align-items:center;gap:6px;min-width:0;display:flex}.NofXSG_kind{border-radius:var(--dsw-radius-xs);background:var(--dsw-alias-fill-l2);color:var(--dsw-alias-label-secondary);flex:none;padding:0 5px;font-size:10px;line-height:16px}.NofXSG_label{min-width:0;font-family:var(--dsw-font-mono);white-space:nowrap;text-overflow:ellipsis;flex:1;overflow:hidden}.NofXSG_status{max-width:60%;color:var(--dsw-alias-label-tertiary);white-space:nowrap;text-overflow:ellipsis;flex:none;font-size:10px;line-height:16px;overflow:hidden}.NofXSG_duration{color:var(--dsw-alias-label-tertiary);font-variant-numeric:tabular-nums;flex:none;font-size:11px;line-height:18px}.NofXSG_chevron{color:var(--dsw-alias-label-tertiary);flex:none}.NofXSG_chevronOpen{transform:rotate(180deg)}.NofXSG_panel{--dsl-terminal-command-whitespace:pre-wrap;--dsl-terminal-line-whitespace:pre-wrap;--dsl-terminal-output-max-height:288px;margin:0 8px 8px}.NofXSG_panel [data-terminal]{--dsl-terminal-gutter:12px}.NofXSG_notice{color:var(--dsw-alias-label-tertiary);margin:0 8px 6px;font-size:11px;line-height:16px}.NofXSG_noticeError{color:var(--dsw-alias-state-error-primary)}";
+		//#region \0dsh-css:D:\deepseek-harness\packages\client\ui-jobs\src\client\JobListAction.module.css.mjs
+		const css = "._4j2ROG_root{position:relative}._4j2ROG_trigger{border-radius:var(--dsw-radius-sm);min-height:28px;color:var(--dsw-alias-label-tertiary);cursor:pointer;background:0 0;border:0;align-items:center;gap:3px;padding:3px 2px;font-size:12px;line-height:18px;display:inline-flex}._4j2ROG_trigger:hover,._4j2ROG_trigger:focus-visible{color:var(--dsw-alias-label-secondary)}._4j2ROG_trigger svg{transition:transform .12s}._4j2ROG_triggerOpen{transform:rotate(180deg)}._4j2ROG_triggerDot{flex:none}._4j2ROG_count{margin:0 5px}._4j2ROG_menu{z-index:100;box-sizing:border-box;border-radius:var(--dsw-radius-lg);background:var(--dsw-specific-menu);width:500px;max-width:min(560px,100vw - 32px);max-height:min(480px,100vh - 140px);backdrop-filter:var(--dsw-menu-backdrop-filter);--dsh-scrollbar-thumb:var(--dsw-alias-scrollbar-bg-l2);--dsh-scrollbar-thumb-hover:var(--dsw-alias-scrollbar-hover-l2);--dsw-elevation-stroke-color:var(--dsw-alias-border-l1);box-shadow:var(--dsw-elevation-prominent);border:0;flex-direction:column;gap:1px;margin:0;padding:3px;list-style:none;display:flex;position:absolute;top:calc(100% + 5px);left:0;overflow:auto}._4j2ROG_sectionHeader{border-top:.5px solid var(--dsw-alias-border-l1);color:var(--dsw-alias-label-tertiary);justify-content:space-between;align-items:center;margin:4px 4px 1px;padding:4px 0 3px;font-size:11px;line-height:16px;display:flex}._4j2ROG_sectionHeader:first-child{border-top:0;margin-top:0}._4j2ROG_sectionToggle,._4j2ROG_sectionClear{border-radius:var(--dsw-radius-sm);color:var(--dsw-alias-label-tertiary);cursor:pointer;background:0 0;border:0;align-items:center;gap:3px;padding:2px 4px;font-size:11px;line-height:16px;display:inline-flex}._4j2ROG_sectionToggle:hover,._4j2ROG_sectionToggle:focus-visible,._4j2ROG_sectionClear:hover,._4j2ROG_sectionClear:focus-visible{background:var(--dsw-alias-fill-l1);color:var(--dsw-alias-label-secondary)}._4j2ROG_sectionChevron{transition:transform .12s;transform:rotate(-90deg)}._4j2ROG_sectionChevronOpen{transform:none}._4j2ROG_item{flex-direction:column;display:flex}._4j2ROG_rowLine{align-items:stretch;gap:6px;display:flex}._4j2ROG_rowLineLive{border-radius:var(--dsw-radius-md);background:var(--dsw-alias-fill-l2);padding:4px 8px 4px 2px}._4j2ROG_rowLineLive:hover{background:color-mix(in srgb, var(--dsw-alias-label-primary) 9%, transparent)}._4j2ROG_rowLineLive ._4j2ROG_kind{background:var(--dsw-specific-menu)}._4j2ROG_rowLine ._4j2ROG_row{flex:1;min-width:0}._4j2ROG_rowLineLive ._4j2ROG_row:hover{background:0 0}._4j2ROG_rowLineLive ._4j2ROG_row:focus-visible{background:color-mix(in srgb, var(--dsw-alias-label-primary) 6%, transparent)}._4j2ROG_chevronBox{border:.5px solid var(--dsw-alias-border-l2);border-radius:var(--dsw-radius-sm);background:var(--dsw-specific-menu);flex:none;justify-content:center;align-self:center;align-items:center;width:20px;height:20px;display:inline-flex}._4j2ROG_stop{border:.5px solid var(--dsw-alias-border-l2);border-radius:var(--dsw-radius-sm);background:var(--dsw-specific-menu);width:20px;height:20px;color:var(--dsw-alias-label-secondary);cursor:pointer;flex:none;justify-content:center;align-self:center;align-items:center;padding:0;display:inline-flex}._4j2ROG_stop:hover,._4j2ROG_stop:focus-visible{border-color:color-mix(in srgb, var(--dsw-alias-state-error-primary) 45%, transparent);color:var(--dsw-alias-state-error-primary)}._4j2ROG_stopArmed,._4j2ROG_stopArmed:hover,._4j2ROG_stopArmed:focus-visible{border-color:color-mix(in srgb, var(--dsw-alias-state-error-primary) 45%, transparent);background:color-mix(in srgb, var(--dsw-alias-state-error-primary) 12%, transparent);width:auto;color:var(--dsw-alias-state-error-primary);gap:4px;padding:0 7px}._4j2ROG_stopLabel{white-space:nowrap;font-size:11px;line-height:18px}._4j2ROG_stopFailed{color:var(--dsw-alias-state-error-primary)}._4j2ROG_row{box-sizing:border-box;border-radius:var(--dsw-radius-sm);width:100%;min-height:28px;color:var(--dsw-alias-label-primary);text-align:left;cursor:pointer;background:0 0;border:0;align-items:center;gap:6px;padding:4px 7px;font-size:12px;line-height:17px;display:flex}._4j2ROG_row:hover,._4j2ROG_row:focus-visible{background:var(--dsw-alias-fill-l1)}._4j2ROG_rowStatic{cursor:default}._4j2ROG_rowStatic:hover{background:0 0}._4j2ROG_rowSettled{color:var(--dsw-alias-label-tertiary)}._4j2ROG_row ._4j2ROG_rowDot{flex:none}._4j2ROG_main{flex-direction:column;flex:1;gap:2px;min-width:0;display:flex}._4j2ROG_primary{align-items:baseline;gap:8px;min-width:0;display:flex}._4j2ROG_secondary{align-items:center;gap:6px;min-width:0;display:flex}._4j2ROG_kind{border-radius:var(--dsw-radius-xs);background:var(--dsw-alias-fill-l2);color:var(--dsw-alias-label-secondary);flex:none;padding:0 5px;font-size:10px;line-height:16px}._4j2ROG_label{min-width:0;font-family:var(--dsw-font-mono);white-space:nowrap;text-overflow:ellipsis;flex:1;overflow:hidden}._4j2ROG_status{max-width:60%;color:var(--dsw-alias-label-tertiary);white-space:nowrap;text-overflow:ellipsis;flex:none;font-size:10px;line-height:16px;overflow:hidden}._4j2ROG_duration{color:var(--dsw-alias-label-tertiary);font-variant-numeric:tabular-nums;flex:none;font-size:11px;line-height:18px}._4j2ROG_chevron{color:var(--dsw-alias-label-tertiary);flex:none}._4j2ROG_chevronOpen{transform:rotate(180deg)}._4j2ROG_panel{--dsl-terminal-command-whitespace:pre-wrap;--dsl-terminal-line-whitespace:pre-wrap;--dsl-terminal-output-max-height:288px;margin:0 8px 8px}._4j2ROG_panel [data-terminal]{--dsl-terminal-gutter:12px}._4j2ROG_notice{color:var(--dsw-alias-label-tertiary);margin:0 8px 6px;font-size:11px;line-height:16px}._4j2ROG_noticeError{color:var(--dsw-alias-state-error-primary)}";
 		const tagId = "@deepseek-ai/dsh-client-ui-jobs/JobListAction.module.css";
 		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId) + "]") === null) {
 			const tag = document.createElement("style");
@@ -18,41 +18,41 @@ window.__ModuleLoader__.load({
 			document.head.appendChild(tag);
 		}
 		var JobListAction_module_css_default = {
-			"chevron": "NofXSG_chevron",
-			"chevronBox": "NofXSG_chevronBox",
-			"chevronOpen": "NofXSG_chevronOpen",
-			"count": "NofXSG_count",
-			"duration": "NofXSG_duration",
-			"item": "NofXSG_item",
-			"kind": "NofXSG_kind",
-			"label": "NofXSG_label",
-			"main": "NofXSG_main",
-			"menu": "NofXSG_menu",
-			"notice": "NofXSG_notice",
-			"noticeError": "NofXSG_noticeError",
-			"panel": "NofXSG_panel",
-			"primary": "NofXSG_primary",
-			"root": "NofXSG_root",
-			"row": "NofXSG_row",
-			"rowDot": "NofXSG_rowDot",
-			"rowLine": "NofXSG_rowLine",
-			"rowLineLive": "NofXSG_rowLineLive",
-			"rowSettled": "NofXSG_rowSettled",
-			"rowStatic": "NofXSG_rowStatic",
-			"secondary": "NofXSG_secondary",
-			"sectionChevron": "NofXSG_sectionChevron",
-			"sectionChevronOpen": "NofXSG_sectionChevronOpen",
-			"sectionClear": "NofXSG_sectionClear",
-			"sectionHeader": "NofXSG_sectionHeader",
-			"sectionToggle": "NofXSG_sectionToggle",
-			"status": "NofXSG_status",
-			"stop": "NofXSG_stop",
-			"stopArmed": "NofXSG_stopArmed",
-			"stopFailed": "NofXSG_stopFailed",
-			"stopLabel": "NofXSG_stopLabel",
-			"trigger": "NofXSG_trigger",
-			"triggerDot": "NofXSG_triggerDot",
-			"triggerOpen": "NofXSG_triggerOpen"
+			"chevron": "_4j2ROG_chevron",
+			"chevronBox": "_4j2ROG_chevronBox",
+			"chevronOpen": "_4j2ROG_chevronOpen",
+			"count": "_4j2ROG_count",
+			"duration": "_4j2ROG_duration",
+			"item": "_4j2ROG_item",
+			"kind": "_4j2ROG_kind",
+			"label": "_4j2ROG_label",
+			"main": "_4j2ROG_main",
+			"menu": "_4j2ROG_menu",
+			"notice": "_4j2ROG_notice",
+			"noticeError": "_4j2ROG_noticeError",
+			"panel": "_4j2ROG_panel",
+			"primary": "_4j2ROG_primary",
+			"root": "_4j2ROG_root",
+			"row": "_4j2ROG_row",
+			"rowDot": "_4j2ROG_rowDot",
+			"rowLine": "_4j2ROG_rowLine",
+			"rowLineLive": "_4j2ROG_rowLineLive",
+			"rowSettled": "_4j2ROG_rowSettled",
+			"rowStatic": "_4j2ROG_rowStatic",
+			"secondary": "_4j2ROG_secondary",
+			"sectionChevron": "_4j2ROG_sectionChevron",
+			"sectionChevronOpen": "_4j2ROG_sectionChevronOpen",
+			"sectionClear": "_4j2ROG_sectionClear",
+			"sectionHeader": "_4j2ROG_sectionHeader",
+			"sectionToggle": "_4j2ROG_sectionToggle",
+			"status": "_4j2ROG_status",
+			"stop": "_4j2ROG_stop",
+			"stopArmed": "_4j2ROG_stopArmed",
+			"stopFailed": "_4j2ROG_stopFailed",
+			"stopLabel": "_4j2ROG_stopLabel",
+			"trigger": "_4j2ROG_trigger",
+			"triggerDot": "_4j2ROG_triggerDot",
+			"triggerOpen": "_4j2ROG_triggerOpen"
 		};
 		//#endregion
 		//#region lib/types/client/JobListAction.js
@@ -627,4 +627,4 @@ window.__ModuleLoader__.load({
 	}
 });
 ;
-//# sourceMappingURL=??@deepseek-ai/dsh-client-ui-jobs/client.js.map&rev=dd625534f30c
+//# sourceMappingURL=??@deepseek-ai/dsh-client-ui-jobs/client.js.map&rev=dbba9a05aae0

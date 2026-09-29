@@ -1,1381 +1,2328 @@
 window.__ModuleLoader__.load({
-	id: "@deepseek-ai/dsh-typert-registry",
+	id: "@deepseek-ai/dsh-client-ui-deliverables",
 	factory: (require) => {
 		var module = { exports: {} };
 		var exports = module.exports;
 		Object.defineProperty(exports, Symbol.toStringTag, { value: "Module" });
-		let _deepseek_ai_cordis = require("@deepseek-ai/cordis");
-		//#region ../../../node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/core/util.js
-		function getEnumValues(entries) {
-			const numericValues = Object.values(entries).filter((v) => typeof v === "number");
-			return Object.entries(entries).filter(([k, _]) => numericValues.indexOf(+k) === -1).map(([_, v]) => v);
+		let _deepseek_ai_dsh_client_store = require("@deepseek-ai/dsh-client-store");
+		let react_jsx_runtime = require("react/jsx-runtime");
+		let react = require("react");
+		let _deepseek_ai_dsh_client_ui_primitives = require("@deepseek-ai/dsh-client-ui-primitives");
+		//#region lib/types/changes.js
+		/** Authenticated GET route serving one announced change summary while its Session lives. */
+		const CHANGED_FILES_PATH = "/api/changes.summary";
+		/** Authenticated GET route serving one listed file's turn-start and turn-end comparison while its Session lives. */
+		const CHANGES_DIFF_PATH = "/api/changes.diff";
+		/** Authenticated POST route for opening a changed file on the Host desktop. */
+		const CHANGES_OPEN_PATH = "/api/changes.open";
+		/**
+		* Browser-relative form of {@link CHANGED_FILES_PATH}; see
+		* .agents/notes/implemented/architecture/2026-09-14-web-document-relative-app-routes.md.
+		*/
+		const CHANGED_FILES_ROUTE = CHANGED_FILES_PATH.slice(1);
+		/** Browser-relative form of {@link CHANGES_DIFF_PATH}. */
+		const CHANGES_DIFF_ROUTE = CHANGES_DIFF_PATH.slice(1);
+		/** Browser-relative form of {@link CHANGES_OPEN_PATH}. */
+		const CHANGES_OPEN_ROUTE = CHANGES_OPEN_PATH.slice(1);
+		/** Resource-address prefix of a turn's review tab in the right Sidebar. */
+		const CHANGES_REVIEW_ADDRESS = "dsh-resource://changes-review/session/";
+		function isRecord$1(value) {
+			return typeof value === "object" && value !== null && !Array.isArray(value);
 		}
-		"captureStackTrace" in Error && Error.captureStackTrace;
-		Number.MIN_SAFE_INTEGER, Number.MAX_SAFE_INTEGER, -Number.MAX_VALUE, Number.MAX_VALUE;
+		/**
+		* Validate one changed-file record read from the summary route.
+		* @param value - decoded JSON.
+		* @returns whether the record carries a path, a display path, and line counts.
+		*/
+		function isChangedFile(value) {
+			if (!isRecord$1(value)) return false;
+			const { path, display, added, deleted, binary, oversized } = value;
+			return typeof path === "string" && path.length > 0 && typeof display === "string" && display.length > 0 && Number.isSafeInteger(added) && Number.isSafeInteger(deleted) && (binary === void 0 || binary === true) && (oversized === void 0 || oversized === true);
+		}
+		/**
+		* Validate a summary read from the summary route.
+		* @param value - decoded JSON.
+		* @returns whether the value identifies a turn, a complete file list, the total count, and the line totals.
+		*/
+		function isChangesSummary(value) {
+			if (!isRecord$1(value)) return false;
+			const { turn, files, total, added, deleted } = value;
+			return Number.isSafeInteger(turn) && turn >= 1 && Number.isSafeInteger(total) && Number.isSafeInteger(added) && Number.isSafeInteger(deleted) && Array.isArray(files) && files.every(isChangedFile);
+		}
+		function isHunk(value) {
+			if (!isRecord$1(value)) return false;
+			const { oldStart, oldLines, newStart, newLines, lines } = value;
+			return [
+				oldStart,
+				oldLines,
+				newStart,
+				newLines
+			].every((field) => Number.isSafeInteger(field) && field >= 0) && Array.isArray(lines) && lines.every((line) => typeof line === "string" && /^[+ -]/.test(line));
+		}
+		/**
+		* Validate a comparison read from the comparison route.
+		* @param value - decoded JSON.
+		* @returns whether the value is a text comparison with well-formed hunks, or a binary or oversized refusal.
+		*/
+		function isChangesDiff(value) {
+			if (!isRecord$1(value)) return false;
+			const { kind, path, display } = value;
+			if (typeof path !== "string" || path.length === 0 || typeof display !== "string" || display.length === 0) return false;
+			if (kind === "binary" || kind === "oversized") return true;
+			if (kind !== "text") return false;
+			const { before, after, hunks, coarse } = value;
+			return typeof before === "boolean" && typeof after === "boolean" && typeof coarse === "boolean" && Array.isArray(hunks) && hunks.every(isHunk);
+		}
+		/**
+		* Validate the `workspace/changes` event data read from a Session log.
+		* @param value - decoded durable event data.
+		* @returns whether the event names a turn.
+		*/
+		function isChangesEvent(value) {
+			return isRecord$1(value) && Number.isSafeInteger(value.turn) && value.turn >= 1;
+		}
+		/**
+		* Build authenticated coordinates for the summary one `workspace/changes` event announced.
+		* @param sessionId - owning Session.
+		* @param seq - event sequence.
+		* @returns document-relative summary route.
+		*/
+		function changesSummaryUrl(sessionId, seq) {
+			return `${CHANGED_FILES_ROUTE}?${new URLSearchParams({
+				sessionId,
+				seq: String(seq)
+			})}`;
+		}
+		/**
+		* Build authenticated coordinates for one listed file's comparison.
+		* @param sessionId - owning Session.
+		* @param seq - workspace/changes event sequence.
+		* @param index - original index in the summary's files array.
+		* @returns document-relative comparison route.
+		*/
+		function changesDiffUrl(sessionId, seq, index) {
+			return `${CHANGES_DIFF_ROUTE}?${new URLSearchParams({
+				sessionId,
+				seq: String(seq),
+				index: String(index)
+			})}`;
+		}
+		/**
+		* Build authenticated coordinates for a changed file's native open.
+		* @param sessionId - owning Session.
+		* @param seq - workspace/changes event sequence.
+		* @param index - original index in the summary's files array.
+		* @returns document-relative action route.
+		*/
+		function changedFileUrl(sessionId, seq, index) {
+			return `${CHANGES_OPEN_ROUTE}?${new URLSearchParams({
+				sessionId,
+				seq: String(seq),
+				index: String(index)
+			})}`;
+		}
+		/**
+		* The right-Sidebar address of one turn's review. The Session and the event
+		* sequence identify the content; the turn rides along for the tab title.
+		* @param coordinates - viewed Session, announcing event, and turn.
+		* @returns a `dsh-resource://changes-review/session/…` address.
+		*/
+		function changesReviewAddress(coordinates) {
+			const { sessionId, seq, turn } = coordinates;
+			return `${CHANGES_REVIEW_ADDRESS}${encodeURIComponent(sessionId)}/${seq}/${turn}`;
+		}
+		/**
+		* Read the coordinates back out of a review address.
+		* @param address - a resource address.
+		* @returns the coordinates, or undefined for any other address.
+		*/
+		function parseChangesReviewAddress(address) {
+			if (!address.startsWith("dsh-resource://changes-review/session/")) return void 0;
+			const parts = address.slice(38).split("/");
+			if (parts.length !== 3) return void 0;
+			const [sessionId, seq, turn] = parts;
+			if (sessionId === "" || !/^\d+$/.test(seq) || !/^[1-9]\d*$/.test(turn)) return void 0;
+			try {
+				return {
+					sessionId: decodeURIComponent(sessionId),
+					seq: Number(seq),
+					turn: Number(turn)
+				};
+			} catch {
+				return;
+			}
+		}
 		//#endregion
-		//#region ../../../node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/core/registries.js
-		var _a;
-		var $ZodRegistry = class {
-			constructor() {
-				this._map = /* @__PURE__ */ new WeakMap();
-				this._idmap = /* @__PURE__ */ new Map();
+		//#region lib/types/client/host-read-store.js
+		/**
+		* Fetch-once cache of Host-served records keyed by their authenticated URL:
+		* one read per URL while a state stands, cleared on connection replacement,
+		* cancelled on disposal. Each store decides what a response means and which
+		* states a later request reads again.
+		*/
+		/** One browser plugin's reads of one record kind. */
+		var HostReadStore = class {
+			policy;
+			/** Record URLs key the state across Sessions and turns. */
+			state = (0, _deepseek_ai_dsh_client_store.createSnapshotStore)({});
+			lifetime = new AbortController();
+			/** The connection generation the current states belong to; a reset aborts it so no older read publishes. */
+			generation = new AbortController();
+			pending = /* @__PURE__ */ new Set();
+			constructor(policy) {
+				this.policy = policy;
 			}
-			add(schema, ..._meta) {
-				const meta = _meta[0];
-				this._map.set(schema, meta);
-				if (meta && typeof meta === "object" && "id" in meta) this._idmap.set(meta.id, schema);
-				return this;
-			}
-			clear() {
-				this._map = /* @__PURE__ */ new WeakMap();
-				this._idmap = /* @__PURE__ */ new Map();
-				return this;
-			}
-			remove(schema) {
-				const meta = this._map.get(schema);
-				if (meta && typeof meta === "object" && "id" in meta) this._idmap.delete(meta.id);
-				this._map.delete(schema);
-				return this;
-			}
-			get(schema) {
-				const p = schema._zod.parent;
-				if (p) {
-					const pm = { ...this.get(p) ?? {} };
-					delete pm.id;
-					const f = {
-						...pm,
-						...this._map.get(schema)
-					};
-					return Object.keys(f).length ? f : void 0;
+			/**
+			* Read one URL unless a state the policy keeps already stands for it.
+			* @param url - the record's authenticated URL.
+			* @returns after the state is published.
+			*/
+			async loadUrl(url) {
+				const current = this.state.getSnapshot()[url];
+				if (this.lifetime.signal.aborted || current !== void 0 && !this.policy.retryable(current)) return;
+				this.state.update((state) => {
+					state[url] = this.policy.loading;
+				});
+				const task = this.read(url, AbortSignal.any([this.lifetime.signal, this.generation.signal]));
+				this.pending.add(task);
+				try {
+					await task;
+				} finally {
+					this.pending.delete(task);
 				}
-				return this._map.get(schema);
 			}
-			has(schema) {
-				return this._map.has(schema);
+			/** Forget every state and abandon in-flight reads; a replaced connection may reach a Host that no longer serves them. */
+			reset() {
+				this.generation.abort();
+				this.generation = new AbortController();
+				this.state.set({});
+			}
+			/** Cancel outstanding reads and wait until none can publish state. */
+			async dispose() {
+				this.lifetime.abort();
+				await Promise.all(this.pending);
+			}
+			async read(url, signal) {
+				let next;
+				try {
+					next = await this.policy.decode(await fetch(url, { signal }));
+				} catch {
+					next = this.policy.failed;
+				}
+				if (!signal.aborted) this.state.update((state) => {
+					state[url] = next;
+				});
 			}
 		};
-		function registry() {
-			return new $ZodRegistry();
-		}
-		(_a = globalThis).__zod_globalRegistry ?? (_a.__zod_globalRegistry = registry());
-		const globalRegistry = globalThis.__zod_globalRegistry;
 		//#endregion
-		//#region ../../../node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/core/to-json-schema.js
-		function initializeContext(params) {
-			let target = params?.target ?? "draft-2020-12";
-			if (target === "draft-4") target = "draft-04";
-			if (target === "draft-7") target = "draft-07";
+		//#region lib/types/client/changes-diff.js
+		/** One browser plugin's comparison reads; a failed read is the one state a later request replaces. */
+		var ChangesDiffStore = class extends HostReadStore {
+			constructor() {
+				super({
+					loading: "loading",
+					failed: "error",
+					retryable: (state) => state === "error",
+					decode: async (response) => {
+						if (response.status === 404) return "missing";
+						if (!response.ok) return "error";
+						const value = await response.json();
+						return isChangesDiff(value) ? value : "error";
+					}
+				});
+			}
+			/**
+			* Read one comparison; a cached comparison or a missing one is kept, a failed one is read again.
+			* @param sessionId - viewed Session.
+			* @param seq - the announcing event's sequence.
+			* @param index - the file's index in the summary.
+			* @returns after the state is published.
+			*/
+			load(sessionId, seq, index) {
+				return this.loadUrl(changesDiffUrl(sessionId, seq, index));
+			}
+		};
+		//#endregion
+		//#region lib/types/client/changes-summary.js
+		/** One browser plugin's summary reads; a summary or a missing answer is kept until the connection is replaced. */
+		var ChangesSummaryStore = class extends HostReadStore {
+			constructor() {
+				super({
+					loading: "loading",
+					failed: "missing",
+					retryable: () => false,
+					decode: async (response) => {
+						if (!response.ok) return "missing";
+						const value = await response.json();
+						return isChangesSummary(value) ? value : "missing";
+					}
+				});
+			}
+			/**
+			* Read one summary once; a later read of the same coordinates returns the cached state.
+			* @param sessionId - viewed Session.
+			* @param seq - the announcing event's sequence.
+			* @returns after the state is published.
+			*/
+			load(sessionId, seq) {
+				return this.loadUrl(changesSummaryUrl(sessionId, seq));
+			}
+		};
+		//#endregion
+		//#region lib/types/presented.js
+		/** Authenticated POST route for opening a workspace file on the Host desktop. */
+		const PRESENT_OPEN_PATH = "/api/present.open";
+		/** Authenticated desktop availability and destination metadata. */
+		const PRESENT_HOST_PATH = "/api/present.host";
+		/**
+		* Browser-relative form of {@link PRESENT_OPEN_PATH}; see
+		* .agents/notes/implemented/architecture/2026-09-14-web-document-relative-app-routes.md.
+		*/
+		const PRESENT_OPEN_ROUTE = PRESENT_OPEN_PATH.slice(1);
+		/** Browser-relative form of {@link PRESENT_HOST_PATH}. */
+		const PRESENT_HOST_ROUTE = PRESENT_HOST_PATH.slice(1);
+		/**
+		* Validate desktop metadata received over HTTP.
+		* @param value - decoded response.
+		* @returns whether all displayed and actionable fields are supported.
+		*/
+		function isPresentedHost(value) {
+			if (typeof value !== "object" || value === null) return false;
+			const host = value;
+			return typeof host.name === "string" && typeof host.available === "boolean" && (host.fileManager === null || host.fileManager === "finder" || host.fileManager === "explorer" || host.fileManager === "directory");
+		}
+		/**
+		* Validate a file declaration read from a Session log.
+		* @param value - decoded durable data.
+		* @returns whether the declaration contains a path and optional description.
+		*/
+		function isPresentedFile(value) {
+			if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
+			const { path, description } = value;
+			return typeof path === "string" && path.trim().length > 0 && (description === void 0 || typeof description === "string");
+		}
+		/**
+		* Build authenticated coordinates for a declared file.
+		* @param sessionId - owning Session.
+		* @param seq - deliverables/presented event sequence.
+		* @param index - original index in the event's files array.
+		* @returns document-relative file action route.
+		*/
+		function presentedFileUrl(sessionId, seq, index) {
+			return `${PRESENT_OPEN_ROUTE}?${new URLSearchParams({
+				sessionId,
+				seq: String(seq),
+				index: String(index)
+			})}`;
+		}
+		/**
+		* Validate a delivery event before reading its turn or file declarations.
+		* @param value - decoded durable event data.
+		* @returns whether the event identifies a turn, call, and file list.
+		*/
+		function isPresentedData(value) {
+			if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
+			const { turn, callId, files } = value;
+			return typeof turn === "number" && Number.isSafeInteger(turn) && turn >= 1 && typeof callId === "string" && callId.length > 0 && Array.isArray(files);
+		}
+		/**
+		* Trailing path segment, the part that identifies the file at a glance.
+		* @param path - Slash- or backslash-separated path.
+		* @returns The final segment, or the whole string when separator-free.
+		*/
+		function basename(path) {
+			const at = Math.max(path.lastIndexOf("/"), path.lastIndexOf("\\"));
+			return at === -1 ? path : path.slice(at + 1);
+		}
+		//#endregion
+		//#region lib/types/client/present-open.js
+		/** Shared native-open status for delivery cards, the changed-files card, and closing-message file mentions. */
+		/** Success feedback remains fully visible for five seconds before fading. */
+		const PRESENTED_SUCCESS_HOLD_MS = 5e3;
+		/** One browser plugin's file-open requests, cancelled when that plugin is disposed. */
+		var PresentedOpenController = class {
+			/** File action URLs key the state across Sessions, turns, and both clickable surfaces. */
+			state = (0, _deepseek_ai_dsh_client_store.createSnapshotStore)({});
+			/** Native destination metadata, or a retryable read failure. */
+			host = (0, _deepseek_ai_dsh_client_store.createSnapshotStore)(null);
+			expiry = /* @__PURE__ */ new Map();
+			loading;
+			metadata = new AbortController();
+			lifetime = new AbortController();
+			pending = /* @__PURE__ */ new Set();
+			/**
+			* Open a declared file once while a request for the same coordinates is pending.
+			* Failures remain visible on the card and a later gesture retries them.
+			* @param sessionId - viewed Session, including a fork's own identity.
+			* @param seq - durable delivery event sequence.
+			* @param index - original file index within that event.
+			* @param action - default application open or file-manager reveal.
+			* @param application - registered handler identifier for an explicit application choice.
+			* @returns null after a successful handoff, or the failure to announce after publishing card status.
+			*/
+			open(sessionId, seq, index, action = "open", application) {
+				return this.openUrl(presentedFileUrl(sessionId, seq, index), action, application);
+			}
+			/**
+			* Open one recorded changed file in the Host's default application.
+			* @param sessionId - viewed Session.
+			* @param seq - durable workspace/changes event sequence.
+			* @param index - original file index within that event.
+			* @param action - application open or file-manager reveal.
+			* @param application - registered handler identifier for an explicit application choice.
+			* @returns null after a successful handoff, or the failure to announce after publishing card status.
+			*/
+			openChanged(sessionId, seq, index, action = "open", application) {
+				return this.openUrl(changedFileUrl(sessionId, seq, index), action, application);
+			}
+			async openUrl(url, action, application) {
+				const phase = this.state.getSnapshot()[url];
+				if (this.lifetime.signal.aborted || phase === "opening" || phase === "revealing") return null;
+				this.clearExpiry(url);
+				this.state.update((state) => {
+					state[url] = action === "open" ? "opening" : "revealing";
+				});
+				const task = this.request(url, action, application);
+				this.pending.add(task);
+				try {
+					return await task;
+				} finally {
+					this.pending.delete(task);
+				}
+			}
+			/**
+			* Read the serving desktop metadata, coalescing concurrent reads; a later call retries failure.
+			* @returns after metadata or a retryable error is published.
+			*/
+			async loadHost() {
+				if (this.lifetime.signal.aborted) return;
+				if (this.loading !== void 0) return this.loading;
+				this.host.set(null);
+				const task = this.readHost(AbortSignal.any([this.lifetime.signal, this.metadata.signal]));
+				this.loading = task;
+				this.pending.add(task);
+				try {
+					await task;
+				} finally {
+					if (this.loading === task) this.loading = void 0;
+					this.pending.delete(task);
+				}
+			}
+			/** Invalidate desktop metadata on connection replacement; mounted cards request the new Host. */
+			resetHost() {
+				const wasLoading = this.loading !== void 0;
+				this.metadata.abort();
+				this.metadata = new AbortController();
+				this.loading = void 0;
+				this.host.set(null);
+				if (wasLoading) this.loadHost();
+			}
+			async readHost(signal) {
+				let host = "error";
+				try {
+					const response = await fetch(PRESENT_HOST_ROUTE, { signal });
+					if (response.ok) {
+						const value = await response.json();
+						if (isPresentedHost(value)) host = value;
+					}
+				} catch {
+					host = "error";
+				}
+				if (!signal.aborted) this.host.set(host);
+			}
+			/** Cancel outstanding requests and wait until no request can publish state. */
+			async dispose() {
+				this.lifetime.abort();
+				for (const url of this.expiry.keys()) this.clearExpiry(url);
+				await Promise.all(this.pending);
+			}
+			clearExpiry(url) {
+				clearTimeout(this.expiry.get(url));
+				this.expiry.delete(url);
+			}
+			async request(url, action, application) {
+				const failure = action === "open" ? "error" : "revealError";
+				let phase = action === "open" ? "opened" : "revealed";
+				try {
+					const target = action === "reveal" ? `${url}&action=reveal` : application === void 0 ? url : `${url}&application=${encodeURIComponent(application)}`;
+					const response = await fetch(target, {
+						method: "POST",
+						signal: this.lifetime.signal
+					});
+					if (!response.ok) phase = response.status === 422 ? "nativeUnavailable" : failure;
+				} catch {
+					phase = failure;
+				}
+				if (!this.lifetime.signal.aborted) {
+					if (phase === "opened" || phase === "revealed") this.expiry.set(url, setTimeout(() => {
+						this.expiry.delete(url);
+						this.state.update((state) => {
+							Reflect.deleteProperty(state, url);
+						});
+					}, 5200));
+					this.state.update((state) => {
+						state[url] = phase;
+					});
+				}
+				return phase === "opened" || phase === "revealed" ? null : action === "reveal" ? "revealError" : "openError";
+			}
+		};
+		//#endregion
+		//#region \0dsh-css:D:\deepseek-harness\packages\client\ui-deliverables\src\client\PresentRow.module.css.mjs
+		const css$4 = "._4XM2AG_summary{min-width:0;color:var(--dsw-alias-label-secondary);align-items:center;gap:8px;margin-left:8px;font-size:12px;display:flex}._4XM2AG_summary>:first-child{flex-shrink:0}._4XM2AG_paths{text-overflow:ellipsis;white-space:nowrap;overflow:hidden}._4XM2AG_output{border-radius:var(--dsw-radius-lg);background:var(--dsw-alias-bg-layer-1);color:var(--dsw-alias-label-secondary);white-space:pre-wrap;overflow-wrap:anywhere;margin:8px 0;padding:12px;font-size:12px}._4XM2AG_inspect{color:var(--dsw-alias-link);font:inherit;cursor:pointer;background:0 0;border:none;align-self:flex-start;padding:4px 0;font-size:12px}";
+		const tagId$4 = "@deepseek-ai/dsh-client-ui-deliverables/PresentRow.module.css";
+		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId$4) + "]") === null) {
+			const tag = document.createElement("style");
+			tag.dataset.plugin = "@deepseek-ai/dsh-client-ui-deliverables";
+			tag.dataset.pluginCss = tagId$4;
+			tag.textContent = css$4;
+			document.head.appendChild(tag);
+		}
+		var PresentRow_module_css_default = {
+			"inspect": "_4XM2AG_inspect",
+			"output": "_4XM2AG_output",
+			"paths": "_4XM2AG_paths",
+			"summary": "_4XM2AG_summary"
+		};
+		//#endregion
+		//#region lib/types/client/PresentRow.js
+		/** Present call status and expandable durable result text. */
+		/* v8 ignore next -- Non-expandable rows never invoke DisclosureRow's required toggle callback. */
+		const noop = () => void 0;
+		/** Raw arguments can be partial while a call is streaming. */
+		function fileNames(raw) {
+			let args;
+			try {
+				args = JSON.parse(raw);
+			} catch {
+				return raw;
+			}
+			if (typeof args !== "object" || args === null || !("files" in args) || !Array.isArray(args.files)) return raw;
+			return args.files.flatMap((file) => typeof file === "object" && file !== null && "path" in file && typeof file.path === "string" ? [file.path] : []).join(", ");
+		}
+		/**
+		* Render a present call using its recorded arguments and result.
+		* @param props - tool call and localized status copy.
+		* @returns a status row with a result disclosure.
+		*/
+		function PresentRow(props) {
+			return props.phase === "preparing" ? (0, react_jsx_runtime.jsx)(PreparingPresentRow, { ...props }) : (0, react_jsx_runtime.jsx)(StartedPresentRow, { ...props });
+		}
+		function PreparingPresentRow({ t }) {
+			return (0, react_jsx_runtime.jsx)("div", {
+				"data-tool": "present",
+				"data-state": "preparing",
+				"aria-label": t("row.preparing"),
+				children: (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.DisclosureRow, {
+					title: t("row.title"),
+					icon: (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconDeliverDocRegular, { size: 14 }),
+					open: false,
+					expandable: false,
+					onToggle: noop,
+					running: true
+				})
+			});
+		}
+		function StartedPresentRow({ block, inspect, t }) {
+			const settled = "kind" in block;
+			const state = !settled ? "running" : block.error?.code === "interrupted" ? "stopped" : block.isError ? "error" : "ok";
+			const args = (settled ? block.call?.argsRaw : block.argsRaw) ?? "";
+			const details = (settled ? block.content.map((item) => item.type === "text" ? item.text : JSON.stringify(item)).join("\n") : "") || (settled && block.error ? `${block.error.name}: ${block.error.code}` : "");
+			const [expanded, setExpanded] = (0, react.useState)(false);
+			return (0, react_jsx_runtime.jsx)("div", {
+				"data-tool": "present",
+				"data-state": state,
+				children: (0, react_jsx_runtime.jsxs)(_deepseek_ai_dsh_client_ui_primitives.DisclosureRow, {
+					title: t("row.title"),
+					icon: (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconDeliverDocRegular, { size: 14 }),
+					open: expanded && details !== "",
+					expandable: details !== "",
+					expandOnRowClick: true,
+					keepContentWhenOpen: true,
+					onToggle: () => {
+						setExpanded((value) => !value);
+					},
+					collapsedContent: (0, react_jsx_runtime.jsxs)("span", {
+						className: PresentRow_module_css_default.summary,
+						children: [(0, react_jsx_runtime.jsx)("span", { children: t(`row.${state}`) }), (0, react_jsx_runtime.jsx)("span", {
+							className: PresentRow_module_css_default.paths,
+							children: fileNames(args)
+						})]
+					}),
+					children: [(0, react_jsx_runtime.jsx)("pre", {
+						className: PresentRow_module_css_default.output,
+						children: details
+					}), inspect && (0, react_jsx_runtime.jsx)("button", {
+						type: "button",
+						className: PresentRow_module_css_default.inspect,
+						onClick: inspect,
+						children: t("row.inspect")
+					})]
+				})
+			});
+		}
+		//#endregion
+		//#region ../../util/workspace-path/lib/index.js
+		/**
+		* The `dsh-resource://file/…` address grammar: how a file is named across the
+		* Sidebar and the resource model, built and parsed without touching a
+		* filesystem.
+		* @module
+		*/
+		/** The scheme and type every file address opens with. */
+		const FILE_ADDRESS_PREFIX = "dsh-resource://file/";
+		/** Component-encode one id or path segment, keeping `:` literal for drive letters. */
+		function encodeSegment(segment) {
+			return encodeURIComponent(segment).replace(/%3A/gi, ":");
+		}
+		/** Encode a `/`-separated path segment by segment. */
+		function encodePath(path) {
+			return path.split("/").map(encodeSegment).join("/");
+		}
+		/**
+		* Build the address of a file read through one Session.
+		* @param sessionId - the Session whose Host workspace resolves the path.
+		* @param path - absolute or workspace-relative path; backslashes are normalized to `/`, and leading `./` prefixes are dropped.
+		* @returns the `dsh-resource://file/session/<sessionId>/<path>` address.
+		*/
+		function sessionFileAddress(sessionId, path) {
+			const normalized = path.replace(/\\/g, "/").replace(/^(?:\.\/)+/, "");
+			return `${FILE_ADDRESS_PREFIX}session/${encodeSegment(sessionId)}/${encodePath(normalized)}`;
+		}
+		/**
+		* Browser-safe Workspace path and display helpers.
+		* @module @deepseek-ai/dsh-util-workspace-path
+		*/
+		/** Whether a path uses a Windows drive or UNC prefix. */
+		function isWindowsStylePath(value) {
+			return /^[A-Za-z]:[/\\]/.test(value) || value.startsWith("\\\\");
+		}
+		/**
+		* Whether a path is absolute in either spelling the Host accepts: POSIX (`/a/b`) or Windows drive or UNC.
+		* @param path - the path to classify.
+		* @returns `true` for an absolute path; `false` for a Workspace-relative one.
+		*/
+		function isAbsoluteWorkspacePath(path) {
+			return path.startsWith("/") || isWindowsStylePath(path);
+		}
+		/**
+		* Resolve a Workspace-relative path into the Host-facing spelling used by path operations.
+		* @param cwd - Session Workspace root, when known.
+		* @param path - Absolute or Workspace-relative path.
+		* @returns an absolute path when a Workspace root is available, otherwise the original path.
+		*/
+		function resolveWorkspacePath(cwd, path) {
+			if (isAbsoluteWorkspacePath(path)) return path;
+			if (cwd === void 0 || cwd === "") return path;
+			const separator = isWindowsStylePath(cwd) && cwd.includes("\\") ? "\\" : "/";
+			return `${cwd.replace(/[/\\]+$/, "")}${separator}${path.replace(/^[/\\]+/, "")}`;
+		}
+		/**
+		* The address for a path as a caller holds it: a relative path, or an absolute
+		* path inside the Session's workspace, becomes a `session`-scoped address; an
+		* absolute path outside it, or one whose workspace root is unknown, keeps its
+		* absolute path in that Session's address.
+		* @param sessionId - the Session the path is read in.
+		* @param cwd - that Session's workspace root, when known.
+		* @param path - absolute or workspace-relative path, in either separator spelling.
+		* @returns the `dsh-resource://file/…` address.
+		*/
+		function fileAddressFor(sessionId, cwd, path) {
+			const normalized = path.replace(/\\/g, "/");
+			if (!isAbsoluteWorkspacePath(normalized)) return sessionFileAddress(sessionId, normalized);
+			const root = cwd === void 0 ? "" : cwd.replace(/\\/g, "/").replace(/\/+$/, "");
+			if (root !== "" && normalized === root) return sessionFileAddress(sessionId, "");
+			if (root !== "" && normalized.startsWith(`${root}/`)) return sessionFileAddress(sessionId, normalized.slice(root.length + 1));
+			return sessionFileAddress(sessionId, normalized);
+		}
+		//#endregion
+		//#region \0dsh-css:D:\deepseek-harness\packages\client\ui-deliverables\src\client\FileDiff.module.css.mjs
+		const css$3 = ".sAcvqq_root{--diff-empty-fill:color-mix(in srgb, var(--dsw-alias-interactive-bg-hover) 50%, transparent);box-sizing:border-box;width:100%;min-height:0;color:var(--dsw-alias-label-primary);flex-direction:column;display:flex}.sAcvqq_header{box-sizing:border-box;border-bottom:.5px solid var(--dsw-alias-border-l3);flex:none;align-items:center;gap:6px;height:38px;padding:0 6px 0 8px;display:flex}.sAcvqq_status{color:var(--dsw-alias-label-secondary);align-items:center;gap:12px;margin:0;padding:16px;font-size:13px;display:flex}.sAcvqq_body{min-height:0;font:var(--dsw-font-markdown-code-block);flex-direction:column;flex:auto;padding:8px 0 16px;display:flex;overflow:auto}.sAcvqq_columns{flex:auto;grid-template-columns:minmax(0,1fr) minmax(0,1fr);min-height:0;display:grid}.sAcvqq_column,.sAcvqq_body[data-review-view=unified]:not([data-review-wrap]){grid-template-columns:minmax(max-content,100%);align-content:start;display:grid}.sAcvqq_column{overscroll-behavior:none;min-width:0;overflow-x:scroll}.sAcvqq_column+.sAcvqq_column{border-left:.5px solid var(--dsw-alias-border-l3)}.sAcvqq_sideLine{box-sizing:border-box;white-space:pre;grid-template-columns:3.5em max-content;width:max-content;min-width:100%;min-height:22px;line-height:22px;display:grid}.sAcvqq_note{font:var(--dsw-font-xs-13);color:var(--dsw-alias-label-tertiary);margin:0;padding:4px 16px 8px}.sAcvqq_hunk{margin-bottom:8px}.sAcvqq_hunkHeader{color:var(--dsw-alias-label-tertiary);white-space:pre;padding:4px 16px}.sAcvqq_line{box-sizing:border-box;white-space:pre;grid-template-columns:3.5em 3.5em 1.2em minmax(0,1fr);min-height:22px;line-height:22px;display:grid}.sAcvqq_splitLine{white-space:pre;grid-template-columns:minmax(0,1fr) minmax(0,1fr);min-height:22px;line-height:22px;display:grid}.sAcvqq_cell{box-sizing:border-box;grid-template-columns:3.5em minmax(0,1fr);min-width:0;display:grid}.sAcvqq_cell+.sAcvqq_cell{border-left:.5px solid var(--dsw-alias-border-l3)}.sAcvqq_number{color:var(--dsw-alias-label-tertiary);text-align:right;user-select:none;padding-right:8px}.sAcvqq_sign{text-align:center;user-select:none}.sAcvqq_text{padding-right:16px}.sAcvqq_body[data-review-wrap] .sAcvqq_line,.sAcvqq_body[data-review-wrap] .sAcvqq_splitLine{white-space:pre-wrap}.sAcvqq_body[data-review-wrap] .sAcvqq_text{overflow-wrap:anywhere}.sAcvqq_add{--diff-gutter-fill:var(--dsw-alias-file-diff-added-gutter);--diff-marker:var(--dsw-alias-file-diff-added-marker);background:var(--dsw-alias-file-diff-added-bg)}.sAcvqq_del{--diff-gutter-fill:var(--dsw-alias-file-diff-deleted-gutter);--diff-marker:var(--dsw-alias-file-diff-deleted-marker);background:var(--dsw-alias-file-diff-deleted-bg)}.sAcvqq_add .sAcvqq_number,.sAcvqq_del .sAcvqq_number{background:var(--diff-gutter-fill);color:var(--diff-marker)}.sAcvqq_add .sAcvqq_number:first-child,.sAcvqq_del .sAcvqq_number:first-child{box-shadow:inset 3px 0 0 var(--diff-marker)}.sAcvqq_add .sAcvqq_sign,.sAcvqq_del .sAcvqq_sign{color:var(--diff-marker)}.sAcvqq_context .sAcvqq_text{color:var(--dsw-alias-label-secondary)}.sAcvqq_empty{background:var(--diff-empty-fill)}";
+		const tagId$3 = "@deepseek-ai/dsh-client-ui-deliverables/FileDiff.module.css";
+		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId$3) + "]") === null) {
+			const tag = document.createElement("style");
+			tag.dataset.plugin = "@deepseek-ai/dsh-client-ui-deliverables";
+			tag.dataset.pluginCss = tagId$3;
+			tag.textContent = css$3;
+			document.head.appendChild(tag);
+		}
+		var FileDiff_module_css_default = {
+			"add": "sAcvqq_add",
+			"body": "sAcvqq_body",
+			"cell": "sAcvqq_cell",
+			"column": "sAcvqq_column",
+			"columns": "sAcvqq_columns",
+			"context": "sAcvqq_context",
+			"del": "sAcvqq_del",
+			"empty": "sAcvqq_empty",
+			"header": "sAcvqq_header",
+			"hunk": "sAcvqq_hunk",
+			"hunkHeader": "sAcvqq_hunkHeader",
+			"line": "sAcvqq_line",
+			"note": "sAcvqq_note",
+			"number": "sAcvqq_number",
+			"root": "sAcvqq_root",
+			"sideLine": "sAcvqq_sideLine",
+			"sign": "sAcvqq_sign",
+			"splitLine": "sAcvqq_splitLine",
+			"status": "sAcvqq_status",
+			"text": "sAcvqq_text"
+		};
+		//#endregion
+		//#region lib/types/client/FileDiff.js
+		/** Shared file comparison for the turn-tail hover preview and Sidebar review. */
+		/** Maximum rendered lines per comparison. */
+		const MAX_RENDERED_LINES = 5e3;
+		function highlightedSide(rows, side, highlighter) {
+			const source = rows.flatMap((row) => {
+				const no = row[side];
+				return no === void 0 ? [] : [{
+					no,
+					text: row.text
+				}];
+			});
+			if (source.length === 0) return /* @__PURE__ */ new Map();
+			const highlighted = highlighter(source.map((line) => line.text).join("\n"));
+			if (highlighted === void 0) return void 0;
+			return new Map(source.map((line, index) => {
+				return [line.no, highlighted[index] ?? []];
+			}));
+		}
+		function hunkHighlights(hunk, highlighter) {
+			const rows = hunkRows(hunk);
 			return {
-				processors: params.processors ?? {},
-				metadataRegistry: params?.metadata ?? globalRegistry,
-				target,
-				unrepresentable: params?.unrepresentable ?? "throw",
-				override: params?.override ?? (() => {}),
-				io: params?.io ?? "output",
-				counter: 0,
-				seen: /* @__PURE__ */ new Map(),
-				cycles: params?.cycles ?? "ref",
-				reused: params?.reused ?? "inline",
-				external: params?.external ?? void 0
+				old: highlightedSide(rows, "old", highlighter),
+				new: highlightedSide(rows, "new", highlighter)
 			};
 		}
-		function process(schema, ctx, _params = {
-			path: [],
-			schemaPath: []
-		}) {
-			var _a;
-			const def = schema._zod.def;
-			const seen = ctx.seen.get(schema);
-			if (seen) {
-				seen.count++;
-				if (_params.schemaPath.includes(schema)) seen.cycle = _params.path;
-				return seen.schema;
-			}
-			const result = {
-				schema: {},
-				count: 1,
-				cycle: void 0,
-				path: _params.path
-			};
-			ctx.seen.set(schema, result);
-			const overrideSchema = schema._zod.toJSONSchema?.();
-			if (overrideSchema) result.schema = overrideSchema;
-			else {
-				const params = {
-					..._params,
-					schemaPath: [..._params.schemaPath, schema],
-					path: _params.path
-				};
-				if (schema._zod.processJSONSchema) schema._zod.processJSONSchema(ctx, result.schema, params);
-				else {
-					const _json = result.schema;
-					const processor = ctx.processors[def.type];
-					if (!processor) throw new Error(`[toJSONSchema]: Non-representable type encountered: ${def.type}`);
-					processor(schema, ctx, _json, params);
-				}
-				const parent = schema._zod.parent;
-				if (parent) {
-					if (!result.ref) result.ref = parent;
-					process(parent, ctx, params);
-					ctx.seen.get(parent).isParent = true;
-				}
-			}
-			const meta = ctx.metadataRegistry.get(schema);
-			if (meta) Object.assign(result.schema, meta);
-			if (ctx.io === "input" && isTransforming(schema)) {
-				delete result.schema.examples;
-				delete result.schema.default;
-			}
-			if (ctx.io === "input" && "_prefault" in result.schema) (_a = result.schema).default ?? (_a.default = result.schema._prefault);
-			delete result.schema._prefault;
-			return ctx.seen.get(schema).schema;
+		function DiffText({ text, spans }) {
+			return (0, react_jsx_runtime.jsx)("span", {
+				className: FileDiff_module_css_default.text,
+				"data-diff-code": spans === void 0 ? void 0 : "",
+				children: spans === void 0 ? text : spans.map((span, index) => (0, react_jsx_runtime.jsx)("span", {
+					style: span.style,
+					children: span.text
+				}, index))
+			});
 		}
-		function extractDefs(ctx, schema) {
-			const root = ctx.seen.get(schema);
-			if (!root) throw new Error("Unprocessed schema. This is a bug in Zod.");
-			const idToSchema = /* @__PURE__ */ new Map();
-			for (const entry of ctx.seen.entries()) {
-				const id = ctx.metadataRegistry.get(entry[0])?.id;
-				if (id) {
-					const existing = idToSchema.get(id);
-					if (existing && existing !== entry[0]) throw new Error(`Duplicate schema id "${id}" detected during JSON Schema conversion. Two different schemas cannot share the same id when converted together.`);
-					idToSchema.set(id, entry[0]);
-				}
-			}
-			const makeURI = (entry) => {
-				const defsSegment = ctx.target === "draft-2020-12" ? "$defs" : "definitions";
-				if (ctx.external) {
-					const externalId = ctx.external.registry.get(entry[0])?.id;
-					const uriGenerator = ctx.external.uri ?? ((id) => id);
-					if (externalId) return { ref: uriGenerator(externalId) };
-					const id = entry[1].defId ?? entry[1].schema.id ?? `schema${ctx.counter++}`;
-					entry[1].defId = id;
-					return {
-						defId: id,
-						ref: `${uriGenerator("__shared")}#/${defsSegment}/${id}`
+		/**
+		* Number a hunk's lines: context lines count on both sides, deletions on the
+		* old side, additions on the new side.
+		* @param hunk - a served hunk.
+		* @returns the rows in order.
+		*/
+		function hunkRows(hunk) {
+			let oldNo = hunk.oldStart;
+			let newNo = hunk.newStart;
+			return hunk.lines.map((line) => {
+				const text = line.slice(1);
+				switch (line[0]) {
+					case "+": return {
+						kind: "add",
+						old: void 0,
+						new: newNo++,
+						text
+					};
+					case "-": return {
+						kind: "del",
+						old: oldNo++,
+						new: void 0,
+						text
+					};
+					default: return {
+						kind: "context",
+						old: oldNo++,
+						new: newNo++,
+						text
 					};
 				}
-				if (entry[1] === root) return { ref: "#" };
-				const defUriPrefix = `#/${defsSegment}/`;
-				const defId = entry[1].schema.id ?? `__schema${ctx.counter++}`;
-				return {
-					defId,
-					ref: defUriPrefix + defId
-				};
+			});
+		}
+		/**
+		* Pair a hunk's lines for the side-by-side view: each run of deletions is
+		* aligned with the run of additions that follows it, row by row, and context
+		* lines sit on both sides.
+		* @param hunk - a served hunk.
+		* @returns the rows in order.
+		*/
+		function splitRows(hunk) {
+			const rows = [];
+			let dels = [];
+			let adds = [];
+			const flush = () => {
+				for (let at = 0; at < Math.max(dels.length, adds.length); at += 1) {
+					const left = dels[at];
+					const right = adds[at];
+					rows.push({
+						...left === void 0 ? {} : { left },
+						...right === void 0 ? {} : { right }
+					});
+				}
+				dels = [];
+				adds = [];
 			};
-			const extractToDef = (entry) => {
-				if (entry[1].schema.$ref) return;
-				const seen = entry[1];
-				const { ref, defId } = makeURI(entry);
-				seen.def = { ...seen.schema };
-				if (defId) seen.defId = defId;
-				const schema = seen.schema;
-				for (const key in schema) delete schema[key];
-				schema.$ref = ref;
-			};
-			if (ctx.cycles === "throw") for (const entry of ctx.seen.entries()) {
-				const seen = entry[1];
-				if (seen.cycle) throw new Error(`Cycle detected: #/${seen.cycle?.join("/")}/<root>
-
-Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.`);
+			for (const row of hunkRows(hunk)) if (row.kind === "del") dels.push({
+				no: row.old,
+				text: row.text,
+				kind: "del"
+			});
+			else if (row.kind === "add") adds.push({
+				no: row.new,
+				text: row.text,
+				kind: "add"
+			});
+			else {
+				flush();
+				rows.push({
+					left: {
+						no: row.old,
+						text: row.text,
+						kind: "context"
+					},
+					right: {
+						no: row.new,
+						text: row.text,
+						kind: "context"
+					}
+				});
 			}
-			for (const entry of ctx.seen.entries()) {
-				const seen = entry[1];
-				if (schema === entry[0]) {
-					extractToDef(entry);
-					continue;
+			flush();
+			return rows;
+		}
+		/**
+		* The hunks to draw, cut at {@link MAX_RENDERED_LINES} lines in total.
+		* @param hunks - served hunks.
+		* @returns the hunks with the last one shortened as needed, and whether anything was cut.
+		*/
+		function renderedHunks(hunks) {
+			let budget = MAX_RENDERED_LINES;
+			const kept = [];
+			for (const hunk of hunks) {
+				if (budget === 0) return {
+					hunks: kept,
+					truncated: true
+				};
+				kept.push(hunk.lines.length <= budget ? hunk : {
+					...hunk,
+					lines: hunk.lines.slice(0, budget)
+				});
+				budget -= Math.min(budget, hunk.lines.length);
+			}
+			return {
+				hunks: kept,
+				truncated: hunks.some((hunk, at) => kept[at] !== hunk)
+			};
+		}
+		/** The one-line fact about a text comparison worth stating above its hunks, if any. */
+		function noteOf(diff) {
+			if (!diff.before) return "diff.created";
+			if (!diff.after) return "diff.deleted";
+			if (diff.hunks.length === 0) return "diff.unchanged";
+		}
+		/**
+		* Render a file comparison with the same states and highlighting in previews and review tabs.
+		* Addition-only and deletion-only comparisons use one column without changing the requested layout.
+		* @param props - comparison state, layout choices, retry action, and localized copy.
+		* @returns the comparison or its loading, unavailable, or error state.
+		*/
+		function FileDiff({ state, split, wrap, retry, t }) {
+			if (state === void 0 || state === "loading") return (0, react_jsx_runtime.jsx)("p", {
+				className: FileDiff_module_css_default.status,
+				role: "status",
+				children: t("diff.loading")
+			});
+			if (state === "missing") return (0, react_jsx_runtime.jsx)("p", {
+				className: FileDiff_module_css_default.status,
+				children: t("diff.missing")
+			});
+			if (state === "error") return (0, react_jsx_runtime.jsxs)("div", {
+				className: FileDiff_module_css_default.status,
+				children: [(0, react_jsx_runtime.jsx)("span", { children: t("diff.error") }), (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
+					size: "sm",
+					onClick: retry,
+					children: t("presented.retry")
+				})]
+			});
+			if (state.kind === "binary") return (0, react_jsx_runtime.jsx)("p", {
+				className: FileDiff_module_css_default.status,
+				children: t("diff.binary")
+			});
+			if (state.kind === "oversized") return (0, react_jsx_runtime.jsx)("p", {
+				className: FileDiff_module_css_default.status,
+				children: t("diff.oversized")
+			});
+			const oneSided = state.hunks.some((hunk) => hunk.lines.some((line) => line.startsWith("+"))) !== state.hunks.some((hunk) => hunk.lines.some((line) => line.startsWith("-")));
+			return (0, react_jsx_runtime.jsx)(TextDiff, {
+				diff: state,
+				split: split && !oneSided,
+				wrap,
+				t
+			});
+		}
+		/** The kind a paired row carries: a deletion or addition on either side, otherwise context. */
+		function splitRowKind(row) {
+			return row.left?.kind === "del" ? "del" : row.right?.kind === "add" ? "add" : "context";
+		}
+		function hunkHeader(hunk) {
+			return `@@ -${hunk.oldStart},${hunk.oldLines} +${hunk.newStart},${hunk.newLines} @@`;
+		}
+		/**
+		* The side-by-side view without wrapping: two columns that clip their long
+		* lines and scroll together on both axes, so a long line on one side never
+		* runs under the other and both sides show the same rows and columns of text.
+		* Every line is one fixed-height row, which keeps the sides aligned.
+		* The columns suppress elastic overscroll while retaining native in-range scrolling.
+		*/
+		function SplitColumns({ hunks, highlights }) {
+			const paired = (0, react.useMemo)(() => hunks.map((hunk) => ({
+				header: hunkHeader(hunk),
+				rows: splitRows(hunk)
+			})), [hunks]);
+			const columns = (0, react.useRef)({
+				left: null,
+				right: null
+			});
+			const offsets = (0, react.useRef)({
+				left: {
+					scrollLeft: 0,
+					scrollTop: 0
+				},
+				right: {
+					scrollLeft: 0,
+					scrollTop: 0
 				}
-				if (ctx.external) {
-					const ext = ctx.external.registry.get(entry[0])?.id;
-					if (schema !== entry[0] && ext) {
-						extractToDef(entry);
-						continue;
-					}
+			});
+			const follow = (side) => (event) => {
+				const peer = side === "left" ? "right" : "left";
+				const other = columns.current[peer];
+				/* v8 ignore next -- Both column refs are attached before browser scroll events can run. */
+				if (other === null) return;
+				for (const axis of ["scrollLeft", "scrollTop"]) {
+					const value = event.currentTarget[axis];
+					if (offsets.current[side][axis] === value) continue;
+					offsets.current[side][axis] = value;
+					other[axis] = value;
+					offsets.current[peer][axis] = other[axis];
 				}
-				if (ctx.metadataRegistry.get(entry[0])?.id) {
-					extractToDef(entry);
-					continue;
-				}
-				if (seen.cycle) {
-					extractToDef(entry);
-					continue;
-				}
-				if (seen.count > 1) {
-					if (ctx.reused === "ref") {
-						extractToDef(entry);
-						continue;
-					}
-				}
+			};
+			return (0, react_jsx_runtime.jsx)("div", {
+				className: FileDiff_module_css_default.columns,
+				children: ["left", "right"].map((side) => (0, react_jsx_runtime.jsx)("div", {
+					className: FileDiff_module_css_default.column,
+					"data-diff-side": side,
+					ref: (element) => {
+						columns.current[side] = element;
+					},
+					onScroll: follow(side),
+					children: paired.map((hunk, position) => (0, react_jsx_runtime.jsxs)("section", {
+						className: FileDiff_module_css_default.hunk,
+						children: [(0, react_jsx_runtime.jsx)("div", {
+							className: FileDiff_module_css_default.hunkHeader,
+							"data-diff-hunk-header": true,
+							children: hunk.header
+						}), hunk.rows.map((row, at) => {
+							const cell = row[side];
+							const spans = cell === void 0 ? void 0 : highlights[position]?.[side === "left" ? "old" : "new"]?.get(cell.no);
+							return (0, react_jsx_runtime.jsxs)("div", {
+								className: `${FileDiff_module_css_default.sideLine} ${cell === void 0 ? FileDiff_module_css_default.empty : FileDiff_module_css_default[cell.kind]}`,
+								"data-diff-line": splitRowKind(row),
+								children: [(0, react_jsx_runtime.jsx)("span", {
+									className: FileDiff_module_css_default.number,
+									children: cell?.no ?? ""
+								}), (0, react_jsx_runtime.jsx)(DiffText, {
+									text: cell?.text ?? "",
+									spans
+								})]
+							}, at);
+						})]
+					}, position))
+				}, side))
+			});
+		}
+		/** The hunks of a text comparison with their line numbers, unified or side by side. */
+		function TextDiff({ diff, split, wrap, t }) {
+			const note = noteOf(diff);
+			const { hunks, truncated } = (0, react.useMemo)(() => renderedHunks(diff.hunks), [diff.hunks]);
+			const highlighter = (0, _deepseek_ai_dsh_client_ui_primitives.useCodeHighlighter)((0, _deepseek_ai_dsh_client_ui_primitives.languageForPath)(diff.path));
+			const highlights = (0, react.useMemo)(() => hunks.map((hunk) => hunkHighlights(hunk, highlighter)), [hunks, highlighter]);
+			return (0, react_jsx_runtime.jsxs)("div", {
+				className: FileDiff_module_css_default.body,
+				"data-review-view": split ? "split" : "unified",
+				"data-review-wrap": wrap || void 0,
+				children: [
+					note !== void 0 && (0, react_jsx_runtime.jsx)("p", {
+						className: FileDiff_module_css_default.note,
+						"data-diff-note": hunks.length === 0 ? "empty" : "metadata",
+						children: t(note)
+					}),
+					diff.coarse && (0, react_jsx_runtime.jsx)("p", {
+						className: FileDiff_module_css_default.note,
+						"data-diff-coarse": true,
+						children: t("diff.coarse")
+					}),
+					truncated && (0, react_jsx_runtime.jsx)("p", {
+						className: FileDiff_module_css_default.note,
+						"data-diff-truncated": true,
+						children: t("diff.truncated", { count: String(5e3) })
+					}),
+					split && !wrap ? (0, react_jsx_runtime.jsx)(SplitColumns, {
+						hunks,
+						highlights
+					}) : hunks.map((hunk, position) => {
+						const highlighted = highlights[position];
+						return (0, react_jsx_runtime.jsxs)("section", {
+							className: FileDiff_module_css_default.hunk,
+							children: [(0, react_jsx_runtime.jsx)("div", {
+								className: FileDiff_module_css_default.hunkHeader,
+								"data-diff-hunk-header": true,
+								children: hunkHeader(hunk)
+							}), split ? splitRows(hunk).map((row, at) => (0, react_jsx_runtime.jsxs)("div", {
+								className: FileDiff_module_css_default.splitLine,
+								"data-diff-line": splitRowKind(row),
+								children: [(0, react_jsx_runtime.jsxs)("span", {
+									className: `${FileDiff_module_css_default.cell} ${row.left === void 0 ? FileDiff_module_css_default.empty : FileDiff_module_css_default[row.left.kind]}`,
+									children: [(0, react_jsx_runtime.jsx)("span", {
+										className: FileDiff_module_css_default.number,
+										children: row.left?.no ?? ""
+									}), (0, react_jsx_runtime.jsx)(DiffText, {
+										text: row.left?.text ?? "",
+										spans: row.left === void 0 ? void 0 : highlighted?.old?.get(row.left.no)
+									})]
+								}), (0, react_jsx_runtime.jsxs)("span", {
+									className: `${FileDiff_module_css_default.cell} ${row.right === void 0 ? FileDiff_module_css_default.empty : FileDiff_module_css_default[row.right.kind]}`,
+									children: [(0, react_jsx_runtime.jsx)("span", {
+										className: FileDiff_module_css_default.number,
+										children: row.right?.no ?? ""
+									}), (0, react_jsx_runtime.jsx)(DiffText, {
+										text: row.right?.text ?? "",
+										spans: row.right === void 0 ? void 0 : highlighted?.new?.get(row.right.no)
+									})]
+								})]
+							}, at)) : hunkRows(hunk).map((row, at) => (0, react_jsx_runtime.jsxs)("div", {
+								className: `${FileDiff_module_css_default.line} ${FileDiff_module_css_default[row.kind]}`,
+								"data-diff-line": row.kind,
+								children: [
+									(0, react_jsx_runtime.jsx)("span", {
+										className: FileDiff_module_css_default.number,
+										children: row.old ?? ""
+									}),
+									(0, react_jsx_runtime.jsx)("span", {
+										className: FileDiff_module_css_default.number,
+										children: row.new ?? ""
+									}),
+									(0, react_jsx_runtime.jsx)("span", {
+										className: FileDiff_module_css_default.sign,
+										children: row.kind === "add" ? "+" : row.kind === "del" ? "-" : " "
+									}),
+									(0, react_jsx_runtime.jsx)(DiffText, {
+										text: row.text,
+										spans: row.kind === "add" ? highlighted?.new?.get(row.new) : highlighted?.old?.get(row.old)
+									})
+								]
+							}, at))]
+						}, position);
+					})
+				]
+			});
+		}
+		//#endregion
+		//#region ../../core/session/lib/types/surface.js
+		/** Runtime counterpart of the message-producing event union. */
+		const SURFACE_EVENT_TYPES = new Set([
+			"system/message",
+			"developer/message",
+			"user/message",
+			"assistant/message",
+			"tool/result"
+		]);
+		/**
+		* Narrow an event to a surface-eligible event carrying its required marker.
+		* @param event - event to test.
+		* @returns true when both the type and marker identify a surface event.
+		*/
+		function isSurfaceEvent(event) {
+			if (!SURFACE_EVENT_TYPES.has(event.type)) return false;
+			return event.surfaceOp !== void 0;
+		}
+		/**
+		* Narrow an event to an append-origin surface event: one that entered the
+		* surface at its own log position and was never itself a replacement copy.
+		*
+		* The model-visible surface deliberately shadows replaced ranges, so it is the
+		* wrong source for a human transcript — a landed replacement would erase
+		* conversation the user already saw. Append-origin events are that transcript's
+		* durable source material; replacement copies stay model-only.
+		* @param event - event to test.
+		* @returns true when the event appended to the surface tail.
+		*/
+		function isAppendSurfaceEvent(event) {
+			return isSurfaceEvent(event) && event.surfaceOp === "append";
+		}
+		//#endregion
+		//#region lib/types/client/turn-deliverables.js
+		/**
+		* Turn-scoped produced-file Definition and readers. Client-only and
+		* model-free: produced paths come from successful first-party mutation calls,
+		* changed files from the Host's recorded git summary, and deliveries from
+		* `present`; never from presentation data or the closing prose.
+		*/
+		/**
+		* Extract the path from a supported first-party mutation call. Session
+		* `tool/call` events are root calls; PTC dispatch children do not enter this
+		* Definition independently.
+		* @param name - wire tool name.
+		* @param argsRaw - model-produced JSON arguments.
+		* @returns the mutation path, or null when the call is not a supported mutation.
+		*/
+		function mutationPath(name, argsRaw) {
+			let args;
+			try {
+				args = JSON.parse(argsRaw);
+			} catch {
+				return null;
+			}
+			if (!isRecord(args)) return null;
+			switch (name) {
+				case "write": return typeof args.content === "string" ? pathValue(args.file_path) : null;
+				case "edit": return validEditArgs(args) ? pathValue(args.file_path) : null;
+				case "str_replace_editor": return editorMutationPath(args);
+				default: return null;
 			}
 		}
-		function finalize(ctx, schema) {
-			const root = ctx.seen.get(schema);
-			if (!root) throw new Error("Unprocessed schema. This is a bug in Zod.");
-			const flattenRef = (zodSchema) => {
-				const seen = ctx.seen.get(zodSchema);
-				if (seen.ref === null) return;
-				const schema = seen.def ?? seen.schema;
-				const _cached = { ...schema };
-				const ref = seen.ref;
-				seen.ref = null;
-				if (ref) {
-					flattenRef(ref);
-					const refSeen = ctx.seen.get(ref);
-					const refSchema = refSeen.schema;
-					if (refSchema.$ref && (ctx.target === "draft-07" || ctx.target === "draft-04" || ctx.target === "openapi-3.0")) {
-						schema.allOf = schema.allOf ?? [];
-						schema.allOf.push(refSchema);
-					} else Object.assign(schema, refSchema);
-					Object.assign(schema, _cached);
-					if (zodSchema._zod.parent === ref) for (const key in schema) {
-						if (key === "$ref" || key === "allOf") continue;
-						if (!(key in _cached)) delete schema[key];
-					}
-					if (refSchema.$ref && refSeen.def) for (const key in schema) {
-						if (key === "$ref" || key === "allOf") continue;
-						if (key in refSeen.def && JSON.stringify(schema[key]) === JSON.stringify(refSeen.def[key])) delete schema[key];
-					}
-				}
-				const parent = zodSchema._zod.parent;
-				if (parent && parent !== ref) {
-					flattenRef(parent);
-					const parentSeen = ctx.seen.get(parent);
-					if (parentSeen?.schema.$ref) {
-						schema.$ref = parentSeen.schema.$ref;
-						if (parentSeen.def) for (const key in schema) {
-							if (key === "$ref" || key === "allOf") continue;
-							if (key in parentSeen.def && JSON.stringify(schema[key]) === JSON.stringify(parentSeen.def[key])) delete schema[key];
-						}
-					}
-				}
-				ctx.override({
-					zodSchema,
-					jsonSchema: schema,
-					path: seen.path ?? []
-				});
-			};
-			for (const entry of [...ctx.seen.entries()].reverse()) flattenRef(entry[0]);
-			const result = {};
-			if (ctx.target === "draft-2020-12") result.$schema = "https://json-schema.org/draft/2020-12/schema";
-			else if (ctx.target === "draft-07") result.$schema = "http://json-schema.org/draft-07/schema#";
-			else if (ctx.target === "draft-04") result.$schema = "http://json-schema.org/draft-04/schema#";
-			else if (ctx.target === "openapi-3.0") {}
-			if (ctx.external?.uri) {
-				const id = ctx.external.registry.get(schema)?.id;
-				if (!id) throw new Error("Schema is missing an `id` property");
-				result.$id = ctx.external.uri(id);
+		/** Validate the fields that an `edit` execution requires. */
+		function validEditArgs(args) {
+			return typeof args.old_string === "string" && args.old_string.length > 0 && typeof args.new_string === "string" && args.old_string !== args.new_string && (args.replace_all === void 0 || typeof args.replace_all === "boolean");
+		}
+		/** Extract a path only from a complete mutating editor command. */
+		function editorMutationPath(args) {
+			const path = pathValue(args.path);
+			if (path === null) return null;
+			switch (args.command) {
+				case "create": return typeof args.file_text === "string" ? path : null;
+				case "str_replace": return typeof args.old_str === "string" && args.old_str.length > 0 && (args.new_str === void 0 || typeof args.new_str === "string") ? path : null;
+				case "insert": return typeof args.insert_line === "number" && Number.isInteger(args.insert_line) && args.insert_line >= 0 && typeof args.new_str === "string" ? path : null;
+				default: return null;
 			}
-			Object.assign(result, root.def ?? root.schema);
-			const rootMetaId = ctx.metadataRegistry.get(schema)?.id;
-			if (rootMetaId !== void 0 && result.id === rootMetaId) delete result.id;
-			const defs = ctx.external?.defs ?? {};
-			for (const entry of ctx.seen.entries()) {
-				const seen = entry[1];
-				if (seen.def && seen.defId) {
-					if (seen.def.id === seen.defId) delete seen.def.id;
-					defs[seen.defId] = seen.def;
-				}
+		}
+		/** A non-blank path preserves the exact spelling supplied to the tool. */
+		function pathValue(value) {
+			return typeof value === "string" && value.trim().length > 0 ? value : null;
+		}
+		/** Narrow parsed JSON to an argument object. */
+		function isRecord(value) {
+			return typeof value === "object" && value !== null && !Array.isArray(value);
+		}
+		/**
+		* Files produced by one Turn data value.
+		*
+		* The source is the arguments of successful `write`, `edit`, and mutating
+		* `str_replace_editor` calls, not the closing prose: a produced file must be
+		* listed whether or not the model remembered to name it. Reads, unsupported
+		* tools, malformed calls, and failed results contribute nothing. Paths keep
+		* first-seen order and appear once, so a file written and then edited in the
+		* same turn is one entry.
+		*
+		* The Conversation Location index owns turn membership before this function
+		* runs, so paths cannot spill across turns and this derivation does not infer
+		* boundaries from neighboring presentation Nodes.
+		* @param data - engine-published Deliverables data for one Turn.
+		* @param seq - closing Assistant seq; later Tool settlements are excluded.
+		* @returns Produced paths in first-seen order; empty when the turn wrote nothing.
+		*/
+		function producedForClosing(data, seq = Number.POSITIVE_INFINITY) {
+			if (data === void 0) return [];
+			const paths = [];
+			const seen = /* @__PURE__ */ new Set();
+			for (const produced of data.produced) {
+				if (produced.seq > seq || seen.has(produced.path)) continue;
+				seen.add(produced.path);
+				paths.push(produced.path);
 			}
-			if (ctx.external) {} else if (Object.keys(defs).length > 0) if (ctx.target === "draft-2020-12") result.$defs = defs;
-			else result.definitions = defs;
-			try {
-				const finalized = JSON.parse(JSON.stringify(result));
-				Object.defineProperty(finalized, "~standard", {
+			return paths;
+		}
+		/**
+		* Claim the turn-tail chain only when its closing turn produced files.
+		* @param owner - Turn-tail owner currency for the closing assistant.
+		* @returns Produced paths as the component's match, or null to decline before mount.
+		*/
+		function selectProducedFiles(owner) {
+			const paths = producedForClosing(owner.turn.data.get("deliverables"), owner.seq);
+			return paths.length === 0 ? null : paths;
+		}
+		/** Turn-local successful mutation accumulator; it publishes no view Node. */
+		const deliverablesDefinition = {
+			kind: "deliverables",
+			match: (event) => {
+				if (event.type === "turn/start") return {
+					id: String(event.data.turn),
+					role: "start"
+				};
+				if (event.type === "tool/call") return {
+					id: String(event.data.turn),
+					role: "update"
+				};
+				if (event.type === "deliverables/presented") return isPresentedData(event.data) ? {
+					id: String(event.data.turn),
+					role: "update"
+				} : null;
+				if (event.type === "workspace/changes") return isChangesEvent(event.data) ? {
+					id: String(event.data.turn),
+					role: "update"
+				} : null;
+				if (event.type === "tool/result" && isAppendSurfaceEvent(event)) return {
+					id: String(event.data.turn),
+					role: "update"
+				};
+				return null;
+			},
+			start: (_context, match) => {
+				if (match.event.type !== "turn/start") throw new Error("deliverables start requires turn/start");
+				return {
+					turn: match.event.data.turn,
+					calls: /* @__PURE__ */ new Map(),
+					produced: []
+				};
+			},
+			update: (context, match) => {
+				if (match.event.type === "workspace/changes") return {
+					...context.state,
+					changes: { seq: match.event.seq }
+				};
+				if (match.event.type === "deliverables/presented") {
+					const { files } = match.event.data;
+					const seq = match.event.seq;
+					const presented = [];
+					for (let index = 0; index < files.length; index += 1) {
+						const file = files[index];
+						if (isPresentedFile(file)) presented.push({
+							...file,
+							seq,
+							index
+						});
+					}
+					if (presented.length === 0) return context.state;
+					return {
+						...context.state,
+						presented: [...context.state.presented ?? [], ...presented]
+					};
+				}
+				if (match.event.type === "tool/call") {
+					const calls = new Map(context.state.calls);
+					calls.set(String(match.event.data.callId), mutationPath(match.event.data.name, match.event.data.arguments));
+					return {
+						...context.state,
+						calls
+					};
+				}
+				if (match.event.type !== "tool/result") return context.state;
+				if (match.event.data.message.isError === true) return context.state;
+				const callId = String(match.event.data.message.source.callId);
+				const path = context.state.calls.get(callId);
+				return path === null || path === void 0 ? context.state : {
+					...context.state,
+					produced: [...context.state.produced, {
+						seq: match.event.seq,
+						path
+					}]
+				};
+			},
+			buildLocationData: (context, scope, previous) => {
+				if (scope !== "turn" || context.state === void 0) return null;
+				if (previous?.kind === "turn" && previous.turn === context.state.turn && previous.key === "deliverables" && previous.value.produced === context.state.produced && previous.value.presented === context.state.presented && previous.value.changes === context.state.changes) return previous;
+				return {
+					kind: "turn",
+					turn: context.state.turn,
+					key: "deliverables",
 					value: {
-						...schema["~standard"],
-						jsonSchema: {
-							input: createStandardJSONSchemaMethod(schema, "input", ctx.processors),
-							output: createStandardJSONSchemaMethod(schema, "output", ctx.processors)
+						produced: context.state.produced,
+						...context.state.presented === void 0 ? {} : { presented: context.state.presented },
+						...context.state.changes === void 0 ? {} : { changes: context.state.changes }
+					}
+				};
+			}
+		};
+		/**
+		* The turn's latest change announcement.
+		* @param owner - closing turn.
+		* @returns the announcement, or null when the Host recorded none.
+		*/
+		function changesForClosing(owner) {
+			return owner.turn.data.get("deliverables")?.changes ?? null;
+		}
+		/**
+		* Select the latest declaration of each path before the closing reply.
+		* @param owner - closing turn and sequence.
+		* @returns replayable deliveries in first-seen path order.
+		*/
+		function presentedForClosing(owner) {
+			const files = /* @__PURE__ */ new Map();
+			for (const file of owner.turn.data.get("deliverables")?.presented ?? []) if (file.seq < owner.seq) files.set(file.path, file);
+			return [...files.values()];
+		}
+		/**
+		* Resolves inline-code references against one turn's produced or delivered
+		* paths. Exact paths resolve directly; a basename resolves only when exactly
+		* one supplied path has that basename. Ambiguous and unknown tokens stay inert.
+		* @param paths - The turn's produced or delivered paths, already deduplicated.
+		* @param openFile - The chat view's file opener.
+		* @param label - Localizes the accessible open-label for a resolved path.
+		* @returns The resolver MarkdownText consumes; the full path rides `title`,
+		* the same disambiguator the row's chips carry.
+		*/
+		function producedFileMentions(paths, openFile, label) {
+			return { resolve(value) {
+				const path = paths.includes(value) ? value : onlyPathWithBasename(paths, value);
+				if (path === void 0) return void 0;
+				return {
+					open: () => {
+						openFile(path);
+					},
+					label: label(path),
+					title: path
+				};
+			} };
+		}
+		/** The single supplied path whose basename is exactly `value`, else undefined. */
+		function onlyPathWithBasename(paths, value) {
+			const matches = paths.filter((path) => basename(path) === value);
+			return matches.length === 1 ? matches[0] : void 0;
+		}
+		//#endregion
+		//#region \0dsh-css:D:\deepseek-harness\packages\client\ui-deliverables\src\client\ChangedFiles.module.css.mjs
+		const css$2 = ".aaWu5W_card{--changes-fill:var(--dsw-static-neutral-50);--changes-hover:var(--dsw-static-neutral-100);border:.5px solid var(--dsw-alias-border-l2);border-radius:var(--dsw-radius-lg);background:var(--dsw-alias-bg-layer-1);min-width:0;color:var(--dsw-alias-label-primary);flex-direction:column;margin-top:4px;display:flex;overflow:hidden}.aaWu5W_card[data-single=true]{border-color:var(--dsw-alias-border-l1)}body[data-ds-dark-theme] .aaWu5W_card{--changes-fill:var(--dsw-static-neutral-850);--changes-hover:var(--dsw-static-neutral-800)}.aaWu5W_header{box-sizing:border-box;background:var(--changes-fill);width:100%;min-width:0;height:60px;color:inherit;font:inherit;text-align:left;border:0;align-items:center;gap:10px;margin:0;padding:8px 10px;display:flex}button.aaWu5W_header{cursor:pointer;transition:background-color .12s}button.aaWu5W_header:hover:not(:disabled),button.aaWu5W_header:focus-visible{background:var(--changes-hover)}button.aaWu5W_header:focus-visible{box-shadow:inset 0 0 0 2px var(--dsw-focus-ring-color,var(--dsw-alias-state-business-primary));outline:none}button.aaWu5W_header:disabled{cursor:progress}.aaWu5W_tile{box-sizing:border-box;border:.5px solid var(--dsw-alias-border-l1);border-radius:var(--dsw-radius-lg);background:color-mix(in srgb, var(--dsw-static-neutral-00) 50%, transparent);flex:none;place-items:center;width:40px;height:40px;display:grid}body[data-ds-dark-theme] .aaWu5W_tile{background:color-mix(in srgb, var(--dsw-static-neutral-00) 5%, transparent)}.aaWu5W_titles{flex-direction:column;flex:1;min-width:0;display:flex}.aaWu5W_title{text-overflow:ellipsis;white-space:nowrap;font-size:13px;font-weight:500;line-height:20px;overflow:hidden}.aaWu5W_stat{color:var(--dsw-alias-label-tertiary);font-size:10px;line-height:16px;display:inline-flex}.aaWu5W_statCounts{font-family:var(--ds-font-family-code);gap:6px;display:inline-flex}.aaWu5W_previewHint,.aaWu5W_header:hover .aaWu5W_statCounts,.aaWu5W_header:focus-visible .aaWu5W_statCounts{display:none}.aaWu5W_header:hover .aaWu5W_previewHint,.aaWu5W_header:focus-visible .aaWu5W_previewHint{display:inline}.aaWu5W_stat[data-error=true],.aaWu5W_counts[data-error=true]{color:var(--dsw-alias-state-error-primary)}.aaWu5W_added{color:var(--dsw-alias-state-success-primary)}.aaWu5W_deleted{color:var(--dsw-alias-state-error-primary)}.aaWu5W_list{border-top:.5px solid var(--dsw-alias-border-l2);margin:0;padding:0;list-style:none}.aaWu5W_row{box-sizing:border-box;width:100%;min-width:0;min-height:24px;color:var(--dsw-alias-label-tertiary);cursor:pointer;font-family:var(--ds-font-family-code);text-align:left;background:0 0;border:0;justify-content:space-between;align-items:center;gap:10px;margin:0;padding:7px 18px 7px 14px;font-size:11px;line-height:18px;display:flex}.aaWu5W_row:hover:not(:disabled),.aaWu5W_row:focus-visible{background:var(--dsw-alias-interactive-bg-hover)}.aaWu5W_row:focus-visible{box-shadow:inset 0 0 0 2px var(--dsw-focus-ring-color,var(--dsw-alias-state-business-primary));outline:none}.aaWu5W_row:disabled{cursor:progress}.aaWu5W_path{min-width:0;font-family:var(--dsw-font-family);text-overflow:ellipsis;white-space:nowrap;font-size:12px;overflow:hidden}.aaWu5W_counts{white-space:nowrap;color:var(--dsw-alias-label-tertiary);flex:none;gap:6px;display:inline-flex}.aaWu5W_toggle{box-sizing:border-box;width:100%;color:var(--dsw-alias-label-tertiary);cursor:pointer;font:inherit;text-align:left;background:0 0;border:0;justify-content:flex-start;align-items:center;gap:4px;margin:0;padding:10px 18px 10px 14px;font-size:12px;line-height:18px;display:inline-flex}.aaWu5W_toggle:hover{background:var(--dsw-alias-interactive-bg-hover)}.aaWu5W_toggle svg{flex:none;width:14px;height:14px}@media (pointer:coarse){.aaWu5W_row,.aaWu5W_toggle{min-height:44px}}.aaWu5W_preview{max-height:100%;overflow:hidden}.aaWu5W_previewPath{min-width:0;color:var(--dsw-alias-label-tertiary);font-family:var(--ds-font-family-code);white-space:nowrap;flex:auto;font-size:12px;line-height:20px;overflow:auto hidden}.aaWu5W_preview [data-diff-note=metadata],.aaWu5W_preview [data-diff-hunk-header]{display:none}";
+		const tagId$2 = "@deepseek-ai/dsh-client-ui-deliverables/ChangedFiles.module.css";
+		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId$2) + "]") === null) {
+			const tag = document.createElement("style");
+			tag.dataset.plugin = "@deepseek-ai/dsh-client-ui-deliverables";
+			tag.dataset.pluginCss = tagId$2;
+			tag.textContent = css$2;
+			document.head.appendChild(tag);
+		}
+		var ChangedFiles_module_css_default = {
+			"added": "aaWu5W_added",
+			"card": "aaWu5W_card",
+			"counts": "aaWu5W_counts",
+			"deleted": "aaWu5W_deleted",
+			"header": "aaWu5W_header",
+			"list": "aaWu5W_list",
+			"path": "aaWu5W_path",
+			"preview": "aaWu5W_preview",
+			"previewHint": "aaWu5W_previewHint",
+			"previewPath": "aaWu5W_previewPath",
+			"row": "aaWu5W_row",
+			"stat": "aaWu5W_stat",
+			"statCounts": "aaWu5W_statCounts",
+			"tile": "aaWu5W_tile",
+			"title": "aaWu5W_title",
+			"titles": "aaWu5W_titles",
+			"toggle": "aaWu5W_toggle"
+		};
+		//#endregion
+		//#region lib/types/client/ChangedFiles.js
+		/** Turn changes use a compact single-file card or a header with a folded file list. */
+		/** Rows shown before the fold; the design's summary height for a closing message. */
+		const COLLAPSED_ROWS = 4;
+		const GROUPED$1 = new Intl.NumberFormat("en-US");
+		/** Added and deleted line counts in the card's colors. */
+		function Counts$1({ added, deleted, t }) {
+			return (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [(0, react_jsx_runtime.jsx)("span", {
+				className: ChangedFiles_module_css_default.added,
+				children: t("changes.added", { count: GROUPED$1.format(added) })
+			}), (0, react_jsx_runtime.jsx)("span", {
+				className: ChangedFiles_module_css_default.deleted,
+				children: t("changes.deleted", { count: GROUPED$1.format(deleted) })
+			})] });
+		}
+		/**
+		* Render one turn's changed files. The header opens the turn's review in the
+		* right Sidebar on its first file. A single file uses only the header; it and
+		* multi-file rows preview their comparison after a 500ms hover.
+		* @param props - the recorded summary, the review opener, and localized copy.
+		* @returns the card.
+		*/
+		function ChangedFiles({ changes, cwd, openReview, t, sessionId, useChangesDiff, loadChangesDiff }) {
+			const cardRef = (0, react.useRef)(null);
+			const pathDescriptionId = (0, react.useId)();
+			const [expanded, setExpanded] = (0, react.useState)(false);
+			const singleFile = changes.total === 1 ? changes.files[0] : void 0;
+			const foldable = changes.files.length > COLLAPSED_ROWS;
+			const rows = foldable && !expanded ? changes.files.slice(0, COLLAPSED_ROWS) : changes.files;
+			const header = (0, react_jsx_runtime.jsxs)("button", {
+				type: "button",
+				className: ChangedFiles_module_css_default.header,
+				"aria-label": singleFile === void 0 ? t("changes.openReview") : t("changes.viewDiff", { name: singleFile.display }),
+				"aria-describedby": singleFile === void 0 ? void 0 : pathDescriptionId,
+				onClick: () => {
+					openReview(0);
+				},
+				children: [(0, react_jsx_runtime.jsx)("span", {
+					className: ChangedFiles_module_css_default.tile,
+					children: singleFile === void 0 ? (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.FileTypeIcon, {
+						kind: "code",
+						size: 20
+					}) : (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.FileTypeIcon, {
+						path: singleFile.path,
+						size: 20
+					})
+				}), (0, react_jsx_runtime.jsxs)("span", {
+					className: ChangedFiles_module_css_default.titles,
+					children: [(0, react_jsx_runtime.jsx)("span", {
+						className: ChangedFiles_module_css_default.title,
+						children: singleFile === void 0 ? t("changes.title", { count: String(changes.total) }) : t("changes.singleTitle", { name: basename(singleFile.path) })
+					}), (0, react_jsx_runtime.jsxs)("span", {
+						className: ChangedFiles_module_css_default.stat,
+						children: [(0, react_jsx_runtime.jsx)("span", {
+							className: ChangedFiles_module_css_default.statCounts,
+							children: singleFile?.binary === true ? t("changes.binary") : singleFile?.oversized === true ? t("changes.oversized") : (0, react_jsx_runtime.jsx)(Counts$1, {
+								t,
+								added: changes.added,
+								deleted: changes.deleted
+							})
+						}), (0, react_jsx_runtime.jsx)("span", {
+							className: ChangedFiles_module_css_default.previewHint,
+							children: t("presented.preview")
+						})]
+					})]
+				})]
+			});
+			return (0, react_jsx_runtime.jsxs)("div", {
+				ref: cardRef,
+				className: ChangedFiles_module_css_default.card,
+				"data-changed-files": true,
+				"data-single": singleFile !== void 0 || void 0,
+				children: [
+					singleFile === void 0 ? header : (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [(0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.HoverCard, {
+						variant: "preview",
+						widthAnchorRef: cardRef,
+						openDelayMs: 500,
+						anchor: header,
+						content: (0, react_jsx_runtime.jsx)(ChangedFilePreview, {
+							sessionId,
+							seq: changes.seq,
+							index: 0,
+							display: resolveWorkspacePath(cwd, singleFile.path),
+							useChangesDiff,
+							loadChangesDiff,
+							t
+						})
+					}), (0, react_jsx_runtime.jsx)("span", {
+						id: pathDescriptionId,
+						hidden: true,
+						children: resolveWorkspacePath(cwd, singleFile.path)
+					})] }),
+					singleFile === void 0 && (0, react_jsx_runtime.jsx)("ul", {
+						className: ChangedFiles_module_css_default.list,
+						children: rows.map((file, index) => (0, react_jsx_runtime.jsxs)("li", { children: [(0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.HoverCard, {
+							variant: "preview",
+							widthAnchorRef: cardRef,
+							openDelayMs: 500,
+							content: (0, react_jsx_runtime.jsx)(ChangedFilePreview, {
+								sessionId,
+								seq: changes.seq,
+								index,
+								display: resolveWorkspacePath(cwd, file.path),
+								useChangesDiff,
+								loadChangesDiff,
+								t
+							}),
+							anchor: (0, react_jsx_runtime.jsxs)("button", {
+								type: "button",
+								className: ChangedFiles_module_css_default.row,
+								"aria-label": t("changes.viewDiff", { name: file.display }),
+								"aria-describedby": `${pathDescriptionId}-${index}`,
+								onClick: () => {
+									openReview(index);
+								},
+								children: [(0, react_jsx_runtime.jsx)("span", {
+									className: ChangedFiles_module_css_default.path,
+									children: file.display
+								}), (0, react_jsx_runtime.jsx)("span", {
+									className: ChangedFiles_module_css_default.counts,
+									children: file.binary === true ? t("changes.binary") : file.oversized === true ? t("changes.oversized") : (0, react_jsx_runtime.jsx)(Counts$1, {
+										t,
+										added: file.added,
+										deleted: file.deleted
+									})
+								})]
+							})
+						}), (0, react_jsx_runtime.jsx)("span", {
+							id: `${pathDescriptionId}-${index}`,
+							hidden: true,
+							children: resolveWorkspacePath(cwd, file.path)
+						})] }, file.display))
+					}),
+					foldable && (0, react_jsx_runtime.jsxs)("button", {
+						type: "button",
+						className: ChangedFiles_module_css_default.toggle,
+						"aria-expanded": expanded,
+						"aria-label": t(expanded ? "changes.collapseAria" : "changes.expandAria", { count: String(changes.files.length) }),
+						onClick: () => {
+							setExpanded((value) => !value);
+						},
+						children: [(0, react_jsx_runtime.jsx)("span", { children: t(expanded ? "changes.collapse" : "changes.all", { count: String(changes.files.length) }) }), expanded ? (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconChevronUpOutlineRegular, {}) : (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconChevronDownOutlineRegular, {})]
+					})
+				]
+			});
+		}
+		/** Mounted only while its hover card is open, so passing over a row does not read a comparison. */
+		function ChangedFilePreview({ sessionId, seq, index, display, useChangesDiff, loadChangesDiff, t }) {
+			const state = useChangesDiff((value) => value[changesDiffUrl(sessionId, seq, index)]);
+			(0, react.useEffect)(() => {
+				if (state === void 0) loadChangesDiff(sessionId, seq, index);
+			}, [
+				state,
+				sessionId,
+				seq,
+				index,
+				loadChangesDiff
+			]);
+			return (0, react_jsx_runtime.jsxs)("div", {
+				className: `${FileDiff_module_css_default.root} ${ChangedFiles_module_css_default.preview}`,
+				"data-changes-hover-preview": true,
+				children: [(0, react_jsx_runtime.jsx)("div", {
+					className: FileDiff_module_css_default.header,
+					children: (0, react_jsx_runtime.jsx)("span", {
+						className: ChangedFiles_module_css_default.previewPath,
+						"data-changes-preview-path": true,
+						children: display
+					})
+				}), (0, react_jsx_runtime.jsx)(FileDiff, {
+					state,
+					split: false,
+					wrap: false,
+					t,
+					retry: () => {
+						loadChangesDiff(sessionId, seq, index);
+					}
+				})]
+			});
+		}
+		//#endregion
+		//#region \0dsh-css:D:\deepseek-harness\packages\client\ui-deliverables\src\client\Deliverables.module.css.mjs
+		const css$1 = ".wV53za_root{--deliverable-fill:var(--dsw-static-neutral-50);--deliverable-hover:var(--dsw-static-neutral-100);flex-direction:column;gap:16px;min-width:0;margin-top:4px;display:flex;container-type:inline-size}.wV53za_root[data-after-changes=true]{margin-top:0}body[data-ds-dark-theme] .wV53za_root{--deliverable-fill:var(--dsw-static-neutral-850);--deliverable-hover:var(--dsw-static-neutral-800)}.wV53za_hostStatus{color:var(--dsw-alias-label-secondary);align-items:center;gap:8px;font-size:12px;line-height:18px;display:flex}.wV53za_presented{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;min-width:0;display:grid}.wV53za_presented[data-single=true]{grid-template-columns:minmax(0,1fr)}.wV53za_file{box-sizing:border-box;border:.5px solid var(--dsw-alias-border-l1);border-radius:var(--dsw-radius-lg);background:var(--deliverable-fill);min-width:0;height:60px;color:var(--dsw-alias-label-primary);align-items:center;gap:10px;padding:8px 10px;transition:background-color .12s;display:flex;position:relative;overflow:hidden}.wV53za_file:hover{background:var(--deliverable-hover)}.wV53za_cardPreview{z-index:1;border-radius:inherit;cursor:pointer;background:0 0;border:0;width:100%;padding:0;position:absolute;inset:0}.wV53za_cardPreview:focus-visible{box-shadow:inset 0 0 0 2px var(--dsw-focus-ring-color,var(--dsw-alias-state-business-primary));outline:none}.wV53za_fileIcon{z-index:2;box-sizing:border-box;pointer-events:none;border:.5px solid var(--dsw-alias-border-l1);border-radius:var(--dsw-radius-lg);background:color-mix(in srgb, var(--dsw-static-neutral-00) 50%, transparent);width:40px;height:40px;color:var(--dsw-alias-link);flex:none;place-items:center;display:grid;position:relative;overflow:hidden}body[data-ds-dark-theme] .wV53za_fileIcon{background:color-mix(in srgb, var(--dsw-static-neutral-00) 5%, transparent)}.wV53za_fileBody{z-index:2;pointer-events:none;flex:1;justify-content:space-between;align-items:center;gap:12px;min-width:0;display:flex;position:relative}.wV53za_details{flex-direction:column;flex:1;justify-content:center;gap:2px;min-width:0;display:flex}.wV53za_fileName{text-overflow:ellipsis;white-space:nowrap;font-size:13px;font-weight:500;line-height:20px;overflow:hidden}.wV53za_description{color:var(--dsw-alias-label-tertiary);text-overflow:ellipsis;white-space:nowrap;font-size:10px;font-weight:400;line-height:16px;overflow:hidden}.wV53za_description[data-error=true]{color:var(--dsw-alias-state-error-primary)}.wV53za_previewHint,.wV53za_file:hover .wV53za_description:not([role=status]) .wV53za_secondaryText{display:none}.wV53za_file:hover .wV53za_description:not([role=status]) .wV53za_previewHint{display:inline}.wV53za_toggle{border-radius:var(--dsw-radius-sm);min-width:0;color:var(--dsw-alias-label-tertiary);cursor:pointer;font:inherit;background:0 0;border:0;align-self:center;align-items:center;gap:4px;padding:1px 11px;font-size:12px;line-height:18px;display:inline-flex}.wV53za_toggle:hover{background:var(--dsw-alias-interactive-bg-hover)}.wV53za_toggle svg{flex:none;width:14px;height:14px}@container (width<=620px){.wV53za_presented{grid-template-columns:minmax(0,1fr)}}.wV53za_actions{pointer-events:auto;flex:none;display:inline-flex}.wV53za_secondaryText[data-success]{animation-name:wV53za_success-fade;animation-timing-function:ease-out;animation-fill-mode:forwards}@keyframes wV53za_success-fade{to{opacity:0}}@media (prefers-reduced-motion:reduce){.wV53za_secondaryText[data-success]{animation-name:none}}";
+		const tagId$1 = "@deepseek-ai/dsh-client-ui-deliverables/Deliverables.module.css";
+		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId$1) + "]") === null) {
+			const tag = document.createElement("style");
+			tag.dataset.plugin = "@deepseek-ai/dsh-client-ui-deliverables";
+			tag.dataset.pluginCss = tagId$1;
+			tag.textContent = css$1;
+			document.head.appendChild(tag);
+		}
+		var Deliverables_module_css_default = {
+			"actions": "wV53za_actions",
+			"cardPreview": "wV53za_cardPreview",
+			"description": "wV53za_description",
+			"details": "wV53za_details",
+			"file": "wV53za_file",
+			"fileBody": "wV53za_fileBody",
+			"fileIcon": "wV53za_fileIcon",
+			"fileName": "wV53za_fileName",
+			"hostStatus": "wV53za_hostStatus",
+			"presented": "wV53za_presented",
+			"previewHint": "wV53za_previewHint",
+			"root": "wV53za_root",
+			"secondaryText": "wV53za_secondaryText",
+			"success-fade": "wV53za_success-fade",
+			"toggle": "wV53za_toggle"
+		};
+		//#endregion
+		//#region lib/types/client/PresentedFileCard.js
+		function cardDescription(description, fallback) {
+			const trimmed = description?.replace(/\s*(?:\([^()]*\)|（[^（）]*）)\s*$/u, "").trim();
+			return trimmed === void 0 || trimmed === "" ? fallback : trimmed;
+		}
+		/**
+		* Render independent file actions without nesting buttons inside a clickable card.
+		* @param props - durable file metadata, Sidebar preview, Host capabilities, gesture status, and localized copy.
+		* @returns the file card and its anchored action menu.
+		*/
+		function PresentedFileCard({ file, cwd, phase, host, onPreview, actions, t }) {
+			const succeeded = phase === "opened" || phase === "revealed";
+			const reveal = host?.fileManager ?? "directory";
+			const name = basename(file.path);
+			const metadata = (0, _deepseek_ai_dsh_client_ui_primitives.fileExtension)(name).toUpperCase() || t("presented.file");
+			const status = phase === void 0 ? cardDescription(file.description, metadata) : t(reveal === "directory" && phase === "revealed" ? "presented.directoryOpened" : reveal === "directory" && phase === "revealing" ? "presented.directoryOpening" : reveal === "directory" && phase === "revealError" ? "presented.directoryError" : `presented.${phase}`);
+			return (0, react_jsx_runtime.jsxs)("div", {
+				className: Deliverables_module_css_default.file,
+				"data-presented-file": true,
+				children: [
+					(0, react_jsx_runtime.jsx)("button", {
+						type: "button",
+						className: Deliverables_module_css_default.cardPreview,
+						title: resolveWorkspacePath(cwd, file.path),
+						"aria-label": t("presented.previewCard", { name: file.path }),
+						onClick: onPreview
+					}),
+					(0, react_jsx_runtime.jsx)("span", {
+						className: Deliverables_module_css_default.fileIcon,
+						children: (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.FileTypeIcon, {
+							path: file.path,
+							size: 20
+						})
+					}),
+					(0, react_jsx_runtime.jsxs)("div", {
+						className: Deliverables_module_css_default.fileBody,
+						children: [(0, react_jsx_runtime.jsxs)("div", {
+							className: Deliverables_module_css_default.details,
+							children: [(0, react_jsx_runtime.jsx)("span", {
+								className: Deliverables_module_css_default.fileName,
+								children: name
+							}), (0, react_jsx_runtime.jsxs)("span", {
+								className: Deliverables_module_css_default.description,
+								"data-presented-description": true,
+								role: phase === void 0 ? void 0 : "status",
+								"data-error": phase === "error" || phase === "revealError" || phase === "nativeUnavailable" ? true : void 0,
+								children: [(0, react_jsx_runtime.jsx)("span", {
+									className: Deliverables_module_css_default.secondaryText,
+									"data-success": succeeded || void 0,
+									style: succeeded ? {
+										animationDelay: `${PRESENTED_SUCCESS_HOLD_MS}ms`,
+										animationDuration: `200ms`
+									} : void 0,
+									children: status
+								}), (0, react_jsx_runtime.jsx)("span", {
+									className: Deliverables_module_css_default.previewHint,
+									children: t("presented.preview")
+								})]
+							})]
+						}), (0, react_jsx_runtime.jsx)("div", {
+							className: Deliverables_module_css_default.actions,
+							children: actions
+						})]
+					})
+				]
+			});
+		}
+		//#endregion
+		//#region lib/types/client/Deliverables.js
+		/** The changed-files card, shown only while the Host serves the turn's summary, and explicitly declared files for a closing turn. */
+		const COLLAPSED_PRESENTED_COUNT = 4;
+		/**
+		* Claim turns with a change announcement or declared files.
+		* @param owner - closing turn.
+		* @returns matched announcement and deliveries, or null for a turn with neither.
+		*/
+		function selectDeliverables(owner) {
+			const changes = changesForClosing(owner);
+			const presented = presentedForClosing(owner);
+			return changes === null && presented.length === 0 ? null : {
+				changes,
+				presented
+			};
+		}
+		/**
+		* Contribute file deliveries alongside other completed-Turn artifacts.
+		* @param props - closing Turn, file actions, and localized copy.
+		* @returns file rows, or null when the Turn declares none.
+		*/
+		function DeliverablesTail(props) {
+			const matched = selectDeliverables(props);
+			return matched === null ? null : (0, react_jsx_runtime.jsx)(Deliverables, {
+				...props,
+				matched
+			});
+		}
+		/**
+		* Render the changed-files card, once the Host has served the announced
+		* summary and it lists a file, and shared native opening controls for declared
+		* files. A summary the Host no longer serves leaves no card.
+		* @param props - matched announcement and files, workspace opener, and localized copy.
+		* @returns the closing turn's file rows.
+		*/
+		function Deliverables({ matched, openFile, t, sessionId, useSessions, openPresented, openChangesReview, usePresentedOpen, usePresentedHost, useChangesDiff, loadChangesDiff, useChangesSummary, reloadPresentedHost, loadChangesSummary, useShowCodeDiff, renderSlot }) {
+			const [expanded, setExpanded] = (0, react.useState)(false);
+			const showCodeDiff = useShowCodeDiff((value) => value);
+			const cwd = useSessions((state) => state.byId[sessionId]?.cwd);
+			const states = usePresentedOpen((value) => value);
+			const host = usePresentedHost((value) => value);
+			const announced = showCodeDiff ? matched.changes : null;
+			const summary = useChangesSummary((value) => announced === null ? void 0 : value[changesSummaryUrl(sessionId, announced.seq)]);
+			(0, react.useEffect)(() => {
+				if (announced !== null && summary === void 0) loadChangesSummary(sessionId, announced.seq);
+			}, [
+				announced,
+				summary,
+				sessionId,
+				loadChangesSummary
+			]);
+			const changes = announced !== null && typeof summary === "object" && summary.files.length > 0 ? {
+				seq: announced.seq,
+				...summary
+			} : null;
+			const collapsible = matched.presented.length > COLLAPSED_PRESENTED_COUNT;
+			const presented = collapsible && !expanded ? matched.presented.slice(0, COLLAPSED_PRESENTED_COUNT) : matched.presented;
+			(0, react.useEffect)(() => {
+				if (host === null) reloadPresentedHost();
+			}, [host, reloadPresentedHost]);
+			return (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [changes !== null && (0, react_jsx_runtime.jsx)(ChangedFiles, {
+				changes,
+				cwd,
+				t,
+				sessionId,
+				useChangesDiff,
+				loadChangesDiff,
+				openReview: (index) => {
+					openChangesReview({
+						sessionId,
+						seq: changes.seq,
+						turn: changes.turn
+					}, index);
+				}
+			}), matched.presented.length > 0 && (0, react_jsx_runtime.jsxs)("div", {
+				className: Deliverables_module_css_default.root,
+				"data-after-changes": changes !== null || void 0,
+				children: [
+					host === "error" && (0, react_jsx_runtime.jsxs)("div", {
+						className: Deliverables_module_css_default.hostStatus,
+						children: [(0, react_jsx_runtime.jsx)("span", { children: t("presented.hostError") }), (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
+							size: "sm",
+							onClick: () => {
+								reloadPresentedHost();
+							},
+							children: t("presented.retry")
+						})]
+					}),
+					host !== null && host !== "error" && !host.available && (0, react_jsx_runtime.jsx)("span", {
+						className: Deliverables_module_css_default.hostStatus,
+						children: t("presented.unavailable")
+					}),
+					(0, react_jsx_runtime.jsx)("div", {
+						className: Deliverables_module_css_default.presented,
+						"data-presented-files-row": true,
+						"data-single": matched.presented.length === 1 ? true : void 0,
+						children: presented.map((file) => (0, react_jsx_runtime.jsx)(PresentedFileCard, {
+							file,
+							cwd,
+							phase: states[presentedFileUrl(sessionId, file.seq, file.index)],
+							host: host === "error" ? null : host,
+							t,
+							onPreview: () => {
+								openFile(file.path);
+							},
+							actions: renderSlot("deliverables.file.actions", {
+								actionUrl: presentedFileUrl(sessionId, file.seq, file.index),
+								available: host !== null && host !== "error" && host.available,
+								pending: states[presentedFileUrl(sessionId, file.seq, file.index)] === "opening" || states[presentedFileUrl(sessionId, file.seq, file.index)] === "revealing",
+								onAction: (action, application) => openPresented(sessionId, file.seq, file.index, action, application)
+							})
+						}, `${file.seq}:${file.index}`))
+					}),
+					collapsible && (0, react_jsx_runtime.jsxs)("button", {
+						type: "button",
+						className: Deliverables_module_css_default.toggle,
+						"aria-expanded": expanded,
+						"aria-label": t(expanded ? "presented.collapseAria" : "presented.expandAria", { count: matched.presented.length }),
+						onClick: () => {
+							setExpanded((value) => !value);
+						},
+						children: [(0, react_jsx_runtime.jsx)("span", { children: t(expanded ? "presented.collapse" : "presented.all", { count: matched.presented.length }) }), expanded ? (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconChevronUpOutlineRegular, {}) : (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconChevronDownOutlineRegular, {})]
+					})
+				]
+			})] });
+		}
+		//#endregion
+		//#region \0dsh-css:D:\deepseek-harness\packages\client\ui-deliverables\src\client\ReviewTab.module.css.mjs
+		const css = ".tHbTsG_root{height:100%}.tHbTsG_selector{flex:0 auto;min-width:0}.tHbTsG_selectorLabel{text-overflow:ellipsis;white-space:nowrap;flex:auto;min-width:0;font-size:12px;overflow:hidden}.tHbTsG_selectorButton{box-sizing:border-box;border-radius:var(--dsw-radius-sm);max-width:100%;height:28px;color:var(--dsw-alias-label-primary);cursor:pointer;font:inherit;background:0 0;border:0;align-items:center;gap:4px;padding:0 6px 0 8px;font-size:12px;line-height:20px;display:inline-flex}.tHbTsG_selectorButton:hover,.tHbTsG_selectorButton[aria-expanded=true]{background:var(--dsw-alias-interactive-bg-hover)}.tHbTsG_selectorButton svg{flex:none;display:block}.tHbTsG_item{justify-content:space-between;align-items:center;gap:12px;min-width:0;display:flex}.tHbTsG_itemPath{text-overflow:ellipsis;white-space:nowrap;min-width:0;line-height:20px;overflow:hidden}.tHbTsG_itemCounts,.tHbTsG_counts{font-family:var(--ds-font-family-code);color:var(--dsw-alias-label-tertiary);flex:none;align-items:center;gap:6px;font-size:12px;line-height:20px;display:inline-flex}.tHbTsG_counts{min-width:0;margin-right:auto}.tHbTsG_added{color:var(--dsw-alias-state-success-primary)}.tHbTsG_deleted{color:var(--dsw-alias-state-error-primary)}.tHbTsG_label{color:var(--dsw-alias-label-tertiary)}.tHbTsG_tools{flex:none;align-items:center;gap:2px;margin-left:auto;display:inline-flex}.tHbTsG_tool{border-radius:var(--dsw-radius-sm);width:28px;height:28px;color:var(--dsw-alias-label-secondary);cursor:pointer;background:0 0;border:0;flex:none;justify-content:center;align-items:center;padding:6px;display:inline-flex}.tHbTsG_tool svg{width:15px;height:15px}.tHbTsG_tool:hover:not(:disabled){color:var(--dsw-alias-label-primary);background:var(--dsw-alias-interactive-bg-hover)}.tHbTsG_tool[aria-pressed=true] .tHbTsG_compareIcon{transform:rotate(90deg)}.tHbTsG_tool:disabled{cursor:progress}.tHbTsG_tool[data-error]{color:var(--dsw-alias-state-error-primary)}";
+		const tagId = "@deepseek-ai/dsh-client-ui-deliverables/ReviewTab.module.css";
+		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId) + "]") === null) {
+			const tag = document.createElement("style");
+			tag.dataset.plugin = "@deepseek-ai/dsh-client-ui-deliverables";
+			tag.dataset.pluginCss = tagId;
+			tag.textContent = css;
+			document.head.appendChild(tag);
+		}
+		var ReviewTab_module_css_default = {
+			"added": "tHbTsG_added",
+			"compareIcon": "tHbTsG_compareIcon",
+			"counts": "tHbTsG_counts",
+			"deleted": "tHbTsG_deleted",
+			"item": "tHbTsG_item",
+			"itemCounts": "tHbTsG_itemCounts",
+			"itemPath": "tHbTsG_itemPath",
+			"label": "tHbTsG_label",
+			"root": "tHbTsG_root",
+			"selector": "tHbTsG_selector",
+			"selectorButton": "tHbTsG_selectorButton",
+			"selectorLabel": "tHbTsG_selectorLabel",
+			"tool": "tHbTsG_tool",
+			"tools": "tHbTsG_tools"
+		};
+		//#endregion
+		//#region lib/types/client/ReviewTab.js
+		/**
+		* The review tab: one turn's changed files behind a file selector, with the
+		* selected file's turn-start and turn-end comparison drawn unified or side by
+		* side, wrapped or scrolling, and controls to open the file itself.
+		*/
+		const GROUPED = new Intl.NumberFormat("en-US");
+		/** The file index a navigation names, when it names one. */
+		function navigatedIndex(params) {
+			const index = params?.index;
+			return typeof index === "number" && Number.isSafeInteger(index) && index >= 0 ? index : void 0;
+		}
+		/** Added and deleted line counts in the card's colors. */
+		function Counts({ file, t }) {
+			if (file.binary === true) return (0, react_jsx_runtime.jsx)("span", {
+				className: ReviewTab_module_css_default.label,
+				children: t("changes.binary")
+			});
+			if (file.oversized === true) return (0, react_jsx_runtime.jsx)("span", {
+				className: ReviewTab_module_css_default.label,
+				children: t("changes.oversized")
+			});
+			return (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [(0, react_jsx_runtime.jsx)("span", {
+				className: ReviewTab_module_css_default.added,
+				children: t("changes.added", { count: GROUPED.format(file.added) })
+			}), (0, react_jsx_runtime.jsx)("span", {
+				className: ReviewTab_module_css_default.deleted,
+				children: t("changes.deleted", { count: GROUPED.format(file.deleted) })
+			})] });
+		}
+		/**
+		* The review type's body, registered under `sidebar.right.pane.tab` as `changes-review`.
+		* @param props - composed slot props.
+		* @returns the selected file's comparison behind the file selector, or the state that stands in for it.
+		*/
+		function ReviewTab({ useTabInfo, sessionId, useSessions, useStore, actions, useChangesSummary, useChangesDiff, usePresentedOpen, usePresentedHost, loadChangesSummary, loadChangesDiff, reloadPresentedHost, openChanged, t, renderSlot }) {
+			const { tab } = useTabInfo();
+			const { navigation, signal } = tab;
+			const coordinates = (0, react.useMemo)(() => parseChangesReviewAddress(tab.contentId), [tab.contentId]);
+			if (coordinates === void 0) throw new Error(`ui-deliverables: not a review address "${tab.contentId}"`);
+			const { seq } = coordinates;
+			const cwd = useSessions((sessions) => sessions.byId[sessionId]?.cwd);
+			const summary = useChangesSummary((value) => value[changesSummaryUrl(sessionId, seq)]);
+			const state = useStore((store) => store.byTab[tab.id]);
+			const host = usePresentedHost((value) => value);
+			(0, react.useEffect)(() => {
+				if (state?.navigated === navigation.revision) return;
+				actions.navigated(tab.id, navigation.revision, navigatedIndex(navigation.params) ?? state?.index ?? 0);
+			}, [
+				state,
+				navigation.revision,
+				navigation.params,
+				actions,
+				tab.id
+			]);
+			(0, react.useEffect)(() => {
+				const forget = () => {
+					actions.forget(tab.id);
+				};
+				signal.addEventListener("abort", forget, { once: true });
+				return () => {
+					signal.removeEventListener("abort", forget);
+				};
+			}, [
+				signal,
+				actions,
+				tab.id
+			]);
+			(0, react.useEffect)(() => {
+				if (summary === void 0) loadChangesSummary(sessionId, seq);
+			}, [
+				summary,
+				sessionId,
+				seq,
+				loadChangesSummary
+			]);
+			(0, react.useEffect)(() => {
+				if (host === null) reloadPresentedHost();
+			}, [host, reloadPresentedHost]);
+			const files = typeof summary === "object" ? summary.files : [];
+			const index = state !== void 0 && files[state.index] !== void 0 ? state.index : 0;
+			const file = files[index];
+			const diffState = useChangesDiff((value) => file === void 0 ? void 0 : value[changesDiffUrl(sessionId, seq, index)]);
+			(0, react.useEffect)(() => {
+				if (file !== void 0 && diffState === void 0) loadChangesDiff(sessionId, seq, index);
+			}, [
+				file,
+				diffState,
+				sessionId,
+				seq,
+				index,
+				loadChangesDiff
+			]);
+			const phase = usePresentedOpen((value) => file === void 0 ? void 0 : value[changedFileUrl(sessionId, seq, index)]);
+			const [menuOpen, setMenuOpen] = (0, react.useState)(false);
+			const split = state?.split === true;
+			const wrap = state?.wrap === true;
+			const native = host !== null && host !== "error" && host.available && phase !== "nativeUnavailable";
+			const summaryState = summary === void 0 || summary === "loading" ? "loading" : summary === "missing" ? "missing" : "ready";
+			return (0, react_jsx_runtime.jsxs)("div", {
+				className: `${FileDiff_module_css_default.root} ${ReviewTab_module_css_default.root}`,
+				"data-changes-review": true,
+				"data-review-state": summaryState,
+				children: [
+					(0, react_jsx_runtime.jsxs)("div", {
+						className: FileDiff_module_css_default.header,
+						children: [
+							file === void 0 ? (0, react_jsx_runtime.jsx)("span", {
+								className: ReviewTab_module_css_default.selectorLabel,
+								children: t("review.title", { turn: String(coordinates.turn) })
+							}) : (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Menu, {
+								className: ReviewTab_module_css_default.selector,
+								open: menuOpen,
+								autoFocus: true,
+								portal: true,
+								align: "start",
+								dense: true,
+								onClose: () => {
+									setMenuOpen(false);
+								},
+								anchor: (0, react_jsx_runtime.jsxs)("button", {
+									type: "button",
+									className: ReviewTab_module_css_default.selectorButton,
+									"aria-haspopup": "menu",
+									"aria-expanded": menuOpen,
+									"aria-label": t("review.selectFile"),
+									title: file.display,
+									"data-review-file": file.path,
+									onClick: () => {
+										setMenuOpen((value) => !value);
+									},
+									children: [(0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.PathLabel, { path: file.display }), (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconChevronDownOutlineRegular, { size: 12 })]
+								}),
+								items: files.map((entry, at) => ({
+									id: String(at),
+									label: (0, react_jsx_runtime.jsxs)("span", {
+										className: ReviewTab_module_css_default.item,
+										children: [(0, react_jsx_runtime.jsx)("span", {
+											className: ReviewTab_module_css_default.itemPath,
+											children: entry.display
+										}), (0, react_jsx_runtime.jsx)("span", {
+											className: ReviewTab_module_css_default.itemCounts,
+											children: (0, react_jsx_runtime.jsx)(Counts, {
+												file: entry,
+												t
+											})
+										})]
+									})
+								})),
+								selectedId: String(index),
+								onSelect: (id) => {
+									actions.selected(tab.id, Number(id));
+									setMenuOpen(false);
+								}
+							}),
+							file !== void 0 && (0, react_jsx_runtime.jsx)("span", {
+								className: ReviewTab_module_css_default.counts,
+								children: (0, react_jsx_runtime.jsx)(Counts, {
+									file,
+									t
+								})
+							}),
+							(0, react_jsx_runtime.jsxs)("span", {
+								className: ReviewTab_module_css_default.tools,
+								children: [
+									(0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Tooltip, {
+										label: t(split ? "review.unified" : "review.split"),
+										side: "bottom",
+										delayMs: 500,
+										children: (0, react_jsx_runtime.jsx)("button", {
+											type: "button",
+											className: ReviewTab_module_css_default.tool,
+											"aria-pressed": split,
+											"aria-label": t("review.splitAria"),
+											"data-review-tool": "split",
+											onClick: () => {
+												actions.toggledSplit(tab.id);
+											},
+											children: (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconCompareSplitOutlineRegular, { className: ReviewTab_module_css_default.compareIcon })
+										})
+									}),
+									(0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Tooltip, {
+										label: t(wrap ? "review.nowrap" : "review.wrap"),
+										side: "bottom",
+										delayMs: 500,
+										children: (0, react_jsx_runtime.jsx)("button", {
+											type: "button",
+											className: ReviewTab_module_css_default.tool,
+											"aria-pressed": wrap,
+											"aria-label": t("review.wrapAria"),
+											"data-review-tool": "wrap",
+											onClick: () => {
+												actions.toggledWrap(tab.id);
+											},
+											children: wrap ? (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconNowrapFillRegular, {}) : (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconWrapFillRegular, {})
+										})
+									}),
+									file !== void 0 && (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Tooltip, {
+										label: t("review.openFile"),
+										side: "bottom",
+										delayMs: 500,
+										children: (0, react_jsx_runtime.jsx)("button", {
+											type: "button",
+											className: ReviewTab_module_css_default.tool,
+											"aria-label": t("review.openFileAria", { name: file.display }),
+											"data-review-tool": "open-file",
+											onClick: () => {
+												tab.actions.openResource(fileAddressFor(sessionId, cwd, file.path));
+											},
+											children: (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconInspectOutlineRegular, {})
+										})
+									}),
+									file !== void 0 && renderSlot("deliverables.review.file.actions", {
+										actionUrl: changedFileUrl(sessionId, seq, index),
+										available: native,
+										pending: phase === "opening" || phase === "revealing",
+										onAction: (action, application) => openChanged(sessionId, seq, index, action, application)
+									})
+								]
+							})
+						]
+					}),
+					summaryState === "loading" && (0, react_jsx_runtime.jsx)("p", {
+						className: FileDiff_module_css_default.status,
+						role: "status",
+						children: t("diff.loading")
+					}),
+					summaryState === "missing" && (0, react_jsx_runtime.jsx)("p", {
+						className: FileDiff_module_css_default.status,
+						children: t("diff.missing")
+					}),
+					file !== void 0 && (0, react_jsx_runtime.jsx)(FileDiff, {
+						state: diffState,
+						split,
+						wrap,
+						t,
+						retry: () => {
+							loadChangesDiff(sessionId, seq, index);
+						}
+					})
+				]
+			});
+		}
+		//#endregion
+		//#region lib/types/client/review-definition.js
+		/** The tab kind this package owns. */
+		const CHANGES_REVIEW_KIND = "changes-review";
+		/** This implementation's identity in the tab system, and the key its body registers under. */
+		const CHANGES_REVIEW_ID = "@deepseek-ai/dsh-client-ui-deliverables";
+		/**
+		* The review type's registry definition.
+		* @param t - namespace-bound translate, read fresh on every title call.
+		* @returns the definition to register.
+		*/
+		function changesReviewDefinition(t) {
+			return {
+				id: CHANGES_REVIEW_ID,
+				kind: CHANGES_REVIEW_KIND,
+				patterns: ["dsh-resource://changes-review/**"],
+				priority: "builtin",
+				canOpen: (address) => parseChangesReviewAddress(address) !== void 0,
+				title: (address) => {
+					const turn = parseChangesReviewAddress(address)?.turn;
+					return turn === void 0 ? address : t("review.title", { turn: String(turn) });
+				}
+			};
+		}
+		//#endregion
+		//#region lib/types/client/review-store.js
+		/**
+		* The review tab's view state: which listed file is shown, whether hunks are
+		* drawn side by side, and whether long lines wrap. One bucket per tab, so two
+		* reviews in one session keep their own choices; the bucket ends with the
+		* tab record's signal.
+		*/
+		function bucket(state, tabId) {
+			const tab = state.byTab[tabId];
+			if (tab === void 0) throw new Error(`ui-deliverables: no review state for tab "${tabId}"`);
+			return tab;
+		}
+		/**
+		* Declare the review tab's store; the registration declares it as an
+		* exclusive store, so the framework mints one instance per session.
+		* @returns the store handle to declare on the registration.
+		*/
+		function createReviewStore() {
+			return (0, _deepseek_ai_dsh_client_store.defineStore)({
+				init: () => ({ byTab: {} }),
+				actions: {
+					/**
+					* Apply a navigation: seed a side-by-side, unwrapped tab on its first one, then show the navigated file.
+					* @param d - draft state.
+					* @param tabId - the tab being drawn.
+					* @param revision - the navigation revision being applied.
+					* @param index - the file index the navigation named, or the current one.
+					*/
+					navigated: (d, tabId, revision, index) => {
+						const tab = d.byTab[tabId];
+						if (tab === void 0) d.byTab[tabId] = {
+							index,
+							split: true,
+							wrap: false,
+							navigated: revision
+						};
+						else {
+							tab.index = index;
+							tab.navigated = revision;
 						}
 					},
-					enumerable: false,
-					writable: false
-				});
-				return finalized;
-			} catch (_err) {
-				throw new Error("Error converting schema to JSON.");
-			}
-		}
-		function isTransforming(_schema, _ctx) {
-			const ctx = _ctx ?? { seen: /* @__PURE__ */ new Set() };
-			if (ctx.seen.has(_schema)) return false;
-			ctx.seen.add(_schema);
-			const def = _schema._zod.def;
-			if (def.type === "transform") return true;
-			if (def.type === "array") return isTransforming(def.element, ctx);
-			if (def.type === "set") return isTransforming(def.valueType, ctx);
-			if (def.type === "lazy") return isTransforming(def.getter(), ctx);
-			if (def.type === "promise" || def.type === "optional" || def.type === "nonoptional" || def.type === "nullable" || def.type === "readonly" || def.type === "default" || def.type === "prefault") return isTransforming(def.innerType, ctx);
-			if (def.type === "intersection") return isTransforming(def.left, ctx) || isTransforming(def.right, ctx);
-			if (def.type === "record" || def.type === "map") return isTransforming(def.keyType, ctx) || isTransforming(def.valueType, ctx);
-			if (def.type === "pipe") {
-				if (_schema._zod.traits.has("$ZodCodec")) return true;
-				return isTransforming(def.in, ctx) || isTransforming(def.out, ctx);
-			}
-			if (def.type === "object") {
-				for (const key in def.shape) if (isTransforming(def.shape[key], ctx)) return true;
-				return false;
-			}
-			if (def.type === "union") {
-				for (const option of def.options) if (isTransforming(option, ctx)) return true;
-				return false;
-			}
-			if (def.type === "tuple") {
-				for (const item of def.items) if (isTransforming(item, ctx)) return true;
-				if (def.rest && isTransforming(def.rest, ctx)) return true;
-				return false;
-			}
-			return false;
-		}
-		const createStandardJSONSchemaMethod = (schema, io, processors = {}) => (params) => {
-			const { libraryOptions, target } = params ?? {};
-			const ctx = initializeContext({
-				...libraryOptions ?? {},
-				target,
-				io,
-				processors
-			});
-			process(schema, ctx);
-			extractDefs(ctx, schema);
-			return finalize(ctx, schema);
-		};
-		//#endregion
-		//#region ../../../node_modules/.pnpm/zod@4.4.3/node_modules/zod/v4/core/json-schema-processors.js
-		const formatMap = {
-			guid: "uuid",
-			url: "uri",
-			datetime: "date-time",
-			json_string: "json-string",
-			regex: ""
-		};
-		const stringProcessor = (schema, ctx, _json, _params) => {
-			const json = _json;
-			json.type = "string";
-			const { minimum, maximum, format, patterns, contentEncoding } = schema._zod.bag;
-			if (typeof minimum === "number") json.minLength = minimum;
-			if (typeof maximum === "number") json.maxLength = maximum;
-			if (format) {
-				json.format = formatMap[format] ?? format;
-				if (json.format === "") delete json.format;
-				if (format === "time") delete json.format;
-			}
-			if (contentEncoding) json.contentEncoding = contentEncoding;
-			if (patterns && patterns.size > 0) {
-				const regexes = [...patterns];
-				if (regexes.length === 1) json.pattern = regexes[0].source;
-				else if (regexes.length > 1) json.allOf = [...regexes.map((regex) => ({
-					...ctx.target === "draft-07" || ctx.target === "draft-04" || ctx.target === "openapi-3.0" ? { type: "string" } : {},
-					pattern: regex.source
-				}))];
-			}
-		};
-		const numberProcessor = (schema, ctx, _json, _params) => {
-			const json = _json;
-			const { minimum, maximum, format, multipleOf, exclusiveMaximum, exclusiveMinimum } = schema._zod.bag;
-			if (typeof format === "string" && format.includes("int")) json.type = "integer";
-			else json.type = "number";
-			const exMin = typeof exclusiveMinimum === "number" && exclusiveMinimum >= (minimum ?? Number.NEGATIVE_INFINITY);
-			const exMax = typeof exclusiveMaximum === "number" && exclusiveMaximum <= (maximum ?? Number.POSITIVE_INFINITY);
-			const legacy = ctx.target === "draft-04" || ctx.target === "openapi-3.0";
-			if (exMin) if (legacy) {
-				json.minimum = exclusiveMinimum;
-				json.exclusiveMinimum = true;
-			} else json.exclusiveMinimum = exclusiveMinimum;
-			else if (typeof minimum === "number") json.minimum = minimum;
-			if (exMax) if (legacy) {
-				json.maximum = exclusiveMaximum;
-				json.exclusiveMaximum = true;
-			} else json.exclusiveMaximum = exclusiveMaximum;
-			else if (typeof maximum === "number") json.maximum = maximum;
-			if (typeof multipleOf === "number") json.multipleOf = multipleOf;
-		};
-		const booleanProcessor = (_schema, _ctx, json, _params) => {
-			json.type = "boolean";
-		};
-		const bigintProcessor = (_schema, ctx, _json, _params) => {
-			if (ctx.unrepresentable === "throw") throw new Error("BigInt cannot be represented in JSON Schema");
-		};
-		const symbolProcessor = (_schema, ctx, _json, _params) => {
-			if (ctx.unrepresentable === "throw") throw new Error("Symbols cannot be represented in JSON Schema");
-		};
-		const nullProcessor = (_schema, ctx, json, _params) => {
-			if (ctx.target === "openapi-3.0") {
-				json.type = "string";
-				json.nullable = true;
-				json.enum = [null];
-			} else json.type = "null";
-		};
-		const undefinedProcessor = (_schema, ctx, _json, _params) => {
-			if (ctx.unrepresentable === "throw") throw new Error("Undefined cannot be represented in JSON Schema");
-		};
-		const voidProcessor = (_schema, ctx, _json, _params) => {
-			if (ctx.unrepresentable === "throw") throw new Error("Void cannot be represented in JSON Schema");
-		};
-		const neverProcessor = (_schema, _ctx, json, _params) => {
-			json.not = {};
-		};
-		const anyProcessor = (_schema, _ctx, _json, _params) => {};
-		const unknownProcessor = (_schema, _ctx, _json, _params) => {};
-		const dateProcessor = (_schema, ctx, _json, _params) => {
-			if (ctx.unrepresentable === "throw") throw new Error("Date cannot be represented in JSON Schema");
-		};
-		const enumProcessor = (schema, _ctx, json, _params) => {
-			const def = schema._zod.def;
-			const values = getEnumValues(def.entries);
-			if (values.every((v) => typeof v === "number")) json.type = "number";
-			if (values.every((v) => typeof v === "string")) json.type = "string";
-			json.enum = values;
-		};
-		const literalProcessor = (schema, ctx, json, _params) => {
-			const def = schema._zod.def;
-			const vals = [];
-			for (const val of def.values) if (val === void 0) {
-				if (ctx.unrepresentable === "throw") throw new Error("Literal `undefined` cannot be represented in JSON Schema");
-			} else if (typeof val === "bigint") if (ctx.unrepresentable === "throw") throw new Error("BigInt literals cannot be represented in JSON Schema");
-			else vals.push(Number(val));
-			else vals.push(val);
-			if (vals.length === 0) {} else if (vals.length === 1) {
-				const val = vals[0];
-				json.type = val === null ? "null" : typeof val;
-				if (ctx.target === "draft-04" || ctx.target === "openapi-3.0") json.enum = [val];
-				else json.const = val;
-			} else {
-				if (vals.every((v) => typeof v === "number")) json.type = "number";
-				if (vals.every((v) => typeof v === "string")) json.type = "string";
-				if (vals.every((v) => typeof v === "boolean")) json.type = "boolean";
-				if (vals.every((v) => v === null)) json.type = "null";
-				json.enum = vals;
-			}
-		};
-		const nanProcessor = (_schema, ctx, _json, _params) => {
-			if (ctx.unrepresentable === "throw") throw new Error("NaN cannot be represented in JSON Schema");
-		};
-		const templateLiteralProcessor = (schema, _ctx, json, _params) => {
-			const _json = json;
-			const pattern = schema._zod.pattern;
-			if (!pattern) throw new Error("Pattern not found in template literal");
-			_json.type = "string";
-			_json.pattern = pattern.source;
-		};
-		const fileProcessor = (schema, _ctx, json, _params) => {
-			const _json = json;
-			const file = {
-				type: "string",
-				format: "binary",
-				contentEncoding: "binary"
-			};
-			const { minimum, maximum, mime } = schema._zod.bag;
-			if (minimum !== void 0) file.minLength = minimum;
-			if (maximum !== void 0) file.maxLength = maximum;
-			if (mime) if (mime.length === 1) {
-				file.contentMediaType = mime[0];
-				Object.assign(_json, file);
-			} else {
-				Object.assign(_json, file);
-				_json.anyOf = mime.map((m) => ({ contentMediaType: m }));
-			}
-			else Object.assign(_json, file);
-		};
-		const successProcessor = (_schema, _ctx, json, _params) => {
-			json.type = "boolean";
-		};
-		const customProcessor = (_schema, ctx, _json, _params) => {
-			if (ctx.unrepresentable === "throw") throw new Error("Custom types cannot be represented in JSON Schema");
-		};
-		const functionProcessor = (_schema, ctx, _json, _params) => {
-			if (ctx.unrepresentable === "throw") throw new Error("Function types cannot be represented in JSON Schema");
-		};
-		const transformProcessor = (_schema, ctx, _json, _params) => {
-			if (ctx.unrepresentable === "throw") throw new Error("Transforms cannot be represented in JSON Schema");
-		};
-		const mapProcessor = (_schema, ctx, _json, _params) => {
-			if (ctx.unrepresentable === "throw") throw new Error("Map cannot be represented in JSON Schema");
-		};
-		const setProcessor = (_schema, ctx, _json, _params) => {
-			if (ctx.unrepresentable === "throw") throw new Error("Set cannot be represented in JSON Schema");
-		};
-		const arrayProcessor = (schema, ctx, _json, params) => {
-			const json = _json;
-			const def = schema._zod.def;
-			const { minimum, maximum } = schema._zod.bag;
-			if (typeof minimum === "number") json.minItems = minimum;
-			if (typeof maximum === "number") json.maxItems = maximum;
-			json.type = "array";
-			json.items = process(def.element, ctx, {
-				...params,
-				path: [...params.path, "items"]
-			});
-		};
-		const objectProcessor = (schema, ctx, _json, params) => {
-			const json = _json;
-			const def = schema._zod.def;
-			json.type = "object";
-			json.properties = {};
-			const shape = def.shape;
-			for (const key in shape) json.properties[key] = process(shape[key], ctx, {
-				...params,
-				path: [
-					...params.path,
-					"properties",
-					key
-				]
-			});
-			const allKeys = new Set(Object.keys(shape));
-			const requiredKeys = new Set([...allKeys].filter((key) => {
-				const v = def.shape[key]._zod;
-				if (ctx.io === "input") return v.optin === void 0;
-				else return v.optout === void 0;
-			}));
-			if (requiredKeys.size > 0) json.required = Array.from(requiredKeys);
-			if (def.catchall?._zod.def.type === "never") json.additionalProperties = false;
-			else if (!def.catchall) {
-				if (ctx.io === "output") json.additionalProperties = false;
-			} else if (def.catchall) json.additionalProperties = process(def.catchall, ctx, {
-				...params,
-				path: [...params.path, "additionalProperties"]
-			});
-		};
-		const unionProcessor = (schema, ctx, json, params) => {
-			const def = schema._zod.def;
-			const isExclusive = def.inclusive === false;
-			const options = def.options.map((x, i) => process(x, ctx, {
-				...params,
-				path: [
-					...params.path,
-					isExclusive ? "oneOf" : "anyOf",
-					i
-				]
-			}));
-			if (isExclusive) json.oneOf = options;
-			else json.anyOf = options;
-		};
-		const intersectionProcessor = (schema, ctx, json, params) => {
-			const def = schema._zod.def;
-			const a = process(def.left, ctx, {
-				...params,
-				path: [
-					...params.path,
-					"allOf",
-					0
-				]
-			});
-			const b = process(def.right, ctx, {
-				...params,
-				path: [
-					...params.path,
-					"allOf",
-					1
-				]
-			});
-			const isSimpleIntersection = (val) => "allOf" in val && Object.keys(val).length === 1;
-			json.allOf = [...isSimpleIntersection(a) ? a.allOf : [a], ...isSimpleIntersection(b) ? b.allOf : [b]];
-		};
-		const tupleProcessor = (schema, ctx, _json, params) => {
-			const json = _json;
-			const def = schema._zod.def;
-			json.type = "array";
-			const prefixPath = ctx.target === "draft-2020-12" ? "prefixItems" : "items";
-			const restPath = ctx.target === "draft-2020-12" ? "items" : ctx.target === "openapi-3.0" ? "items" : "additionalItems";
-			const prefixItems = def.items.map((x, i) => process(x, ctx, {
-				...params,
-				path: [
-					...params.path,
-					prefixPath,
-					i
-				]
-			}));
-			const rest = def.rest ? process(def.rest, ctx, {
-				...params,
-				path: [
-					...params.path,
-					restPath,
-					...ctx.target === "openapi-3.0" ? [def.items.length] : []
-				]
-			}) : null;
-			if (ctx.target === "draft-2020-12") {
-				json.prefixItems = prefixItems;
-				if (rest) json.items = rest;
-			} else if (ctx.target === "openapi-3.0") {
-				json.items = { anyOf: prefixItems };
-				if (rest) json.items.anyOf.push(rest);
-				json.minItems = prefixItems.length;
-				if (!rest) json.maxItems = prefixItems.length;
-			} else {
-				json.items = prefixItems;
-				if (rest) json.additionalItems = rest;
-			}
-			const { minimum, maximum } = schema._zod.bag;
-			if (typeof minimum === "number") json.minItems = minimum;
-			if (typeof maximum === "number") json.maxItems = maximum;
-		};
-		const recordProcessor = (schema, ctx, _json, params) => {
-			const json = _json;
-			const def = schema._zod.def;
-			json.type = "object";
-			const keyType = def.keyType;
-			const patterns = keyType._zod.bag?.patterns;
-			if (def.mode === "loose" && patterns && patterns.size > 0) {
-				const valueSchema = process(def.valueType, ctx, {
-					...params,
-					path: [
-						...params.path,
-						"patternProperties",
-						"*"
-					]
-				});
-				json.patternProperties = {};
-				for (const pattern of patterns) json.patternProperties[pattern.source] = valueSchema;
-			} else {
-				if (ctx.target === "draft-07" || ctx.target === "draft-2020-12") json.propertyNames = process(def.keyType, ctx, {
-					...params,
-					path: [...params.path, "propertyNames"]
-				});
-				json.additionalProperties = process(def.valueType, ctx, {
-					...params,
-					path: [...params.path, "additionalProperties"]
-				});
-			}
-			const keyValues = keyType._zod.values;
-			if (keyValues) {
-				const validKeyValues = [...keyValues].filter((v) => typeof v === "string" || typeof v === "number");
-				if (validKeyValues.length > 0) json.required = validKeyValues;
-			}
-		};
-		const nullableProcessor = (schema, ctx, json, params) => {
-			const def = schema._zod.def;
-			const inner = process(def.innerType, ctx, params);
-			const seen = ctx.seen.get(schema);
-			if (ctx.target === "openapi-3.0") {
-				seen.ref = def.innerType;
-				json.nullable = true;
-			} else json.anyOf = [inner, { type: "null" }];
-		};
-		const nonoptionalProcessor = (schema, ctx, _json, params) => {
-			const def = schema._zod.def;
-			process(def.innerType, ctx, params);
-			const seen = ctx.seen.get(schema);
-			seen.ref = def.innerType;
-		};
-		const defaultProcessor = (schema, ctx, json, params) => {
-			const def = schema._zod.def;
-			process(def.innerType, ctx, params);
-			const seen = ctx.seen.get(schema);
-			seen.ref = def.innerType;
-			json.default = JSON.parse(JSON.stringify(def.defaultValue));
-		};
-		const prefaultProcessor = (schema, ctx, json, params) => {
-			const def = schema._zod.def;
-			process(def.innerType, ctx, params);
-			const seen = ctx.seen.get(schema);
-			seen.ref = def.innerType;
-			if (ctx.io === "input") json._prefault = JSON.parse(JSON.stringify(def.defaultValue));
-		};
-		const catchProcessor = (schema, ctx, json, params) => {
-			const def = schema._zod.def;
-			process(def.innerType, ctx, params);
-			const seen = ctx.seen.get(schema);
-			seen.ref = def.innerType;
-			let catchValue;
-			try {
-				catchValue = def.catchValue(void 0);
-			} catch {
-				throw new Error("Dynamic catch values are not supported in JSON Schema");
-			}
-			json.default = catchValue;
-		};
-		const pipeProcessor = (schema, ctx, _json, params) => {
-			const def = schema._zod.def;
-			const inIsTransform = def.in._zod.traits.has("$ZodTransform");
-			const innerType = ctx.io === "input" ? inIsTransform ? def.out : def.in : def.out;
-			process(innerType, ctx, params);
-			const seen = ctx.seen.get(schema);
-			seen.ref = innerType;
-		};
-		const readonlyProcessor = (schema, ctx, json, params) => {
-			const def = schema._zod.def;
-			process(def.innerType, ctx, params);
-			const seen = ctx.seen.get(schema);
-			seen.ref = def.innerType;
-			json.readOnly = true;
-		};
-		const promiseProcessor = (schema, ctx, _json, params) => {
-			const def = schema._zod.def;
-			process(def.innerType, ctx, params);
-			const seen = ctx.seen.get(schema);
-			seen.ref = def.innerType;
-		};
-		const optionalProcessor = (schema, ctx, _json, params) => {
-			const def = schema._zod.def;
-			process(def.innerType, ctx, params);
-			const seen = ctx.seen.get(schema);
-			seen.ref = def.innerType;
-		};
-		const lazyProcessor = (schema, ctx, _json, params) => {
-			const innerType = schema._zod.innerType;
-			process(innerType, ctx, params);
-			const seen = ctx.seen.get(schema);
-			seen.ref = innerType;
-		};
-		const allProcessors = {
-			string: stringProcessor,
-			number: numberProcessor,
-			boolean: booleanProcessor,
-			bigint: bigintProcessor,
-			symbol: symbolProcessor,
-			null: nullProcessor,
-			undefined: undefinedProcessor,
-			void: voidProcessor,
-			never: neverProcessor,
-			any: anyProcessor,
-			unknown: unknownProcessor,
-			date: dateProcessor,
-			enum: enumProcessor,
-			literal: literalProcessor,
-			nan: nanProcessor,
-			template_literal: templateLiteralProcessor,
-			file: fileProcessor,
-			success: successProcessor,
-			custom: customProcessor,
-			function: functionProcessor,
-			transform: transformProcessor,
-			map: mapProcessor,
-			set: setProcessor,
-			array: arrayProcessor,
-			object: objectProcessor,
-			union: unionProcessor,
-			intersection: intersectionProcessor,
-			tuple: tupleProcessor,
-			record: recordProcessor,
-			nullable: nullableProcessor,
-			nonoptional: nonoptionalProcessor,
-			default: defaultProcessor,
-			prefault: prefaultProcessor,
-			catch: catchProcessor,
-			pipe: pipeProcessor,
-			readonly: readonlyProcessor,
-			promise: promiseProcessor,
-			optional: optionalProcessor,
-			lazy: lazyProcessor
-		};
-		function toJSONSchema(input, params) {
-			if ("_idmap" in input) {
-				const registry = input;
-				const ctx = initializeContext({
-					...params,
-					processors: allProcessors
-				});
-				const defs = {};
-				for (const entry of registry._idmap.entries()) {
-					const [_, schema] = entry;
-					process(schema, ctx);
+					/**
+					* Show another listed file.
+					* @param d - draft state.
+					* @param tabId - the tab being drawn.
+					* @param index - original index in the summary's files array.
+					*/
+					selected: (d, tabId, index) => {
+						bucket(d, tabId).index = index;
+					},
+					/**
+					* Switch between the unified and the side-by-side view.
+					* @param d - draft state.
+					* @param tabId - the tab being drawn.
+					*/
+					toggledSplit: (d, tabId) => {
+						const tab = bucket(d, tabId);
+						tab.split = !tab.split;
+					},
+					/**
+					* Switch line wrapping.
+					* @param d - draft state.
+					* @param tabId - the tab being drawn.
+					*/
+					toggledWrap: (d, tabId) => {
+						const tab = bucket(d, tabId);
+						tab.wrap = !tab.wrap;
+					},
+					/**
+					* Drop a tab's bucket once its record is gone.
+					* @param d - draft state.
+					* @param tabId - the tab that ended.
+					*/
+					forget: (d, tabId) => {
+						d.byTab = Object.fromEntries(Object.entries(d.byTab).filter(([id]) => id !== tabId));
+					}
 				}
-				const schemas = {};
-				ctx.external = {
-					registry,
-					uri: params?.uri,
-					defs
-				};
-				for (const entry of registry._idmap.entries()) {
-					const [key, schema] = entry;
-					extractDefs(ctx, schema);
-					schemas[key] = finalize(ctx, schema);
-				}
-				if (Object.keys(defs).length > 0) schemas.__shared = { [ctx.target === "draft-2020-12" ? "$defs" : "definitions"]: defs };
-				return { schemas };
-			}
-			const ctx = initializeContext({
-				...params,
-				processors: allProcessors
 			});
-			process(input, ctx);
-			extractDefs(ctx, input);
-			return finalize(ctx, input);
 		}
 		//#endregion
-		//#region lib/types/service.js
-		/**
-		* Runtime registry for generated Typert reflection, Remote invocations, and
-		* dependency-inverted lookup/Context providers. It performs no TypeScript
-		* analysis or schema generation.
-		* @module @deepseek-ai/dsh-typert-registry
-		*/
-		/**
-		* Compose the global key of one generated schema.
-		* @param packageName - contributing npm package.
-		* @param name - schema export name.
-		* @returns `<package>#<name>`.
-		*/
-		function typertKey(packageName, name) {
-			return `${packageName}#${name}`;
-		}
-		/**
-		* Compose the identity of one package-face model.
-		* @param packageName - contributing npm package.
-		* @param face - independently compiled face.
-		* @returns `<package>#<face>`.
-		*/
-		function typertPackageKey(packageName, face) {
-			return `${packageName}#${face}`;
-		}
-		/**
-		* Compose the endpoint key used by local and Remote invocation registries.
-		* @param descriptor - invocation whose namespace and method form the endpoint.
-		* @returns `<namespace>/<method>`.
-		*/
-		function typertEndpoint(descriptor) {
-			return `${descriptor.namespace}/${descriptor.method}`;
-		}
-		var ChangeSource = class {
-			report;
-			listeners = /* @__PURE__ */ new Set();
-			constructor(report) {
-				this.report = report;
-			}
-			subscribe(ctx, listener) {
-				const { listeners } = this;
-				return ctx.effect(function* () {
-					listeners.add(listener);
-					yield () => {
-						listeners.delete(listener);
-					};
-				}, "typert registry subscription");
-			}
-			emit(change) {
-				for (const listener of [...this.listeners]) try {
-					listener(change);
-				} catch (error) {
-					this.report(change, error);
-				}
-			}
+		//#region lib/types/client/locales.js
+		/** `deliverables` namespace dictionaries: cards, comparison tab, and file-mention copy. */
+		/** Dictionary namespace owned by this plugin. */
+		const NS = "deliverables";
+		/** Simplified Chinese dictionary (the key-set source of truth). */
+		const zh = {
+			"presented.nativeUnavailable": "此文件没有可用的主机路径，请在侧边栏预览",
+			"presented.revealError": "无法在文件管理器中显示，请重试",
+			"presented.directoryError": "无法打开所在文件夹，请重试",
+			"presented.directoryOpening": "正在打开所在文件夹…",
+			"presented.directoryOpened": "已请求打开所在文件夹",
+			"presented.revealed": "已请求在文件管理器中显示",
+			"presented.revealing": "正在文件管理器中显示…",
+			"presented.unavailable": "此主机没有可用的桌面，无法使用外部程序打开文件或文件夹；文件仍可在侧边栏预览",
+			"presented.retry": "重试",
+			"presented.hostError": "无法读取主机桌面信息",
+			"presented.preview": "在侧边栏预览",
+			"presented.previewButton": "在侧边栏打开 {name}",
+			"presented.previewCard": "在侧边栏预览 {name}",
+			"presented.all": "全部 {count} 个文件",
+			"presented.expandAria": "展开全部 {count} 个交付文件",
+			"presented.collapse": "收起",
+			"presented.collapseAria": "收起交付文件列表",
+			"presented.opening": "正在打开…",
+			"presented.opened": "已请求打开",
+			"presented.error": "打开失败，点击重试",
+			"presented.file": "文件",
+			"row.title": "交付文件",
+			"row.running": "正在交付",
+			"row.preparing": "准备交付",
+			"row.ok": "已交付",
+			"row.error": "交付失败",
+			"row.stopped": "已中断",
+			"row.inspect": "查看调用",
+			"changes.title": "已编辑 {count} 个文件",
+			"changes.singleTitle": "已编辑 {name}",
+			"changes.added": "+{count}",
+			"changes.deleted": "-{count}",
+			"changes.binary": "二进制",
+			"changes.openReview": "在侧边栏查看本轮改动",
+			"changes.all": "全部 {count} 个文件",
+			"changes.expandAria": "展开全部 {count} 个改动文件",
+			"changes.collapse": "收起",
+			"changes.collapseAria": "收起改动文件列表",
+			"changes.oversized": "过大",
+			"changes.viewDiff": "查看 {name} 的改动",
+			"review.title": "第 {turn} 轮改动",
+			"review.selectFile": "选择要查看的文件",
+			"review.split": "切换为左右对比",
+			"review.unified": "切换为单栏对比",
+			"review.splitAria": "左右对比",
+			"review.wrap": "开启自动换行",
+			"review.nowrap": "关闭自动换行",
+			"review.wrapAria": "自动换行",
+			"review.openFile": "在侧边栏打开整个文件",
+			"review.openFileAria": "在侧边栏打开 {name}",
+			"diff.loading": "正在读取改动…",
+			"diff.missing": "这轮改动的内容已不可用",
+			"diff.error": "无法读取改动",
+			"diff.binary": "二进制文件，无法显示改动",
+			"diff.oversized": "文件过大，无法显示改动",
+			"diff.created": "本轮新建的文件",
+			"diff.deleted": "本轮删除的文件",
+			"diff.unchanged": "两侧内容相同",
+			"diff.coarse": "逐行对比超时，按整个文件替换显示",
+			"diff.truncated": "只显示前 {count} 行"
 		};
-		var DescriptorStore = class {
-			kind;
-			entries = /* @__PURE__ */ new Map();
-			ids = /* @__PURE__ */ new Map();
-			history = /* @__PURE__ */ new Set();
-			changes;
-			constructor(kind, report) {
-				this.kind = kind;
-				this.changes = new ChangeSource(report);
-			}
-			validate(descriptors) {
-				const endpoints = /* @__PURE__ */ new Set();
-				const ids = /* @__PURE__ */ new Set();
-				for (const descriptor of descriptors) {
-					validateInvocation(descriptor);
-					const endpoint = typertEndpoint(descriptor);
-					if (endpoints.has(endpoint) || this.entries.has(endpoint)) throw new Error(`typert: ${this.kind} endpoint "${endpoint}" is already registered`);
-					if (ids.has(descriptor.id) || this.ids.has(descriptor.id)) throw new Error(`typert: ${this.kind} invocation id "${descriptor.id}" is already registered`);
-					endpoints.add(endpoint);
-					ids.add(descriptor.id);
-				}
-			}
-			commit(owner, descriptors) {
-				for (const descriptor of descriptors) {
-					const entry = {
-						descriptor,
-						owner
-					};
-					const endpoint = typertEndpoint(descriptor);
-					this.entries.set(endpoint, entry);
-					this.ids.set(descriptor.id, entry);
-					this.history.add(endpoint);
-				}
-				for (const descriptor of descriptors) this.changes.emit({
-					kind: this.kind,
-					key: typertEndpoint(descriptor)
-				});
-			}
-			withdraw(owner, descriptors) {
-				const removed = [];
-				for (const descriptor of descriptors) {
-					const endpoint = typertEndpoint(descriptor);
-					const entry = this.entries.get(endpoint);
-					/* v8 ignore next -- duplicate registration is rejected, so no later owner can replace this entry before its effect disposes. */
-					if (entry?.owner !== owner) continue;
-					this.entries.delete(endpoint);
-					/* v8 ignore next -- ids and endpoints are committed and withdrawn together under the same unique owner. */
-					if (this.ids.get(descriptor.id) === entry) this.ids.delete(descriptor.id);
-					removed.push(endpoint);
-				}
-				for (const endpoint of removed) this.changes.emit({
-					kind: this.kind,
-					key: endpoint
-				});
-			}
-			get(endpoint) {
-				return this.entries.get(endpoint)?.descriptor;
-			}
-			hasSeen(endpoint) {
-				return this.history.has(endpoint);
-			}
-			list() {
-				return [...this.entries.values()].map((entry) => entry.descriptor);
-			}
-			subscribe(ctx, listener) {
-				return this.changes.subscribe(ctx, listener);
-			}
+		/** English dictionary (same key set). */
+		const en = {
+			"presented.nativeUnavailable": "This file has no available Host path. Preview it in the sidebar.",
+			"presented.revealError": "Could not show in file manager. Try again.",
+			"presented.directoryError": "Could not open containing folder. Try again.",
+			"presented.directoryOpening": "Opening containing folder…",
+			"presented.directoryOpened": "Requested opening containing folder",
+			"presented.revealed": "Requested display in file manager",
+			"presented.revealing": "Showing in file manager…",
+			"presented.unavailable": "This Host has no desktop available to open files or folders in external apps. Files can still be previewed in the sidebar.",
+			"presented.retry": "Retry",
+			"presented.hostError": "Could not read the Host desktop information",
+			"presented.preview": "Preview in sidebar",
+			"presented.previewButton": "Open {name} in sidebar",
+			"presented.previewCard": "Preview {name} in sidebar",
+			"presented.all": "All {count} files",
+			"presented.expandAria": "Show all {count} delivered files",
+			"presented.collapse": "Collapse",
+			"presented.collapseAria": "Collapse delivered files",
+			"presented.opening": "Opening…",
+			"presented.opened": "Open requested",
+			"presented.error": "Could not open. Click to retry.",
+			"presented.file": "File",
+			"row.title": "Present files",
+			"row.running": "Delivering",
+			"row.preparing": "Preparing deliverables",
+			"row.ok": "Delivered",
+			"row.error": "Delivery failed",
+			"row.stopped": "Interrupted",
+			"row.inspect": "Inspect call",
+			"changes.title": "Edited {count} files",
+			"changes.singleTitle": "Edited {name}",
+			"changes.added": "+{count}",
+			"changes.deleted": "-{count}",
+			"changes.binary": "binary",
+			"changes.openReview": "Review this turn’s changes in the sidebar",
+			"changes.all": "All {count} files",
+			"changes.expandAria": "Show all {count} changed files",
+			"changes.collapse": "Collapse",
+			"changes.collapseAria": "Collapse changed files",
+			"changes.oversized": "too large",
+			"changes.viewDiff": "View changes to {name}",
+			"review.title": "Review · turn {turn}",
+			"review.selectFile": "Choose the file to review",
+			"review.split": "Switch to split view",
+			"review.unified": "Switch to unified view",
+			"review.splitAria": "Split view",
+			"review.wrap": "Enable line wrap",
+			"review.nowrap": "Disable line wrap",
+			"review.wrapAria": "Line wrap",
+			"review.openFile": "Open the whole file in the sidebar",
+			"review.openFileAria": "Open {name} in sidebar",
+			"diff.loading": "Reading changes…",
+			"diff.missing": "The contents of this turn’s changes are no longer available",
+			"diff.error": "Could not read the changes",
+			"diff.binary": "Binary file; changes cannot be shown",
+			"diff.oversized": "File too large; changes cannot be shown",
+			"diff.created": "Created in this turn",
+			"diff.deleted": "Deleted in this turn",
+			"diff.unchanged": "Both sides hold the same lines",
+			"diff.coarse": "Line comparison timed out; shown as a whole-file replacement",
+			"diff.truncated": "Showing the first {count} lines"
 		};
-		var RemoteStore = class {
-			descriptors;
-			packages = /* @__PURE__ */ new Map();
-			constructor(descriptors) {
-				this.descriptors = descriptors;
-			}
-			view(ctx) {
-				return {
-					register: (contribution) => this.register(ctx, contribution),
-					get: (endpoint) => this.descriptors.get(endpoint),
-					list: () => this.descriptors.list(),
-					subscribe: (listener) => this.descriptors.subscribe(ctx, listener)
-				};
-			}
-			register(ctx, contribution) {
-				validateSegment("Remote package name", contribution.package);
-				if (this.packages.has(contribution.package)) throw new Error(`typert: Remote package "${contribution.package}" is already registered`);
-				this.descriptors.validate(contribution.descriptors);
-				const owner = {};
-				const { packages, descriptors } = this;
-				return ctx.effect(function* () {
-					packages.set(contribution.package, owner);
-					descriptors.commit(owner, contribution.descriptors);
-					yield () => {
-						/* v8 ignore else -- duplicate package registration is rejected, so this effect remains the package's unique owner. */
-						if (packages.get(contribution.package) === owner) packages.delete(contribution.package);
-						descriptors.withdraw(owner, contribution.descriptors);
-					};
-				}, `typert.remotes.register(${JSON.stringify(contribution.package)})`);
-			}
-		};
-		var LookupStore = class {
-			providers = /* @__PURE__ */ new Map();
-			resolvers = /* @__PURE__ */ new Map();
-			definitions = /* @__PURE__ */ new Map();
-			changes;
-			constructor(report) {
-				this.changes = new ChangeSource(report);
-			}
-			view(ctx) {
-				return {
-					register: (key, provider) => this.register(ctx, key, provider),
-					configure: (key, resolver) => this.configure(ctx, key, resolver),
-					get: (key) => this.get(key),
-					definitions: () => [...this.definitions.values()],
-					keys: () => [...this.providers.keys()],
-					subscribe: (listener) => this.changes.subscribe(ctx, listener)
-				};
-			}
-			get(key) {
-				const provider = this.providers.get(key)?.provider;
-				if (provider === void 0) return void 0;
-				const resolver = this.resolvers.get(key)?.provider;
-				if (resolver === void 0) return provider;
-				return {
-					parameter: provider.parameter,
-					wire: provider.wire,
-					hostTypeSymbol: provider.hostTypeSymbol,
-					wireTypeSymbol: provider.wireTypeSymbol,
-					resolve: (id) => resolver.resolve(id)
-				};
-			}
-			configure(ctx, key, resolver) {
-				validateSegment("lookup key", key);
-				if (this.resolvers.has(key)) throw new Error(`typert: lookup "${key}" resolver is already configured`);
-				const entry = {
-					provider: { resolve: async (id) => resolver(id) },
-					owner: {}
-				};
-				const { resolvers, changes } = this;
-				return ctx.effect(function* () {
-					resolvers.set(key, entry);
-					changes.emit({
-						kind: "lookup",
-						key
-					});
-					yield () => {
-						/* v8 ignore next -- duplicate configuration is rejected, so this effect remains the key's unique owner. */
-						if (resolvers.get(key) !== entry) return;
-						resolvers.delete(key);
-						changes.emit({
-							kind: "lookup",
-							key
-						});
-					};
-				}, `typert.lookups.configure(${JSON.stringify(key)})`);
-			}
-			register(ctx, key, provider) {
-				validateSegment("lookup key", key);
-				validateSegment("lookup parameter", provider.parameter);
-				validateWireName("lookup wire field", provider.wire);
-				validateNonempty("lookup Host type symbol", provider.hostTypeSymbol);
-				validateNonempty("lookup wire type symbol", provider.wireTypeSymbol);
-				if (this.providers.has(key)) throw new Error(`typert: lookup "${key}" is already registered`);
-				const definition = {
-					key,
-					parameter: provider.parameter,
-					wire: provider.wire,
-					hostTypeSymbol: provider.hostTypeSymbol,
-					wireTypeSymbol: provider.wireTypeSymbol
-				};
-				const known = this.definitions.get(key);
-				if (known !== void 0 && !lookupDefinitionEquals(known, definition)) throw new Error(`typert: lookup "${key}" changed its wire declaration during this registry lifetime`);
-				const entry = {
-					provider,
-					owner: {}
-				};
-				const { definitions, providers, changes } = this;
-				return ctx.effect(function* () {
-					definitions.set(key, definition);
-					providers.set(key, entry);
-					changes.emit({
-						kind: "lookup",
-						key
-					});
-					yield () => {
-						/* v8 ignore next -- duplicate registration is rejected, so this effect remains the key's unique owner. */
-						if (providers.get(key) !== entry) return;
-						providers.delete(key);
-						changes.emit({
-							kind: "lookup",
-							key
-						});
-					};
-				}, `typert.lookups.register(${JSON.stringify(key)})`);
-			}
-		};
-		function lookupDefinitionEquals(left, right) {
-			return left.parameter === right.parameter && left.wire === right.wire && left.hostTypeSymbol === right.hostTypeSymbol && left.wireTypeSymbol === right.wireTypeSymbol;
-		}
-		var ContextStore = class {
-			hosts = /* @__PURE__ */ new Map();
-			hostResolvers = /* @__PURE__ */ new Map();
-			clients = /* @__PURE__ */ new Map();
-			changes;
-			constructor(report) {
-				this.changes = new ChangeSource(report);
-			}
-			view(ctx) {
-				return {
-					registerHost: (key, adapter) => this.registerHost(ctx, key, adapter),
-					configureHost: (key, resolver) => this.configureHost(ctx, key, resolver),
-					registerClient: (key, adapter) => this.registerClient(ctx, key, adapter),
-					getHost: (key) => this.getHost(key),
-					getClient: (key) => this.clients.get(key)?.provider,
-					subscribe: (listener) => this.changes.subscribe(ctx, listener)
-				};
-			}
-			getHost(key) {
-				const adapter = this.hosts.get(key)?.provider;
-				if (adapter === void 0) return void 0;
-				const resolver = this.hostResolvers.get(key)?.provider;
-				if (resolver === void 0) return adapter;
-				return {
-					wire: adapter.wire,
-					wireTypeSymbol: adapter.wireTypeSymbol,
-					resolve: (id) => resolver.resolve(id)
-				};
-			}
-			configureHost(ctx, key, resolver) {
-				validateSegment("Context key", key);
-				if (this.hostResolvers.has(key)) throw new Error(`typert: host-context "${key}" resolver is already configured`);
-				const entry = {
-					provider: { resolve: async (id) => resolver(id) },
-					owner: {}
-				};
-				const { hostResolvers, changes } = this;
-				return ctx.effect(function* () {
-					hostResolvers.set(key, entry);
-					changes.emit({
-						kind: "host-context",
-						key
-					});
-					yield () => {
-						/* v8 ignore next -- duplicate configuration is rejected, so this effect remains the key's unique owner. */
-						if (hostResolvers.get(key) !== entry) return;
-						hostResolvers.delete(key);
-						changes.emit({
-							kind: "host-context",
-							key
-						});
-					};
-				}, `typert.contexts.configureHost(${JSON.stringify(key)})`);
-			}
-			registerHost(ctx, key, adapter) {
-				validateSegment("Context key", key);
-				validateWireName("Context wire field", adapter.wire);
-				validateNonempty("Context wire type symbol", adapter.wireTypeSymbol);
-				return this.registerProvider(ctx, this.hosts, "host-context", key, adapter);
-			}
-			registerClient(ctx, key, adapter) {
-				validateSegment("Context key", key);
-				return this.registerProvider(ctx, this.clients, "client-context", key, adapter);
-			}
-			registerProvider(ctx, table, kind, key, provider) {
-				if (table.has(key)) throw new Error(`typert: ${kind} provider "${key}" is already registered`);
-				const entry = {
-					provider,
-					owner: {}
-				};
-				const { changes } = this;
-				return ctx.effect(function* () {
-					table.set(key, entry);
-					changes.emit({
-						kind,
-						key
-					});
-					yield () => {
-						/* v8 ignore next -- duplicate registration is rejected, so this effect remains the key's unique owner. */
-						if (table.get(key) !== entry) return;
-						table.delete(key);
-						changes.emit({
-							kind,
-							key
-						});
-					};
-				}, `typert.contexts.register(${JSON.stringify(key)})`);
-			}
-		};
-		/**
-		* Registry of generated schemas, package reflection, invocations, and Remote
-		* dependency providers.
-		* @typert service typert
-		*/
-		var TypertRegistry = class extends _deepseek_ai_cordis.Service {
-			schemas = /* @__PURE__ */ new Map();
-			packages = /* @__PURE__ */ new Map();
-			localStore;
-			remoteStore;
-			lookupStore;
-			contextStore;
-			constructor(ctx) {
-				super(ctx, "typert");
-				const report = (change, error) => {
-					ctx.logger.warn(`typert: ${change.kind} observer for "${change.key}" failed`);
-					ctx.logger.warn(error);
-				};
-				this.localStore = new DescriptorStore("local", report);
-				this.remoteStore = new RemoteStore(new DescriptorStore("remote", report));
-				this.lookupStore = new LookupStore(report);
-				this.contextStore = new ContextStore(report);
-			}
-			/** Current-environment invocation definitions. */
-			get local() {
-				const ctx = this.ctx;
-				return {
-					get: (endpoint) => this.localStore.get(endpoint),
-					hasSeen: (endpoint) => this.localStore.hasSeen(endpoint),
-					list: () => this.localStore.list(),
-					subscribe: (listener) => this.localStore.subscribe(ctx, listener)
-				};
-			}
-			/** Consumer-selected Remote definitions. */
-			get remotes() {
-				return this.remoteStore.view(this.ctx);
-			}
-			/** Host object lookup providers. */
-			get lookups() {
-				return this.lookupStore.view(this.ctx);
-			}
-			/** Host and Client Context adapters. */
-			get contexts() {
-				return this.contextStore.view(this.ctx);
-			}
-			/**
-			* Register one generated contribution atomically for the calling fiber.
-			* Duplicate package-face identities, schemas, invocation ids, or endpoints
-			* reject the whole batch.
-			* @param contribution - generated schemas, reflection, and Host invocations.
-			* @returns the exact effect disposer that removes this contribution.
-			*/
-			register(contribution) {
-				const packageRecord = this.validatePackage(contribution);
-				const schemaRecords = this.validateSchemas(contribution);
-				const invocations = contribution.invocations;
-				this.localStore.validate(invocations);
-				const owner = {};
-				const { schemas, packages, localStore } = this;
-				return this.ctx.effect(function* () {
-					packages.set(packageRecord.key, packageRecord);
-					for (const record of schemaRecords) schemas.set(record.key, record);
-					localStore.commit(owner, invocations);
-					yield () => {
-						/* v8 ignore else -- duplicate package-face registration is rejected, so this effect remains its unique owner. */
-						if (packages.get(packageRecord.key) === packageRecord) packages.delete(packageRecord.key);
-						for (const record of schemaRecords)
- /* v8 ignore else -- duplicate schema registration is rejected, so this contribution remains each record's unique owner. */
-						if (schemas.get(record.key) === record) schemas.delete(record.key);
-						localStore.withdraw(owner, invocations);
-					};
-				}, "typert.register()");
-			}
-			/**
-			* Look up one schema by `<package>#<name>`.
-			* @param key - global schema key.
-			* @returns a record containing the cached schema, or `undefined` when absent.
-			*/
-			get(key) {
-				const record = this.schemas.get(key);
-				return record === void 0 ? void 0 : materializeSchema(record);
-			}
-			/**
-			* Resolve one required schema.
-			* @param key - global schema key.
-			* @returns a record containing the cached schema.
-			* @throws when the key is malformed, the package face is absent, or the schema is not contributed.
-			*/
-			resolve(key) {
-				const record = this.schemas.get(key);
-				if (record !== void 0) return materializeSchema(record);
-				const hash = key.indexOf("#");
-				if (hash <= 0 || hash === key.length - 1) throw new Error(`typert: invalid schema key "${key}" — expected "<package>#<name>"`);
-				const packageName = key.slice(0, hash);
-				if ([...this.packages.values()].some((candidate) => candidate.package === packageName)) throw new Error(`typert: cannot resolve "${key}" — package "${packageName}" is registered but contributes no schema named "${key.slice(hash + 1)}"`);
-				throw new Error(`typert: cannot resolve "${key}" — package "${packageName}" has no registered contribution`);
-			}
-			/**
-			* Enumerate live schemas in registration order.
-			* @param filter - optional package and face restriction.
-			* @returns matching records containing the cached schemas.
-			*/
-			list(filter = {}) {
-				return [...this.schemas.values()].filter((record) => matches(record, filter)).map(materializeSchema);
-			}
-			/**
-			* Look up generated reflection for one package face.
-			* @param packageName - exact npm package name.
-			* @param face - face to query; defaults to the host runtime.
-			* @returns the live package record, or `undefined` when absent.
-			*/
-			getPackage(packageName, face = "host") {
-				return this.packages.get(typertPackageKey(packageName, face));
-			}
-			/**
-			* Enumerate generated package reflection in registration order.
-			* @param filter - optional package and face restriction.
-			* @returns matching package records.
-			*/
-			listPackages(filter = {}) {
-				return [...this.packages.values()].filter((record) => matches(record, filter));
-			}
-			/**
-			* Project a live Zod schema to JSON Schema without caching the result.
-			* @param key - global schema key.
-			* @param params - Zod projection parameters.
-			* @returns a fresh JSON Schema document.
-			*/
-			toJSONSchema(key, params) {
-				return toJSONSchema(this.resolve(key).schema, params);
-			}
-			validatePackage(contribution) {
-				validateSegment("package name", contribution.package);
-				const face = contribution.face;
-				if (face !== "host" && face !== "client") throw new Error(`typert: invalid face ${JSON.stringify(face)} — expected "host" or "client"`);
-				const key = typertPackageKey(contribution.package, contribution.face);
-				if (this.packages.has(key)) throw new Error(`typert: package face "${key}" is already registered`);
-				return {
-					package: contribution.package,
-					face,
-					key,
-					model: contribution.model
-				};
-			}
-			validateSchemas(contribution) {
-				const records = [];
-				const batch = /* @__PURE__ */ new Set();
-				for (const schema of contribution.schemas) {
-					validateSegment("schema name", schema.name);
-					if (typeof schema.create !== "function") throw new Error(`typert: schema "${schema.name}" has no create() factory`);
-					const key = typertKey(contribution.package, schema.name);
-					if (batch.has(key) || this.schemas.has(key)) throw new Error(`typert: schema "${key}" is already registered`);
-					batch.add(key);
-					records.push({
-						...schema,
-						package: contribution.package,
-						face: contribution.face,
-						key
-					});
-				}
-				return records;
-			}
-		};
-		function materializeSchema(record) {
-			const schema = record.value ??= record.create();
-			return {
-				name: record.name,
-				schema,
-				package: record.package,
-				face: record.face,
-				key: record.key
-			};
-		}
-		function matches(record, filter) {
-			return (filter.package === void 0 || record.package === filter.package) && (filter.face === void 0 || record.face === filter.face);
-		}
-		function validateInvocation(descriptor) {
-			validateNonempty("invocation id", descriptor.id);
-			validateSegment("invocation service key", descriptor.service);
-			validateWireName("invocation namespace", descriptor.namespace);
-			validateWireName("invocation method", descriptor.method);
-			if (descriptor.implementation !== void 0) validateWireName("invocation implementation method", descriptor.implementation);
-			validateCodec(descriptor.result, `${descriptor.id} result`);
-			const wires = /* @__PURE__ */ new Set();
-			for (const parameter of descriptor.parameters) {
-				validateWireName("parameter name", parameter.name);
-				validateWireName("parameter wire field", parameter.wire);
-				if (wires.has(parameter.wire)) throw new Error(`typert: invocation "${descriptor.id}" repeats wire field "${parameter.wire}"`);
-				wires.add(parameter.wire);
-				if (parameter.source === "lookup") {
-					if (parameter.acceptsUndefined !== void 0) throw new Error(`typert: invocation "${descriptor.id}" lookup parameter "${parameter.name}" cannot accept undefined`);
-					if (parameter.lookup === void 0) throw new Error(`typert: invocation "${descriptor.id}" lookup parameter "${parameter.name}" has no lookup key`);
-					validateSegment("lookup key", parameter.lookup);
-				} else if (parameter.lookup !== void 0) throw new Error(`typert: invocation "${descriptor.id}" JSON parameter "${parameter.name}" declares a lookup key`);
-				validateCodec(parameter.codec, `${descriptor.id} parameter ${parameter.name}`);
-			}
-			const cancellation = descriptor.cancellation;
-			if (cancellation !== void 0 && cancellation.parameter !== "signal") throw new Error(`typert: invocation "${descriptor.id}" cancellation parameter must be "signal"`);
-			const mode = descriptor.mode;
-			if (mode !== void 0 && mode !== "stream") throw new Error(`typert: invocation "${descriptor.id}" mode must be "stream"`);
-			if (descriptor.uplink !== void 0) validateCodec(descriptor.uplink.codec, `${descriptor.id} uplink`);
-			if (descriptor.scope !== void 0) {
-				if (descriptor.invocation.kind !== "direct") throw new Error(`typert: invocation "${descriptor.id}" Context receiver cannot declare a direct scope projection`);
-				validateSegment("scope Context key", descriptor.scope.context);
-				validateWireName("scope wire field", descriptor.scope.wire);
-				const lookups = descriptor.parameters.filter((candidate) => candidate.source === "lookup");
-				const parameter = lookups.length === 1 ? lookups[0] : void 0;
-				if (parameter === void 0 || parameter.wire !== descriptor.scope.wire || parameter.lookup !== descriptor.scope.context) throw new Error(`typert: invocation "${descriptor.id}" scope wire "${descriptor.scope.wire}" must select its only lookup parameter`);
-			}
-			if (descriptor.invocation.kind === "context") {
-				validateSegment("Context key", descriptor.invocation.context);
-				validateWireName("Context wire field", descriptor.invocation.wire);
-				if (wires.has(descriptor.invocation.wire)) throw new Error(`typert: invocation "${descriptor.id}" repeats wire field "${descriptor.invocation.wire}"`);
-				validateCodec(descriptor.invocation.codec, `${descriptor.id} Context`);
-			}
-		}
-		function validateCodec(codec, subject) {
-			if (codec.mode === "src-json") return;
-			validateNonempty(`${subject} type symbol`, codec.typeSymbol);
-			if (typeof codec.create !== "function") throw new Error(`typert: ${subject} strict codec has no create() factory`);
-		}
-		function validateWireName(subject, value) {
-			if (value === "." || value === ".." || !/^[A-Za-z0-9_$.-]+$/.test(value)) throw new Error(`typert: invalid ${subject} "${value}" — must contain only RPC endpoint segment characters`);
-		}
-		function validateSegment(subject, value) {
-			if (value.length === 0 || value.includes("#")) throw new Error(`typert: invalid ${subject} "${value}" — must be nonempty and must not contain "#"`);
-		}
-		function validateNonempty(subject, value) {
-			if (value.length === 0) throw new Error(`typert: invalid ${subject} — must be nonempty`);
-		}
 		//#endregion
 		//#region lib/types/client/index.js
-		/** Browser face of the shared Typert runtime registry. */
-		/** Required services: none; this is the Client reflection root. */
-		const inject = [];
+		/** Required services for the tail-slot and tab-type registrations and their dictionaries. */
+		const inject = [
+			"slots",
+			"locale",
+			"uiConversation",
+			"remote",
+			"remote.session",
+			"sidebarRightTabs",
+			"sidebarRight",
+			"configForms"
+		];
 		/**
-		* Install the same registry implementation used by the Host face.
-		* @param ctx - Client Cordis root.
+		* Client plugin body: register the dictionaries, the turn-tail entry, and the comparison tab type.
+		* @param ctx - client root context.
 		*/
 		function apply(ctx) {
-			new TypertRegistry(ctx);
+			const opener = new PresentedOpenController();
+			const summaries = new ChangesSummaryStore();
+			const diffs = new ChangesDiffStore();
+			ctx.effect(() => () => Promise.all([
+				opener.dispose(),
+				summaries.dispose(),
+				diffs.dispose()
+			]));
+			ctx.on("connection/reset", () => {
+				opener.resetHost();
+				summaries.reset();
+				diffs.reset();
+			});
+			ctx.uiConversation.events.register(deliverablesDefinition);
+			ctx.effect(() => ctx.locale.register(NS, {
+				zh,
+				en
+			}), "ui-deliverables: dictionaries");
+			ctx.slots.inject("conversation.chat.turnTail", () => ctx.slots.register({
+				name: "conversation.chat.turnTail",
+				id: "@deepseek-ai/dsh-client-ui-deliverables",
+				locale: NS,
+				children: { "deliverables.file.actions": {
+					kind: "list",
+					scope: "session"
+				} },
+				inject: () => ({
+					hooks: {
+						changesDiff: diffs.state,
+						presentedOpen: opener.state,
+						presentedHost: opener.host,
+						changesSummary: summaries.state,
+						showCodeDiff: ctx.configForms.developerTools.enabled
+					},
+					loadChangesDiff: (sessionId, seq, index) => diffs.load(sessionId, seq, index),
+					reloadPresentedHost: () => opener.loadHost(),
+					loadChangesSummary: (sessionId, seq) => summaries.load(sessionId, seq),
+					openPresented: (sessionId, seq, index, action, application) => opener.open(sessionId, seq, index, action, application),
+					openChanged: (sessionId, seq, index, action, application) => opener.openChanged(sessionId, seq, index, action, application),
+					openChangesReview: (coordinates, index) => {
+						ctx.sidebarRight.openResource(changesReviewAddress(coordinates), { params: { index } });
+					}
+				})
+			}, DeliverablesTail));
+			ctx.slots.inject("tool.call.toolview", () => ctx.slots.register({
+				name: "tool.call.toolview",
+				key: "present",
+				locale: NS
+			}, PresentRow));
+			const t = ctx.locale.bind(NS);
+			ctx.effect(() => ctx.sidebarRightTabs.register(changesReviewDefinition(t)), "ui-deliverables: changes-review type");
+			ctx.effect(() => ctx.slots.inject("sidebar.right.pane.tab", () => ctx.slots.register({
+				name: "sidebar.right.pane.tab",
+				key: CHANGES_REVIEW_ID,
+				locale: NS,
+				store: createReviewStore(),
+				children: { "deliverables.review.file.actions": {
+					kind: "list",
+					scope: "session"
+				} },
+				inject: () => ({
+					hooks: {
+						changesSummary: summaries.state,
+						changesDiff: diffs.state,
+						presentedOpen: opener.state,
+						presentedHost: opener.host
+					},
+					loadChangesSummary: (sessionId, seq) => summaries.load(sessionId, seq),
+					loadChangesDiff: (sessionId, seq, index) => diffs.load(sessionId, seq, index),
+					reloadPresentedHost: () => opener.loadHost(),
+					openChanged: (sessionId, seq, index, action, application) => opener.openChanged(sessionId, seq, index, action, application)
+				})
+			}, ReviewTab)), "ui-deliverables: changes-review body");
+			ctx.provide("chatFileMentions", { forClosing(owner) {
+				const paths = selectProducedFiles(owner);
+				const presented = presentedForClosing(owner);
+				if (paths === null && presented.length === 0) return void 0;
+				return producedFileMentions([...new Set([...paths ?? [], ...presented.map((file) => file.path)])], owner.openFile, (path) => t("presented.previewButton", { name: path }));
+			} });
 		}
 		//#endregion
 		exports.apply = apply;
@@ -1384,4 +2331,4 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 	}
 });
 ;
-//# sourceMappingURL=??@deepseek-ai/dsh-typert-registry/client.js.map&rev=1fd4e997134c
+//# sourceMappingURL=??@deepseek-ai/dsh-client-ui-deliverables/client.js.map&rev=fa1aa7ce1375

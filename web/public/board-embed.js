@@ -124,7 +124,11 @@
     }
   };
   let scheduled = false;
-  new MutationObserver(() => { if (scheduled) return; scheduled = true; requestAnimationFrame(() => { scheduled = false; sweep(); }); }).observe($('#root'), { childList:true, subtree:true });
+  const mo = new MutationObserver(() => { if (scheduled) return; scheduled = true; requestAnimationFrame(() => { scheduled = false; sweep(); }); });
+  mo.observe($('#root'), { childList:true, subtree:true });
+  // rAF 在标签页被节流/不可见时不会触发,定时兜底保证裁剪始终生效
+  sweep();
+  setInterval(sweep, 1500);
   contextTimer = setInterval(() => { if (!document.hidden) refresh(); }, 8000);
   document.addEventListener('visibilitychange', () => { if (!document.hidden) refresh(); });
   refresh();

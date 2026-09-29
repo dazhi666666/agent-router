@@ -1,170 +1,167 @@
 window.__ModuleLoader__.load({
-	id: "@deepseek-ai/dsh-client-ui-settings-shell",
+	id: "@deepseek-ai/dsh-client-ui-settings-plugins",
 	factory: (require) => {
 		var module = { exports: {} };
 		var exports = module.exports;
 		Object.defineProperty(exports, Symbol.toStringTag, { value: "Module" });
+		let _deepseek_ai_dsh_client_ui_slots = require("@deepseek-ai/dsh-client-ui-slots");
 		let react_jsx_runtime = require("react/jsx-runtime");
-		let _deepseek_ai_dsh_client_ui_primitives = require("@deepseek-ai/dsh-client-ui-primitives");
-		//#region lib/types/client/locales.js
-		/** Locale bundles for the shell executor's settings page. */
-		/** English copy. */
-		const en = {
-			title: "Shell",
-			description: "Limit how long each command may run and how much it may output.",
-			timeoutMs: "Command timeout (ms)",
-			timeoutMsHint: "How long one command may run before it is terminated.",
-			maxOutputBytes: "Output cap per stream (bytes)",
-			maxOutputBytesHint: "Output beyond this spills to a temporary file rather than being lost.",
-			overridden: "Overridden",
-			reset: "Reset to default",
-			readOnly: "This deployment stores settings read-only.",
-			unavailable: "This plugin is not loaded, so it cannot be configured right now.",
-			save: "Save",
-			saving: "Saving…",
-			saveFailed: "The deployment did not accept these values; they were left for you to correct.",
-			invalidNumber: "Enter a number, or leave blank to use the default."
-		};
-		/** Simplified Chinese copy. */
-		const zh = {
-			title: "终端",
-			description: "限制每条命令最多能跑多久、最多输出多少内容。",
-			timeoutMs: "命令超时（毫秒）",
-			timeoutMsHint: "单条命令允许运行多久，超时即终止。",
-			maxOutputBytes: "单流输出上限（字节）",
-			maxOutputBytesHint: "超出部分会转存到临时文件，而不是被丢弃。",
-			overridden: "已覆盖",
-			reset: "恢复默认",
-			readOnly: "本部署的设置为只读。",
-			unavailable: "该插件当前未加载，暂时无法配置。",
-			save: "保存",
-			saving: "保存中…",
-			saveFailed: "本部署没有接受这些值，已保留供你修改。",
-			invalidNumber: "请填数字；留空表示使用默认值。"
-		};
-		/**
-		* The form frame's copy, read from this page's dictionary.
-		* @param t - the page's locale reader.
-		* @returns the labels the shared settings form renders.
-		*/
-		function formLabels(t) {
-			return {
-				unavailable: t("unavailable"),
-				readOnly: t("readOnly"),
-				saveFailed: t("saveFailed"),
-				save: t("save"),
-				saving: t("saving")
-			};
+		let react = require("react");
+		//#region \0dsh-css:D:\deepseek-harness\packages\client\ui-settings-plugins\src\client\PluginsSettingsSection.module.css.mjs
+		const css = ".UN8xiq_section{max-width:760px;color:var(--dsw-alias-label-primary);flex-direction:column;gap:12px;display:flex}.UN8xiq_heading{margin:0;font-size:18px;font-weight:600}.UN8xiq_intro{color:var(--dsw-alias-label-tertiary);margin:0;font-size:13px}.UN8xiq_tabs{border-bottom:.5px solid var(--dsw-alias-border-l2);align-items:flex-end;gap:22px;margin-top:2px;display:flex}.UN8xiq_tab{color:var(--dsw-alias-label-tertiary);font:inherit;cursor:pointer;background:0 0;border:0;padding:7px 1px 9px;font-size:13px;line-height:20px;position:relative}.UN8xiq_tab:hover,.UN8xiq_tab[data-active=true]{color:var(--dsw-alias-label-primary)}.UN8xiq_tab[data-active=true]:after,.UN8xiq_tab:focus-visible:after{background:var(--dsw-alias-label-primary);content:\"\";border-radius:2px 2px 0 0;height:2px;position:absolute;bottom:-1px;left:0;right:0}.UN8xiq_tab:focus-visible{outline:var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color,var(--dsw-alias-state-business-primary));outline-offset:2px;color:var(--dsw-alias-label-primary);border-radius:2px}.UN8xiq_panel{min-width:0;padding-top:2px}.UN8xiq_cards{flex-direction:column;gap:10px;margin:0;padding:0;list-style:none;display:flex}.UN8xiq_empty{color:var(--dsw-alias-label-tertiary);margin:0;font-size:13px}.UN8xiq_configurable{flex-direction:column;gap:10px;display:flex}.UN8xiq_presetSettings{flex-direction:column;gap:8px;display:flex}.UN8xiq_presetSettingsTitle{margin:0;font-size:15px;font-weight:600;line-height:22px}";
+		const tagId = "@deepseek-ai/dsh-client-ui-settings-plugins/PluginsSettingsSection.module.css";
+		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId) + "]") === null) {
+			const tag = document.createElement("style");
+			tag.dataset.plugin = "@deepseek-ai/dsh-client-ui-settings-plugins";
+			tag.dataset.pluginCss = tagId;
+			tag.textContent = css;
+			document.head.appendChild(tag);
 		}
+		var PluginsSettingsSection_module_css_default = {
+			"cards": "UN8xiq_cards",
+			"configurable": "UN8xiq_configurable",
+			"empty": "UN8xiq_empty",
+			"heading": "UN8xiq_heading",
+			"intro": "UN8xiq_intro",
+			"panel": "UN8xiq_panel",
+			"presetSettings": "UN8xiq_presetSettings",
+			"presetSettingsTitle": "UN8xiq_presetSettingsTitle",
+			"section": "UN8xiq_section",
+			"tab": "UN8xiq_tab",
+			"tabs": "UN8xiq_tabs"
+		};
 		//#endregion
-		//#region lib/types/client/ShellCard.js
-		/**
-		* Render the shell executor's one-liner or its settings form, as the Plugins page asks.
-		* @param props - the view asked for, locale copy, the form snapshot, and its actions.
-		* @returns the one-liner, or the form.
-		*/
-		function ShellCard(props) {
-			const { t } = props;
-			const state = props.useShellCard((snapshot) => snapshot);
-			if (props.view === "summary") return t("description");
-			const disabled = !state.writable;
-			return (0, react_jsx_runtime.jsxs)(_deepseek_ai_dsh_client_ui_primitives.SettingsForm, {
-				labels: formLabels(t),
-				state,
-				onSave: props.save,
-				onDiscard: props.discard,
-				children: [(0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.SettingsValueField, {
-					id: "plugin-config-shell-timeout",
-					label: t("timeoutMs"),
-					hint: t("timeoutMsHint"),
-					overriddenLabel: t("overridden"),
-					resetLabel: t("reset"),
-					invalidLabel: t("invalidNumber"),
-					numeric: true,
-					disabled,
-					...state.timeoutMs,
-					onEdit: (text) => {
-						props.edit("timeoutMs", text);
-					},
-					onReset: () => {
-						props.resetField("timeoutMs");
-					}
-				}), (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.SettingsValueField, {
-					id: "plugin-config-shell-output",
-					label: t("maxOutputBytes"),
-					hint: t("maxOutputBytesHint"),
-					overriddenLabel: t("overridden"),
-					resetLabel: t("reset"),
-					invalidLabel: t("invalidNumber"),
-					numeric: true,
-					disabled,
-					...state.maxOutputBytes,
-					onEdit: (text) => {
-						props.edit("maxOutputBytes", text);
-					},
-					onReset: () => {
-						props.resetField("maxOutputBytes");
-					}
-				})]
+		//#region lib/types/client/PluginsSettingsSection.js
+		/** Plugins settings section: localized tabs around feature-owned pages. */
+		/** Render one Plugins page whose contents arrive from feature-owned tabs; one contribution shows as the page itself. */
+		function PluginsSettingsSection({ t, renderSlot, useTabs }) {
+			const tabsId = (0, react.useId)();
+			const tabRefs = (0, react.useRef)([]);
+			const rows = useTabs((value) => value);
+			const [activeId, setActiveId] = (0, react.useState)();
+			const [visitedIds, setVisitedIds] = (0, react.useState)(() => /* @__PURE__ */ new Set());
+			const active = rows.find((row) => row.id === activeId)?.id ?? rows[0]?.id;
+			const single = rows.length === 1 ? rows[0] : void 0;
+			(0, react.useEffect)(() => {
+				if (active === void 0) return;
+				setVisitedIds((previous) => {
+					if (previous.has(active)) return previous;
+					return new Set([...previous, active]);
+				});
+			}, [active]);
+			return (0, react_jsx_runtime.jsxs)("div", {
+				className: PluginsSettingsSection_module_css_default.section,
+				children: [
+					(0, react_jsx_runtime.jsx)("h2", {
+						className: PluginsSettingsSection_module_css_default.heading,
+						children: t("title")
+					}),
+					(0, react_jsx_runtime.jsx)("p", {
+						className: PluginsSettingsSection_module_css_default.intro,
+						children: t("intro")
+					}),
+					rows.length === 0 ? (0, react_jsx_runtime.jsx)("p", {
+						className: PluginsSettingsSection_module_css_default.empty,
+						children: t("empty")
+					}) : single !== void 0 ? (0, react_jsx_runtime.jsx)("div", {
+						className: PluginsSettingsSection_module_css_default.panel,
+						children: renderSlot("settings.plugins.tab", {}, { only: single.id })
+					}) : (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [(0, react_jsx_runtime.jsx)("div", {
+						className: PluginsSettingsSection_module_css_default.tabs,
+						role: "tablist",
+						"aria-label": t("tabs"),
+						children: rows.map((row, index) => {
+							const selected = row.id === active;
+							return (0, react_jsx_runtime.jsx)("button", {
+								ref: (element) => {
+									tabRefs.current[index] = element;
+								},
+								id: `${tabsId}-tab-${row.id}`,
+								type: "button",
+								role: "tab",
+								className: PluginsSettingsSection_module_css_default.tab,
+								"aria-selected": selected,
+								"aria-controls": `${tabsId}-panel-${row.id}`,
+								"data-active": selected ? "true" : void 0,
+								tabIndex: selected ? 0 : -1,
+								onClick: () => {
+									setActiveId(row.id);
+								},
+								onKeyDown: (event) => {
+									let nextIndex;
+									switch (event.key) {
+										case "ArrowRight":
+											nextIndex = (index + 1) % rows.length;
+											break;
+										case "ArrowLeft":
+											nextIndex = (index - 1 + rows.length) % rows.length;
+											break;
+										case "Home":
+											nextIndex = 0;
+											break;
+										case "End":
+											nextIndex = rows.length - 1;
+											break;
+										default: return;
+									}
+									event.preventDefault();
+									const nextRow = rows[nextIndex];
+									const nextTab = tabRefs.current[nextIndex];
+									setActiveId(nextRow.id);
+									nextTab.focus();
+								},
+								children: row.label
+							}, row.id);
+						})
+					}), rows.filter((row) => row.id === active || visitedIds.has(row.id)).map((row) => {
+						const selected = row.id === active;
+						return (0, react_jsx_runtime.jsx)("div", {
+							id: `${tabsId}-panel-${row.id}`,
+							className: PluginsSettingsSection_module_css_default.panel,
+							role: "tabpanel",
+							"aria-labelledby": `${tabsId}-tab-${row.id}`,
+							hidden: !selected,
+							children: renderSlot("settings.plugins.tab", {}, { only: row.id })
+						}, row.id);
+					})] })
+				]
 			});
 		}
 		//#endregion
-		//#region lib/types/client/shell-card-controller.js
-		/** The shell page's staged form over the composed shell executor entry. */
-		/** Profile entry id of the POSIX shell executor; the base bundle composes it off Windows. */
-		const BASH_NS = "bash-sandbox";
-		/** Profile entry id of the PowerShell executor; the base bundle composes it on Windows. */
-		const PWSH_NS = "pwsh-sandbox";
-		/** Bridges one shell executor entry's form onto the page's staged form. */
-		var ShellCardController = class {
-			form;
-			store;
-			/** @param scope - the shared configuration form of the composed shell executor entry. */
-			constructor(scope) {
-				this.form = new _deepseek_ai_dsh_client_ui_primitives.SettingsFormModel(scope, [(0, _deepseek_ai_dsh_client_ui_primitives.settingsNumberField)("timeoutMs"), (0, _deepseek_ai_dsh_client_ui_primitives.settingsNumberField)("maxOutputBytes")]);
-				this.store = this.form.bind(() => this.projection());
-			}
-			projection() {
-				return {
-					...this.form.shell(),
-					timeoutMs: this.form.field("timeoutMs"),
-					maxOutputBytes: this.form.field("maxOutputBytes")
-				};
-			}
-			/**
-			* Build the face the page's slot registration injects.
-			* @returns the page's snapshot and its form actions.
-			*/
-			inject() {
-				return {
-					hooks: { shellCard: this.store },
-					...this.form.actions()
-				};
-			}
-			/** Release the form subscription. */
-			dispose() {
-				this.form.dispose();
-			}
+		//#region lib/types/client/locales.js
+		/** Locale bundles for the built-in plugins settings section. */
+		/** English copy. */
+		const en = {
+			nav: "Built-in plugins",
+			title: "Built-in plugins",
+			intro: "Inspect the plugins this deployment ships.",
+			tabs: "Plugin views",
+			empty: "This deployment exposes no plugin views."
+		};
+		/** Simplified Chinese copy. */
+		const zh = {
+			nav: "内置插件",
+			title: "内置插件",
+			intro: "查看内置部署的插件列表",
+			tabs: "插件视图",
+			empty: "本部署没有开放任何插件视图。"
 		};
 		//#endregion
 		//#region lib/types/client/index.js
 		/**
-		* The shell executor's settings page, browser half: the command timeout and
-		* the per-stream output cap over the `shell` namespace the executor
-		* registers. The page registers into the Plugins page's `plugins.item` slot
-		* while the Host serves that namespace, so a deployment without a local shell
-		* executor shows no trace of it.
+		* Built-in plugins settings section, browser half: the shell around the
+		* feature-owned tabs registered into `settings.plugins.tab` (the read-only
+		* inventory ships one). The configuration pages of the host-plane plugins
+		* live in their own companion packages, which register into the Plugins
+		* page; this section owns the Settings navigation entry and the tab chrome
+		* only.
 		*/
 		/** Dictionary namespace owned by this plugin. */
-		const NS = "settings.shell";
+		const NS = "settings.plugins";
 		/** Required services (cordis fiber inject). */
-		const inject = [
-			"slots",
-			"locale",
-			"configForms"
-		];
+		const inject = ["slots", "locale"];
 		/**
-		* Mount the shell settings page while the Host serves its namespace.
+		* Mount the built-in plugins section.
 		* @param ctx - the browser plugin context.
 		*/
 		function apply(ctx) {
@@ -172,28 +169,53 @@ window.__ModuleLoader__.load({
 			ctx.effect(() => ctx.locale.register(NS, {
 				zh,
 				en
-			}), "ui-settings-shell: dictionaries");
-			const bash = new ShellCardController(ctx.configForms.get(BASH_NS));
-			const pwsh = new ShellCardController(ctx.configForms.get(PWSH_NS));
-			ctx.effect(() => () => {
-				bash.dispose();
-				pwsh.dispose();
-			}, "ui-settings-shell: form subscriptions");
-			ctx.effect(() => ctx.configForms.whileServed([BASH_NS, PWSH_NS], (served) => ctx.slots.inject("plugins.item", () => ctx.slots.register({
-				name: "plugins.item",
-				id: "shell",
-				order: 10,
-				label: () => t("title"),
+			}), "ui-settings-plugins: section dictionaries");
+			let tabsVersion = -1;
+			let tabsRevision = -1;
+			let tabs = [];
+			const sectionInjected = () => ({ hooks: { tabs: {
+				getSnapshot: () => {
+					const version = ctx.slots.getVersion("settings.plugins.tab");
+					const revision = ctx.locale.getSnapshot().revision;
+					if (version !== tabsVersion || revision !== tabsRevision) {
+						tabsVersion = version;
+						tabsRevision = revision;
+						tabs = ctx.slots.entries("settings.plugins.tab").map((entry) => ({
+							/* v8 ignore next -- list-slot registration requires id */
+							id: entry.options.id ?? "",
+							order: entry.options.order ?? 0,
+							label: (0, _deepseek_ai_dsh_client_ui_slots.resolveSlotLabel)(entry.options.label) ?? ""
+						})).sort((a, b) => a.order - b.order);
+					}
+					return tabs;
+				},
+				subscribe: (listener) => {
+					const offLedger = ctx.slots.subscribe("settings.plugins.tab", listener);
+					const offLocale = ctx.locale.subscribe(listener);
+					return () => {
+						offLedger();
+						offLocale();
+					};
+				}
+			} } });
+			ctx.slots.inject("settings.section", () => ctx.slots.register({
+				name: "settings.section",
+				id: "plugins",
+				order: 15,
+				label: () => t("nav"),
 				locale: NS,
-				inject: () => (served.has("pwsh-sandbox") ? pwsh : bash).inject()
-			}, ShellCard))), "ui-settings-shell: page");
+				inject: sectionInjected,
+				children: { "settings.plugins.tab": {
+					kind: "list",
+					scope: "root"
+				} }
+			}, PluginsSettingsSection));
 		}
 		//#endregion
-		exports.NS = NS;
 		exports.apply = apply;
 		exports.inject = inject;
 		return module.exports;
 	}
 });
 ;
-//# sourceMappingURL=??@deepseek-ai/dsh-client-ui-settings-shell/client.js.map&rev=c93359eed173
+//# sourceMappingURL=??@deepseek-ai/dsh-client-ui-settings-plugins/client.js.map&rev=67de209398ab

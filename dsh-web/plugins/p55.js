@@ -1,25 +1,17 @@
 window.__ModuleLoader__.load({
-	id: "@deepseek-ai/dsh-client-ui-settings-web-search",
+	id: "@deepseek-ai/dsh-client-ui-settings-subagent",
 	factory: (require) => {
 		var module = { exports: {} };
 		var exports = module.exports;
 		Object.defineProperty(exports, Symbol.toStringTag, { value: "Module" });
 		let react_jsx_runtime = require("react/jsx-runtime");
+		let react = require("react");
 		let _deepseek_ai_dsh_client_ui_primitives = require("@deepseek-ai/dsh-client-ui-primitives");
+		let _deepseek_ai_dsh_client_store = require("@deepseek-ai/dsh-client-store");
 		//#region lib/types/client/locales.js
-		/** Locale bundles for the web-search provider's settings page. */
+		/** Locale bundles for the Subagent settings page. */
 		/** English copy. */
 		const en = {
-			title: "Web search",
-			description: "Set up the DeepSeek search provider.",
-			apiKey: "API key",
-			apiKeyHint: "Stored outside the settings file. Leave blank to keep the current key.",
-			apiKeySet: "A key is configured.",
-			apiKeyUnset: "No key is configured; search is unavailable until one is.",
-			baseUrl: "Endpoint",
-			baseUrlHint: "Leave blank to use the provider default.",
-			maxUses: "Max searches per request",
-			maxUsesHint: "How many times one request may search before it must answer.",
 			overridden: "Overridden",
 			reset: "Reset to default",
 			readOnly: "This deployment stores settings read-only.",
@@ -27,20 +19,37 @@ window.__ModuleLoader__.load({
 			save: "Save",
 			saving: "Saving…",
 			saveFailed: "The deployment did not accept these values; they were left for you to correct.",
-			invalidNumber: "Enter a number, or leave blank to use the default."
+			subagentTitle: "Subagent",
+			subagentDescription: "Set Subagent recursion depth, count, and models.",
+			subagentLimitsTitle: "Limits",
+			subagentMaxDepth: "Maximum recursion depth",
+			subagentDepthHelpLabel: "About maximum recursion depth",
+			subagentDepthHelp: "Limits how many levels of Subagents an Agent can create.",
+			subagentDepthZero: "Disable Subagents",
+			subagentDepthOne: "Only the main Agent can create Subagents",
+			subagentDepthOverride: "If a tool defines its own maximum recursion depth, that setting takes precedence.",
+			subagentMaxActive: "Subagent parallelism limit",
+			subagentCapacityHelpLabel: "About the Subagent parallelism limit",
+			subagentCapacityHelp: "Total live Subagents under the same main Agent, across all recursion levels. The main Agent is excluded. New start requests are rejected when the limit is reached.",
+			subagentDepthInvalid: "Enter a whole number of 0 or more.",
+			subagentCapacityInvalid: "Enter a whole number of 1 or more.",
+			subagentModelSelectionTitle: "Model selection",
+			subagentModelSelectionToggle: "Allow agents to choose models for Subagents",
+			subagentModelSelectionChoose: "When enabled, agents can choose a provider, model, and reasoning effort for each Subagent from the authorized models below. Applies only to new sessions.",
+			subagentModelSelectionAllowed: "Models agents may choose",
+			subagentModelSelectionLoading: "Loading models…",
+			subagentModelSelectionLoadFailed: "Models could not be loaded.",
+			subagentModelSelectionRetry: "Retry",
+			subagentModelSelectionPartial: "Some model providers could not be loaded; saved choices remain removable.",
+			subagentModelSelectionUnavailable: "Currently unavailable",
+			subagentModelSelectionUnavailableGroup: "Saved but currently unavailable",
+			subagentModelSelectionEmpty: "No model provider currently advertises a model.",
+			subagentModelSelectionRequired: "Select at least one model before saving.",
+			subagentModelSelectionConflict: "Settings changed elsewhere. Discard your draft and try again.",
+			subagentModelSelectionOff: "Subagents use configured defaults or inherit the parent agent's model. Saved model choices are retained."
 		};
 		/** Simplified Chinese copy. */
 		const zh = {
-			title: "网页搜索",
-			description: "设置 DeepSeek 的搜索提供方。",
-			apiKey: "API Key",
-			apiKeyHint: "不写入设置文件。留空表示保持当前密钥。",
-			apiKeySet: "已配置密钥。",
-			apiKeyUnset: "未配置密钥；配置之前搜索不可用。",
-			baseUrl: "接口地址",
-			baseUrlHint: "留空则使用提供方默认地址。",
-			maxUses: "单次请求最多搜索次数",
-			maxUsesHint: "一次请求在必须作答前最多可以搜索多少次。",
 			overridden: "已覆盖",
 			reset: "恢复默认",
 			readOnly: "本部署的设置为只读。",
@@ -48,7 +57,34 @@ window.__ModuleLoader__.load({
 			save: "保存",
 			saving: "保存中…",
 			saveFailed: "本部署没有接受这些值，已保留供你修改。",
-			invalidNumber: "请填数字；留空表示使用默认值。"
+			subagentTitle: "子智能体",
+			subagentDescription: "设置子智能体的递归层级、数量和模型。",
+			subagentLimitsTitle: "运行限制",
+			subagentMaxDepth: "最大递归深度",
+			subagentDepthHelpLabel: "最大递归深度说明",
+			subagentDepthHelp: "限制 Agent 创建子智能体的递归层级。",
+			subagentDepthZero: "禁用子智能体",
+			subagentDepthOne: "仅允许主 Agent 创建子智能体",
+			subagentDepthOverride: "如果某个工具单独设置了最大递归深度，以该工具的设置为准。",
+			subagentMaxActive: "子智能体并行数量上限",
+			subagentCapacityHelpLabel: "子智能体并行数量上限说明",
+			subagentCapacityHelp: "同一主 Agent 下，所有递归层级同时存活的子智能体总数，主 Agent 不计入。达到上限时，新的启动请求会被拒绝。",
+			subagentDepthInvalid: "请输入不小于 0 的整数。",
+			subagentCapacityInvalid: "请输入不小于 1 的整数。",
+			subagentModelSelectionTitle: "模型选择",
+			subagentModelSelectionToggle: "允许 Agent 为子智能体选择模型",
+			subagentModelSelectionChoose: "开启后，Agent 可以从下方授权模型中，为每个子智能体选择提供方、模型和推理强度。仅影响新会话。",
+			subagentModelSelectionAllowed: "Agent 可选择的模型",
+			subagentModelSelectionLoading: "正在加载模型…",
+			subagentModelSelectionLoadFailed: "无法加载模型。",
+			subagentModelSelectionRetry: "重试",
+			subagentModelSelectionPartial: "部分模型提供方暂时无法加载；已保存的选择仍可移除。",
+			subagentModelSelectionUnavailable: "当前不可用",
+			subagentModelSelectionUnavailableGroup: "已保存但当前不可用",
+			subagentModelSelectionEmpty: "当前没有模型提供方公布模型。",
+			subagentModelSelectionRequired: "保存前请至少选择一个模型。",
+			subagentModelSelectionConflict: "设置已在其他位置更新。请放弃修改后重试。",
+			subagentModelSelectionOff: "关闭后，子智能体使用配置的默认模型或继承父 Agent 的模型；已选模型会保留。"
 		};
 		/**
 		* The form frame's copy, read from this page's dictionary.
@@ -65,230 +101,714 @@ window.__ModuleLoader__.load({
 			};
 		}
 		//#endregion
-		//#region lib/types/client/WebSearchCard.js
+		//#region \0dsh-css:D:\deepseek-harness\packages\client\ui-settings-subagent\src\client\SubagentLimitsFields.module.css.mjs
+		const css$2 = ".kiR-wa_limits{grid-template-columns:repeat(auto-fit,minmax(min(220px,100%),1fr));gap:16px;display:grid}.kiR-wa_limit{min-width:0}.kiR-wa_limit input{font-variant-numeric:tabular-nums;min-width:0}.kiR-wa_depthTable{border-collapse:collapse;border-block:.5px solid var(--dsw-alias-border-l2);width:100%;font:inherit;text-align:left;margin:8px 0}.kiR-wa_depthTable th,.kiR-wa_depthTable td{vertical-align:top;padding:6px 0}.kiR-wa_depthTable th{font-variant-numeric:tabular-nums;width:24px;color:var(--dsw-alias-label-primary);padding-right:8px;font-weight:500}.kiR-wa_depthTable tr+tr{border-top:.5px solid var(--dsw-alias-border-l2)}";
+		const tagId$2 = "@deepseek-ai/dsh-client-ui-settings-subagent/SubagentLimitsFields.module.css";
+		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId$2) + "]") === null) {
+			const tag = document.createElement("style");
+			tag.dataset.plugin = "@deepseek-ai/dsh-client-ui-settings-subagent";
+			tag.dataset.pluginCss = tagId$2;
+			tag.textContent = css$2;
+			document.head.appendChild(tag);
+		}
+		var SubagentLimitsFields_module_css_default = {
+			"depthTable": "kiR-wa_depthTable",
+			"limit": "kiR-wa_limit",
+			"limits": "kiR-wa_limits"
+		};
+		//#endregion
+		//#region lib/types/client/SubagentLimitsFields.js
 		/**
-		* Render the web-search provider's one-liner or its settings form, as the Plugins page asks.
-		* @param props - the view asked for, locale copy, the form snapshot, and its actions.
-		* @returns the one-liner, or the form.
+		* Render the depth and capacity fields with their original validation and reset behavior.
+		* @param props - Locale, staged fields, and edit callbacks.
+		* @returns Two responsive fields and their application rules.
 		*/
-		function WebSearchCard(props) {
+		function SubagentLimitsFields(props) {
+			const { t, state } = props;
+			return (0, react_jsx_runtime.jsx)(react_jsx_runtime.Fragment, { children: (0, react_jsx_runtime.jsxs)("div", {
+				className: SubagentLimitsFields_module_css_default.limits,
+				children: [(0, react_jsx_runtime.jsx)("div", {
+					className: SubagentLimitsFields_module_css_default.limit,
+					children: (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.SettingsValueField, {
+						id: "plugin-config-subagent-depth",
+						label: t("subagentMaxDepth"),
+						help: {
+							label: t("subagentDepthHelpLabel"),
+							content: (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [
+								(0, react_jsx_runtime.jsx)("p", { children: t("subagentDepthHelp") }),
+								(0, react_jsx_runtime.jsx)("table", {
+									className: SubagentLimitsFields_module_css_default.depthTable,
+									"aria-label": t("subagentDepthHelpLabel"),
+									children: (0, react_jsx_runtime.jsxs)("tbody", { children: [(0, react_jsx_runtime.jsxs)("tr", { children: [(0, react_jsx_runtime.jsx)("th", {
+										scope: "row",
+										children: 0
+									}), (0, react_jsx_runtime.jsx)("td", { children: t("subagentDepthZero") })] }), (0, react_jsx_runtime.jsxs)("tr", { children: [(0, react_jsx_runtime.jsx)("th", {
+										scope: "row",
+										children: 1
+									}), (0, react_jsx_runtime.jsx)("td", { children: t("subagentDepthOne") })] })] })
+								}),
+								(0, react_jsx_runtime.jsx)("p", { children: t("subagentDepthOverride") })
+							] })
+						},
+						overriddenLabel: t("overridden"),
+						resetLabel: t("reset"),
+						invalidLabel: t("subagentDepthInvalid"),
+						numeric: true,
+						disabled: !state.writable || state.saving,
+						...state.maxDepth,
+						onEdit: (text) => {
+							props.edit("maxDepth", text);
+						},
+						onReset: () => {
+							props.resetField("maxDepth");
+						}
+					})
+				}), (0, react_jsx_runtime.jsx)("div", {
+					className: SubagentLimitsFields_module_css_default.limit,
+					children: (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.SettingsValueField, {
+						id: "plugin-config-subagent-capacity",
+						label: t("subagentMaxActive"),
+						help: {
+							label: t("subagentCapacityHelpLabel"),
+							content: (0, react_jsx_runtime.jsx)("p", { children: t("subagentCapacityHelp") })
+						},
+						overriddenLabel: t("overridden"),
+						resetLabel: t("reset"),
+						invalidLabel: t("subagentCapacityInvalid"),
+						numeric: true,
+						disabled: !state.writable || state.saving,
+						...state.maxActiveSubagents,
+						onEdit: (text) => {
+							props.edit("maxActiveSubagents", text);
+						},
+						onReset: () => {
+							props.resetField("maxActiveSubagents");
+						}
+					})
+				})]
+			}) });
+		}
+		//#endregion
+		//#region \0dsh-css:D:\deepseek-harness\packages\client\ui-settings-subagent\src\client\SubagentModelSelectionFields.module.css.mjs
+		const css$1 = ".ZLCvSq_permission{gap:6px;padding:12px 0;display:grid}.ZLCvSq_toggleRow{color:var(--dsw-alias-label-primary);justify-content:space-between;align-items:flex-start;gap:16px;font-size:13px;line-height:1.5;display:flex}.ZLCvSq_toggleLabel{flex:1;min-width:0}.ZLCvSq_selection{gap:10px;display:grid}.ZLCvSq_hint,.ZLCvSq_notice,.ZLCvSq_invalid,.ZLCvSq_conflict{margin:0;font-size:12px;line-height:1.5}.ZLCvSq_hint,.ZLCvSq_notice{color:var(--dsw-alias-label-tertiary)}.ZLCvSq_invalid,.ZLCvSq_conflict{color:var(--dsw-alias-state-error-primary)}.ZLCvSq_catalogError{color:var(--dsw-alias-state-error-primary);justify-content:space-between;align-items:center;gap:12px;font-size:12px;display:flex}.ZLCvSq_catalogError button{color:var(--dsw-alias-brand-primary);cursor:pointer;background:0 0;border:0;padding:0}.ZLCvSq_models{border:.5px solid var(--dsw-alias-border-l4);border-radius:var(--dsw-radius-lg);gap:6px;min-width:0;max-height:280px;margin:0;padding:10px;display:grid;overflow:auto}.ZLCvSq_models legend{color:var(--dsw-alias-label-secondary);padding:0 4px;font-size:12px}.ZLCvSq_modelGroup{gap:6px;display:grid}.ZLCvSq_modelGroup+.ZLCvSq_modelGroup{border-top:.5px solid var(--dsw-alias-border-l3);margin-top:4px;padding-top:10px}.ZLCvSq_providerName{color:var(--dsw-alias-label-tertiary);padding:0 6px;font-size:11px;font-weight:500}.ZLCvSq_model{border-radius:var(--dsw-radius-md);cursor:pointer;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:8px;min-width:0;padding:6px;display:grid}.ZLCvSq_model:hover{background:var(--dsw-alias-bg-layer-4)}.ZLCvSq_modelName,.ZLCvSq_route{text-overflow:ellipsis;white-space:nowrap;display:block;overflow:hidden}.ZLCvSq_modelName{color:var(--dsw-alias-label-primary);font-size:13px}.ZLCvSq_route{color:var(--dsw-alias-label-tertiary);margin-top:2px;font-size:11px}.ZLCvSq_unavailable{color:var(--dsw-alias-label-tertiary);font-size:11px}";
+		const tagId$1 = "@deepseek-ai/dsh-client-ui-settings-subagent/SubagentModelSelectionFields.module.css";
+		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId$1) + "]") === null) {
+			const tag = document.createElement("style");
+			tag.dataset.plugin = "@deepseek-ai/dsh-client-ui-settings-subagent";
+			tag.dataset.pluginCss = tagId$1;
+			tag.textContent = css$1;
+			document.head.appendChild(tag);
+		}
+		var SubagentModelSelectionFields_module_css_default = {
+			"catalogError": "ZLCvSq_catalogError",
+			"conflict": "ZLCvSq_conflict",
+			"hint": "ZLCvSq_hint",
+			"invalid": "ZLCvSq_invalid",
+			"model": "ZLCvSq_model",
+			"modelGroup": "ZLCvSq_modelGroup",
+			"modelName": "ZLCvSq_modelName",
+			"models": "ZLCvSq_models",
+			"notice": "ZLCvSq_notice",
+			"permission": "ZLCvSq_permission",
+			"providerName": "ZLCvSq_providerName",
+			"route": "ZLCvSq_route",
+			"selection": "ZLCvSq_selection",
+			"toggleLabel": "ZLCvSq_toggleLabel",
+			"toggleRow": "ZLCvSq_toggleRow",
+			"unavailable": "ZLCvSq_unavailable"
+		};
+		//#endregion
+		//#region lib/types/client/SubagentModelSelectionFields.js
+		/** User control for model-selectable subagent delegation in new sessions. */
+		/**
+		* Render the default-off preference and its exact adapter-route choices.
+		* @param props - locale copy, the card snapshot, and its toggle action.
+		* @returns the model permission and route choices inside the shared card.
+		*/
+		function SubagentModelSelectionFields(props) {
+			const { t, state } = props;
+			const availableGroups = /* @__PURE__ */ new Map();
+			const unavailable = [];
+			for (const candidate of state.candidates) {
+				if (!candidate.available) {
+					unavailable.push(candidate);
+					continue;
+				}
+				const group = availableGroups.get(candidate.provider);
+				if (group === void 0) availableGroups.set(candidate.provider, {
+					providerName: candidate.providerName,
+					candidates: [candidate]
+				});
+				else group.candidates.push(candidate);
+			}
+			const renderCandidate = (candidate) => (0, react_jsx_runtime.jsxs)("label", {
+				className: SubagentModelSelectionFields_module_css_default.model,
+				children: [
+					(0, react_jsx_runtime.jsx)("input", {
+						type: "checkbox",
+						checked: candidate.selected,
+						disabled: !state.writable || state.saving,
+						onChange: () => {
+							props.toggleModel(candidate.key);
+						}
+					}),
+					(0, react_jsx_runtime.jsxs)("span", { children: [(0, react_jsx_runtime.jsx)("span", {
+						className: SubagentModelSelectionFields_module_css_default.modelName,
+						children: candidate.modelName
+					}), (0, react_jsx_runtime.jsx)("span", {
+						className: SubagentModelSelectionFields_module_css_default.route,
+						children: `${candidate.providerName} · ${candidate.provider}/${candidate.model}`
+					})] }),
+					!candidate.available ? (0, react_jsx_runtime.jsx)("span", {
+						className: SubagentModelSelectionFields_module_css_default.unavailable,
+						children: t("subagentModelSelectionUnavailable")
+					}) : null
+				]
+			}, candidate.key);
+			return (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [
+				(0, react_jsx_runtime.jsxs)("div", {
+					className: SubagentModelSelectionFields_module_css_default.permission,
+					children: [(0, react_jsx_runtime.jsxs)("div", {
+						className: SubagentModelSelectionFields_module_css_default.toggleRow,
+						children: [(0, react_jsx_runtime.jsx)("span", {
+							className: SubagentModelSelectionFields_module_css_default.toggleLabel,
+							children: t("subagentModelSelectionToggle")
+						}), (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Switch, {
+							checked: state.enabled,
+							label: t("subagentModelSelectionToggle"),
+							disabled: !state.writable || state.saving,
+							onChange: props.toggleEnabled
+						})]
+					}), (0, react_jsx_runtime.jsx)("p", {
+						className: SubagentModelSelectionFields_module_css_default.hint,
+						children: t(state.enabled ? "subagentModelSelectionChoose" : "subagentModelSelectionOff")
+					})]
+				}),
+				state.enabled ? (0, react_jsx_runtime.jsxs)("div", {
+					className: SubagentModelSelectionFields_module_css_default.selection,
+					children: [
+						state.catalogStatus === "loading" ? (0, react_jsx_runtime.jsx)("p", {
+							className: SubagentModelSelectionFields_module_css_default.notice,
+							role: "status",
+							children: t("subagentModelSelectionLoading")
+						}) : null,
+						state.catalogStatus === "error" ? (0, react_jsx_runtime.jsxs)("div", {
+							className: SubagentModelSelectionFields_module_css_default.catalogError,
+							role: "alert",
+							children: [(0, react_jsx_runtime.jsx)("span", { children: t("subagentModelSelectionLoadFailed") }), (0, react_jsx_runtime.jsx)("button", {
+								type: "button",
+								disabled: state.saving,
+								onClick: props.retryCatalog,
+								children: t("subagentModelSelectionRetry")
+							})]
+						}) : null,
+						state.catalogPartial ? (0, react_jsx_runtime.jsx)("p", {
+							className: SubagentModelSelectionFields_module_css_default.notice,
+							children: t("subagentModelSelectionPartial")
+						}) : null,
+						state.candidates.length > 0 ? (0, react_jsx_runtime.jsxs)("fieldset", {
+							className: SubagentModelSelectionFields_module_css_default.models,
+							children: [
+								(0, react_jsx_runtime.jsx)("legend", { children: t("subagentModelSelectionAllowed") }),
+								[...availableGroups].map(([provider, group]) => (0, react_jsx_runtime.jsxs)("div", {
+									className: SubagentModelSelectionFields_module_css_default.modelGroup,
+									children: [(0, react_jsx_runtime.jsx)("div", {
+										className: SubagentModelSelectionFields_module_css_default.providerName,
+										children: group.providerName
+									}), group.candidates.map(renderCandidate)]
+								}, provider)),
+								unavailable.length > 0 ? (0, react_jsx_runtime.jsxs)("div", {
+									className: SubagentModelSelectionFields_module_css_default.modelGroup,
+									children: [(0, react_jsx_runtime.jsx)("div", {
+										className: SubagentModelSelectionFields_module_css_default.providerName,
+										children: t("subagentModelSelectionUnavailableGroup")
+									}), unavailable.map(renderCandidate)]
+								}) : null
+							]
+						}) : state.catalogStatus === "ready" ? (0, react_jsx_runtime.jsx)("p", {
+							className: SubagentModelSelectionFields_module_css_default.notice,
+							children: t("subagentModelSelectionEmpty")
+						}) : null,
+						state.invalid ? (0, react_jsx_runtime.jsx)("p", {
+							className: SubagentModelSelectionFields_module_css_default.invalid,
+							children: t("subagentModelSelectionRequired")
+						}) : null
+					]
+				}) : null,
+				state.conflicted ? (0, react_jsx_runtime.jsx)("p", {
+					className: SubagentModelSelectionFields_module_css_default.conflict,
+					role: "status",
+					children: t("subagentModelSelectionConflict")
+				}) : null
+			] });
+		}
+		//#endregion
+		//#region lib/types/client/subagent-card-controller.js
+		/** Shared presentation and actions for the two Host-owned Subagent settings sections. */
+		/**
+		* Derive the shared card state without duplicating either form's subscriptions.
+		* @param limits - Current delegation-limit form.
+		* @param models - Current model-authorization form.
+		* @returns Availability and settlement across the sections this Host serves.
+		*/
+		function subagentCardShell(limits, models) {
+			const sections = [limits, models].filter((section) => section.available);
+			return {
+				available: sections.length > 0,
+				writable: sections.every((section) => section.writable),
+				dirty: sections.some((section) => section.dirty),
+				invalid: sections.some((section) => section.invalid) || models.available && models.dirty && models.conflicted,
+				saving: sections.some((section) => section.saving),
+				failed: sections.some((section) => section.failed)
+			};
+		}
+		/**
+		* Compose one card from the existing forms; each write retains its namespace revision fence.
+		* @param limits - Limit form source and actions.
+		* @param models - Model form source and actions.
+		* @returns Framework-bound sources and shared save/discard actions.
+		*/
+		function subagentCardFace(limits, models) {
+			return {
+				hooks: {
+					...limits.hooks,
+					...models.hooks
+				},
+				editLimit: limits.edit,
+				resetLimit: limits.resetField,
+				toggleEnabled: models.toggleEnabled,
+				toggleModel: models.toggleModel,
+				retryCatalog: models.retryCatalog,
+				save: () => {
+					const limitState = limits.hooks.subagentLimitsCard.getSnapshot();
+					const modelState = models.hooks.subagentModelSelectionCard.getSnapshot();
+					const state = subagentCardShell(limitState, modelState);
+					if (!state.available || !state.writable || !state.dirty || state.invalid || state.saving) return;
+					if (modelState.available && modelState.dirty) models.save();
+					if (limitState.available && limitState.dirty) limits.save();
+				},
+				discard: () => {
+					if (subagentCardShell(limits.hooks.subagentLimitsCard.getSnapshot(), models.hooks.subagentModelSelectionCard.getSnapshot()).saving) return;
+					limits.discard();
+					models.discard();
+				}
+			};
+		}
+		//#endregion
+		//#region \0dsh-css:D:\deepseek-harness\packages\client\ui-settings-subagent\src\client\SubagentCard.module.css.mjs
+		const css = ".WfYO1q_section{min-width:0;padding:16px 0}.WfYO1q_heading{color:var(--dsw-alias-label-primary);margin:0;font-size:13px;font-weight:600;line-height:1.5}";
+		const tagId = "@deepseek-ai/dsh-client-ui-settings-subagent/SubagentCard.module.css";
+		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId) + "]") === null) {
+			const tag = document.createElement("style");
+			tag.dataset.plugin = "@deepseek-ai/dsh-client-ui-settings-subagent";
+			tag.dataset.pluginCss = tagId;
+			tag.textContent = css;
+			document.head.appendChild(tag);
+		}
+		var SubagentCard_module_css_default = {
+			"heading": "WfYO1q_heading",
+			"section": "WfYO1q_section"
+		};
+		//#endregion
+		//#region lib/types/client/SubagentCard.js
+		/** One settings card for Subagent delegation limits and model authorization. */
+		/**
+		* Render the available Subagent settings with one configuration page and save footer.
+		* @param props - Locale, both form snapshots, and their shared actions.
+		* @returns The summary or the available settings form.
+		*/
+		function SubagentCard(props) {
 			const { t } = props;
-			const state = props.useWebSearchCard((snapshot) => snapshot);
-			if (props.view === "summary") return t("description");
-			const disabled = !state.writable;
+			const limits = props.useSubagentLimitsCard((snapshot) => snapshot);
+			const models = props.useSubagentModelSelectionCard((snapshot) => snapshot);
+			const headingId = (0, react.useId)();
+			if (props.view === "summary") return t("subagentDescription");
+			const state = subagentCardShell(limits, models);
 			return (0, react_jsx_runtime.jsxs)(_deepseek_ai_dsh_client_ui_primitives.SettingsForm, {
 				labels: formLabels(t),
 				state,
 				onSave: props.save,
 				onDiscard: props.discard,
-				children: [
-					(0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.SettingsSecretField, {
-						id: "plugin-config-web-search-key",
-						label: t("apiKey"),
-						hint: t("apiKeyHint"),
-						disabled: !state.apiKeyWritable,
-						text: state.apiKey.text,
-						configured: state.apiKeyConfigured,
-						stateLabel: state.apiKeyConfigured ? t("apiKeySet") : t("apiKeyUnset"),
-						onEdit: (text) => {
-							props.edit("apiKey", text);
-						}
-					}),
-					(0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.SettingsValueField, {
-						id: "plugin-config-web-search-endpoint",
-						label: t("baseUrl"),
-						hint: t("baseUrlHint"),
-						overriddenLabel: t("overridden"),
-						resetLabel: t("reset"),
-						invalidLabel: t("invalidNumber"),
-						disabled,
-						...state.baseURL,
-						onEdit: (text) => {
-							props.edit("baseURL", text);
+				children: [limits.available ? (0, react_jsx_runtime.jsxs)("section", {
+					className: SubagentCard_module_css_default.section,
+					"aria-labelledby": `${headingId}-limits`,
+					children: [(0, react_jsx_runtime.jsx)("h3", {
+						className: SubagentCard_module_css_default.heading,
+						id: `${headingId}-limits`,
+						children: t("subagentLimitsTitle")
+					}), (0, react_jsx_runtime.jsx)(SubagentLimitsFields, {
+						t,
+						state: {
+							...limits,
+							saving: state.saving
 						},
-						onReset: () => {
-							props.resetField("baseURL");
-						}
-					}),
-					(0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.SettingsValueField, {
-						id: "plugin-config-web-search-max-uses",
-						label: t("maxUses"),
-						hint: t("maxUsesHint"),
-						overriddenLabel: t("overridden"),
-						resetLabel: t("reset"),
-						invalidLabel: t("invalidNumber"),
-						numeric: true,
-						disabled,
-						...state.maxUses,
-						onEdit: (text) => {
-							props.edit("maxUses", text);
+						edit: props.editLimit,
+						resetField: props.resetLimit
+					})]
+				}) : null, models.available ? (0, react_jsx_runtime.jsxs)("section", {
+					className: SubagentCard_module_css_default.section,
+					"aria-labelledby": `${headingId}-models`,
+					children: [(0, react_jsx_runtime.jsx)("h3", {
+						className: SubagentCard_module_css_default.heading,
+						id: `${headingId}-models`,
+						children: t("subagentModelSelectionTitle")
+					}), (0, react_jsx_runtime.jsx)(SubagentModelSelectionFields, {
+						t,
+						state: {
+							...models,
+							saving: state.saving
 						},
-						onReset: () => {
-							props.resetField("maxUses");
-						}
-					})
-				]
+						toggleEnabled: props.toggleEnabled,
+						toggleModel: props.toggleModel,
+						retryCatalog: props.retryCatalog
+					})]
+				}) : null]
 			});
 		}
 		//#endregion
-		//#region lib/types/client/web-search-card-controller.js
-		/**
-		* The web-search page's staged form over the `web-search-deepseek` settings
-		* namespace.
-		*
-		* The key is the one control that does not live in the section: its literal
-		* never rides a response, so the page learns only whether one is configured
-		* and writes it through the credentials domain, addressed by the reference the
-		* section names. It is still staged with the rest of the form, so one save
-		* covers everything the page shows.
-		*/
-		/**
-		* Namespace of the DeepSeek search provider. Spelled here rather than
-		* imported: a client package must not depend on a Host package.
-		*/
-		const WEB_SEARCH_NS = "web-search-deepseek";
-		/** Credential reference the provider resolves when the section names none. */
-		const DEFAULT_API_KEY_REF = "DEEPSEEK_API_KEY";
-		/** Form field the credential control stages under. */
-		const API_KEY_FIELD = "apiKey";
-		/** Bridges the `web-search-deepseek` scope and the credentials domain onto the page. */
-		var WebSearchCardController = class {
-			scope;
-			ctx;
+		//#region lib/types/client/subagent-limits-card-controller.js
+		/** Staged delegation limits backed by the Host's subagent settings section. */
+		function limitField(field, minimum) {
+			const numeric = (0, _deepseek_ai_dsh_client_ui_primitives.settingsNumberField)(field);
+			return {
+				...numeric,
+				parse: (text) => {
+					const write = numeric.parse(text);
+					if (write?.kind !== "set") return write;
+					const value = write.value;
+					return Number.isSafeInteger(value) && value >= minimum && !Object.is(value, -0) ? write : void 0;
+				}
+			};
+		}
+		/** Bind two independently resettable limits to one staged settings form. */
+		var SubagentLimitsCardController = class {
 			form;
 			store;
-			unsubscribe;
-			credential = {
-				ref: "",
-				configured: false,
-				writable: true
-			};
+			/** @param scope - The Host's `subagent` settings section. */
+			constructor(scope) {
+				this.form = new _deepseek_ai_dsh_client_ui_primitives.SettingsFormModel(scope, [limitField("maxDepth", 0), limitField("maxActiveSubagents", 1)]);
+				this.store = this.form.bind(() => ({
+					...this.form.shell(),
+					maxDepth: this.form.field("maxDepth"),
+					maxActiveSubagents: this.form.field("maxActiveSubagents")
+				}));
+			}
 			/**
-			* @param scope - the bound settings scope for the `web-search-deepseek` namespace.
-			* @param ctx - the page plugin's context, whose `remote.credentials` namespace
-			* answers for the credential the section references.
+			* Bind the limits editor to the slot renderer.
+			* @returns The limits snapshot and staged write actions.
+			*/
+			inject() {
+				return {
+					hooks: { subagentLimitsCard: this.store },
+					...this.form.actions()
+				};
+			}
+			/** Release accepted-value subscriptions. */
+			dispose() {
+				this.form.dispose();
+			}
+		};
+		//#endregion
+		//#region lib/types/client/subagent-model-selection-card-controller.js
+		/** Staged editor for the Host-owned subagent model allowlist. */
+		/** Namespace of the Host-owned subagent model-selection preference. */
+		const SUBAGENT_MODEL_SELECTION_NS = "subagent-model-selection-settings";
+		/**
+		* Stable identity for one exact route; callers resolve it by lookup and never parse it.
+		* @param route - Provider/model route to identify.
+		* @returns Opaque key for lookup within the card.
+		*/
+		function subagentModelKey(route) {
+			return `${route.provider}\0${route.model}`;
+		}
+		/**
+		* Join live adapter metadata with stored routes that remain removable after disappearance.
+		* @param groups - Current model directory grouped by provider.
+		* @param stored - Routes in the effective settings value.
+		* @param selected - Opaque route keys selected in the current draft.
+		* @returns Candidate rows for the card.
+		*/
+		function subagentModelCandidates(groups, stored, selected) {
+			const storedByKey = new Map(stored.map((route) => [subagentModelKey(route), route]));
+			const candidates = groups.flatMap((group) => group.models.map((model) => {
+				const route = {
+					provider: group.id,
+					model: model.id
+				};
+				const key = subagentModelKey(route);
+				storedByKey.delete(key);
+				return {
+					...route,
+					key,
+					providerName: group.name,
+					modelName: model.name,
+					available: true,
+					selected: selected.has(key)
+				};
+			}));
+			for (const route of storedByKey.values()) {
+				const key = subagentModelKey(route);
+				candidates.push({
+					...route,
+					key,
+					providerName: route.provider,
+					modelName: route.model,
+					available: false,
+					selected: selected.has(key)
+				});
+			}
+			return candidates;
+		}
+		function sameRoutes(left, right) {
+			if (left.length !== right.length) return false;
+			const rightKeys = new Set(right.map(subagentModelKey));
+			return left.every((route) => rightKeys.has(subagentModelKey(route)));
+		}
+		/** Bridges one configuration form and the live adapter directory onto a staged card. */
+		var SubagentModelSelectionCardController = class {
+			scope;
+			ctx;
+			catalogGroups = [];
+			catalogPartial = false;
+			catalogStatus = "idle";
+			draftEnabled;
+			draftRoutes;
+			draftRevision;
+			saving = false;
+			failed = false;
+			conflicted = false;
+			disposed = false;
+			saveGeneration = 0;
+			catalogGeneration = 0;
+			store;
+			unsubscribe;
+			/**
+			* @param scope - bound `subagent-model-selection` configuration form.
+			* @param ctx - the card plugin's context, whose `remote.session` namespace
+			* answers the Host model catalog.
 			*/
 			constructor(scope, ctx) {
 				this.scope = scope;
 				this.ctx = ctx;
-				this.form = new _deepseek_ai_dsh_client_ui_primitives.SettingsFormModel(scope, [(0, _deepseek_ai_dsh_client_ui_primitives.settingsTextField)("baseURL"), (0, _deepseek_ai_dsh_client_ui_primitives.settingsNumberField)("maxUses")], [{
-					field: API_KEY_FIELD,
-					write: (text) => this.writeKey(text)
-				}]);
-				this.store = this.form.bind(() => this.projection());
+				this.store = (0, _deepseek_ai_dsh_client_store.createSnapshotStore)(this.projection());
 				this.unsubscribe = scope.subscribe(() => {
-					this.readCredential();
+					if (!this.saving && this.draftRoutes !== void 0 && this.scope.getSnapshot().revision !== this.draftRevision) if (this.currentEnabled() === this.enabled() && sameRoutes(this.currentRoutes(), this.desiredRoutes())) this.clearDraft();
+					else this.conflicted = true;
+					if (this.enabled() && this.catalogStatus === "idle") this.loadCatalog();
+					this.publish();
 				});
-				this.readCredential();
+				if (this.enabled() && this.catalogStatus === "idle") this.loadCatalog();
 			}
-			projection() {
-				return {
-					...this.form.shell(),
-					baseURL: this.form.field("baseURL"),
-					maxUses: this.form.field("maxUses"),
-					apiKey: this.form.field(API_KEY_FIELD),
-					apiKeyConfigured: this.credential.configured,
-					apiKeyWritable: this.credential.writable
-				};
+			/** Stop observing settings and suppress late directory/write settlements. */
+			dispose() {
+				this.disposed = true;
+				this.saveGeneration += 1;
+				this.catalogGeneration += 1;
+				this.unsubscribe();
 			}
 			/**
-			* Ask the credentials domain about the reference the section currently names.
-			*
-			* The answer is stored with the reference it describes: `apiKeyEnv` can
-			* change between the request and its response, and two reads can settle out
-			* of order, so a response is published only while it still answers for the
-			* reference in force.
-			*/
-			async readCredential() {
-				const ref = refOf(this.scope.getSnapshot());
-				if (ref !== this.credential.ref) {
-					this.credential = {
-						ref,
-						configured: false,
-						writable: true
-					};
-					this.store.set(this.projection());
-				}
-				const response = await this.ctx.remote.credentials.describe([ref]);
-				if (!response.ok || ref !== refOf(this.scope.getSnapshot())) return;
-				const view = response.value[ref];
-				const next = {
-					ref,
-					configured: view?.configured ?? false,
-					writable: view?.writable ?? true
-				};
-				if (next.configured === this.credential.configured && next.writable === this.credential.writable) return;
-				this.credential = next;
-				this.store.set(this.projection());
-			}
-			/**
-			* Re-read after the Host reports a change to the reference this page watches.
-			*
-			* A key can be written from somewhere else — the Models page addresses the
-			* same reference — and the settings section does not change when it is, so
-			* without this the badge keeps reporting a state the Host already replaced.
-			* @param ref - the reference the Host reports as changed.
-			*/
-			refreshCredential(ref) {
-				if (ref !== this.credential.ref) return;
-				this.readCredential();
-			}
-			/**
-			* Build the face the page's slot registration injects.
-			* @returns the page's snapshot and its form actions.
+			* Build the renderer face for this card.
+			* @returns The snapshot and staged card actions injected into the renderer.
 			*/
 			inject() {
 				return {
-					hooks: { webSearchCard: this.store },
-					...this.form.actions()
+					hooks: { subagentModelSelectionCard: this.store },
+					toggleEnabled: () => {
+						this.toggleEnabled();
+					},
+					toggleModel: (key) => {
+						this.toggleModel(key);
+					},
+					retryCatalog: () => {
+						this.loadCatalog();
+					},
+					save: () => {
+						this.save();
+					},
+					discard: () => {
+						this.discard();
+					}
 				};
 			}
-			/**
-			* Write the staged key, then re-read whether the Host now holds one.
-			* @param value - the staged credential literal.
-			* @returns whether the Host reports a configured credential afterwards.
-			*/
-			async writeKey(value) {
-				await this.ctx.remote.credentials.set(refOf(this.scope.getSnapshot()), value);
-				await this.readCredential();
-				return this.credential.configured;
+			currentRoutes() {
+				return this.scope.getSnapshot().value?.allowedModels.map((route) => ({ ...route })) ?? [];
 			}
-			/** Release configuration subscriptions. */
-			dispose() {
-				this.unsubscribe();
-				this.form.dispose();
+			currentEnabled() {
+				return this.scope.getSnapshot().value?.enabled ?? false;
+			}
+			selected() {
+				return new Set(this.draftRoutes?.keys() ?? this.currentRoutes().map(subagentModelKey));
+			}
+			enabled() {
+				return this.draftEnabled ?? this.currentEnabled();
+			}
+			beginDraft() {
+				if (this.draftRoutes === void 0) {
+					const snapshot = this.scope.getSnapshot();
+					this.draftEnabled = snapshot.value?.enabled ?? false;
+					this.draftRoutes = new Map(snapshot.value?.allowedModels.map((route) => [subagentModelKey(route), { ...route }]) ?? []);
+					this.draftRevision = snapshot.revision;
+				}
+				return this.draftRoutes;
+			}
+			toggleEnabled() {
+				const snapshot = this.scope.getSnapshot();
+				if (this.disposed || snapshot.status !== "ready" || !snapshot.writable || this.saving) return;
+				this.beginDraft();
+				this.draftEnabled = !this.draftEnabled;
+				this.failed = false;
+				if (this.draftEnabled && this.catalogStatus === "idle") this.loadCatalog();
+				this.publish();
+			}
+			toggleModel(key) {
+				if (!this.enabled() || this.saving || !this.scope.getSnapshot().writable) return;
+				const candidate = this.candidates().find((candidate) => candidate.key === key);
+				if (candidate === void 0) return;
+				const routes = this.beginDraft();
+				if (routes.has(key)) routes.delete(key);
+				else routes.set(key, {
+					provider: candidate.provider,
+					model: candidate.model
+				});
+				this.failed = false;
+				this.publish();
+			}
+			clearDraft() {
+				this.draftEnabled = void 0;
+				this.draftRoutes = void 0;
+				this.draftRevision = void 0;
+				this.failed = false;
+				this.conflicted = false;
+			}
+			discard() {
+				if (this.saving) return;
+				this.clearDraft();
+				this.publish();
+			}
+			candidates() {
+				const retained = new Map(this.currentRoutes().map((route) => [subagentModelKey(route), route]));
+				for (const [key, route] of this.draftRoutes ?? []) retained.set(key, route);
+				return subagentModelCandidates(this.catalogGroups, [...retained.values()], this.selected());
+			}
+			desiredRoutes() {
+				return [...this.draftRoutes?.values() ?? this.currentRoutes()].map((route) => ({ ...route }));
+			}
+			async save() {
+				const snapshot = this.scope.getSnapshot();
+				const desiredEnabled = this.enabled();
+				const desired = this.desiredRoutes();
+				if (this.disposed || snapshot.status !== "ready" || !snapshot.writable || this.saving || this.currentEnabled() === desiredEnabled && sameRoutes(this.currentRoutes(), desired) || desiredEnabled && desired.length === 0) return;
+				if (this.draftRoutes !== void 0 && snapshot.revision !== this.draftRevision) {
+					this.conflicted = true;
+					this.publish();
+					return;
+				}
+				const generation = this.saveGeneration;
+				this.saving = true;
+				this.failed = false;
+				this.conflicted = false;
+				this.publish();
+				await this.scope.mutate([{
+					op: "set",
+					path: ["enabled"],
+					value: desiredEnabled
+				}, {
+					op: "set",
+					path: ["allowedModels"],
+					value: desired.map((route) => ({
+						provider: route.provider,
+						model: route.model
+					}))
+				}], this.draftRevision);
+				if (generation !== this.saveGeneration) return;
+				const landed = this.currentEnabled() === desiredEnabled && sameRoutes(this.currentRoutes(), desired);
+				this.saving = false;
+				this.failed = !landed;
+				if (landed) this.clearDraft();
+				this.publish();
+			}
+			/** Invalidate and reload model candidates after a Host model input changes. */
+			refreshCatalog() {
+				if (this.disposed) return;
+				this.catalogGeneration += 1;
+				this.catalogStatus = "idle";
+				this.catalogPartial = false;
+				if (this.enabled()) this.loadCatalog();
+				else this.publish();
+			}
+			/** Drop Host-specific candidates and drafts, then reload after reconnecting. */
+			resetConnection() {
+				if (this.disposed) return;
+				this.saveGeneration += 1;
+				this.saving = false;
+				this.clearDraft();
+				this.catalogGroups = [];
+				this.refreshCatalog();
+			}
+			async loadCatalog() {
+				if (this.disposed || this.catalogStatus === "loading") return;
+				const generation = this.catalogGeneration;
+				this.catalogStatus = "loading";
+				this.catalogPartial = false;
+				this.publish();
+				const response = await this.ctx.remote.session.modelCatalog();
+				if (generation !== this.catalogGeneration) return;
+				if (response.ok) {
+					this.catalogGroups = response.value.groups;
+					this.catalogPartial = response.value.failures.length > 0;
+					this.catalogStatus = "ready";
+				} else this.catalogStatus = "error";
+				this.publish();
+			}
+			projection() {
+				const snapshot = this.scope.getSnapshot();
+				const current = this.currentRoutes();
+				const desired = this.desiredRoutes();
+				const enabled = this.enabled();
+				return {
+					available: snapshot.status === "ready",
+					writable: snapshot.writable,
+					dirty: this.currentEnabled() !== enabled || !sameRoutes(current, desired),
+					invalid: enabled && desired.length === 0,
+					saving: this.saving,
+					failed: this.failed,
+					enabled,
+					candidates: this.candidates(),
+					catalogStatus: this.catalogStatus,
+					catalogPartial: this.catalogPartial,
+					conflicted: this.conflicted
+				};
+			}
+			publish() {
+				this.store.set(this.projection());
 			}
 		};
-		/**
-		* The credential reference the section names, or the provider's default.
-		* @param snapshot - the current scope snapshot.
-		* @returns the reference to address.
-		*/
-		function refOf(snapshot) {
-			const declared = snapshot.value?.apiKeyEnv;
-			return declared !== void 0 && declared.length > 0 ? declared : DEFAULT_API_KEY_REF;
-		}
 		//#endregion
 		//#region lib/types/client/index.js
 		/**
-		* The web-search provider's settings page, browser half: the key, the
-		* endpoint, and the per-request search budget over the `web-search-deepseek`
-		* namespace the provider registers. The page registers into the Plugins
-		* page's `plugins.item` slot while the Host serves that namespace, so a
-		* deployment without the provider shows no trace of it.
+		* The Subagent settings page, browser half: the delegation limits over the
+		* `subagent` namespace and the models agents may choose over the
+		* `subagent-model-selection` namespace, on one page with one save. The page
+		* registers into the Plugins page's `plugins.item` slot while the Host serves
+		* either namespace and shows the sections it serves.
 		*/
 		/** Dictionary namespace owned by this plugin. */
-		const NS = "settings.webSearch";
+		const NS = "settings.subagent";
+		/**
+		* Namespace of the delegation limits. Spelled here rather than imported: a
+		* client package must not depend on a Host package.
+		*/
+		const SUBAGENT_NS = "subagent";
 		/** Required services (cordis fiber inject). */
 		const inject = [
 			"slots",
 			"locale",
 			"remote",
-			"remote.credentials",
+			"remote.session",
 			"configForms"
 		];
 		/**
-		* Mount the web-search settings page while the Host serves its namespace.
+		* Mount the Subagent settings page while the Host serves either of its namespaces.
 		* @param ctx - the browser plugin context.
 		*/
 		function apply(ctx) {
@@ -296,29 +816,42 @@ window.__ModuleLoader__.load({
 			ctx.effect(() => ctx.locale.register(NS, {
 				zh,
 				en
-			}), "ui-settings-web-search: dictionaries");
-			const card = new WebSearchCardController(ctx.configForms.get(WEB_SEARCH_NS), ctx);
+			}), "ui-settings-subagent: dictionaries");
+			const limits = new SubagentLimitsCardController(ctx.configForms.get(SUBAGENT_NS));
 			ctx.effect(() => () => {
-				card.dispose();
-			}, "ui-settings-web-search: form subscription");
-			ctx.effect(() => ctx.remote.$on("credentials/reference-updated", (ref) => {
-				card.refreshCredential(ref);
-			}), "ui-settings-web-search: credential invalidations");
-			ctx.effect(() => ctx.configForms.whileServed([WEB_SEARCH_NS], () => ctx.slots.inject("plugins.item", () => ctx.slots.register({
+				limits.dispose();
+			}, "ui-settings-subagent: limits form subscription");
+			const models = new SubagentModelSelectionCardController(ctx.configForms.get(SUBAGENT_MODEL_SELECTION_NS), ctx);
+			const limitsFace = limits.inject();
+			const modelsFace = models.inject();
+			ctx.effect(() => ctx.remote.$on("llm/adapters-updated", () => {
+				models.refreshCatalog();
+			}), "ui-settings-subagent: adapter invalidations");
+			ctx.effect(() => ctx.remote.$on("settings/document-updated", () => {
+				models.refreshCatalog();
+			}), "ui-settings-subagent: settings invalidations");
+			ctx.effect(() => ctx.on("connection/reset", () => {
+				models.resetConnection();
+			}), "ui-settings-subagent: connection generation");
+			ctx.effect(() => () => {
+				models.dispose();
+			}, "ui-settings-subagent: model preference");
+			ctx.effect(() => ctx.configForms.whileServed([SUBAGENT_NS, SUBAGENT_MODEL_SELECTION_NS], () => ctx.slots.inject("plugins.item", () => ctx.slots.register({
 				name: "plugins.item",
-				id: "web-search",
-				order: 40,
-				label: () => t("title"),
+				id: "subagent",
+				order: 30,
+				label: () => t("subagentTitle"),
 				locale: NS,
-				inject: () => card.inject()
-			}, WebSearchCard))), "ui-settings-web-search: page");
+				inject: () => subagentCardFace(limitsFace, modelsFace)
+			}, SubagentCard))), "ui-settings-subagent: page");
 		}
 		//#endregion
 		exports.NS = NS;
+		exports.SUBAGENT_NS = SUBAGENT_NS;
 		exports.apply = apply;
 		exports.inject = inject;
 		return module.exports;
 	}
 });
 ;
-//# sourceMappingURL=??@deepseek-ai/dsh-client-ui-settings-web-search/client.js.map&rev=54b97eec70df
+//# sourceMappingURL=??@deepseek-ai/dsh-client-ui-settings-subagent/client.js.map&rev=aee63fb29e2f

@@ -1023,8 +1023,8 @@ window.__ModuleLoader__.load({
 		/** English dictionary, checked complete against the zh key set. */
 		const en = { "language.title": "Language" };
 		//#endregion
-		//#region \0dsh-css:D:\Agent Router\deepseek-harness\packages\client\locale\src\client\LanguageRow.module.css.mjs
-		const css = "._5McC_a_row{border-bottom:.5px solid var(--dsw-alias-border-l2);align-items:center;gap:8px;padding:16px 0;display:flex}._5McC_a_rowText{flex-direction:column;flex:1;gap:4px;min-width:0;padding-right:48px;display:flex}._5McC_a_title{color:var(--dsw-alias-label-primary);font-size:14px;font-weight:400;line-height:22px}._5McC_a_selector{border-radius:var(--dsw-radius-md);background:var(--dsw-alias-bg-module-platform);height:36px;font:inherit;color:var(--dsw-alias-label-primary);cursor:pointer;border:none;align-items:center;gap:12px;padding:0 14px;font-size:14px;line-height:22px;display:inline-flex}._5McC_a_selector:hover{background:var(--dsw-alias-interactive-bg-hover)}._5McC_a_chevron{flex:none}";
+		//#region \0dsh-css:D:\deepseek-harness\packages\client\locale\src\client\LanguageRow.module.css.mjs
+		const css = ".hXJRqa_row{border-bottom:.5px solid var(--dsw-alias-border-l2);align-items:center;gap:8px;padding:16px 0;display:flex}.hXJRqa_rowText{flex-direction:column;flex:1;gap:4px;min-width:0;padding-right:48px;display:flex}.hXJRqa_title{color:var(--dsw-alias-label-primary);font-size:14px;font-weight:400;line-height:22px}.hXJRqa_selector{border-radius:var(--dsw-radius-md);background:var(--dsw-alias-bg-module-platform);height:36px;font:inherit;color:var(--dsw-alias-label-primary);cursor:pointer;border:none;align-items:center;gap:12px;padding:0 14px;font-size:14px;line-height:22px;display:inline-flex}.hXJRqa_selector:hover{background:var(--dsw-alias-interactive-bg-hover)}.hXJRqa_chevron{flex:none}";
 		const tagId = "@deepseek-ai/dsh-client-locale/LanguageRow.module.css";
 		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId) + "]") === null) {
 			const tag = document.createElement("style");
@@ -1034,11 +1034,11 @@ window.__ModuleLoader__.load({
 			document.head.appendChild(tag);
 		}
 		var LanguageRow_module_css_default = {
-			"chevron": "_5McC_a_chevron",
-			"row": "_5McC_a_row",
-			"rowText": "_5McC_a_rowText",
-			"selector": "_5McC_a_selector",
-			"title": "_5McC_a_title"
+			"chevron": "hXJRqa_chevron",
+			"row": "hXJRqa_row",
+			"rowText": "hXJRqa_rowText",
+			"selector": "hXJRqa_selector",
+			"title": "hXJRqa_title"
 		};
 		//#endregion
 		//#region lib/types/client/LanguageRow.js
@@ -1570,4 +1570,4 @@ window.__ModuleLoader__.load({
 	}
 });
 ;
-//# sourceMappingURL=??@deepseek-ai/dsh-client-locale/client.js.map&rev=209592a0d28d
+//# sourceMappingURL=??@deepseek-ai/dsh-client-locale/client.js.map&rev=1c49e8be1340

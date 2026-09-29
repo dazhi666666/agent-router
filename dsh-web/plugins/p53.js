@@ -1,5 +1,5 @@
 window.__ModuleLoader__.load({
-	id: "@deepseek-ai/dsh-client-ui-settings-agent-loop",
+	id: "@deepseek-ai/dsh-client-ui-settings-shell",
 	factory: (require) => {
 		var module = { exports: {} };
 		var exports = module.exports;
@@ -7,13 +7,15 @@ window.__ModuleLoader__.load({
 		let react_jsx_runtime = require("react/jsx-runtime");
 		let _deepseek_ai_dsh_client_ui_primitives = require("@deepseek-ai/dsh-client-ui-primitives");
 		//#region lib/types/client/locales.js
-		/** Locale bundles for the agent loop's settings page. */
+		/** Locale bundles for the shell executor's settings page. */
 		/** English copy. */
 		const en = {
-			title: "Agent loop",
-			description: "Control how the Agent dispatches tool calls.",
-			maxParallel: "Parallel tool calls",
-			maxParallelHint: "Upper bound on parallel-safe calls running at once within one step.",
+			title: "Shell",
+			description: "Limit how long each command may run and how much it may output.",
+			timeoutMs: "Command timeout (ms)",
+			timeoutMsHint: "How long one command may run before it is terminated.",
+			maxOutputBytes: "Output cap per stream (bytes)",
+			maxOutputBytesHint: "Output beyond this spills to a temporary file rather than being lost.",
 			overridden: "Overridden",
 			reset: "Reset to default",
 			readOnly: "This deployment stores settings read-only.",
@@ -25,10 +27,12 @@ window.__ModuleLoader__.load({
 		};
 		/** Simplified Chinese copy. */
 		const zh = {
-			title: "Agent 循环",
-			description: "控制 Agent 派发工具调用的方式。",
-			maxParallel: "并行工具调用数",
-			maxParallelHint: "同一步内最多同时运行多少个可并行的调用。",
+			title: "终端",
+			description: "限制每条命令最多能跑多久、最多输出多少内容。",
+			timeoutMs: "命令超时（毫秒）",
+			timeoutMsHint: "单条命令允许运行多久，超时即终止。",
+			maxOutputBytes: "单流输出上限（字节）",
+			maxOutputBytesHint: "超出部分会转存到临时文件，而不是被丢弃。",
 			overridden: "已覆盖",
 			reset: "恢复默认",
 			readOnly: "本部署的设置为只读。",
@@ -53,61 +57,78 @@ window.__ModuleLoader__.load({
 			};
 		}
 		//#endregion
-		//#region lib/types/client/AgentLoopCard.js
+		//#region lib/types/client/ShellCard.js
 		/**
-		* Render the agent loop's one-liner or its settings form, as the Plugins page asks.
+		* Render the shell executor's one-liner or its settings form, as the Plugins page asks.
 		* @param props - the view asked for, locale copy, the form snapshot, and its actions.
 		* @returns the one-liner, or the form.
 		*/
-		function AgentLoopCard(props) {
+		function ShellCard(props) {
 			const { t } = props;
-			const state = props.useAgentLoopCard((snapshot) => snapshot);
+			const state = props.useShellCard((snapshot) => snapshot);
 			if (props.view === "summary") return t("description");
-			return (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.SettingsForm, {
+			const disabled = !state.writable;
+			return (0, react_jsx_runtime.jsxs)(_deepseek_ai_dsh_client_ui_primitives.SettingsForm, {
 				labels: formLabels(t),
 				state,
 				onSave: props.save,
 				onDiscard: props.discard,
-				children: (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.SettingsValueField, {
-					id: "plugin-config-agent-loop-parallel",
-					label: t("maxParallel"),
-					hint: t("maxParallelHint"),
+				children: [(0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.SettingsValueField, {
+					id: "plugin-config-shell-timeout",
+					label: t("timeoutMs"),
+					hint: t("timeoutMsHint"),
 					overriddenLabel: t("overridden"),
 					resetLabel: t("reset"),
 					invalidLabel: t("invalidNumber"),
 					numeric: true,
-					disabled: !state.writable,
-					...state.maxParallelToolCalls,
+					disabled,
+					...state.timeoutMs,
 					onEdit: (text) => {
-						props.edit("maxParallelToolCalls", text);
+						props.edit("timeoutMs", text);
 					},
 					onReset: () => {
-						props.resetField("maxParallelToolCalls");
+						props.resetField("timeoutMs");
 					}
-				})
+				}), (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.SettingsValueField, {
+					id: "plugin-config-shell-output",
+					label: t("maxOutputBytes"),
+					hint: t("maxOutputBytesHint"),
+					overriddenLabel: t("overridden"),
+					resetLabel: t("reset"),
+					invalidLabel: t("invalidNumber"),
+					numeric: true,
+					disabled,
+					...state.maxOutputBytes,
+					onEdit: (text) => {
+						props.edit("maxOutputBytes", text);
+					},
+					onReset: () => {
+						props.resetField("maxOutputBytes");
+					}
+				})]
 			});
 		}
 		//#endregion
-		//#region lib/types/client/agent-loop-card-controller.js
-		/** The agent-loop page's staged form over the `agent-loop` settings namespace. */
-		/**
-		* Namespace of the agent loop's user-owned settings. Spelled here rather than
-		* imported: a client package must not depend on a Host package.
-		*/
-		const AGENT_LOOP_NS = "agent-loop";
-		/** Bridges the `agent-loop` scope onto the page's staged form. */
-		var AgentLoopCardController = class {
+		//#region lib/types/client/shell-card-controller.js
+		/** The shell page's staged form over the composed shell executor entry. */
+		/** Profile entry id of the POSIX shell executor; the base bundle composes it off Windows. */
+		const BASH_NS = "bash-sandbox";
+		/** Profile entry id of the PowerShell executor; the base bundle composes it on Windows. */
+		const PWSH_NS = "pwsh-sandbox";
+		/** Bridges one shell executor entry's form onto the page's staged form. */
+		var ShellCardController = class {
 			form;
 			store;
-			/** @param scope - the bound settings scope for the `agent-loop` namespace. */
+			/** @param scope - the shared configuration form of the composed shell executor entry. */
 			constructor(scope) {
-				this.form = new _deepseek_ai_dsh_client_ui_primitives.SettingsFormModel(scope, [(0, _deepseek_ai_dsh_client_ui_primitives.settingsNumberField)("maxParallelToolCalls")]);
+				this.form = new _deepseek_ai_dsh_client_ui_primitives.SettingsFormModel(scope, [(0, _deepseek_ai_dsh_client_ui_primitives.settingsNumberField)("timeoutMs"), (0, _deepseek_ai_dsh_client_ui_primitives.settingsNumberField)("maxOutputBytes")]);
 				this.store = this.form.bind(() => this.projection());
 			}
 			projection() {
 				return {
 					...this.form.shell(),
-					maxParallelToolCalls: this.form.field("maxParallelToolCalls")
+					timeoutMs: this.form.field("timeoutMs"),
+					maxOutputBytes: this.form.field("maxOutputBytes")
 				};
 			}
 			/**
@@ -116,11 +137,11 @@ window.__ModuleLoader__.load({
 			*/
 			inject() {
 				return {
-					hooks: { agentLoopCard: this.store },
+					hooks: { shellCard: this.store },
 					...this.form.actions()
 				};
 			}
-			/** Release accepted-value subscriptions. */
+			/** Release the form subscription. */
 			dispose() {
 				this.form.dispose();
 			}
@@ -128,13 +149,14 @@ window.__ModuleLoader__.load({
 		//#endregion
 		//#region lib/types/client/index.js
 		/**
-		* The agent loop's settings page, browser half: the parallel tool-call cap
-		* over the `agent-loop` namespace the loop registers. The page registers into
-		* the Plugins page's `plugins.item` slot while the Host serves that namespace,
-		* so a deployment that exposes no agent-loop settings shows no trace of it.
+		* The shell executor's settings page, browser half: the command timeout and
+		* the per-stream output cap over the `shell` namespace the executor
+		* registers. The page registers into the Plugins page's `plugins.item` slot
+		* while the Host serves that namespace, so a deployment without a local shell
+		* executor shows no trace of it.
 		*/
 		/** Dictionary namespace owned by this plugin. */
-		const NS = "settings.agentLoop";
+		const NS = "settings.shell";
 		/** Required services (cordis fiber inject). */
 		const inject = [
 			"slots",
@@ -142,7 +164,7 @@ window.__ModuleLoader__.load({
 			"configForms"
 		];
 		/**
-		* Mount the agent loop's settings page while the Host serves its namespace.
+		* Mount the shell settings page while the Host serves its namespace.
 		* @param ctx - the browser plugin context.
 		*/
 		function apply(ctx) {
@@ -150,19 +172,21 @@ window.__ModuleLoader__.load({
 			ctx.effect(() => ctx.locale.register(NS, {
 				zh,
 				en
-			}), "ui-settings-agent-loop: dictionaries");
-			const card = new AgentLoopCardController(ctx.configForms.get(AGENT_LOOP_NS));
+			}), "ui-settings-shell: dictionaries");
+			const bash = new ShellCardController(ctx.configForms.get(BASH_NS));
+			const pwsh = new ShellCardController(ctx.configForms.get(PWSH_NS));
 			ctx.effect(() => () => {
-				card.dispose();
-			}, "ui-settings-agent-loop: form subscription");
-			ctx.effect(() => ctx.configForms.whileServed([AGENT_LOOP_NS], () => ctx.slots.inject("plugins.item", () => ctx.slots.register({
+				bash.dispose();
+				pwsh.dispose();
+			}, "ui-settings-shell: form subscriptions");
+			ctx.effect(() => ctx.configForms.whileServed([BASH_NS, PWSH_NS], (served) => ctx.slots.inject("plugins.item", () => ctx.slots.register({
 				name: "plugins.item",
-				id: "agent-loop",
-				order: 20,
+				id: "shell",
+				order: 10,
 				label: () => t("title"),
 				locale: NS,
-				inject: () => card.inject()
-			}, AgentLoopCard))), "ui-settings-agent-loop: page");
+				inject: () => (served.has("pwsh-sandbox") ? pwsh : bash).inject()
+			}, ShellCard))), "ui-settings-shell: page");
 		}
 		//#endregion
 		exports.NS = NS;
@@ -172,4 +196,4 @@ window.__ModuleLoader__.load({
 	}
 });
 ;
-//# sourceMappingURL=??@deepseek-ai/dsh-client-ui-settings-agent-loop/client.js.map&rev=1efdbb6ce2a1
+//# sourceMappingURL=??@deepseek-ai/dsh-client-ui-settings-shell/client.js.map&rev=1d1c7a5f2120

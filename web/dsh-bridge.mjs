@@ -12,18 +12,37 @@ import { threadSessionId } from './sessions.mjs';
 
 const FORMAT_VERSION = 4;
 
-// ui-settings-general 命名空间:预置 welcomeNoticeVersion,让"内测声明"弹窗视为已确认
+// ui-settings-general 命名空间:预置 welcomeNoticeVersion,让"预览版说明"弹窗视为已确认。
+// WELCOME_NOTICE_VERSION 随 dsh 版本变化,mutate 请求会写入新值,这里同时保留进程内可变值。
 const GENERAL_SCHEMA = { uid: 2, refs: { '1': { type: 'string', meta: { volatile: true } }, '2': { type: 'object', meta: { default: {} }, dict: { welcomeNoticeVersion: 1 } } } };
-const GENERAL_VALUE = { welcomeNoticeVersion: '2026-08-13.1' };
-const generalNamespace = revision => ({
+const generalValue = { welcomeNoticeVersion: '2026-09-28.1' };
+let generalRevision = 1;
+const generalNamespace = () => ({
   autoGenerate: true,
   ns: 'ui-settings-general',
   schema: GENERAL_SCHEMA,
-  value: { ...GENERAL_VALUE },
+  value: { ...generalValue },
   applies: 'live',
   secrets: [],
-  revision,
+  revision: generalRevision,
 });
+// 应用一次 settings/mutate 的 set/unset 操作,返回写后的命名空间视图
+function applyGeneralMutate(rawPayload) {
+  const outer = rawPayload?.args ?? rawPayload ?? {};
+  const payload = outer.request ?? outer;
+  const ops = Array.isArray(payload?.ops) ? payload.ops : Array.isArray(payload?.args?.ops) ? payload.args.ops : [];
+  for (const op of ops) {
+    if (!Array.isArray(op?.path) || op.path.length !== 1) continue;
+    if (op.op === 'set') generalValue[op.path[0]] = op.value;
+    else if (op.op === 'unset') delete generalValue[op.path[0]];
+  }
+  generalRevision += 1;
+  return ok(generalNamespace());
+}
+
+// 会话的 modelSelection 投影:0.2 的模型选择器等待该投影就绪后才显示当前模型
+const MODEL_SELECTION = { lastUsed: null, pending: { provider: 'agent-router', model: 'agent-router' } };
+const modelSelectionValues = () => ({ modelSelection: { lastUsed: MODEL_SELECTION.lastUsed, pending: { ...MODEL_SELECTION.pending } } });
 
 // ---------- 线程读取 ----------
 
@@ -217,7 +236,7 @@ export function createBridge({ sessions, runs }) {
       const id = p.address?.sessionId || p.sessionId;
       const s = get(id); let count = 0;
       const initial = synthesizeSessionEvents(entries(s)); count = initial.length;
-      send({ type: 'snapshot', header: sessionHeader(id, s.createdAt || initial[0]?.time || Date.now()), cursor: count, records: initial.map(event => ({ type: 'event', event })), hasMore: false, projections: { asOfSeq: count, values: {} }, assistantStream: { revision: 0 } });
+      send({ type: 'snapshot', header: sessionHeader(id, s.createdAt || initial[0]?.time || Date.now()), cursor: count, records: initial.map(event => ({ type: 'event', event })), hasMore: false, projections: { asOfSeq: count, values: modelSelectionValues() }, assistantStream: { revision: 0 } });
       timer = setInterval(() => {
         try {
           const events = synthesizeSessionEvents(entries(get(id)));
@@ -279,9 +298,8 @@ export function dshUnary(runDir, endpoint, rawPayload) {
     }
     // ---- 客户端首屏可降级端点的默认应答(抄 remote-default-responses) ----
     case 'workspace/initializeDefault': return ok(undefined);
-    case 'settings/describe': return ok({ writable: true, hasDocument: false, namespaces: [generalNamespace(1)] });
-    case 'settings/mutate': return ok(generalNamespace(2));
-    case 'settings/mutate': return ok(undefined);
+    case 'settings/describe': return ok({ writable: true, hasDocument: false, namespaces: [generalNamespace()] });
+    case 'settings/mutate': return applyGeneralMutate(rawPayload);
     case 'session/search': {
       // 在线程名与会话内容里找匹配，供侧栏"搜索会话"使用
       const q = String(payload?.query ?? '').trim().toLowerCase();
@@ -316,6 +334,7 @@ export function dshUnary(runDir, endpoint, rawPayload) {
       failures: [],
     });
     case 'agentPresets/list': return ok({ presets: [] });
+    case 'session/selectModel': return ok(undefined);
     case 'dynamicCordisRunner/syncInspectManifest': return ok(null);
     case 'dynamicCordisRunner/inventory': return ok([]);
     case 'credentials/describe': return ok({});
@@ -352,11 +371,15 @@ export function dshStream(runDir, endpoint, rawPayload, send) {
     return stop;
   }
   if (endpoint === 'session/control') {
-    send({ type: 'baseline', value: { projections: {} } });
+    // 控制流 baseline:为每个已知会话播种 modelSelection 投影
+    const projections = {};
+    try { for (const item of all()) projections[item.sessionId] = { asOfSeq: 0, values: modelSelectionValues() }; } catch {}
+    send({ type: 'baseline', value: { projections } });
     return stop;
   }
   if (endpoint === 'settings/mutate') {
-    return ok(undefined);
+    send(applyGeneralMutate(raw));
+    return stop;
   }
   if (endpoint === 'workspace/follow') {
     // 单一"Agent Router"工作区,装载当前运行的全部会话(manager 在前)

@@ -1329,11 +1329,11 @@ call: (method, args = null) => env.invoke(method, args) }, harnessTrap(), ...Obj
 						returns: "bounded results, or a business/transport error."
 					},
 					{
-						signature: "fork(opts: { sessionId: SessionId; atSeq?: number; increaseTitle?: boolean }): Promise<SessionId>",
+						signature: "fork(opts: { sessionId: SessionId atSeq?: number increaseTitle?: boolean onCreated?: (childId: SessionId) => void }): Promise<SessionId>",
 						description: "Fork a session from an exact inclusive prefix of the source; on resolution the child is catalogued and can be explicitly retained.",
 						parameters: [{
 							name: "opts",
-							description: "source session id, the optional exact inclusive boundary seq (a real event seq the caller already knows; a cut inside an open turn is balanced Host-side with synthetic closers, and omission selects the latest completed-turn prefix), and whether to increment an inherited durable title before resolving."
+							description: "source session id, the optional exact inclusive boundary seq (a real event seq the caller already knows; a cut inside an open turn is balanced Host-side with synthetic closers, and omission selects the latest completed-turn prefix), and whether to increment an inherited durable title before resolving. `onCreated` observes the catalogued child before that optional rename."
 						}],
 						returns: "the child session id.",
 						throws: ["when the fork fails, or when a requested child-title rename fails after creation."]
@@ -1509,13 +1509,16 @@ call: (method, args = null) => env.invoke(method, args) }, harnessTrap(), ...Obj
 						throws: ["on failure; a refused creation is also shown through the Workspace notice unless a later navigation or disposal superseded the request."]
 					},
 					{
-						signature: "forkSession(sessionId: SessionId): Promise<void>",
+						signature: "forkSession(sessionId: SessionId, onCreated?: (childId: SessionId) => void): Promise<SessionId>",
 						description: "Fork a Session without changing the current selection.",
 						parameters: [{
 							name: "sessionId",
 							description: "source Session."
+						}, {
+							name: "onCreated",
+							description: "observer before the optional child-title update."
 						}],
-						returns: "completion after child creation and inherited-title increment."
+						returns: "the child SessionId after creation and inherited-title increment."
 					},
 					{
 						signature: "connectWorkspace(workspaceId: WorkspaceId): Promise<SessionId>",
@@ -4442,6 +4445,7 @@ call: (method, args = null) => env.invoke(method, args) }, harnessTrap(), ...Obj
 					"client-ui-permission-presets PermissionRow id 'permission'",
 					"client-ui-settings-general DeveloperToolsRow id 'developer-tools'",
 					"client-ui-settings-general CurrentVersionRow id 'current-version'",
+					"client-ui-settings-session-log UploadRow",
 					"client-ui-shortcuts ShortcutsRow id 'shortcuts'",
 					"client-ui-theme AppearanceRow id 'appearance'",
 					"client-ui-theme FontSizeRow id 'font-size'"
@@ -4850,9 +4854,11 @@ call: (method, args = null) => env.invoke(method, args) }, harnessTrap(), ...Obj
 				declaredBy: "an entry in 'root' (client-ui-layout), so it exists while that entry is mounted",
 				occupants: [
 					"client-ui-chat QuotaNoticeHost id 'chat.quota-notice'",
+					"client-ui-plugin-manager PluginRefreshToast id 'plugin-manager.refresh-toast'",
 					"client-ui-schedule ScheduleDeleteToast id 'schedule.delete-toast'",
 					"client-ui-settings-account DesktopOnboardingEntry id 'desktop-onboarding'",
 					"client-ui-settings-account AccountPlatformHost id 'account.platform-page'",
+					"client-ui-settings-session-log UploadToast id 'session-log-upload-toast'",
 					"client-ui-shortcuts ShortcutReference id 'shortcuts'",
 					"client-ui-workspace SessionRenameDialog id 'workspace.session-rename'",
 					"client-ui-workspace SessionArchiveConfirmDialog id 'workspace.session-archive'",
@@ -5797,7 +5803,7 @@ call: (method, args = null) => env.invoke(method, args) }, harnessTrap(), ...Obj
 						doc: "Display text where the owner projects one (nav rows, tabs). A thunk is re-read on every projection, so localized text follows the active locale without re-registering."
 					}
 				],
-				ownerProps: ["/** Owner share of one Session row action occurrence: the row the action belongs to. */\nexport interface SessionRowOwnerProps {\n  /** Session the row shows. */\n  sessionId: SessionId\n  /** Row display title: persisted title, project basename, or Session id. */\n  displayTitle: string\n}"],
+				ownerProps: ["/** Owner share of one Session row action occurrence: the row the action belongs to. */\nexport interface SessionRowOwnerProps {\n  /** Session the row shows. */\n  sessionId: SessionId\n  /** Row display title: persisted title, or empty when the Session has none. */\n  displayTitle: string\n}"],
 				ownerPropsReferences: ["SessionId"],
 				standardProps: [
 					"useResource: UseResource",
@@ -5848,7 +5854,7 @@ call: (method, args = null) => env.invoke(method, args) }, harnessTrap(), ...Obj
 						doc: "Display text where the owner projects one (nav rows, tabs). A thunk is re-read on every projection, so localized text follows the active locale without re-registering."
 					}
 				],
-				ownerProps: ["/** Owner share of one Session row action occurrence: the row the action belongs to. */\nexport interface SessionRowOwnerProps {\n  /** Session the row shows. */\n  sessionId: SessionId\n  /** Row display title: persisted title, project basename, or Session id. */\n  displayTitle: string\n}"],
+				ownerProps: ["/** Owner share of one Session row action occurrence: the row the action belongs to. */\nexport interface SessionRowOwnerProps {\n  /** Session the row shows. */\n  sessionId: SessionId\n  /** Row display title: persisted title, or empty when the Session has none. */\n  displayTitle: string\n}"],
 				ownerPropsReferences: ["SessionId"],
 				standardProps: [
 					"useResource: UseResource",
@@ -6642,4 +6648,4 @@ call: (method, args = null) => env.invoke(method, args) }, harnessTrap(), ...Obj
 	}
 });
 ;
-//# sourceMappingURL=??@deepseek-ai/dsh-cordis-client-runner/client.js.map&rev=10c7067f3ceb
+//# sourceMappingURL=??@deepseek-ai/dsh-cordis-client-runner/client.js.map&rev=f92426c41b1b

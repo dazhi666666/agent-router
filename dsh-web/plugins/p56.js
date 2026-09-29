@@ -1,718 +1,324 @@
 window.__ModuleLoader__.load({
-	id: "@deepseek-ai/dsh-client-ui-plan",
+	id: "@deepseek-ai/dsh-client-ui-settings-web-search",
 	factory: (require) => {
 		var module = { exports: {} };
 		var exports = module.exports;
 		Object.defineProperty(exports, Symbol.toStringTag, { value: "Module" });
-		let _deepseek_ai_dsh_client_ui_primitives = require("@deepseek-ai/dsh-client-ui-primitives");
 		let react_jsx_runtime = require("react/jsx-runtime");
-		let react = require("react");
-		require("@deepseek-ai/cordis");
-		let _deepseek_ai_dsh_client_store = require("@deepseek-ai/dsh-client-store");
-		//#region ../../util/crypto/src/index.ts
-		/**
-		* Random v4 UUID, minted from `crypto.getRandomValues`.
-		* @returns the UUID string.
-		*/
-		function randomUUID() {
-			const bytes = globalThis.crypto.getRandomValues(new Uint8Array(16));
-			const hex = Array.from(bytes, (byte, index) => {
-				return (index === 6 ? byte & 15 | 64 : index === 8 ? byte & 63 | 128 : byte).toString(16).padStart(2, "0");
-			}).join("");
-			return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
-		}
-		//#endregion
-		//#region \0dsh-css:D:\Agent Router\deepseek-harness\packages\client\ui-plan\src\client\PlanPreview.module.css.mjs
-		const css$1 = ".T9HCZq_cards{flex-direction:column;gap:10px;display:flex}.T9HCZq_card{--plan-card-fill:var(--dsw-static-neutral-50);--plan-card-hover:var(--dsw-static-neutral-100);box-sizing:border-box;border:.5px solid var(--dsw-alias-border-l1);border-radius:var(--dsw-radius-xl);background:var(--plan-card-fill);width:100%;min-width:0;height:60px;color:var(--dsw-alias-label-primary);font:inherit;text-align:left;cursor:pointer;align-items:center;gap:10px;margin:0;padding:8px 10px;transition:background-color .12s;display:flex}body[data-ds-dark-theme] .T9HCZq_card{--plan-card-fill:var(--dsw-static-neutral-850);--plan-card-hover:var(--dsw-static-neutral-800)}.T9HCZq_card:hover{background:var(--plan-card-hover)}.T9HCZq_card:focus-visible{outline:var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color,var(--dsw-alias-state-business-primary));outline-offset:3px}.T9HCZq_cardIcon{box-sizing:border-box;border:.5px solid var(--dsw-alias-border-l1);border-radius:var(--dsw-radius-md);background:var(--plan-card-fill);flex:none;place-items:center;width:40px;height:40px;display:grid}.T9HCZq_cardDetails{flex-direction:column;flex:1;gap:2px;min-width:0;display:flex}.T9HCZq_cardTitle{text-overflow:ellipsis;white-space:nowrap;font-size:13px;font-weight:500;line-height:20px;overflow:hidden}.T9HCZq_cardDescription{text-overflow:ellipsis;white-space:nowrap;color:var(--dsw-alias-label-tertiary);font-size:10px;line-height:16px;overflow:hidden}.T9HCZq_cardOpen{box-sizing:border-box;border:.5px solid var(--dsw-alias-border-l3);border-radius:var(--dsw-radius-sm);background:var(--dsw-alias-button-floating-fill);flex:none;align-items:center;height:28px;padding:4px 8px;font-size:12px;line-height:18px;display:inline-flex}.T9HCZq_reviewLink{color:var(--dsw-alias-label-secondary);font:inherit;cursor:pointer;background:0 0;border:0;align-items:center;gap:4px;padding:0;display:inline-flex}.T9HCZq_reviewLink:hover{color:var(--dsw-alias-label-primary)}.T9HCZq_reviewLink:focus-visible{outline:var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color,var(--dsw-alias-state-business-primary));outline-offset:3px}.T9HCZq_preview{box-sizing:border-box;height:100%;padding:20px 24px 40px;position:relative;overflow:auto}.T9HCZq_document{color:var(--dsw-alias-label-primary);overflow-wrap:anywhere;font-size:14px;line-height:1.75}.T9HCZq_message{color:var(--dsw-alias-label-secondary);padding:24px;font-size:14px}.T9HCZq_titleIcon{flex:none}@media (width<=767px){.T9HCZq_preview{padding:16px 18px 32px}}";
-		const tagId$1 = "@deepseek-ai/dsh-client-ui-plan/PlanPreview.module.css";
-		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId$1) + "]") === null) {
-			const tag = document.createElement("style");
-			tag.dataset.plugin = "@deepseek-ai/dsh-client-ui-plan";
-			tag.dataset.pluginCss = tagId$1;
-			tag.textContent = css$1;
-			document.head.appendChild(tag);
-		}
-		var PlanPreview_module_css_default = {
-			"card": "T9HCZq_card",
-			"cardDescription": "T9HCZq_cardDescription",
-			"cardDetails": "T9HCZq_cardDetails",
-			"cardIcon": "T9HCZq_cardIcon",
-			"cardOpen": "T9HCZq_cardOpen",
-			"cardTitle": "T9HCZq_cardTitle",
-			"cards": "T9HCZq_cards",
-			"document": "T9HCZq_document",
-			"message": "T9HCZq_message",
-			"preview": "T9HCZq_preview",
-			"reviewLink": "T9HCZq_reviewLink",
-			"titleIcon": "T9HCZq_titleIcon"
-		};
-		//#endregion
-		//#region lib/types/client/PlanCard.js
-		/** Persistent transcript cards and pending-review sidebar navigation. */
-		/**
-		* Render the completed Turn's submitted plans in invocation order.
-		* @param props - Logged plan, localized copy, and Session-bound navigation.
-		* @returns keyboard-accessible plan cards, or null for a Turn without plans.
-		*/
-		function PlanCards({ turn, usePlans, openPlan, t }) {
-			const plans = usePlans(String(turn.turn));
-			if (plans === void 0 || plans.length === 0) return null;
-			return (0, react_jsx_runtime.jsx)("div", {
-				className: PlanPreview_module_css_default.cards,
-				"data-plan-artifacts": true,
-				children: plans.map((plan) => (0, react_jsx_runtime.jsxs)("button", {
-					type: "button",
-					className: PlanPreview_module_css_default.card,
-					"data-plan-card": plan.callId,
-					"aria-label": t("preview.openNamed", { title: plan.title }),
-					onClick: () => {
-						openPlan(plan.callId);
-					},
-					children: [
-						(0, react_jsx_runtime.jsx)("span", {
-							className: PlanPreview_module_css_default.cardIcon,
-							children: (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.FileTypeIcon, {
-								kind: "markdown",
-								size: 20
-							})
-						}),
-						(0, react_jsx_runtime.jsxs)("span", {
-							className: PlanPreview_module_css_default.cardDetails,
-							children: [(0, react_jsx_runtime.jsx)("span", {
-								className: PlanPreview_module_css_default.cardTitle,
-								children: plan.title
-							}), (0, react_jsx_runtime.jsx)("span", {
-								className: PlanPreview_module_css_default.cardDescription,
-								children: t("preview.document")
-							})]
-						}),
-						(0, react_jsx_runtime.jsx)("span", {
-							className: PlanPreview_module_css_default.cardOpen,
-							children: t("preview.action")
-						})
-					]
-				}, plan.callId))
-			});
-		}
-		/**
-		* Open each pending plan automatically and retain a manual opener without answering it.
-		*
-		* The automatic open waits for a mounted Sidebar seat: a review that arrives
-		* while the Conversation is off screen mounts in the same commit as the seat,
-		* ahead of it, and the seat binds from its own effect. Reading the bound
-		* session through the hook opens once that binding exists.
-		* @param props - Review identity, Session store, localized copy, and navigation.
-		* @returns an opener for either logged or temporary plan text.
-		*/
-		function PlanReviewOpen({ review, requestKey, openReview, useSidebarMounted, t, useStore, actions }) {
-			const identity = review.callId === void 0 ? `review:${requestKey}` : `call:${review.callId}`;
-			const opened = useStore((state) => state.opened[identity] === true);
-			const mounted = useSidebarMounted((session) => session !== void 0);
-			(0, react.useEffect)(() => {
-				if (opened || !mounted) return;
-				openReview(review, requestKey);
-				actions.markOpened(identity);
-			}, [
-				identity,
-				opened,
-				mounted,
-				openReview,
-				review,
-				requestKey,
-				actions
-			]);
-			return (0, react_jsx_runtime.jsxs)("button", {
-				type: "button",
-				className: PlanPreview_module_css_default.reviewLink,
-				title: t("preview.open"),
-				"aria-label": t("preview.open"),
-				onClick: () => {
-					openReview(review, requestKey);
-				},
-				children: [t("preview.full"), (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconChevronRightOutlineRegular, { size: 14 })]
-			});
-		}
-		//#endregion
-		//#region lib/types/client/review-preview.js
-		/**
-		* Name one temporary review within its browser lifetime and Session.
-		* @param sessionId - Session displaying the review.
-		* @param requestKey - Browser-unique pending request identity.
-		* @returns the address used to focus or reopen its preview.
-		*/
-		function reviewPreviewAddress(sessionId, requestKey) {
-			return `dsh-resource://plan-review/${encodeURIComponent(sessionId)}/${encodeURIComponent(requestKey)}`;
-		}
-		/**
-		* Recognize temporary plan navigation without interpreting it as logged history.
-		* @param address - Saved or caller-supplied navigation address.
-		* @returns whether the address identifies a temporary review preview.
-		*/
-		function isReviewPreviewAddress(address) {
-			return /^dsh-resource:\/\/plan-review\/[^/?#]+\/[^/?#]+$/.test(address);
-		}
-		//#endregion
-		//#region lib/types/client/failure-line.js
-		/**
-		* Explain a failed plan read in the current locale.
-		* @param t - Plan namespace translator.
-		* @param failure - Failure reported by the resource provider.
-		* @returns localized plan copy, or the external failure's diagnostic.
-		*/
-		function planFailureLine(t, failure) {
-			switch (failure.code) {
-				case "plan/invalid-address": return t("preview.invalidAddress");
-				case "plan/unavailable": return t("preview.historyUnavailable");
-				case "plan/not-found": return t("preview.notFound");
-				default: return failure.message;
-			}
-		}
-		//#endregion
-		//#region lib/types/client/PlanPreview.js
-		/** Read-only Markdown viewer for logged plans and temporary review documents. */
-		/**
-		* Render the submitted plan with its complete Markdown.
-		* @param props - Framework-bound tab identity, resource, and copy.
-		* @returns the plan document or a localized loading/failure state.
-		*/
-		function PlanPreview({ useTabInfo, useResource, t }) {
-			const tab = useTabInfo();
-			const resource = useResource(tab.tab.navigation.address);
-			const temporary = isReviewPreviewAddress(tab.tab.navigation.address);
-			const params = tab.tab.navigation.params;
-			const plan = temporary ? params !== void 0 && "planReview" in params ? params.planReview : void 0 : resource.value;
-			const labels = (0, react.useMemo)(() => ({
-				code: {
-					copyLabel: t("copy"),
-					copiedLabel: t("copied"),
-					toolbarLabels: {
-						codeLabel: t("codeBlock.title"),
-						wrapLabel: t("codeBlock.wrap"),
-						unwrapLabel: t("codeBlock.unwrap")
-					}
-				},
-				footnotes: t("markdown.footnotes")
-			}), [t]);
-			if (plan === void 0) return (0, react_jsx_runtime.jsxs)("div", {
-				className: PlanPreview_module_css_default.message,
-				role: "status",
-				children: [temporary ? t("preview.expired") : resource.status === "none" ? t("preview.unavailable") : resource.status === "failed" ? t("preview.failed") : t("preview.loading"), !temporary && resource.failure !== void 0 && (0, react_jsx_runtime.jsx)("p", { children: planFailureLine(t, resource.failure) })]
-			});
-			return (0, react_jsx_runtime.jsx)("section", {
-				className: PlanPreview_module_css_default.preview,
-				"data-plan-preview": "callId" in plan ? plan.callId : tab.tab.navigation.address,
-				"aria-label": plan.title,
-				children: (0, react_jsx_runtime.jsx)("div", {
-					className: PlanPreview_module_css_default.document,
-					children: (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.MarkdownText, {
-						text: plan.markdown,
-						labels
-					})
-				})
-			});
-		}
-		/**
-		* Display a plain file icon and the heading in its tab after resource recovery.
-		* @param props - Framework-bound tab identity and resource reader.
-		* @returns a decorative file icon followed by the recovered title or initial localized label.
-		*/
-		function PlanTitle({ useTabInfo, useResource }) {
-			const tab = useTabInfo();
-			const resource = useResource(tab.tab.navigation.address);
-			const params = tab.tab.navigation.params;
-			const plan = isReviewPreviewAddress(tab.tab.navigation.address) ? params !== void 0 && "planReview" in params ? params.planReview : void 0 : resource.value;
-			return (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [(0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.FileTypeIcon, {
-				kind: "other",
-				size: 16,
-				className: PlanPreview_module_css_default.titleIcon
-			}), plan?.title ?? tab.tab.title] });
-		}
-		//#endregion
-		//#region lib/types/client/plan.js
-		function record(value) {
-			return typeof value === "object" && value !== null && !Array.isArray(value);
-		}
-		/**
-		* Read a complete plan from untrusted logged arguments.
-		* @param event - Native call or PTC dispatch event from Session history.
-		* @returns the submitted plan, or undefined for unrelated or malformed data.
-		*/
-		function submittedPlan(event) {
-			if (event.type !== "tool/call" && event.type !== "tool/ptc-dispatch-start" && event.type !== "tool/ptc-dispatch") return void 0;
-			const data = event.data;
-			if (!record(data) || data.name !== "exit_plan_mode") return void 0;
-			const callId = event.type === "tool/call" ? data.callId : data.subCallId;
-			if (typeof callId !== "string" || callId === "") return void 0;
-			let args = data.arguments;
-			if (event.type === "tool/call") {
-				if (typeof args !== "string") return void 0;
-				try {
-					args = JSON.parse(args);
-				} catch (_error) {
-					return;
-				}
-			}
-			if (!record(args) || typeof args.plan !== "string") return void 0;
-			const markdown = args.plan;
-			const title = /^#\s+(\S[^\r\n]*)/.exec(markdown.trim())?.[1];
-			return title === void 0 ? void 0 : {
-				callId,
-				markdown,
-				title
-			};
-		}
-		/**
-		* Encode the durable identity of a plan without retaining its text in layout storage.
-		* @param target - Session and tool-call identity.
-		* @returns the plan resource address.
-		*/
-		function planAddress(target) {
-			const { session, callId } = target;
-			return `dsh-resource://plan/${(session.kind === "session" ? [session.sessionId, callId] : [
-				"subagent",
-				session.parentSessionId,
-				session.childSessionId,
-				session.mode,
-				callId
-			]).map(encodeURIComponent).join("/")}`;
-		}
-		/**
-		* Validate a saved or caller-supplied plan resource address.
-		* @param address - Address submitted to the sidebar or resource provider.
-		* @returns the decoded identity, or undefined for an unsupported address.
-		*/
-		function parsePlanAddress(address) {
-			const match = /^dsh-resource:\/\/plan\/([^?#]+)$/.exec(address);
-			if (match === null) return void 0;
-			try {
-				const parts = match[1].split("/").map(decodeURIComponent);
-				if (parts.some((part) => part === "")) return void 0;
-				if (parts.length === 2) return {
-					session: {
-						kind: "session",
-						sessionId: parts[0]
-					},
-					callId: parts[1]
-				};
-				if (parts.length === 5 && parts[0] === "subagent" && (parts[3] === "one-shot" || parts[3] === "continuable" || parts[3] === "unknown")) return {
-					session: {
-						kind: "subagent",
-						parentSessionId: parts[1],
-						childSessionId: parts[2],
-						mode: parts[3]
-					},
-					callId: parts[4]
-				};
-				return;
-			} catch (_error) {
-				return;
-			}
-		}
-		//#endregion
-		//#region lib/types/client/plan-definition.js
-		/** One card per invocation; a later PTC settlement retains the original card position. */
-		const planDefinition = {
-			kind: "submitted-plan",
-			target: "chat",
-			match: (event) => {
-				const plan = submittedPlan(event);
-				return plan === void 0 ? null : {
-					id: plan.callId,
-					role: event.type === "tool/ptc-dispatch" ? "update" : "start"
-				};
-			},
-			start: (_context, match) => submittedPlan(match.event),
-			update: (context) => context.state,
-			buildViewNode: (context) => {
-				const start = context.start ?? context.matches[0];
-				const data = context.state ?? (start === void 0 ? void 0 : submittedPlan(start.event));
-				if (data === void 0 || start === void 0) return null;
-				return {
-					key: context.key,
-					kind: "submitted-plan",
-					id: context.id,
-					target: "chat",
-					anchorSeq: start.event.seq,
-					location: start.location,
-					visibility: "hidden",
-					data
-				};
-			}
-		};
-		//#endregion
-		//#region ../../typert/protocol/src/remote-error.ts
-		/**
-		* One Remote call failure: a real Error carrying its stable code and typed
-		* details. Owners throw it at the failure point; the Host Gateway encodes it
-		* onto the wire unchanged; the Client face rebuilds an instance for the
-		* `RemoteResult` error branch, so `throw result.error` keeps throw semantics.
-		* Discrimination is always by `code`, never by instanceof.
-		*/
-		var RemoteError = class extends Error {
-			code;
-			details;
-			/** Structural marker: cross-realm/bundle identification never uses instanceof. */
-			isDSHRemoteError = true;
-			/**
-			* @param code - stable failure code declared in {@link RemoteErrorDetailsMap}.
-			* @param message - human diagnostic carried across the wire.
-			* @param details - structured payload typed by the code.
-			* @param options - standard Error options (`cause` survives in-process only).
-			*/
-			constructor(code, message, details, options) {
-				super(message, options);
-				this.code = code;
-				this.details = details;
-				this.name = "RemoteError";
-			}
-		};
-		/**
-		* Structurally identify a RemoteError thrown across module or realm copies of
-		* this class. Mechanism-internal: the Gateway and test assertions use it;
-		* business code receives typed failures and never needs it.
-		* @param value - a caught value.
-		* @returns the failure when the marker matches, otherwise undefined.
-		*/
-		function remoteErrorOf(value) {
-			if (typeof value === "object" && value !== null && value.isDSHRemoteError === true && typeof value.code === "string") return value;
-		}
-		//#endregion
-		//#region ../../typert/protocol/src/index.ts
-		/**
-		* Remote decorators and explicit Gateway bindings backed by versioned
-		* descriptors carried on decorated class prototypes. Strict reflection
-		* remains a Typert compiler responsibility.
-		* @module @deepseek-ai/dsh-typert-protocol
-		*/
-		//#endregion
-		//#region lib/types/client/plan-resource.js
-		/**
-		* Bind plan reads to the generated Session Remote face.
-		* Opening a follow reads projections and may activate a prepared Session on the Host.
-		* Generated Remote streams can throw carrier failures; the provider reports failed
-		* reads as resource failure frames and preserves Remote error codes.
-		* @param remote - Existing Session history API.
-		* @returns a provider whose reads stop after finding the exact invocation.
-		*/
-		function planResourceProvider(remote) {
-			return {
-				protocol: "plan",
-				async *open(address, { signal }) {
-					const aborted = () => signal.aborted;
-					if (aborted()) return;
-					const target = parsePlanAddress(address);
-					if (target === void 0) {
-						yield {
-							ok: false,
-							error: new RemoteError("plan/invalid-address", "Invalid plan resource address.", {})
-						};
-						return;
-					}
-					const sessionAddress = target.session;
-					try {
-						let snapshot;
-						for await (const frame of remote.follow({ address: sessionAddress }, signal)) if (frame.type === "snapshot") {
-							snapshot = frame;
-							break;
-						}
-						if (aborted()) return;
-						if (snapshot === void 0) throw new RemoteError("plan/unavailable", "Session history ended before the plan could be read.", {});
-						let page = {
-							records: snapshot.records,
-							hasMore: snapshot.hasMore
-						};
-						while (true) {
-							for (const entry of page.records) {
-								const plan = submittedPlan(entry.event);
-								if (plan?.callId === target.callId) {
-									yield {
-										ok: true,
-										value: plan
-									};
-									return;
-								}
-							}
-							const beforeSeq = page.records[0]?.event.seq;
-							if (!page.hasMore || beforeSeq === void 0) break;
-							const next = await remote.page({
-								address: sessionAddress,
-								throughSeq: snapshot.cursor,
-								beforeSeq
-							}, signal);
-							if (aborted()) return;
-							if (!next.ok) {
-								yield next;
-								return;
-							}
-							page = next.value;
-						}
-						yield {
-							ok: false,
-							error: new RemoteError("plan/not-found", "The submitted plan was not found in this Session.", {})
-						};
-					} catch (error) {
-						if (!aborted()) yield {
-							ok: false,
-							error: remoteErrorOf(error) ?? new RemoteError("plan/read-failed", error instanceof Error ? error.message : String(error), {})
-						};
-					}
-				}
-			};
-		}
-		//#endregion
-		//#region lib/types/client/review-store.js
-		/** Session-owned memory of pending plans already opened automatically. */
-		/**
-		* Keep manual sidebar closure effective across review component remounts.
-		* @returns a transient store handle whose instances belong to Session scopes.
-		*/
-		function createPlanReviewStore() {
-			return (0, _deepseek_ai_dsh_client_store.defineStore)({
-				init: () => ({ opened: {} }),
-				actions: { markOpened: (draft, reviewKey) => {
-					draft.opened[reviewKey] = true;
-				} }
-			});
-		}
-		//#endregion
-		//#region \0dsh-css:D:\Agent Router\deepseek-harness\packages\client\ui-plan\src\client\PlanModeControl.module.css.mjs
-		const css = ".cTwM3a_wrap{align-items:center;gap:6px;display:inline-flex}.cTwM3a_chip{border-radius:var(--dsw-radius-sm);background:var(--dsw-alias-state-business-tertiary);min-width:34px;height:28px;color:var(--dsw-alias-state-business-primary);cursor:pointer;border:none;align-items:center;gap:4px;padding:0 8px;font-size:13px;font-weight:500;line-height:20px;display:inline-flex}.cTwM3a_chip:hover:not(:disabled){background:color-mix(in srgb, var(--dsw-alias-state-business-tertiary), var(--dsw-alias-state-business-primary) 6%)}.cTwM3a_chip:focus-visible{outline:var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color,var(--dsw-alias-state-business-primary));outline-offset:2px}.cTwM3a_chip:disabled{opacity:.6;cursor:default}.cTwM3a_glyph{color:currentColor;flex:none;width:14px;height:14px;display:inline-flex}.cTwM3a_hoverGlyph,.cTwM3a_chip:hover:not(:disabled) .cTwM3a_restGlyph,.cTwM3a_chip:focus-visible .cTwM3a_restGlyph{display:none}.cTwM3a_chip:hover:not(:disabled) .cTwM3a_hoverGlyph,.cTwM3a_chip:focus-visible .cTwM3a_hoverGlyph{display:block}.cTwM3a_error{color:var(--dsw-alias-state-error-primary);font-size:12px;line-height:18px}";
-		const tagId = "@deepseek-ai/dsh-client-ui-plan/PlanModeControl.module.css";
-		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId) + "]") === null) {
-			const tag = document.createElement("style");
-			tag.dataset.plugin = "@deepseek-ai/dsh-client-ui-plan";
-			tag.dataset.pluginCss = tagId;
-			tag.textContent = css;
-			document.head.appendChild(tag);
-		}
-		var PlanModeControl_module_css_default = {
-			"chip": "cTwM3a_chip",
-			"error": "cTwM3a_error",
-			"glyph": "cTwM3a_glyph",
-			"hoverGlyph": "cTwM3a_hoverGlyph",
-			"restGlyph": "cTwM3a_restGlyph",
-			"wrap": "cTwM3a_wrap"
-		};
-		//#endregion
-		//#region lib/types/client/PlanModeControl.js
-		/**
-		* Plan-mode status over the host-computed `plan` projection. The chip renders
-		* only while the effective target is plan mode (`pending ? !active : active`
-		* — a folded host value, not client optimism) and executes /plan off.
-		*/
-		function PlanChip({ useProjection, locked, exitPlanMode, t }) {
-			const plan = useProjection("plan");
-			const [leaving, setLeaving] = (0, react.useState)(false);
-			const [error, setError] = (0, react.useState)(null);
-			const aliveRef = (0, react.useRef)(true);
-			(0, react.useEffect)(() => {
-				aliveRef.current = true;
-				return () => {
-					aliveRef.current = false;
-				};
-			}, []);
-			if (plan === void 0) return null;
-			if (!(plan.pending ? !plan.active : plan.active)) return null;
-			const off = () => {
-				setLeaving(true);
-				setError(null);
-				exitPlanMode().then((failure) => {
-					if (!aliveRef.current) return;
-					setLeaving(false);
-					setError(failure);
-				}, (reason) => {
-					if (!aliveRef.current) return;
-					setLeaving(false);
-					setError(reason instanceof Error ? reason.message : String(reason));
-				});
-			};
-			return (0, react_jsx_runtime.jsxs)("span", {
-				className: PlanModeControl_module_css_default.wrap,
-				children: [(0, react_jsx_runtime.jsxs)("button", {
-					type: "button",
-					className: PlanModeControl_module_css_default.chip,
-					"aria-label": t("chip.on.aria"),
-					title: t("chip.on.title"),
-					disabled: locked || leaving,
-					onClick: off,
-					children: [(0, react_jsx_runtime.jsxs)("span", {
-						className: PlanModeControl_module_css_default.glyph,
-						"aria-hidden": true,
-						children: [(0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconPlanOutlineRegular, {
-							className: PlanModeControl_module_css_default.restGlyph,
-							size: 14
-						}), (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconCloseCircleFillRegular, {
-							className: PlanModeControl_module_css_default.hoverGlyph,
-							size: 14
-						})]
-					}), t("chip.label")]
-				}), error !== null && (0, react_jsx_runtime.jsx)("span", {
-					className: PlanModeControl_module_css_default.error,
-					role: "status",
-					title: error,
-					children: t("chip.exitFailed")
-				})]
-			});
-		}
-		//#endregion
+		let _deepseek_ai_dsh_client_ui_primitives = require("@deepseek-ai/dsh-client-ui-primitives");
 		//#region lib/types/client/locales.js
-		/** `plan` namespace dictionaries (the composer plan chip's copy). */
-		/** Simplified Chinese dictionary (the key-set source of truth). */
-		const zh = {
-			"chip.label": "计划",
-			"preview.title": "计划",
-			"preview.document": "计划 · Markdown",
-			"preview.action": "打开",
-			"preview.open": "在侧边栏打开计划",
-			"preview.full": "查看全文",
-			"preview.openNamed": "打开计划：{title}",
-			"preview.loading": "正在读取计划…",
-			"preview.failed": "无法读取计划",
-			"preview.invalidAddress": "计划地址无效",
-			"preview.historyUnavailable": "无法读取会话历史",
-			"preview.notFound": "未找到这份计划",
-			"preview.unavailable": "计划预览不可用",
-			"preview.expired": "临时计划预览已失效，请从仍在等待审批的卡片重新打开。",
-			"chip.on.aria": "计划模式已开启，按下关闭",
-			"chip.on.title": "计划模式已开启 — 点击关闭（/plan off）",
-			"chip.exitFailed": "退出计划模式失败"
-		};
-		/** English dictionary, checked complete against the zh key set. */
+		/** Locale bundles for the web-search provider's settings page. */
+		/** English copy. */
 		const en = {
-			"chip.label": "Plan",
-			"preview.title": "Plan",
-			"preview.document": "Plan · Markdown",
-			"preview.action": "Open",
-			"preview.open": "Open plan in sidebar",
-			"preview.full": "View full plan",
-			"preview.openNamed": "Open plan: {title}",
-			"preview.loading": "Loading plan…",
-			"preview.failed": "Could not load plan",
-			"preview.invalidAddress": "Invalid plan address",
-			"preview.historyUnavailable": "Session history is unavailable",
-			"preview.notFound": "This plan was not found",
-			"preview.unavailable": "Plan preview is unavailable",
-			"preview.expired": "This temporary plan preview has expired. Reopen it from the pending review card.",
-			"chip.on.aria": "Plan mode on, press to turn off",
-			"chip.on.title": "Plan mode on — click to turn off (/plan off)",
-			"chip.exitFailed": "Failed to exit plan mode"
+			title: "Web search",
+			description: "Set up the DeepSeek search provider.",
+			apiKey: "API key",
+			apiKeyHint: "Stored outside the settings file. Leave blank to keep the current key.",
+			apiKeySet: "A key is configured.",
+			apiKeyUnset: "No key is configured; only conversations using a DeepSeek Account model can search, through the default endpoint.",
+			baseUrl: "Endpoint",
+			baseUrlHint: "Leave blank to use the provider default.",
+			maxUses: "Max searches per request",
+			maxUsesHint: "How many times one request may search before it must answer.",
+			overridden: "Overridden",
+			reset: "Reset to default",
+			readOnly: "This deployment stores settings read-only.",
+			unavailable: "This plugin is not loaded, so it cannot be configured right now.",
+			save: "Save",
+			saving: "Saving…",
+			saveFailed: "The deployment did not accept these values; they were left for you to correct.",
+			invalidNumber: "Enter a number, or leave blank to use the default."
 		};
+		/** Simplified Chinese copy. */
+		const zh = {
+			title: "网页搜索",
+			description: "设置 DeepSeek 的搜索提供方。",
+			apiKey: "API Key",
+			apiKeyHint: "不写入设置文件。留空表示保持当前密钥。",
+			apiKeySet: "已配置密钥。",
+			apiKeyUnset: "未配置密钥；仅使用 DeepSeek 账号模型的对话可以通过默认接口地址搜索。",
+			baseUrl: "接口地址",
+			baseUrlHint: "留空则使用提供方默认地址。",
+			maxUses: "单次请求最多搜索次数",
+			maxUsesHint: "一次请求在必须作答前最多可以搜索多少次。",
+			overridden: "已覆盖",
+			reset: "恢复默认",
+			readOnly: "本部署的设置为只读。",
+			unavailable: "该插件当前未加载，暂时无法配置。",
+			save: "保存",
+			saving: "保存中…",
+			saveFailed: "本部署没有接受这些值，已保留供你修改。",
+			invalidNumber: "请填数字；留空表示使用默认值。"
+		};
+		/**
+		* The form frame's copy, read from this page's dictionary.
+		* @param t - the page's locale reader.
+		* @returns the labels the shared settings form renders.
+		*/
+		function formLabels(t) {
+			return {
+				unavailable: t("unavailable"),
+				readOnly: t("readOnly"),
+				saveFailed: t("saveFailed"),
+				save: t("save"),
+				saving: t("saving")
+			};
+		}
+		//#endregion
+		//#region lib/types/client/WebSearchCard.js
+		/**
+		* Render the web-search provider's one-liner or its settings form, as the Plugins page asks.
+		* @param props - the view asked for, locale copy, the form snapshot, and its actions.
+		* @returns the one-liner, or the form.
+		*/
+		function WebSearchCard(props) {
+			const { t } = props;
+			const state = props.useWebSearchCard((snapshot) => snapshot);
+			if (props.view === "summary") return t("description");
+			const disabled = !state.writable;
+			return (0, react_jsx_runtime.jsxs)(_deepseek_ai_dsh_client_ui_primitives.SettingsForm, {
+				labels: formLabels(t),
+				state,
+				onSave: props.save,
+				onDiscard: props.discard,
+				children: [
+					(0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.SettingsSecretField, {
+						id: "plugin-config-web-search-key",
+						label: t("apiKey"),
+						hint: t("apiKeyHint"),
+						disabled: !state.apiKeyWritable,
+						text: state.apiKey.text,
+						configured: state.apiKeyConfigured,
+						stateLabel: state.apiKeyConfigured ? t("apiKeySet") : t("apiKeyUnset"),
+						onEdit: (text) => {
+							props.edit("apiKey", text);
+						}
+					}),
+					(0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.SettingsValueField, {
+						id: "plugin-config-web-search-endpoint",
+						label: t("baseUrl"),
+						hint: t("baseUrlHint"),
+						overriddenLabel: t("overridden"),
+						resetLabel: t("reset"),
+						invalidLabel: t("invalidNumber"),
+						disabled,
+						...state.baseURL,
+						onEdit: (text) => {
+							props.edit("baseURL", text);
+						},
+						onReset: () => {
+							props.resetField("baseURL");
+						}
+					}),
+					(0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.SettingsValueField, {
+						id: "plugin-config-web-search-max-uses",
+						label: t("maxUses"),
+						hint: t("maxUsesHint"),
+						overriddenLabel: t("overridden"),
+						resetLabel: t("reset"),
+						invalidLabel: t("invalidNumber"),
+						numeric: true,
+						disabled,
+						...state.maxUses,
+						onEdit: (text) => {
+							props.edit("maxUses", text);
+						},
+						onReset: () => {
+							props.resetField("maxUses");
+						}
+					})
+				]
+			});
+		}
+		//#endregion
+		//#region lib/types/client/web-search-card-controller.js
+		/**
+		* The web-search page's staged form over the `web-search-deepseek` settings
+		* namespace.
+		*
+		* The key is the one control that does not live in the section: its literal
+		* never rides a response, so the page learns only whether one is configured
+		* and writes it through the credentials domain, addressed by the reference the
+		* section names. It is still staged with the rest of the form, so one save
+		* covers everything the page shows.
+		*/
+		/**
+		* Namespace of the DeepSeek search provider. Spelled here rather than
+		* imported: a client package must not depend on a Host package.
+		*/
+		const WEB_SEARCH_NS = "web-search-deepseek";
+		/** Credential reference the provider resolves when the section names none. */
+		const DEFAULT_API_KEY_REF = "DEEPSEEK_API_KEY";
+		/** Form field the credential control stages under. */
+		const API_KEY_FIELD = "apiKey";
+		/** Bridges the `web-search-deepseek` scope and the credentials domain onto the page. */
+		var WebSearchCardController = class {
+			scope;
+			ctx;
+			form;
+			store;
+			unsubscribe;
+			credential = {
+				ref: "",
+				configured: false,
+				writable: true
+			};
+			/**
+			* @param scope - the bound settings scope for the `web-search-deepseek` namespace.
+			* @param ctx - the page plugin's context, whose `remote.credentials` namespace
+			* answers for the credential the section references.
+			*/
+			constructor(scope, ctx) {
+				this.scope = scope;
+				this.ctx = ctx;
+				this.form = new _deepseek_ai_dsh_client_ui_primitives.SettingsFormModel(scope, [(0, _deepseek_ai_dsh_client_ui_primitives.settingsTextField)("baseURL"), (0, _deepseek_ai_dsh_client_ui_primitives.settingsNumberField)("maxUses")], [{
+					field: API_KEY_FIELD,
+					write: (text) => this.writeKey(text)
+				}]);
+				this.store = this.form.bind(() => this.projection());
+				this.unsubscribe = scope.subscribe(() => {
+					this.readCredential();
+				});
+				this.readCredential();
+			}
+			projection() {
+				return {
+					...this.form.shell(),
+					baseURL: this.form.field("baseURL"),
+					maxUses: this.form.field("maxUses"),
+					apiKey: this.form.field(API_KEY_FIELD),
+					apiKeyConfigured: this.credential.configured,
+					apiKeyWritable: this.credential.writable
+				};
+			}
+			/**
+			* Ask the credentials domain about the reference the section currently names.
+			*
+			* The answer is stored with the reference it describes: `apiKeyEnv` can
+			* change between the request and its response, and two reads can settle out
+			* of order, so a response is published only while it still answers for the
+			* reference in force.
+			*/
+			async readCredential() {
+				const ref = refOf(this.scope.getSnapshot());
+				if (ref !== this.credential.ref) {
+					this.credential = {
+						ref,
+						configured: false,
+						writable: true
+					};
+					this.store.set(this.projection());
+				}
+				const response = await this.ctx.remote.credentials.describe([ref]);
+				if (!response.ok || ref !== refOf(this.scope.getSnapshot())) return;
+				const view = response.value[ref];
+				const next = {
+					ref,
+					configured: view?.configured ?? false,
+					writable: view?.writable ?? true
+				};
+				if (next.configured === this.credential.configured && next.writable === this.credential.writable) return;
+				this.credential = next;
+				this.store.set(this.projection());
+			}
+			/**
+			* Re-read after the Host reports a change to the reference this page watches.
+			*
+			* A key can be written from somewhere else — the Models page addresses the
+			* same reference — and the settings section does not change when it is, so
+			* without this the badge keeps reporting a state the Host already replaced.
+			* @param ref - the reference the Host reports as changed.
+			*/
+			refreshCredential(ref) {
+				if (ref !== this.credential.ref) return;
+				this.readCredential();
+			}
+			/**
+			* Build the face the page's slot registration injects.
+			* @returns the page's snapshot and its form actions.
+			*/
+			inject() {
+				return {
+					hooks: { webSearchCard: this.store },
+					...this.form.actions()
+				};
+			}
+			/**
+			* Write the staged key, then re-read whether the Host now holds one.
+			* @param value - the staged credential literal.
+			* @returns whether the Host reports a configured credential afterwards.
+			*/
+			async writeKey(value) {
+				await this.ctx.remote.credentials.set(refOf(this.scope.getSnapshot()), value);
+				await this.readCredential();
+				return this.credential.configured;
+			}
+			/** Release configuration subscriptions. */
+			dispose() {
+				this.unsubscribe();
+				this.form.dispose();
+			}
+		};
+		/**
+		* The credential reference the section names, or the provider's default.
+		* @param snapshot - the current scope snapshot.
+		* @returns the reference to address.
+		*/
+		function refOf(snapshot) {
+			const declared = snapshot.value?.apiKeyEnv;
+			return declared !== void 0 && declared.length > 0 ? declared : DEFAULT_API_KEY_REF;
+		}
 		//#endregion
 		//#region lib/types/client/index.js
+		/**
+		* The web-search provider's settings page, browser half: the key, the
+		* endpoint, and the per-request search budget over the `web-search-deepseek`
+		* namespace the provider registers. The page registers into the Plugins
+		* page's `plugins.item` slot while the Host serves that namespace, so a
+		* deployment without the provider shows no trace of it.
+		*/
 		/** Dictionary namespace owned by this plugin. */
-		const NS = "plan";
-		/** Services for plan controls, Conversation projection, and resource navigation. */
+		const NS = "settings.webSearch";
+		/** Required services (cordis fiber inject). */
 		const inject = [
 			"slots",
-			"remote",
-			"remote.commands",
-			"remote.session",
-			"sessions",
 			"locale",
-			"uiConversation",
-			"resources",
-			"sidebarRight",
-			"sidebarRightTabs"
+			"remote",
+			"remote.credentials",
+			"configForms"
 		];
 		/**
-		* Register plan controls, permanent Chat cards, and sidebar document reading.
-		* @param ctx - client root context.
+		* Mount the web-search settings page while the Host serves its namespace.
+		* @param ctx - the browser plugin context.
 		*/
 		function apply(ctx) {
+			const t = ctx.locale.bind(NS);
 			ctx.effect(() => ctx.locale.register(NS, {
 				zh,
 				en
-			}), "ui-plan: dictionaries");
-			const previewId = "@deepseek-ai/dsh-client-ui-plan";
-			const t = ctx.locale.bind(NS);
-			ctx.effect(() => ctx.uiConversation.events.register(planDefinition), "ui-plan: conversation definition");
-			ctx.effect(() => ctx.resources.register(planResourceProvider(ctx.remote.session)), "ui-plan: resources");
-			ctx.effect(() => ctx.sidebarRightTabs.register({
-				id: previewId,
-				kind: "plan",
-				patterns: ["dsh-resource://plan/**", "dsh-resource://plan-review/**"],
-				priority: "builtin",
-				canOpen: (address) => parsePlanAddress(address) !== void 0 || isReviewPreviewAddress(address),
-				title: () => t("preview.title")
-			}), "ui-plan: sidebar type");
-			const open = (sessionId) => ({ openPlan: (callId) => {
-				const child = ctx.sessions.subagentAddress(sessionId);
-				const session = child === void 0 ? {
-					kind: "session",
-					sessionId
-				} : {
-					kind: "subagent",
-					...child
-				};
-				ctx.sidebarRight.openResource(planAddress({
-					session,
-					callId
-				}));
-			} });
-			const reviewWindow = randomUUID();
-			const reviewStore = createPlanReviewStore();
-			ctx.slots.inject("conversation.chat.turnTail", () => ctx.slots.register({
-				name: "conversation.chat.turnTail",
-				id: previewId,
+			}), "ui-settings-web-search: dictionaries");
+			const card = new WebSearchCardController(ctx.configForms.get(WEB_SEARCH_NS), ctx);
+			ctx.effect(() => () => {
+				card.dispose();
+			}, "ui-settings-web-search: form subscription");
+			ctx.effect(() => ctx.remote.$on("credentials/reference-updated", (ref) => {
+				card.refreshCredential(ref);
+			}), "ui-settings-web-search: credential invalidations");
+			ctx.effect(() => ctx.configForms.whileServed([WEB_SEARCH_NS], () => ctx.slots.inject("plugins.item", () => ctx.slots.register({
+				name: "plugins.item",
+				id: "web-search",
+				order: 40,
+				label: () => t("title"),
 				locale: NS,
-				inject: (sessionId) => {
-					const binding = ctx.sessions.binding(sessionId);
-					if (binding === void 0) throw new Error(`ui-plan: unknown session "${sessionId}"`);
-					const chat = ctx.uiConversation.binding(binding).target("chat");
-					return {
-						...open(sessionId),
-						keyedHooks: { plans: (turn) => {
-							const snapshot = chat.getSnapshot();
-							if (snapshot === void 0) throw new Error("ui-plan: Chat target is unavailable");
-							return snapshot.nodes.turnDataSource(Number(turn), "submitted-plan");
-						} }
-					};
-				}
-			}, PlanCards));
-			ctx.slots.inject("conversation.plan-review.actions", () => ctx.slots.register({
-				name: "conversation.plan-review.actions",
-				id: previewId,
-				locale: NS,
-				store: reviewStore,
-				inject: (sessionId) => ({
-					openReview: (review, requestKey) => {
-						if (review.callId !== void 0) {
-							open(sessionId).openPlan(review.callId);
-							return;
-						}
-						ctx.sidebarRight.openResource(reviewPreviewAddress(sessionId, `${reviewWindow}:${requestKey}`), { params: { planReview: {
-							markdown: review.plan,
-							title: (0, _deepseek_ai_dsh_client_ui_primitives.extractMarkdownPlainText)(review.plan, { mode: "first-line" })
-						} } });
-					},
-					hooks: { sidebarMounted: ctx.sidebarRight.mounted }
-				})
-			}, PlanReviewOpen));
-			ctx.slots.inject("sidebar.right.pane.tab", () => ctx.slots.register({
-				name: "sidebar.right.pane.tab",
-				key: previewId,
-				locale: NS
-			}, PlanPreview));
-			ctx.slots.inject("sidebar.right.pane.tab.title", () => ctx.slots.register({
-				name: "sidebar.right.pane.tab.title",
-				key: previewId
-			}, PlanTitle));
-			ctx.slots.inject("conversation.input.plan", () => ctx.slots.register({
-				name: "conversation.input.plan",
-				locale: NS,
-				inject: (sessionId) => ({ exitPlanMode: async () => {
-					const result = await ctx.remote.commands.execute(sessionId, "/plan off", []);
-					if (!result.ok) return `${result.error.message} (${result.error.code})`;
-					if (result.value === void 0) return "unknown command: /plan off";
-					return null;
-				} })
-			}, PlanChip));
+				inject: () => card.inject()
+			}, WebSearchCard))), "ui-settings-web-search: page");
 		}
 		//#endregion
+		exports.NS = NS;
 		exports.apply = apply;
 		exports.inject = inject;
 		return module.exports;
 	}
 });
 ;
-//# sourceMappingURL=??@deepseek-ai/dsh-client-ui-plan/client.js.map&rev=b4568bda4f2a
+//# sourceMappingURL=??@deepseek-ai/dsh-client-ui-settings-web-search/client.js.map&rev=4e8d8947facb
