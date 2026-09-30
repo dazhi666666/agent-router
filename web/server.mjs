@@ -45,6 +45,8 @@ export function createApp({ dataDir = process.env.AGENT_ROUTER_DATA_DIR || path.
   const runs = new Runs({ root: ROOT, dataDir, launch, kill });
   const sessions = new Sessions(dataDir, path.join(ROOT, 'demo', 'todo-cli'));
   const bridge = createBridge({ runs, sessions });
+  // 预热可选模型清单（首个 CLI 扫描要数秒，避免第一个打开设置面板的请求卡顿）
+  setTimeout(() => { try { modelCatalog(); } catch {} }, 500).unref();
   const server = http.createServer(async (req, res) => {
     try {
       const u = new URL(req.url, 'http://127.0.0.1');
