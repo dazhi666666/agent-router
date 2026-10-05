@@ -1,857 +1,718 @@
 window.__ModuleLoader__.load({
-	id: "@deepseek-ai/dsh-client-ui-settings-subagent",
+	id: "@deepseek-ai/dsh-client-ui-plan",
 	factory: (require) => {
 		var module = { exports: {} };
 		var exports = module.exports;
 		Object.defineProperty(exports, Symbol.toStringTag, { value: "Module" });
+		let _deepseek_ai_dsh_client_ui_primitives = require("@deepseek-ai/dsh-client-ui-primitives");
 		let react_jsx_runtime = require("react/jsx-runtime");
 		let react = require("react");
-		let _deepseek_ai_dsh_client_ui_primitives = require("@deepseek-ai/dsh-client-ui-primitives");
+		require("@deepseek-ai/cordis");
 		let _deepseek_ai_dsh_client_store = require("@deepseek-ai/dsh-client-store");
-		//#region lib/types/client/locales.js
-		/** Locale bundles for the Subagent settings page. */
-		/** English copy. */
-		const en = {
-			overridden: "Overridden",
-			reset: "Reset to default",
-			readOnly: "This deployment stores settings read-only.",
-			unavailable: "This plugin is not loaded, so it cannot be configured right now.",
-			save: "Save",
-			saving: "Saving…",
-			saveFailed: "The deployment did not accept these values; they were left for you to correct.",
-			subagentTitle: "Subagent",
-			subagentDescription: "Set Subagent recursion depth, count, and models.",
-			subagentLimitsTitle: "Limits",
-			subagentMaxDepth: "Maximum recursion depth",
-			subagentDepthHelpLabel: "About maximum recursion depth",
-			subagentDepthHelp: "Limits how many levels of Subagents an Agent can create.",
-			subagentDepthZero: "Disable Subagents",
-			subagentDepthOne: "Only the main Agent can create Subagents",
-			subagentDepthOverride: "If a tool defines its own maximum recursion depth, that setting takes precedence.",
-			subagentMaxActive: "Subagent parallelism limit",
-			subagentCapacityHelpLabel: "About the Subagent parallelism limit",
-			subagentCapacityHelp: "Total live Subagents under the same main Agent, across all recursion levels. The main Agent is excluded. New start requests are rejected when the limit is reached.",
-			subagentDepthInvalid: "Enter a whole number of 0 or more.",
-			subagentCapacityInvalid: "Enter a whole number of 1 or more.",
-			subagentModelSelectionTitle: "Model selection",
-			subagentModelSelectionToggle: "Allow agents to choose models for Subagents",
-			subagentModelSelectionChoose: "When enabled, agents can choose a provider, model, and reasoning effort for each Subagent from the authorized models below. Applies only to new sessions.",
-			subagentModelSelectionAllowed: "Models agents may choose",
-			subagentModelSelectionLoading: "Loading models…",
-			subagentModelSelectionLoadFailed: "Models could not be loaded.",
-			subagentModelSelectionRetry: "Retry",
-			subagentModelSelectionPartial: "Some model providers could not be loaded; saved choices remain removable.",
-			subagentModelSelectionUnavailable: "Currently unavailable",
-			subagentModelSelectionUnavailableGroup: "Saved but currently unavailable",
-			subagentModelSelectionEmpty: "No model provider currently advertises a model.",
-			subagentModelSelectionRequired: "Select at least one model before saving.",
-			subagentModelSelectionConflict: "Settings changed elsewhere. Discard your draft and try again.",
-			subagentModelSelectionOff: "Subagents use configured defaults or inherit the parent agent's model. Saved model choices are retained."
-		};
-		/** Simplified Chinese copy. */
-		const zh = {
-			overridden: "已覆盖",
-			reset: "恢复默认",
-			readOnly: "本部署的设置为只读。",
-			unavailable: "该插件当前未加载，暂时无法配置。",
-			save: "保存",
-			saving: "保存中…",
-			saveFailed: "本部署没有接受这些值，已保留供你修改。",
-			subagentTitle: "子智能体",
-			subagentDescription: "设置子智能体的递归层级、数量和模型。",
-			subagentLimitsTitle: "运行限制",
-			subagentMaxDepth: "最大递归深度",
-			subagentDepthHelpLabel: "最大递归深度说明",
-			subagentDepthHelp: "限制 Agent 创建子智能体的递归层级。",
-			subagentDepthZero: "禁用子智能体",
-			subagentDepthOne: "仅允许主 Agent 创建子智能体",
-			subagentDepthOverride: "如果某个工具单独设置了最大递归深度，以该工具的设置为准。",
-			subagentMaxActive: "子智能体并行数量上限",
-			subagentCapacityHelpLabel: "子智能体并行数量上限说明",
-			subagentCapacityHelp: "同一主 Agent 下，所有递归层级同时存活的子智能体总数，主 Agent 不计入。达到上限时，新的启动请求会被拒绝。",
-			subagentDepthInvalid: "请输入不小于 0 的整数。",
-			subagentCapacityInvalid: "请输入不小于 1 的整数。",
-			subagentModelSelectionTitle: "模型选择",
-			subagentModelSelectionToggle: "允许 Agent 为子智能体选择模型",
-			subagentModelSelectionChoose: "开启后，Agent 可以从下方授权模型中，为每个子智能体选择提供方、模型和推理强度。仅影响新会话。",
-			subagentModelSelectionAllowed: "Agent 可选择的模型",
-			subagentModelSelectionLoading: "正在加载模型…",
-			subagentModelSelectionLoadFailed: "无法加载模型。",
-			subagentModelSelectionRetry: "重试",
-			subagentModelSelectionPartial: "部分模型提供方暂时无法加载；已保存的选择仍可移除。",
-			subagentModelSelectionUnavailable: "当前不可用",
-			subagentModelSelectionUnavailableGroup: "已保存但当前不可用",
-			subagentModelSelectionEmpty: "当前没有模型提供方公布模型。",
-			subagentModelSelectionRequired: "保存前请至少选择一个模型。",
-			subagentModelSelectionConflict: "设置已在其他位置更新。请放弃修改后重试。",
-			subagentModelSelectionOff: "关闭后，子智能体使用配置的默认模型或继承父 Agent 的模型；已选模型会保留。"
-		};
+		//#region ../../util/crypto/src/index.ts
 		/**
-		* The form frame's copy, read from this page's dictionary.
-		* @param t - the page's locale reader.
-		* @returns the labels the shared settings form renders.
+		* Random v4 UUID, minted from `crypto.getRandomValues`.
+		* @returns the UUID string.
 		*/
-		function formLabels(t) {
-			return {
-				unavailable: t("unavailable"),
-				readOnly: t("readOnly"),
-				saveFailed: t("saveFailed"),
-				save: t("save"),
-				saving: t("saving")
-			};
+		function randomUUID() {
+			const bytes = globalThis.crypto.getRandomValues(new Uint8Array(16));
+			const hex = Array.from(bytes, (byte, index) => {
+				return (index === 6 ? byte & 15 | 64 : index === 8 ? byte & 63 | 128 : byte).toString(16).padStart(2, "0");
+			}).join("");
+			return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
 		}
 		//#endregion
-		//#region \0dsh-css:D:\deepseek-harness\packages\client\ui-settings-subagent\src\client\SubagentLimitsFields.module.css.mjs
-		const css$2 = ".kiR-wa_limits{grid-template-columns:repeat(auto-fit,minmax(min(220px,100%),1fr));gap:16px;display:grid}.kiR-wa_limit{min-width:0}.kiR-wa_limit input{font-variant-numeric:tabular-nums;min-width:0}.kiR-wa_depthTable{border-collapse:collapse;border-block:.5px solid var(--dsw-alias-border-l2);width:100%;font:inherit;text-align:left;margin:8px 0}.kiR-wa_depthTable th,.kiR-wa_depthTable td{vertical-align:top;padding:6px 0}.kiR-wa_depthTable th{font-variant-numeric:tabular-nums;width:24px;color:var(--dsw-alias-label-primary);padding-right:8px;font-weight:500}.kiR-wa_depthTable tr+tr{border-top:.5px solid var(--dsw-alias-border-l2)}";
-		const tagId$2 = "@deepseek-ai/dsh-client-ui-settings-subagent/SubagentLimitsFields.module.css";
-		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId$2) + "]") === null) {
-			const tag = document.createElement("style");
-			tag.dataset.plugin = "@deepseek-ai/dsh-client-ui-settings-subagent";
-			tag.dataset.pluginCss = tagId$2;
-			tag.textContent = css$2;
-			document.head.appendChild(tag);
-		}
-		var SubagentLimitsFields_module_css_default = {
-			"depthTable": "kiR-wa_depthTable",
-			"limit": "kiR-wa_limit",
-			"limits": "kiR-wa_limits"
-		};
-		//#endregion
-		//#region lib/types/client/SubagentLimitsFields.js
-		/**
-		* Render the depth and capacity fields with their original validation and reset behavior.
-		* @param props - Locale, staged fields, and edit callbacks.
-		* @returns Two responsive fields and their application rules.
-		*/
-		function SubagentLimitsFields(props) {
-			const { t, state } = props;
-			return (0, react_jsx_runtime.jsx)(react_jsx_runtime.Fragment, { children: (0, react_jsx_runtime.jsxs)("div", {
-				className: SubagentLimitsFields_module_css_default.limits,
-				children: [(0, react_jsx_runtime.jsx)("div", {
-					className: SubagentLimitsFields_module_css_default.limit,
-					children: (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.SettingsValueField, {
-						id: "plugin-config-subagent-depth",
-						label: t("subagentMaxDepth"),
-						help: {
-							label: t("subagentDepthHelpLabel"),
-							content: (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [
-								(0, react_jsx_runtime.jsx)("p", { children: t("subagentDepthHelp") }),
-								(0, react_jsx_runtime.jsx)("table", {
-									className: SubagentLimitsFields_module_css_default.depthTable,
-									"aria-label": t("subagentDepthHelpLabel"),
-									children: (0, react_jsx_runtime.jsxs)("tbody", { children: [(0, react_jsx_runtime.jsxs)("tr", { children: [(0, react_jsx_runtime.jsx)("th", {
-										scope: "row",
-										children: 0
-									}), (0, react_jsx_runtime.jsx)("td", { children: t("subagentDepthZero") })] }), (0, react_jsx_runtime.jsxs)("tr", { children: [(0, react_jsx_runtime.jsx)("th", {
-										scope: "row",
-										children: 1
-									}), (0, react_jsx_runtime.jsx)("td", { children: t("subagentDepthOne") })] })] })
-								}),
-								(0, react_jsx_runtime.jsx)("p", { children: t("subagentDepthOverride") })
-							] })
-						},
-						overriddenLabel: t("overridden"),
-						resetLabel: t("reset"),
-						invalidLabel: t("subagentDepthInvalid"),
-						numeric: true,
-						disabled: !state.writable || state.saving,
-						...state.maxDepth,
-						onEdit: (text) => {
-							props.edit("maxDepth", text);
-						},
-						onReset: () => {
-							props.resetField("maxDepth");
-						}
-					})
-				}), (0, react_jsx_runtime.jsx)("div", {
-					className: SubagentLimitsFields_module_css_default.limit,
-					children: (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.SettingsValueField, {
-						id: "plugin-config-subagent-capacity",
-						label: t("subagentMaxActive"),
-						help: {
-							label: t("subagentCapacityHelpLabel"),
-							content: (0, react_jsx_runtime.jsx)("p", { children: t("subagentCapacityHelp") })
-						},
-						overriddenLabel: t("overridden"),
-						resetLabel: t("reset"),
-						invalidLabel: t("subagentCapacityInvalid"),
-						numeric: true,
-						disabled: !state.writable || state.saving,
-						...state.maxActiveSubagents,
-						onEdit: (text) => {
-							props.edit("maxActiveSubagents", text);
-						},
-						onReset: () => {
-							props.resetField("maxActiveSubagents");
-						}
-					})
-				})]
-			}) });
-		}
-		//#endregion
-		//#region \0dsh-css:D:\deepseek-harness\packages\client\ui-settings-subagent\src\client\SubagentModelSelectionFields.module.css.mjs
-		const css$1 = ".ZLCvSq_permission{gap:6px;padding:12px 0;display:grid}.ZLCvSq_toggleRow{color:var(--dsw-alias-label-primary);justify-content:space-between;align-items:flex-start;gap:16px;font-size:13px;line-height:1.5;display:flex}.ZLCvSq_toggleLabel{flex:1;min-width:0}.ZLCvSq_selection{gap:10px;display:grid}.ZLCvSq_hint,.ZLCvSq_notice,.ZLCvSq_invalid,.ZLCvSq_conflict{margin:0;font-size:12px;line-height:1.5}.ZLCvSq_hint,.ZLCvSq_notice{color:var(--dsw-alias-label-tertiary)}.ZLCvSq_invalid,.ZLCvSq_conflict{color:var(--dsw-alias-state-error-primary)}.ZLCvSq_catalogError{color:var(--dsw-alias-state-error-primary);justify-content:space-between;align-items:center;gap:12px;font-size:12px;display:flex}.ZLCvSq_catalogError button{color:var(--dsw-alias-brand-primary);cursor:pointer;background:0 0;border:0;padding:0}.ZLCvSq_models{border:.5px solid var(--dsw-alias-border-l4);border-radius:var(--dsw-radius-lg);gap:6px;min-width:0;max-height:280px;margin:0;padding:10px;display:grid;overflow:auto}.ZLCvSq_models legend{color:var(--dsw-alias-label-secondary);padding:0 4px;font-size:12px}.ZLCvSq_modelGroup{gap:6px;display:grid}.ZLCvSq_modelGroup+.ZLCvSq_modelGroup{border-top:.5px solid var(--dsw-alias-border-l3);margin-top:4px;padding-top:10px}.ZLCvSq_providerName{color:var(--dsw-alias-label-tertiary);padding:0 6px;font-size:11px;font-weight:500}.ZLCvSq_model{border-radius:var(--dsw-radius-md);cursor:pointer;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:8px;min-width:0;padding:6px;display:grid}.ZLCvSq_model:hover{background:var(--dsw-alias-bg-layer-4)}.ZLCvSq_modelName,.ZLCvSq_route{text-overflow:ellipsis;white-space:nowrap;display:block;overflow:hidden}.ZLCvSq_modelName{color:var(--dsw-alias-label-primary);font-size:13px}.ZLCvSq_route{color:var(--dsw-alias-label-tertiary);margin-top:2px;font-size:11px}.ZLCvSq_unavailable{color:var(--dsw-alias-label-tertiary);font-size:11px}";
-		const tagId$1 = "@deepseek-ai/dsh-client-ui-settings-subagent/SubagentModelSelectionFields.module.css";
+		//#region \0dsh-css:D:\deepseek-harness\packages\client\ui-plan\src\client\PlanPreview.module.css.mjs
+		const css$1 = ".BuANLq_cards{flex-direction:column;gap:10px;display:flex}.BuANLq_card{--plan-card-fill:var(--dsw-static-neutral-50);--plan-card-hover:var(--dsw-static-neutral-100);box-sizing:border-box;border:.5px solid var(--dsw-alias-border-l1);border-radius:var(--dsw-radius-xl);background:var(--plan-card-fill);width:100%;min-width:0;height:60px;color:var(--dsw-alias-label-primary);font:inherit;text-align:left;cursor:pointer;align-items:center;gap:10px;margin:0;padding:8px 10px;transition:background-color .12s;display:flex}body[data-ds-dark-theme] .BuANLq_card{--plan-card-fill:var(--dsw-static-neutral-850);--plan-card-hover:var(--dsw-static-neutral-800)}.BuANLq_card:hover{background:var(--plan-card-hover)}.BuANLq_card:focus-visible{outline:var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color,var(--dsw-alias-state-business-primary));outline-offset:3px}.BuANLq_cardIcon{box-sizing:border-box;border:.5px solid var(--dsw-alias-border-l1);border-radius:var(--dsw-radius-md);background:var(--plan-card-fill);flex:none;place-items:center;width:40px;height:40px;display:grid}.BuANLq_cardDetails{flex-direction:column;flex:1;gap:2px;min-width:0;display:flex}.BuANLq_cardTitle{text-overflow:ellipsis;white-space:nowrap;font-size:13px;font-weight:500;line-height:20px;overflow:hidden}.BuANLq_cardDescription{text-overflow:ellipsis;white-space:nowrap;color:var(--dsw-alias-label-tertiary);font-size:10px;line-height:16px;overflow:hidden}.BuANLq_cardOpen{box-sizing:border-box;border:.5px solid var(--dsw-alias-border-l3);border-radius:var(--dsw-radius-sm);background:var(--dsw-alias-button-floating-fill);flex:none;align-items:center;height:28px;padding:4px 8px;font-size:12px;line-height:18px;display:inline-flex}.BuANLq_reviewLink{color:var(--dsw-alias-label-secondary);font:inherit;cursor:pointer;background:0 0;border:0;align-items:center;gap:4px;padding:0;display:inline-flex}.BuANLq_reviewLink:hover{color:var(--dsw-alias-label-primary)}.BuANLq_reviewLink:focus-visible{outline:var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color,var(--dsw-alias-state-business-primary));outline-offset:3px}.BuANLq_preview{box-sizing:border-box;height:100%;padding:20px 24px 40px;position:relative;overflow:auto}.BuANLq_document{color:var(--dsw-alias-label-primary);overflow-wrap:anywhere;font-size:14px;line-height:1.75}.BuANLq_message{color:var(--dsw-alias-label-secondary);padding:24px;font-size:14px}.BuANLq_titleIcon{flex:none}@media (width<=767px){.BuANLq_preview{padding:16px 18px 32px}}";
+		const tagId$1 = "@deepseek-ai/dsh-client-ui-plan/PlanPreview.module.css";
 		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId$1) + "]") === null) {
 			const tag = document.createElement("style");
-			tag.dataset.plugin = "@deepseek-ai/dsh-client-ui-settings-subagent";
+			tag.dataset.plugin = "@deepseek-ai/dsh-client-ui-plan";
 			tag.dataset.pluginCss = tagId$1;
 			tag.textContent = css$1;
 			document.head.appendChild(tag);
 		}
-		var SubagentModelSelectionFields_module_css_default = {
-			"catalogError": "ZLCvSq_catalogError",
-			"conflict": "ZLCvSq_conflict",
-			"hint": "ZLCvSq_hint",
-			"invalid": "ZLCvSq_invalid",
-			"model": "ZLCvSq_model",
-			"modelGroup": "ZLCvSq_modelGroup",
-			"modelName": "ZLCvSq_modelName",
-			"models": "ZLCvSq_models",
-			"notice": "ZLCvSq_notice",
-			"permission": "ZLCvSq_permission",
-			"providerName": "ZLCvSq_providerName",
-			"route": "ZLCvSq_route",
-			"selection": "ZLCvSq_selection",
-			"toggleLabel": "ZLCvSq_toggleLabel",
-			"toggleRow": "ZLCvSq_toggleRow",
-			"unavailable": "ZLCvSq_unavailable"
+		var PlanPreview_module_css_default = {
+			"card": "BuANLq_card",
+			"cardDescription": "BuANLq_cardDescription",
+			"cardDetails": "BuANLq_cardDetails",
+			"cardIcon": "BuANLq_cardIcon",
+			"cardOpen": "BuANLq_cardOpen",
+			"cardTitle": "BuANLq_cardTitle",
+			"cards": "BuANLq_cards",
+			"document": "BuANLq_document",
+			"message": "BuANLq_message",
+			"preview": "BuANLq_preview",
+			"reviewLink": "BuANLq_reviewLink",
+			"titleIcon": "BuANLq_titleIcon"
 		};
 		//#endregion
-		//#region lib/types/client/SubagentModelSelectionFields.js
-		/** User control for model-selectable subagent delegation in new sessions. */
+		//#region lib/types/client/PlanCard.js
+		/** Persistent transcript cards and pending-review sidebar navigation. */
 		/**
-		* Render the default-off preference and its exact adapter-route choices.
-		* @param props - locale copy, the card snapshot, and its toggle action.
-		* @returns the model permission and route choices inside the shared card.
+		* Render the completed Turn's submitted plans in invocation order.
+		* @param props - Logged plan, localized copy, and Session-bound navigation.
+		* @returns keyboard-accessible plan cards, or null for a Turn without plans.
 		*/
-		function SubagentModelSelectionFields(props) {
-			const { t, state } = props;
-			const availableGroups = /* @__PURE__ */ new Map();
-			const unavailable = [];
-			for (const candidate of state.candidates) {
-				if (!candidate.available) {
-					unavailable.push(candidate);
-					continue;
-				}
-				const group = availableGroups.get(candidate.provider);
-				if (group === void 0) availableGroups.set(candidate.provider, {
-					providerName: candidate.providerName,
-					candidates: [candidate]
-				});
-				else group.candidates.push(candidate);
-			}
-			const renderCandidate = (candidate) => (0, react_jsx_runtime.jsxs)("label", {
-				className: SubagentModelSelectionFields_module_css_default.model,
-				children: [
-					(0, react_jsx_runtime.jsx)("input", {
-						type: "checkbox",
-						checked: candidate.selected,
-						disabled: !state.writable || state.saving,
-						onChange: () => {
-							props.toggleModel(candidate.key);
-						}
-					}),
-					(0, react_jsx_runtime.jsxs)("span", { children: [(0, react_jsx_runtime.jsx)("span", {
-						className: SubagentModelSelectionFields_module_css_default.modelName,
-						children: candidate.modelName
-					}), (0, react_jsx_runtime.jsx)("span", {
-						className: SubagentModelSelectionFields_module_css_default.route,
-						children: `${candidate.providerName} · ${candidate.provider}/${candidate.model}`
-					})] }),
-					!candidate.available ? (0, react_jsx_runtime.jsx)("span", {
-						className: SubagentModelSelectionFields_module_css_default.unavailable,
-						children: t("subagentModelSelectionUnavailable")
-					}) : null
-				]
-			}, candidate.key);
-			return (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [
-				(0, react_jsx_runtime.jsxs)("div", {
-					className: SubagentModelSelectionFields_module_css_default.permission,
-					children: [(0, react_jsx_runtime.jsxs)("div", {
-						className: SubagentModelSelectionFields_module_css_default.toggleRow,
-						children: [(0, react_jsx_runtime.jsx)("span", {
-							className: SubagentModelSelectionFields_module_css_default.toggleLabel,
-							children: t("subagentModelSelectionToggle")
-						}), (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Switch, {
-							checked: state.enabled,
-							label: t("subagentModelSelectionToggle"),
-							disabled: !state.writable || state.saving,
-							onChange: props.toggleEnabled
-						})]
-					}), (0, react_jsx_runtime.jsx)("p", {
-						className: SubagentModelSelectionFields_module_css_default.hint,
-						children: t(state.enabled ? "subagentModelSelectionChoose" : "subagentModelSelectionOff")
-					})]
-				}),
-				state.enabled ? (0, react_jsx_runtime.jsxs)("div", {
-					className: SubagentModelSelectionFields_module_css_default.selection,
+		function PlanCards({ turn, usePlans, openPlan, t }) {
+			const plans = usePlans(String(turn.turn));
+			if (plans === void 0 || plans.length === 0) return null;
+			return (0, react_jsx_runtime.jsx)("div", {
+				className: PlanPreview_module_css_default.cards,
+				"data-plan-artifacts": true,
+				children: plans.map((plan) => (0, react_jsx_runtime.jsxs)("button", {
+					type: "button",
+					className: PlanPreview_module_css_default.card,
+					"data-plan-card": plan.callId,
+					"aria-label": t("preview.openNamed", { title: plan.title }),
+					onClick: () => {
+						openPlan(plan.callId);
+					},
 					children: [
-						state.catalogStatus === "loading" ? (0, react_jsx_runtime.jsx)("p", {
-							className: SubagentModelSelectionFields_module_css_default.notice,
-							role: "status",
-							children: t("subagentModelSelectionLoading")
-						}) : null,
-						state.catalogStatus === "error" ? (0, react_jsx_runtime.jsxs)("div", {
-							className: SubagentModelSelectionFields_module_css_default.catalogError,
-							role: "alert",
-							children: [(0, react_jsx_runtime.jsx)("span", { children: t("subagentModelSelectionLoadFailed") }), (0, react_jsx_runtime.jsx)("button", {
-								type: "button",
-								disabled: state.saving,
-								onClick: props.retryCatalog,
-								children: t("subagentModelSelectionRetry")
+						(0, react_jsx_runtime.jsx)("span", {
+							className: PlanPreview_module_css_default.cardIcon,
+							children: (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.FileTypeIcon, {
+								kind: "markdown",
+								size: 20
+							})
+						}),
+						(0, react_jsx_runtime.jsxs)("span", {
+							className: PlanPreview_module_css_default.cardDetails,
+							children: [(0, react_jsx_runtime.jsx)("span", {
+								className: PlanPreview_module_css_default.cardTitle,
+								children: plan.title
+							}), (0, react_jsx_runtime.jsx)("span", {
+								className: PlanPreview_module_css_default.cardDescription,
+								children: t("preview.document")
 							})]
-						}) : null,
-						state.catalogPartial ? (0, react_jsx_runtime.jsx)("p", {
-							className: SubagentModelSelectionFields_module_css_default.notice,
-							children: t("subagentModelSelectionPartial")
-						}) : null,
-						state.candidates.length > 0 ? (0, react_jsx_runtime.jsxs)("fieldset", {
-							className: SubagentModelSelectionFields_module_css_default.models,
-							children: [
-								(0, react_jsx_runtime.jsx)("legend", { children: t("subagentModelSelectionAllowed") }),
-								[...availableGroups].map(([provider, group]) => (0, react_jsx_runtime.jsxs)("div", {
-									className: SubagentModelSelectionFields_module_css_default.modelGroup,
-									children: [(0, react_jsx_runtime.jsx)("div", {
-										className: SubagentModelSelectionFields_module_css_default.providerName,
-										children: group.providerName
-									}), group.candidates.map(renderCandidate)]
-								}, provider)),
-								unavailable.length > 0 ? (0, react_jsx_runtime.jsxs)("div", {
-									className: SubagentModelSelectionFields_module_css_default.modelGroup,
-									children: [(0, react_jsx_runtime.jsx)("div", {
-										className: SubagentModelSelectionFields_module_css_default.providerName,
-										children: t("subagentModelSelectionUnavailableGroup")
-									}), unavailable.map(renderCandidate)]
-								}) : null
-							]
-						}) : state.catalogStatus === "ready" ? (0, react_jsx_runtime.jsx)("p", {
-							className: SubagentModelSelectionFields_module_css_default.notice,
-							children: t("subagentModelSelectionEmpty")
-						}) : null,
-						state.invalid ? (0, react_jsx_runtime.jsx)("p", {
-							className: SubagentModelSelectionFields_module_css_default.invalid,
-							children: t("subagentModelSelectionRequired")
-						}) : null
+						}),
+						(0, react_jsx_runtime.jsx)("span", {
+							className: PlanPreview_module_css_default.cardOpen,
+							children: t("preview.action")
+						})
 					]
-				}) : null,
-				state.conflicted ? (0, react_jsx_runtime.jsx)("p", {
-					className: SubagentModelSelectionFields_module_css_default.conflict,
-					role: "status",
-					children: t("subagentModelSelectionConflict")
-				}) : null
-			] });
+				}, plan.callId))
+			});
+		}
+		/**
+		* Open each pending plan automatically and retain a manual opener without answering it.
+		*
+		* The automatic open waits for a Session on screen. `ctx.sidebarRight` names
+		* the Session before the commit that brings its Conversation back renders, so
+		* a review that arrived while the Conversation was off screen opens from the
+		* effect of the commit that mounts it.
+		* @param props - Review identity, Session store, localized copy, and navigation.
+		* @returns an opener for either logged or temporary plan text.
+		*/
+		function PlanReviewOpen({ review, requestKey, openReview, useSidebarMounted, t, useStore, actions }) {
+			const identity = review.callId === void 0 ? `review:${requestKey}` : `call:${review.callId}`;
+			const opened = useStore((state) => state.opened[identity] === true);
+			const mounted = useSidebarMounted((session) => session !== void 0);
+			(0, react.useEffect)(() => {
+				if (opened || !mounted) return;
+				openReview(review, requestKey);
+				actions.markOpened(identity);
+			}, [
+				identity,
+				opened,
+				mounted,
+				openReview,
+				review,
+				requestKey,
+				actions
+			]);
+			return (0, react_jsx_runtime.jsxs)("button", {
+				type: "button",
+				className: PlanPreview_module_css_default.reviewLink,
+				title: t("preview.open"),
+				"aria-label": t("preview.open"),
+				onClick: () => {
+					openReview(review, requestKey);
+				},
+				children: [t("preview.full"), (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconChevronRightOutlineRegular, { size: 14 })]
+			});
 		}
 		//#endregion
-		//#region lib/types/client/subagent-card-controller.js
-		/** Shared presentation and actions for the two Host-owned Subagent settings sections. */
+		//#region lib/types/client/review-preview.js
 		/**
-		* Derive the shared card state without duplicating either form's subscriptions.
-		* @param limits - Current delegation-limit form.
-		* @param models - Current model-authorization form.
-		* @returns Availability and settlement across the sections this Host serves.
+		* Name one temporary review within its browser lifetime and Session.
+		* @param sessionId - Session displaying the review.
+		* @param requestKey - Browser-unique pending request identity.
+		* @returns the address used to focus or reopen its preview.
 		*/
-		function subagentCardShell(limits, models) {
-			const sections = [limits, models].filter((section) => section.available);
-			return {
-				available: sections.length > 0,
-				writable: sections.every((section) => section.writable),
-				dirty: sections.some((section) => section.dirty),
-				invalid: sections.some((section) => section.invalid) || models.available && models.dirty && models.conflicted,
-				saving: sections.some((section) => section.saving),
-				failed: sections.some((section) => section.failed)
+		function reviewPreviewAddress(sessionId, requestKey) {
+			return `dsh-resource://plan-review/${encodeURIComponent(sessionId)}/${encodeURIComponent(requestKey)}`;
+		}
+		/**
+		* Recognize temporary plan navigation without interpreting it as logged history.
+		* @param address - Saved or caller-supplied navigation address.
+		* @returns whether the address identifies a temporary review preview.
+		*/
+		function isReviewPreviewAddress(address) {
+			return /^dsh-resource:\/\/plan-review\/[^/?#]+\/[^/?#]+$/.test(address);
+		}
+		//#endregion
+		//#region lib/types/client/failure-line.js
+		/**
+		* Explain a failed plan read in the current locale.
+		* @param t - Plan namespace translator.
+		* @param failure - Failure reported by the resource provider.
+		* @returns localized plan copy, or the external failure's diagnostic.
+		*/
+		function planFailureLine(t, failure) {
+			switch (failure.code) {
+				case "plan/invalid-address": return t("preview.invalidAddress");
+				case "plan/unavailable": return t("preview.historyUnavailable");
+				case "plan/not-found": return t("preview.notFound");
+				default: return failure.message;
+			}
+		}
+		//#endregion
+		//#region lib/types/client/PlanPreview.js
+		/** Read-only Markdown viewer for logged plans and temporary review documents. */
+		/**
+		* Render the submitted plan with its complete Markdown.
+		* @param props - Framework-bound tab identity, resource, and copy.
+		* @returns the plan document or a localized loading/failure state.
+		*/
+		function PlanPreview({ useTabInfo, useResource, t }) {
+			const tab = useTabInfo();
+			const resource = useResource(tab.tab.navigation.address);
+			const temporary = isReviewPreviewAddress(tab.tab.navigation.address);
+			const params = tab.tab.navigation.params;
+			const plan = temporary ? params !== void 0 && "planReview" in params ? params.planReview : void 0 : resource.value;
+			const labels = (0, react.useMemo)(() => ({
+				code: {
+					copyLabel: t("copy"),
+					copiedLabel: t("copied"),
+					toolbarLabels: {
+						codeLabel: t("codeBlock.title"),
+						wrapLabel: t("codeBlock.wrap"),
+						unwrapLabel: t("codeBlock.unwrap")
+					}
+				},
+				footnotes: t("markdown.footnotes")
+			}), [t]);
+			if (plan === void 0) return (0, react_jsx_runtime.jsxs)("div", {
+				className: PlanPreview_module_css_default.message,
+				role: "status",
+				children: [temporary ? t("preview.expired") : resource.status === "none" ? t("preview.unavailable") : resource.status === "failed" ? t("preview.failed") : t("preview.loading"), !temporary && resource.failure !== void 0 && (0, react_jsx_runtime.jsx)("p", { children: planFailureLine(t, resource.failure) })]
+			});
+			return (0, react_jsx_runtime.jsx)("section", {
+				className: PlanPreview_module_css_default.preview,
+				"data-plan-preview": "callId" in plan ? plan.callId : tab.tab.navigation.address,
+				"aria-label": plan.title,
+				children: (0, react_jsx_runtime.jsx)("div", {
+					className: PlanPreview_module_css_default.document,
+					children: (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.MarkdownText, {
+						text: plan.markdown,
+						labels
+					})
+				})
+			});
+		}
+		/**
+		* Display a plain file icon and the heading in its tab after resource recovery.
+		* @param props - Framework-bound tab identity and resource reader.
+		* @returns a decorative file icon followed by the recovered title or initial localized label.
+		*/
+		function PlanTitle({ useTabInfo, useResource }) {
+			const tab = useTabInfo();
+			const resource = useResource(tab.tab.navigation.address);
+			const params = tab.tab.navigation.params;
+			const plan = isReviewPreviewAddress(tab.tab.navigation.address) ? params !== void 0 && "planReview" in params ? params.planReview : void 0 : resource.value;
+			return (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [(0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.FileTypeIcon, {
+				kind: "other",
+				size: 16,
+				className: PlanPreview_module_css_default.titleIcon
+			}), plan?.title ?? tab.tab.title] });
+		}
+		//#endregion
+		//#region lib/types/client/plan.js
+		function record(value) {
+			return typeof value === "object" && value !== null && !Array.isArray(value);
+		}
+		/**
+		* Read a complete plan from untrusted logged arguments.
+		* @param event - Native call or PTC dispatch event from Session history.
+		* @returns the submitted plan, or undefined for unrelated or malformed data.
+		*/
+		function submittedPlan(event) {
+			if (event.type !== "tool/call" && event.type !== "tool/ptc-dispatch-start" && event.type !== "tool/ptc-dispatch") return void 0;
+			const data = event.data;
+			if (!record(data) || data.name !== "exit_plan_mode") return void 0;
+			const callId = event.type === "tool/call" ? data.callId : data.subCallId;
+			if (typeof callId !== "string" || callId === "") return void 0;
+			let args = data.arguments;
+			if (event.type === "tool/call") {
+				if (typeof args !== "string") return void 0;
+				try {
+					args = JSON.parse(args);
+				} catch (_error) {
+					return;
+				}
+			}
+			if (!record(args) || typeof args.plan !== "string") return void 0;
+			const markdown = args.plan;
+			const title = /^#\s+(\S[^\r\n]*)/.exec(markdown.trim())?.[1];
+			return title === void 0 ? void 0 : {
+				callId,
+				markdown,
+				title
 			};
 		}
 		/**
-		* Compose one card from the existing forms; each write retains its namespace revision fence.
-		* @param limits - Limit form source and actions.
-		* @param models - Model form source and actions.
-		* @returns Framework-bound sources and shared save/discard actions.
+		* Encode the durable identity of a plan without retaining its text in layout storage.
+		* @param target - Session and tool-call identity.
+		* @returns the plan resource address.
 		*/
-		function subagentCardFace(limits, models) {
+		function planAddress(target) {
+			const { session, callId } = target;
+			return `dsh-resource://plan/${(session.kind === "session" ? [session.sessionId, callId] : [
+				"subagent",
+				session.parentSessionId,
+				session.childSessionId,
+				session.mode,
+				callId
+			]).map(encodeURIComponent).join("/")}`;
+		}
+		/**
+		* Validate a saved or caller-supplied plan resource address.
+		* @param address - Address submitted to the sidebar or resource provider.
+		* @returns the decoded identity, or undefined for an unsupported address.
+		*/
+		function parsePlanAddress(address) {
+			const match = /^dsh-resource:\/\/plan\/([^?#]+)$/.exec(address);
+			if (match === null) return void 0;
+			try {
+				const parts = match[1].split("/").map(decodeURIComponent);
+				if (parts.some((part) => part === "")) return void 0;
+				if (parts.length === 2) return {
+					session: {
+						kind: "session",
+						sessionId: parts[0]
+					},
+					callId: parts[1]
+				};
+				if (parts.length === 5 && parts[0] === "subagent" && (parts[3] === "one-shot" || parts[3] === "continuable" || parts[3] === "unknown")) return {
+					session: {
+						kind: "subagent",
+						parentSessionId: parts[1],
+						childSessionId: parts[2],
+						mode: parts[3]
+					},
+					callId: parts[4]
+				};
+				return;
+			} catch (_error) {
+				return;
+			}
+		}
+		//#endregion
+		//#region lib/types/client/plan-definition.js
+		/** One card per invocation; a later PTC settlement retains the original card position. */
+		const planDefinition = {
+			kind: "submitted-plan",
+			target: "chat",
+			match: (event) => {
+				const plan = submittedPlan(event);
+				return plan === void 0 ? null : {
+					id: plan.callId,
+					role: event.type === "tool/ptc-dispatch" ? "update" : "start"
+				};
+			},
+			start: (_context, match) => submittedPlan(match.event),
+			update: (context) => context.state,
+			buildViewNode: (context) => {
+				const start = context.start ?? context.matches[0];
+				const data = context.state ?? (start === void 0 ? void 0 : submittedPlan(start.event));
+				if (data === void 0 || start === void 0) return null;
+				return {
+					key: context.key,
+					kind: "submitted-plan",
+					id: context.id,
+					target: "chat",
+					anchorSeq: start.event.seq,
+					location: start.location,
+					visibility: "hidden",
+					data
+				};
+			}
+		};
+		//#endregion
+		//#region ../../typert/protocol/src/remote-error.ts
+		/**
+		* One Remote call failure: a real Error carrying its stable code and typed
+		* details. Owners throw it at the failure point; the Host Gateway encodes it
+		* onto the wire unchanged; the Client face rebuilds an instance for the
+		* `RemoteResult` error branch, so `throw result.error` keeps throw semantics.
+		* Discrimination is always by `code`, never by instanceof.
+		*/
+		var RemoteError = class extends Error {
+			code;
+			details;
+			/** Structural marker: cross-realm/bundle identification never uses instanceof. */
+			isDSHRemoteError = true;
+			/**
+			* @param code - stable failure code declared in {@link RemoteErrorDetailsMap}.
+			* @param message - human diagnostic carried across the wire.
+			* @param details - structured payload typed by the code.
+			* @param options - standard Error options (`cause` survives in-process only).
+			*/
+			constructor(code, message, details, options) {
+				super(message, options);
+				this.code = code;
+				this.details = details;
+				this.name = "RemoteError";
+			}
+		};
+		/**
+		* Structurally identify a RemoteError thrown across module or realm copies of
+		* this class. Mechanism-internal: the Gateway and test assertions use it;
+		* business code receives typed failures and never needs it.
+		* @param value - a caught value.
+		* @returns the failure when the marker matches, otherwise undefined.
+		*/
+		function remoteErrorOf(value) {
+			if (typeof value === "object" && value !== null && value.isDSHRemoteError === true && typeof value.code === "string") return value;
+		}
+		//#endregion
+		//#region ../../typert/protocol/src/index.ts
+		/**
+		* Remote decorators and explicit Gateway bindings backed by versioned
+		* descriptors carried on decorated class prototypes. Strict reflection
+		* remains a Typert compiler responsibility.
+		* @module @deepseek-ai/dsh-typert-protocol
+		*/
+		//#endregion
+		//#region lib/types/client/plan-resource.js
+		/**
+		* Bind plan reads to the generated Session Remote face.
+		* Opening a follow reads projections and may activate a prepared Session on the Host.
+		* Generated Remote streams can throw carrier failures; the provider reports failed
+		* reads as resource failure frames and preserves Remote error codes.
+		* @param remote - Existing Session history API.
+		* @returns a provider whose reads stop after finding the exact invocation.
+		*/
+		function planResourceProvider(remote) {
 			return {
-				hooks: {
-					...limits.hooks,
-					...models.hooks
-				},
-				editLimit: limits.edit,
-				resetLimit: limits.resetField,
-				toggleEnabled: models.toggleEnabled,
-				toggleModel: models.toggleModel,
-				retryCatalog: models.retryCatalog,
-				save: () => {
-					const limitState = limits.hooks.subagentLimitsCard.getSnapshot();
-					const modelState = models.hooks.subagentModelSelectionCard.getSnapshot();
-					const state = subagentCardShell(limitState, modelState);
-					if (!state.available || !state.writable || !state.dirty || state.invalid || state.saving) return;
-					if (modelState.available && modelState.dirty) models.save();
-					if (limitState.available && limitState.dirty) limits.save();
-				},
-				discard: () => {
-					if (subagentCardShell(limits.hooks.subagentLimitsCard.getSnapshot(), models.hooks.subagentModelSelectionCard.getSnapshot()).saving) return;
-					limits.discard();
-					models.discard();
+				protocol: "plan",
+				async *open(address, { signal }) {
+					const aborted = () => signal.aborted;
+					if (aborted()) return;
+					const target = parsePlanAddress(address);
+					if (target === void 0) {
+						yield {
+							ok: false,
+							error: new RemoteError("plan/invalid-address", "Invalid plan resource address.", {})
+						};
+						return;
+					}
+					const sessionAddress = target.session;
+					try {
+						let snapshot;
+						for await (const frame of remote.follow({ address: sessionAddress }, signal)) if (frame.type === "snapshot") {
+							snapshot = frame;
+							break;
+						}
+						if (aborted()) return;
+						if (snapshot === void 0) throw new RemoteError("plan/unavailable", "Session history ended before the plan could be read.", {});
+						let page = {
+							records: snapshot.records,
+							hasMore: snapshot.hasMore
+						};
+						while (true) {
+							for (const entry of page.records) {
+								const plan = submittedPlan(entry.event);
+								if (plan?.callId === target.callId) {
+									yield {
+										ok: true,
+										value: plan
+									};
+									return;
+								}
+							}
+							const beforeSeq = page.records[0]?.event.seq;
+							if (!page.hasMore || beforeSeq === void 0) break;
+							const next = await remote.page({
+								address: sessionAddress,
+								throughSeq: snapshot.cursor,
+								beforeSeq
+							}, signal);
+							if (aborted()) return;
+							if (!next.ok) {
+								yield next;
+								return;
+							}
+							page = next.value;
+						}
+						yield {
+							ok: false,
+							error: new RemoteError("plan/not-found", "The submitted plan was not found in this Session.", {})
+						};
+					} catch (error) {
+						if (!aborted()) yield {
+							ok: false,
+							error: remoteErrorOf(error) ?? new RemoteError("plan/read-failed", error instanceof Error ? error.message : String(error), {})
+						};
+					}
 				}
 			};
 		}
 		//#endregion
-		//#region \0dsh-css:D:\deepseek-harness\packages\client\ui-settings-subagent\src\client\SubagentCard.module.css.mjs
-		const css = ".WfYO1q_section{min-width:0;padding:16px 0}.WfYO1q_heading{color:var(--dsw-alias-label-primary);margin:0;font-size:13px;font-weight:600;line-height:1.5}";
-		const tagId = "@deepseek-ai/dsh-client-ui-settings-subagent/SubagentCard.module.css";
+		//#region lib/types/client/review-store.js
+		/** Session-owned memory of pending plans already opened automatically. */
+		/**
+		* Keep manual sidebar closure effective across review component remounts.
+		* @returns a transient store handle whose instances belong to Session scopes.
+		*/
+		function createPlanReviewStore() {
+			return (0, _deepseek_ai_dsh_client_store.defineStore)({
+				init: () => ({ opened: {} }),
+				actions: { markOpened: (draft, reviewKey) => {
+					draft.opened[reviewKey] = true;
+				} }
+			});
+		}
+		//#endregion
+		//#region \0dsh-css:D:\deepseek-harness\packages\client\ui-plan\src\client\PlanModeControl.module.css.mjs
+		const css = ".UDn0QW_wrap{align-items:center;gap:6px;display:inline-flex}.UDn0QW_chip{border-radius:var(--dsw-radius-sm);background:var(--dsw-alias-state-business-tertiary);min-width:34px;height:28px;color:var(--dsw-alias-state-business-primary);cursor:pointer;border:none;align-items:center;gap:4px;padding:0 8px;font-size:13px;font-weight:500;line-height:20px;display:inline-flex}.UDn0QW_chip:hover:not(:disabled){background:color-mix(in srgb, var(--dsw-alias-state-business-tertiary), var(--dsw-alias-state-business-primary) 6%)}.UDn0QW_chip:focus-visible{outline:var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color,var(--dsw-alias-state-business-primary));outline-offset:2px}.UDn0QW_chip:disabled{opacity:.6;cursor:default}.UDn0QW_glyph{color:currentColor;flex:none;width:14px;height:14px;display:inline-flex}.UDn0QW_hoverGlyph,.UDn0QW_chip:hover:not(:disabled) .UDn0QW_restGlyph,.UDn0QW_chip:focus-visible .UDn0QW_restGlyph{display:none}.UDn0QW_chip:hover:not(:disabled) .UDn0QW_hoverGlyph,.UDn0QW_chip:focus-visible .UDn0QW_hoverGlyph{display:block}.UDn0QW_error{color:var(--dsw-alias-state-error-primary);font-size:12px;line-height:18px}";
+		const tagId = "@deepseek-ai/dsh-client-ui-plan/PlanModeControl.module.css";
 		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId) + "]") === null) {
 			const tag = document.createElement("style");
-			tag.dataset.plugin = "@deepseek-ai/dsh-client-ui-settings-subagent";
+			tag.dataset.plugin = "@deepseek-ai/dsh-client-ui-plan";
 			tag.dataset.pluginCss = tagId;
 			tag.textContent = css;
 			document.head.appendChild(tag);
 		}
-		var SubagentCard_module_css_default = {
-			"heading": "WfYO1q_heading",
-			"section": "WfYO1q_section"
+		var PlanModeControl_module_css_default = {
+			"chip": "UDn0QW_chip",
+			"error": "UDn0QW_error",
+			"glyph": "UDn0QW_glyph",
+			"hoverGlyph": "UDn0QW_hoverGlyph",
+			"restGlyph": "UDn0QW_restGlyph",
+			"wrap": "UDn0QW_wrap"
 		};
 		//#endregion
-		//#region lib/types/client/SubagentCard.js
-		/** One settings card for Subagent delegation limits and model authorization. */
+		//#region lib/types/client/PlanModeControl.js
 		/**
-		* Render the available Subagent settings with one configuration page and save footer.
-		* @param props - Locale, both form snapshots, and their shared actions.
-		* @returns The summary or the available settings form.
+		* Plan-mode status over the host-computed `plan` projection. The chip renders
+		* only while the effective target is plan mode (`pending ? !active : active`
+		* — a folded host value, not client optimism) and executes /plan off.
 		*/
-		function SubagentCard(props) {
-			const { t } = props;
-			const limits = props.useSubagentLimitsCard((snapshot) => snapshot);
-			const models = props.useSubagentModelSelectionCard((snapshot) => snapshot);
-			const headingId = (0, react.useId)();
-			if (props.view === "summary") return t("subagentDescription");
-			const state = subagentCardShell(limits, models);
-			return (0, react_jsx_runtime.jsxs)(_deepseek_ai_dsh_client_ui_primitives.SettingsForm, {
-				labels: formLabels(t),
-				state,
-				onSave: props.save,
-				onDiscard: props.discard,
-				children: [limits.available ? (0, react_jsx_runtime.jsxs)("section", {
-					className: SubagentCard_module_css_default.section,
-					"aria-labelledby": `${headingId}-limits`,
-					children: [(0, react_jsx_runtime.jsx)("h3", {
-						className: SubagentCard_module_css_default.heading,
-						id: `${headingId}-limits`,
-						children: t("subagentLimitsTitle")
-					}), (0, react_jsx_runtime.jsx)(SubagentLimitsFields, {
-						t,
-						state: {
-							...limits,
-							saving: state.saving
-						},
-						edit: props.editLimit,
-						resetField: props.resetLimit
-					})]
-				}) : null, models.available ? (0, react_jsx_runtime.jsxs)("section", {
-					className: SubagentCard_module_css_default.section,
-					"aria-labelledby": `${headingId}-models`,
-					children: [(0, react_jsx_runtime.jsx)("h3", {
-						className: SubagentCard_module_css_default.heading,
-						id: `${headingId}-models`,
-						children: t("subagentModelSelectionTitle")
-					}), (0, react_jsx_runtime.jsx)(SubagentModelSelectionFields, {
-						t,
-						state: {
-							...models,
-							saving: state.saving
-						},
-						toggleEnabled: props.toggleEnabled,
-						toggleModel: props.toggleModel,
-						retryCatalog: props.retryCatalog
-					})]
-				}) : null]
+		function PlanChip({ useProjection, locked, exitPlanMode, t }) {
+			const plan = useProjection("plan");
+			const [leaving, setLeaving] = (0, react.useState)(false);
+			const [error, setError] = (0, react.useState)(null);
+			const aliveRef = (0, react.useRef)(true);
+			(0, react.useEffect)(() => {
+				aliveRef.current = true;
+				return () => {
+					aliveRef.current = false;
+				};
+			}, []);
+			if (plan === void 0) return null;
+			if (!(plan.pending ? !plan.active : plan.active)) return null;
+			const off = () => {
+				setLeaving(true);
+				setError(null);
+				exitPlanMode().then((failure) => {
+					if (!aliveRef.current) return;
+					setLeaving(false);
+					setError(failure);
+				}, (reason) => {
+					if (!aliveRef.current) return;
+					setLeaving(false);
+					setError(reason instanceof Error ? reason.message : String(reason));
+				});
+			};
+			return (0, react_jsx_runtime.jsxs)("span", {
+				className: PlanModeControl_module_css_default.wrap,
+				children: [(0, react_jsx_runtime.jsxs)("button", {
+					type: "button",
+					className: PlanModeControl_module_css_default.chip,
+					"aria-label": t("chip.on.aria"),
+					title: t("chip.on.title"),
+					disabled: locked || leaving,
+					onClick: off,
+					children: [(0, react_jsx_runtime.jsxs)("span", {
+						className: PlanModeControl_module_css_default.glyph,
+						"aria-hidden": true,
+						children: [(0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconPlanOutlineRegular, {
+							className: PlanModeControl_module_css_default.restGlyph,
+							size: 14
+						}), (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconCloseCircleFillRegular, {
+							className: PlanModeControl_module_css_default.hoverGlyph,
+							size: 14
+						})]
+					}), t("chip.label")]
+				}), error !== null && (0, react_jsx_runtime.jsx)("span", {
+					className: PlanModeControl_module_css_default.error,
+					role: "status",
+					title: error,
+					children: t("chip.exitFailed")
+				})]
 			});
 		}
 		//#endregion
-		//#region lib/types/client/subagent-limits-card-controller.js
-		/** Staged delegation limits backed by the Host's subagent settings section. */
-		function limitField(field, minimum) {
-			const numeric = (0, _deepseek_ai_dsh_client_ui_primitives.settingsNumberField)(field);
-			return {
-				...numeric,
-				parse: (text) => {
-					const write = numeric.parse(text);
-					if (write?.kind !== "set") return write;
-					const value = write.value;
-					return Number.isSafeInteger(value) && value >= minimum && !Object.is(value, -0) ? write : void 0;
-				}
-			};
-		}
-		/** Bind two independently resettable limits to one staged settings form. */
-		var SubagentLimitsCardController = class {
-			form;
-			store;
-			/** @param scope - The Host's `subagent` settings section. */
-			constructor(scope) {
-				this.form = new _deepseek_ai_dsh_client_ui_primitives.SettingsFormModel(scope, [limitField("maxDepth", 0), limitField("maxActiveSubagents", 1)]);
-				this.store = this.form.bind(() => ({
-					...this.form.shell(),
-					maxDepth: this.form.field("maxDepth"),
-					maxActiveSubagents: this.form.field("maxActiveSubagents")
-				}));
-			}
-			/**
-			* Bind the limits editor to the slot renderer.
-			* @returns The limits snapshot and staged write actions.
-			*/
-			inject() {
-				return {
-					hooks: { subagentLimitsCard: this.store },
-					...this.form.actions()
-				};
-			}
-			/** Release accepted-value subscriptions. */
-			dispose() {
-				this.form.dispose();
-			}
+		//#region lib/types/client/locales.js
+		/** `plan` namespace dictionaries (the composer plan chip's copy). */
+		/** Simplified Chinese dictionary (the key-set source of truth). */
+		const zh = {
+			"chip.label": "计划",
+			"preview.title": "计划",
+			"preview.document": "计划 · Markdown",
+			"preview.action": "打开",
+			"preview.open": "在侧边栏打开计划",
+			"preview.full": "查看全文",
+			"preview.openNamed": "打开计划：{title}",
+			"preview.loading": "正在读取计划…",
+			"preview.failed": "无法读取计划",
+			"preview.invalidAddress": "计划地址无效",
+			"preview.historyUnavailable": "无法读取会话历史",
+			"preview.notFound": "未找到这份计划",
+			"preview.unavailable": "计划预览不可用",
+			"preview.expired": "临时计划预览已失效，请从仍在等待审批的卡片重新打开。",
+			"chip.on.aria": "计划模式已开启，按下关闭",
+			"chip.on.title": "计划模式已开启 — 点击关闭（/plan off）",
+			"chip.exitFailed": "退出计划模式失败"
 		};
-		//#endregion
-		//#region lib/types/client/subagent-model-selection-card-controller.js
-		/** Staged editor for the Host-owned subagent model allowlist. */
-		/** Namespace of the Host-owned subagent model-selection preference. */
-		const SUBAGENT_MODEL_SELECTION_NS = "subagent-model-selection-settings";
-		/**
-		* Stable identity for one exact route; callers resolve it by lookup and never parse it.
-		* @param route - Provider/model route to identify.
-		* @returns Opaque key for lookup within the card.
-		*/
-		function subagentModelKey(route) {
-			return `${route.provider}\0${route.model}`;
-		}
-		/**
-		* Join live adapter metadata with stored routes that remain removable after disappearance.
-		* @param groups - Current model directory grouped by provider.
-		* @param stored - Routes in the effective settings value.
-		* @param selected - Opaque route keys selected in the current draft.
-		* @returns Candidate rows for the card.
-		*/
-		function subagentModelCandidates(groups, stored, selected) {
-			const storedByKey = new Map(stored.map((route) => [subagentModelKey(route), route]));
-			const candidates = groups.flatMap((group) => group.models.map((model) => {
-				const route = {
-					provider: group.id,
-					model: model.id
-				};
-				const key = subagentModelKey(route);
-				storedByKey.delete(key);
-				return {
-					...route,
-					key,
-					providerName: group.name,
-					modelName: model.name,
-					available: true,
-					selected: selected.has(key)
-				};
-			}));
-			for (const route of storedByKey.values()) {
-				const key = subagentModelKey(route);
-				candidates.push({
-					...route,
-					key,
-					providerName: route.provider,
-					modelName: route.model,
-					available: false,
-					selected: selected.has(key)
-				});
-			}
-			return candidates;
-		}
-		function sameRoutes(left, right) {
-			if (left.length !== right.length) return false;
-			const rightKeys = new Set(right.map(subagentModelKey));
-			return left.every((route) => rightKeys.has(subagentModelKey(route)));
-		}
-		/** Bridges one configuration form and the live adapter directory onto a staged card. */
-		var SubagentModelSelectionCardController = class {
-			scope;
-			ctx;
-			catalogGroups = [];
-			catalogPartial = false;
-			catalogStatus = "idle";
-			draftEnabled;
-			draftRoutes;
-			draftRevision;
-			saving = false;
-			failed = false;
-			conflicted = false;
-			disposed = false;
-			saveGeneration = 0;
-			catalogGeneration = 0;
-			store;
-			unsubscribe;
-			/**
-			* @param scope - bound `subagent-model-selection` configuration form.
-			* @param ctx - the card plugin's context, whose `remote.session` namespace
-			* answers the Host model catalog.
-			*/
-			constructor(scope, ctx) {
-				this.scope = scope;
-				this.ctx = ctx;
-				this.store = (0, _deepseek_ai_dsh_client_store.createSnapshotStore)(this.projection());
-				this.unsubscribe = scope.subscribe(() => {
-					if (!this.saving && this.draftRoutes !== void 0 && this.scope.getSnapshot().revision !== this.draftRevision) if (this.currentEnabled() === this.enabled() && sameRoutes(this.currentRoutes(), this.desiredRoutes())) this.clearDraft();
-					else this.conflicted = true;
-					if (this.enabled() && this.catalogStatus === "idle") this.loadCatalog();
-					this.publish();
-				});
-				if (this.enabled() && this.catalogStatus === "idle") this.loadCatalog();
-			}
-			/** Stop observing settings and suppress late directory/write settlements. */
-			dispose() {
-				this.disposed = true;
-				this.saveGeneration += 1;
-				this.catalogGeneration += 1;
-				this.unsubscribe();
-			}
-			/**
-			* Build the renderer face for this card.
-			* @returns The snapshot and staged card actions injected into the renderer.
-			*/
-			inject() {
-				return {
-					hooks: { subagentModelSelectionCard: this.store },
-					toggleEnabled: () => {
-						this.toggleEnabled();
-					},
-					toggleModel: (key) => {
-						this.toggleModel(key);
-					},
-					retryCatalog: () => {
-						this.loadCatalog();
-					},
-					save: () => {
-						this.save();
-					},
-					discard: () => {
-						this.discard();
-					}
-				};
-			}
-			currentRoutes() {
-				return this.scope.getSnapshot().value?.allowedModels.map((route) => ({ ...route })) ?? [];
-			}
-			currentEnabled() {
-				return this.scope.getSnapshot().value?.enabled ?? false;
-			}
-			selected() {
-				return new Set(this.draftRoutes?.keys() ?? this.currentRoutes().map(subagentModelKey));
-			}
-			enabled() {
-				return this.draftEnabled ?? this.currentEnabled();
-			}
-			beginDraft() {
-				if (this.draftRoutes === void 0) {
-					const snapshot = this.scope.getSnapshot();
-					this.draftEnabled = snapshot.value?.enabled ?? false;
-					this.draftRoutes = new Map(snapshot.value?.allowedModels.map((route) => [subagentModelKey(route), { ...route }]) ?? []);
-					this.draftRevision = snapshot.revision;
-				}
-				return this.draftRoutes;
-			}
-			toggleEnabled() {
-				const snapshot = this.scope.getSnapshot();
-				if (this.disposed || snapshot.status !== "ready" || !snapshot.writable || this.saving) return;
-				this.beginDraft();
-				this.draftEnabled = !this.draftEnabled;
-				this.failed = false;
-				if (this.draftEnabled && this.catalogStatus === "idle") this.loadCatalog();
-				this.publish();
-			}
-			toggleModel(key) {
-				if (!this.enabled() || this.saving || !this.scope.getSnapshot().writable) return;
-				const candidate = this.candidates().find((candidate) => candidate.key === key);
-				if (candidate === void 0) return;
-				const routes = this.beginDraft();
-				if (routes.has(key)) routes.delete(key);
-				else routes.set(key, {
-					provider: candidate.provider,
-					model: candidate.model
-				});
-				this.failed = false;
-				this.publish();
-			}
-			clearDraft() {
-				this.draftEnabled = void 0;
-				this.draftRoutes = void 0;
-				this.draftRevision = void 0;
-				this.failed = false;
-				this.conflicted = false;
-			}
-			discard() {
-				if (this.saving) return;
-				this.clearDraft();
-				this.publish();
-			}
-			candidates() {
-				const retained = new Map(this.currentRoutes().map((route) => [subagentModelKey(route), route]));
-				for (const [key, route] of this.draftRoutes ?? []) retained.set(key, route);
-				return subagentModelCandidates(this.catalogGroups, [...retained.values()], this.selected());
-			}
-			desiredRoutes() {
-				return [...this.draftRoutes?.values() ?? this.currentRoutes()].map((route) => ({ ...route }));
-			}
-			async save() {
-				const snapshot = this.scope.getSnapshot();
-				const desiredEnabled = this.enabled();
-				const desired = this.desiredRoutes();
-				if (this.disposed || snapshot.status !== "ready" || !snapshot.writable || this.saving || this.currentEnabled() === desiredEnabled && sameRoutes(this.currentRoutes(), desired) || desiredEnabled && desired.length === 0) return;
-				if (this.draftRoutes !== void 0 && snapshot.revision !== this.draftRevision) {
-					this.conflicted = true;
-					this.publish();
-					return;
-				}
-				const generation = this.saveGeneration;
-				this.saving = true;
-				this.failed = false;
-				this.conflicted = false;
-				this.publish();
-				await this.scope.mutate([{
-					op: "set",
-					path: ["enabled"],
-					value: desiredEnabled
-				}, {
-					op: "set",
-					path: ["allowedModels"],
-					value: desired.map((route) => ({
-						provider: route.provider,
-						model: route.model
-					}))
-				}], this.draftRevision);
-				if (generation !== this.saveGeneration) return;
-				const landed = this.currentEnabled() === desiredEnabled && sameRoutes(this.currentRoutes(), desired);
-				this.saving = false;
-				this.failed = !landed;
-				if (landed) this.clearDraft();
-				this.publish();
-			}
-			/** Invalidate and reload model candidates after a Host model input changes. */
-			refreshCatalog() {
-				if (this.disposed) return;
-				this.catalogGeneration += 1;
-				this.catalogStatus = "idle";
-				this.catalogPartial = false;
-				if (this.enabled()) this.loadCatalog();
-				else this.publish();
-			}
-			/** Drop Host-specific candidates and drafts, then reload after reconnecting. */
-			resetConnection() {
-				if (this.disposed) return;
-				this.saveGeneration += 1;
-				this.saving = false;
-				this.clearDraft();
-				this.catalogGroups = [];
-				this.refreshCatalog();
-			}
-			async loadCatalog() {
-				if (this.disposed || this.catalogStatus === "loading") return;
-				const generation = this.catalogGeneration;
-				this.catalogStatus = "loading";
-				this.catalogPartial = false;
-				this.publish();
-				const response = await this.ctx.remote.session.modelCatalog();
-				if (generation !== this.catalogGeneration) return;
-				if (response.ok) {
-					this.catalogGroups = response.value.groups;
-					this.catalogPartial = response.value.failures.length > 0;
-					this.catalogStatus = "ready";
-				} else this.catalogStatus = "error";
-				this.publish();
-			}
-			projection() {
-				const snapshot = this.scope.getSnapshot();
-				const current = this.currentRoutes();
-				const desired = this.desiredRoutes();
-				const enabled = this.enabled();
-				return {
-					available: snapshot.status === "ready",
-					writable: snapshot.writable,
-					dirty: this.currentEnabled() !== enabled || !sameRoutes(current, desired),
-					invalid: enabled && desired.length === 0,
-					saving: this.saving,
-					failed: this.failed,
-					enabled,
-					candidates: this.candidates(),
-					catalogStatus: this.catalogStatus,
-					catalogPartial: this.catalogPartial,
-					conflicted: this.conflicted
-				};
-			}
-			publish() {
-				this.store.set(this.projection());
-			}
+		/** English dictionary, checked complete against the zh key set. */
+		const en = {
+			"chip.label": "Plan",
+			"preview.title": "Plan",
+			"preview.document": "Plan · Markdown",
+			"preview.action": "Open",
+			"preview.open": "Open plan in sidebar",
+			"preview.full": "View full plan",
+			"preview.openNamed": "Open plan: {title}",
+			"preview.loading": "Loading plan…",
+			"preview.failed": "Could not load plan",
+			"preview.invalidAddress": "Invalid plan address",
+			"preview.historyUnavailable": "Session history is unavailable",
+			"preview.notFound": "This plan was not found",
+			"preview.unavailable": "Plan preview is unavailable",
+			"preview.expired": "This temporary plan preview has expired. Reopen it from the pending review card.",
+			"chip.on.aria": "Plan mode on, press to turn off",
+			"chip.on.title": "Plan mode on — click to turn off (/plan off)",
+			"chip.exitFailed": "Failed to exit plan mode"
 		};
 		//#endregion
 		//#region lib/types/client/index.js
-		/**
-		* The Subagent settings page, browser half: the delegation limits over the
-		* `subagent` namespace and the models agents may choose over the
-		* `subagent-model-selection` namespace, on one page with one save. The page
-		* registers into the Plugins page's `plugins.item` slot while the Host serves
-		* either namespace and shows the sections it serves.
-		*/
 		/** Dictionary namespace owned by this plugin. */
-		const NS = "settings.subagent";
-		/**
-		* Namespace of the delegation limits. Spelled here rather than imported: a
-		* client package must not depend on a Host package.
-		*/
-		const SUBAGENT_NS = "subagent";
-		/** Required services (cordis fiber inject). */
+		const NS = "plan";
+		/** Services for plan controls, Conversation projection, and resource navigation. */
 		const inject = [
 			"slots",
-			"locale",
 			"remote",
+			"remote.commands",
 			"remote.session",
-			"configForms"
+			"sessions",
+			"locale",
+			"uiConversation",
+			"resources",
+			"sidebarRight",
+			"sidebarRightTabs"
 		];
 		/**
-		* Mount the Subagent settings page while the Host serves either of its namespaces.
-		* @param ctx - the browser plugin context.
+		* Register plan controls, permanent Chat cards, and sidebar document reading.
+		* @param ctx - client root context.
 		*/
 		function apply(ctx) {
-			const t = ctx.locale.bind(NS);
 			ctx.effect(() => ctx.locale.register(NS, {
 				zh,
 				en
-			}), "ui-settings-subagent: dictionaries");
-			const limits = new SubagentLimitsCardController(ctx.configForms.get(SUBAGENT_NS));
-			ctx.effect(() => () => {
-				limits.dispose();
-			}, "ui-settings-subagent: limits form subscription");
-			const models = new SubagentModelSelectionCardController(ctx.configForms.get(SUBAGENT_MODEL_SELECTION_NS), ctx);
-			const limitsFace = limits.inject();
-			const modelsFace = models.inject();
-			ctx.effect(() => ctx.remote.$on("llm/adapters-updated", () => {
-				models.refreshCatalog();
-			}), "ui-settings-subagent: adapter invalidations");
-			ctx.effect(() => ctx.remote.$on("settings/document-updated", () => {
-				models.refreshCatalog();
-			}), "ui-settings-subagent: settings invalidations");
-			ctx.effect(() => ctx.on("connection/reset", () => {
-				models.resetConnection();
-			}), "ui-settings-subagent: connection generation");
-			ctx.effect(() => () => {
-				models.dispose();
-			}, "ui-settings-subagent: model preference");
-			ctx.effect(() => ctx.configForms.whileServed([SUBAGENT_NS, SUBAGENT_MODEL_SELECTION_NS], () => ctx.slots.inject("plugins.item", () => ctx.slots.register({
-				name: "plugins.item",
-				id: "subagent",
-				order: 30,
-				label: () => t("subagentTitle"),
+			}), "ui-plan: dictionaries");
+			const previewId = "@deepseek-ai/dsh-client-ui-plan";
+			const t = ctx.locale.bind(NS);
+			ctx.effect(() => ctx.uiConversation.events.register(planDefinition), "ui-plan: conversation definition");
+			ctx.effect(() => ctx.resources.register(planResourceProvider(ctx.remote.session)), "ui-plan: resources");
+			ctx.effect(() => ctx.sidebarRightTabs.register({
+				id: previewId,
+				kind: "plan",
+				patterns: ["dsh-resource://plan/**", "dsh-resource://plan-review/**"],
+				priority: "builtin",
+				canOpen: (address) => parsePlanAddress(address) !== void 0 || isReviewPreviewAddress(address),
+				title: () => t("preview.title")
+			}), "ui-plan: sidebar type");
+			const open = (sessionId) => ({ openPlan: (callId) => {
+				const child = ctx.sessions.subagentAddress(sessionId);
+				const session = child === void 0 ? {
+					kind: "session",
+					sessionId
+				} : {
+					kind: "subagent",
+					...child
+				};
+				ctx.sidebarRight.openResource(planAddress({
+					session,
+					callId
+				}));
+			} });
+			const reviewWindow = randomUUID();
+			const reviewStore = createPlanReviewStore();
+			ctx.slots.inject("conversation.chat.turnTail", () => ctx.slots.register({
+				name: "conversation.chat.turnTail",
+				id: previewId,
 				locale: NS,
-				inject: () => subagentCardFace(limitsFace, modelsFace)
-			}, SubagentCard))), "ui-settings-subagent: page");
+				inject: (sessionId) => {
+					const binding = ctx.sessions.binding(sessionId);
+					if (binding === void 0) throw new Error(`ui-plan: unknown session "${sessionId}"`);
+					const chat = ctx.uiConversation.binding(binding).target("chat");
+					return {
+						...open(sessionId),
+						keyedHooks: { plans: (turn) => {
+							const snapshot = chat.getSnapshot();
+							if (snapshot === void 0) throw new Error("ui-plan: Chat target is unavailable");
+							return snapshot.nodes.turnDataSource(Number(turn), "submitted-plan");
+						} }
+					};
+				}
+			}, PlanCards));
+			ctx.slots.inject("conversation.plan-review.actions", () => ctx.slots.register({
+				name: "conversation.plan-review.actions",
+				id: previewId,
+				locale: NS,
+				store: reviewStore,
+				inject: (sessionId) => ({
+					openReview: (review, requestKey) => {
+						if (review.callId !== void 0) {
+							open(sessionId).openPlan(review.callId);
+							return;
+						}
+						ctx.sidebarRight.openResource(reviewPreviewAddress(sessionId, `${reviewWindow}:${requestKey}`), { params: { planReview: {
+							markdown: review.plan,
+							title: (0, _deepseek_ai_dsh_client_ui_primitives.extractMarkdownPlainText)(review.plan, { mode: "first-line" })
+						} } });
+					},
+					hooks: { sidebarMounted: ctx.sidebarRight.mounted }
+				})
+			}, PlanReviewOpen));
+			ctx.slots.inject("sidebar.right.pane.tab", () => ctx.slots.register({
+				name: "sidebar.right.pane.tab",
+				key: previewId,
+				locale: NS
+			}, PlanPreview));
+			ctx.slots.inject("sidebar.right.pane.tab.title", () => ctx.slots.register({
+				name: "sidebar.right.pane.tab.title",
+				key: previewId
+			}, PlanTitle));
+			ctx.slots.inject("conversation.input.plan", () => ctx.slots.register({
+				name: "conversation.input.plan",
+				locale: NS,
+				inject: (sessionId) => ({ exitPlanMode: async () => {
+					const result = await ctx.remote.commands.execute(sessionId, "/plan off", []);
+					if (!result.ok) return `${result.error.message} (${result.error.code})`;
+					if (result.value === void 0) return "unknown command: /plan off";
+					return null;
+				} })
+			}, PlanChip));
 		}
 		//#endregion
-		exports.NS = NS;
-		exports.SUBAGENT_NS = SUBAGENT_NS;
 		exports.apply = apply;
 		exports.inject = inject;
 		return module.exports;
 	}
 });
 ;
-//# sourceMappingURL=??@deepseek-ai/dsh-client-ui-settings-subagent/client.js.map&rev=aee63fb29e2f
+//# sourceMappingURL=??@deepseek-ai/dsh-client-ui-plan/client.js.map&rev=db0d705551bd

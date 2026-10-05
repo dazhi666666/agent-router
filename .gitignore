@@ -10,3 +10,6 @@ router.config.json
 
 node_modules/
 *.log
+
+# deepseek-harness 前端源码树（重建 dsh-web/ 用；见 web/dsh-harness-patch/README 流程）
+deepseek-harness/

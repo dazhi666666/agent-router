@@ -1,480 +1,889 @@
 window.__ModuleLoader__.load({
-	id: "@deepseek-ai/dsh-api-workspace-files",
+	id: "@deepseek-ai/dsh-client-modules",
 	factory: (require) => {
 		var module = { exports: {} };
 		var exports = module.exports;
 		Object.defineProperty(exports, Symbol.toStringTag, { value: "Module" });
-		require("@deepseek-ai/cordis");
-		//#region lib/types/client/change-feed.js
+		//#region lib/types/client/manifest.js
 		/**
-		* The follower key of one absolute path.
-		* @param path - an absolute path from a Host stat or change frame.
-		* @returns the path with `\\` normalized to `/`.
+		* Client module system: the browser peer of Node's internal ESM loader, built
+		* as a lazy CJS table. The vendored cordis Loader consumes this object
+		* through its `internal` contract (the only call site is `EntryTree.import` →
+		* `internal.import`), which keeps entry governance (fiber lifecycle, inject
+		* waiting, update/refresh) entirely on the vendored side while this package
+		* owns code arrival.
+		*
+		* Lazy CJS model: executing a plugin bundle only REGISTERS its
+		* factory (`window.__ModuleLoader__.load({id, factory})`); every module body
+		* side effect — including CSS injection — lives inside the factory closure
+		* and runs at materialization, not at script execution. Materialization
+		* (factory(require) → exports) happens on first import/require and is
+		* memoized in {@link ClientModuleLoader.loadCache}; a factory that requires
+		* another registered-but-unmaterialized module materializes it recursively,
+		* so load order needs no external sequencing.
+		*
+		* Resolution branch order (import): seed word → shell instance; memoized
+		* record → exports; graph row → register its dependency factories and own
+		* factory; registered factory → materialize; anything else → throw (loud —
+		* the runtime mirror of the build-time bundle purity gate).
+		* The synchronous `require` handed to factories walks the same order minus
+		* the load branch. Loading is async, so a requested dynamic package must have
+		* registered its factory before a consumer materializes.
+		*
+		* This file is the browser-safe contract face (zero node imports): the
+		* `__DSH_BOOT__` wire types, the boot-manifest parser, and the boundaries around
+		* {@link ClientModuleSystem}. The package root is the host-side service that
+		* composes the wire.
 		*/
-		function keyOf(path) {
-			return path.replace(/\\/g, "/");
-		}
-		/** Notices of one follower, delivered in order and pulled by its consumer. */
-		var Follower = class {
-			leave;
-			pending = [];
-			started = Promise.withResolvers();
-			wake;
-			ended = false;
-			hostKey;
-			/**
-			* Resolves true after the Host acknowledges its subscription, or false if
-			* this follower ends before acknowledgement.
-			*/
-			ready = this.started.promise;
-			/**
-			* @param leave - unregisters this follower and its abort listener.
-			*/
-			constructor(leave) {
-				this.leave = leave;
-			}
-			/**
-			* Select the Host path for queued and future changes.
-			* @param absolutePath - the successful stat's absolute path.
-			*/
-			bind(absolutePath) {
-				this.hostKey = keyOf(absolutePath);
-			}
-			/** The Host acknowledged an active subscription and resolved workspace root. */
-			start() {
-				this.started.resolve(true);
-			}
-			/**
-			* Queue one notice.
-			* @param notice - what the consumer receives next.
-			* @param key - normalized Host path for the change.
-			*/
-			push(notice, key) {
-				this.pending.push({
-					key,
-					notice
-				});
-				this.wake?.();
-			}
-			/** Deliver what is queued, then finish. */
-			end() {
-				this.ended = true;
-				this.started.resolve(false);
-				this.wake?.();
-			}
-			/** Unregister even when the consumer has not started pulling notices. */
-			dispose() {
-				this.leave();
-			}
-			/** @inheritdoc */
-			async *[Symbol.asyncIterator]() {
-				try {
-					while (true) {
-						const next = this.pending.shift();
-						if (next !== void 0) {
-							if (next.notice.kind === "refresh" || this.hostKey === void 0 || next.key === this.hostKey) yield next.notice;
-							continue;
-						}
-						if (this.ended) return;
-						await new Promise((resolve) => {
-							this.wake = resolve;
-						});
-						this.wake = void 0;
-					}
-				} finally {
-					this.dispose();
-				}
-			}
-		};
-		/** The stream and followers of one Session and requested path. */
-		var SessionFeed = class {
-			onClose;
-			followers = /* @__PURE__ */ new Set();
-			stream;
-			closed = false;
-			started = false;
-			acknowledged = false;
-			/**
-			* @param remote - the Remote face carrying `workspaceFiles.changes`.
-			* @param sessionId - the Session whose filesystem this feed observes.
-			* @param path - target path submitted to the Host.
-			* @param after - the previous feed of this target still closing, if any; the stream opens once it has settled.
-			* @param onClose - called once when the stream is gone, whatever the cause, with the dispose that is closing it.
-			*/
-			constructor(remote, sessionId, path, after, onClose) {
-				this.onClose = onClose;
-				this.stream = remote.$stream({
-					name: `workspace file changes of ${sessionId}`,
-					open: (signal) => {
-						this.started = false;
-						return openAfter(after, () => remote.workspaceFiles.changes(sessionId, path, signal));
-					},
-					ended: () => /* @__PURE__ */ new Error(`workspace file changes of ${sessionId} ended`)
-				});
-				this.pump();
-			}
-			/**
-			* Register one resource address before its Host path is known.
-			* @param follower - receives changes and binds its path after stat.
-			*/
-			add(follower) {
-				this.followers.add(follower);
-				if (this.started) follower.start();
-			}
-			/**
-			* Unregister one follower; the last one leaving disposes the stream.
-			* @param follower - the follower to drop.
-			*/
-			remove(follower) {
-				this.followers.delete(follower);
-				if (this.followers.size === 0) this.close();
-			}
-			async pump() {
-				try {
-					for await (const item of this.stream) {
-						const frame = item.value;
-						switch (frame.kind) {
-							case "ready":
-								item.accept();
-								this.started = true;
-								for (const follower of this.followers) {
-									follower.start();
-									if (this.acknowledged) follower.push({ kind: "refresh" }, "");
-								}
-								this.acknowledged = true;
-								break;
-							case "change": {
-								const key = keyOf(frame.change.absolutePath);
-								const notice = editOf(frame.change);
-								for (const follower of this.followers) follower.push(notice, key);
-								break;
-							}
-							default: assertNever(frame);
-						}
-					}
-				} catch {} finally {
-					this.close();
-				}
-			}
-			close() {
-				if (this.closed) return;
-				this.closed = true;
-				const closed = this.stream.dispose();
-				for (const follower of this.followers) follower.end();
-				this.followers.clear();
-				this.onClose(closed);
-			}
-		};
 		/**
-		* Open a Host stream once a predecessor has finished closing.
-		* @param after - the predecessor's dispose, or nothing to wait for.
-		* @param open - opens the stream.
-		* @returns the stream's items.
+		* Validate an optional string-array field read from a `dsh.client` declaration
+		* or from the boot wire.
+		* @param subject - diagnostic prefix naming the package or the wire row.
+		* @param field - field name as it appears in the diagnostic.
+		* @param value - the raw field value.
+		* @returns the validated array, or undefined when the field is absent.
+		* @throws {Error} when the value is present but is not an array of strings.
 		*/
-		async function* openAfter(after, open) {
-			await after;
-			yield* open();
+		function optionalStringArray(subject, field, value) {
+			if (value === void 0) return void 0;
+			if (!Array.isArray(value) || value.some((item) => typeof item !== "string")) throw new Error(`client-modules: ${subject} ${field} must be a string array`);
+			return value;
 		}
 		/**
-		* The write one Host frame reports.
-		* @param frame - the Host frame.
-		* @returns the edit notice followers receive.
+		* Narrow an unknown parsed JSON value to the `dsh.client` declaration. Shared
+		* by the node half's Loader scan and the roster generator, so both read a
+		* package's browser declaration through one validator.
+		* @param pkgName - package name used as the diagnostic prefix.
+		* @param value - the raw `dsh.client` field of the package manifest.
+		* @returns the validated declaration, or undefined when the field is absent.
+		* @throws {Error} when the field is present but any member is malformed.
 		*/
-		function editOf(frame) {
-			return "absent" in frame ? { kind: "absent" } : {
-				kind: "changed",
-				version: frame.version
+		function parseDshClient(pkgName, value) {
+			if (value === void 0) return void 0;
+			if (typeof value !== "object" || value === null) throw new Error(`client-modules: ${pkgName} has a non-object dsh.client declaration`);
+			const decl = value;
+			if (typeof decl.platform !== "string") throw new Error(`client-modules: ${pkgName} dsh.client.platform must be a string`);
+			const inject = optionalStringArray(pkgName, "dsh.client.inject", decl.inject);
+			const external = optionalStringArray(pkgName, "dsh.client.external", decl.external);
+			if (decl.immediately !== void 0 && typeof decl.immediately !== "boolean") throw new Error(`client-modules: ${pkgName} dsh.client.immediately must be a boolean`);
+			return {
+				platform: decl.platform,
+				...inject !== void 0 ? { inject } : {},
+				...external !== void 0 ? { external } : {},
+				...decl.immediately !== void 0 ? { immediately: decl.immediately } : {}
 			};
 		}
-		function assertNever(frame) {
-			throw new Error(`Unexpected workspace file watch frame: ${JSON.stringify(frame)}`);
+		/**
+		* The bare package-root specifier `specifier` names, or undefined for a subpath, a path, or any scheme-qualified
+		* specifier (`cordis:` builtins, `node:` modules, URLs).
+		* @param specifier - Loader row name.
+		* @returns the package name, or undefined.
+		*/
+		function exactPackageSpecifier(specifier) {
+			if (specifier.startsWith("@")) {
+				const parts = specifier.split("/");
+				return parts.length === 2 && parts.every(Boolean) ? specifier : void 0;
+			}
+			return specifier.length > 0 && !specifier.includes("/") && !specifier.includes(":") ? specifier : void 0;
 		}
 		/**
-		* Per-target sharing of the Host's workspace file change streams.
-		*
-		* Owned by the provider; one instance serves every session of the Client.
+		* Normalize a module specifier onto the graph row that owns it: a plugin bundle
+		* IS its package's client half, so `<id>/client` (the exports subpath external
+		* bundles emit) and the bare package name resolve to the same exports. Both the
+		* require path and graph composition normalize here, which is what lets each
+		* importing package request the subpath its own code imports.
+		* @param spec - module specifier as a bundle requires it or a declaration spells it.
+		* @returns the specifier with a trailing `/client` removed.
 		*/
-		var ChangeFeed = class {
-			remote;
-			/** Live feeds only: a feed removes itself when its stream closes. */
-			sessions = /* @__PURE__ */ new Map();
-			/** Streams still closing, by Session and path; a successor waits for its predecessor. */
-			closing = /* @__PURE__ */ new Map();
-			/**
-			* @param remote - the Remote face carrying `$stream` and `workspaceFiles.changes`.
-			*/
-			constructor(remote) {
-				this.remote = remote;
-			}
-			/**
-			* Follow one resource in one session before its Host path is known.
-			*
-			* The follower is registered on call, not on first pull. Changes delivered
-			* to this Client are queued while stat is pending. The first follower starts
-			* target's local `changes` call. The iterable ends
-			* when `signal` aborts or when the target stream is gone; ending it early
-			* (`break`, `return`) unregisters the follower as well, and the last follower
-			* of a target disposes its stream. Await a true `ready` result before stat
-			* so the Host subscription is active, then bind each stat's absolute path. Until binding,
-			* any target invalidation can trigger a retry; after binding, only matching queued
-			* and live changes pass.
-			* @param sessionId - the Session providing the file's read authority.
-			* @param path - requested file path; followers share a stream only for the same Session and path.
-			* @param signal - ends the follow.
-			* @returns a single-consumer subscription with Host-path binding and explicit disposal.
-			*/
-			follow(sessionId, path, signal) {
-				const feed = signal.aborted ? void 0 : this.feedOf(sessionId, path);
-				const leave = () => {
-					signal.removeEventListener("abort", leave);
-					follower.end();
-					feed?.remove(follower);
-				};
-				const follower = new Follower(leave);
-				if (feed === void 0) follower.end();
-				else {
-					feed.add(follower);
-					signal.addEventListener("abort", leave, { once: true });
-				}
-				return follower;
-			}
-			/**
-			* Wait for every stream that is still closing, so an owner tearing down
-			* leaves no Host stream behind.
-			* @returns resolves once no stream of this feed is closing.
-			*/
-			async settle() {
-				await Promise.all(this.closing.values());
-			}
-			feedOf(sessionId, path) {
-				const key = JSON.stringify([sessionId, path]);
-				const existing = this.sessions.get(key);
-				if (existing !== void 0) return existing;
-				const feed = new SessionFeed(this.remote, sessionId, path, this.closing.get(key), (closed) => {
-					this.sessions.delete(key);
-					const tracked = closed.then(() => void 0, () => void 0).then(() => {
-						if (this.closing.get(key) === tracked) this.closing.delete(key);
-					});
-					this.closing.set(key, tracked);
+		function stripClientSuffix(spec) {
+			return spec.endsWith("/client") ? spec.slice(0, -7) : spec;
+		}
+		/**
+		* Parse `window.__DSH_BOOT__` into the two consumer views. Wire boundary:
+		* a missing or malformed graph throws (the shell shows the loud failure —
+		* a page without a valid manifest cannot boot anything).
+		* @param wire - the raw `window.__DSH_BOOT__` value.
+		* @returns the manifest with optional plugin-view fields normalized.
+		*/
+		function parseBootManifest(wire) {
+			if (typeof wire !== "object" || wire === null) throw new Error("client-modules: window.__DSH_BOOT__ is missing or not an object");
+			const graph = wire;
+			if (typeof graph.rev !== "string") throw new Error("client-modules: boot manifest rev must be a string");
+			if (!Array.isArray(graph.entries)) throw new Error("client-modules: boot manifest entries must be an array");
+			if (!Array.isArray(graph.batches)) throw new Error("client-modules: boot manifest batches must be an array");
+			const moduleFields = [];
+			const plugins = [];
+			const seenEntryIds = /* @__PURE__ */ new Set();
+			for (const value of graph.entries) {
+				if (typeof value !== "object" || value === null) throw new Error("client-modules: boot manifest entry is not an object");
+				const row = value;
+				const where = typeof row.id === "string" ? `"${row.id}"` : JSON.stringify(row);
+				if (typeof row.id !== "string" || typeof row.url !== "string" || typeof row.rev !== "string") throw new Error(`client-modules: boot manifest entry ${where} must carry string id/url/rev`);
+				if (seenEntryIds.has(row.id)) throw new Error(`client-modules: duplicate graph entry "${row.id}"`);
+				seenEntryIds.add(row.id);
+				const subject = `boot manifest entry ${where}`;
+				const inject = optionalStringArray(subject, "inject", row.inject);
+				const external = optionalStringArray(subject, "external", row.external);
+				if (row.immediately !== void 0 && typeof row.immediately !== "boolean") throw new Error(`client-modules: boot manifest entry ${where} immediately must be a boolean`);
+				moduleFields.push({
+					id: row.id,
+					url: row.url,
+					rev: row.rev,
+					inject: inject === void 0 ? [] : [...inject],
+					external: external === void 0 ? [] : [...external]
 				});
-				this.sessions.set(key, feed);
-				return feed;
+				plugins.push({
+					id: row.id,
+					inject: inject === void 0 ? [] : [...inject],
+					immediately: row.immediately === true
+				});
 			}
-		};
-		//#endregion
-		//#region ../../typert/protocol/lib/index.js
-		/** The one Remote failure class shared by owners, the Gateway, and consumers. */
-		/**
-		* One Remote call failure: a real Error carrying its stable code and typed
-		* details. Owners throw it at the failure point; the Host Gateway encodes it
-		* onto the wire unchanged; the Client face rebuilds an instance for the
-		* `RemoteResult` error branch, so `throw result.error` keeps throw semantics.
-		* Discrimination is always by `code`, never by instanceof.
-		*/
-		var RemoteError = class extends Error {
-			code;
-			details;
-			/** Structural marker: cross-realm/bundle identification never uses instanceof. */
-			isDSHRemoteError = true;
-			/**
-			* @param code - stable failure code declared in {@link RemoteErrorDetailsMap}.
-			* @param message - human diagnostic carried across the wire.
-			* @param details - structured payload typed by the code.
-			* @param options - standard Error options (`cause` survives in-process only).
-			*/
-			constructor(code, message, details, options) {
-				super(message, options);
-				this.code = code;
-				this.details = details;
-				this.name = "RemoteError";
-			}
-		};
-		//#endregion
-		//#region ../../util/workspace-path/lib/index.js
-		/**
-		* The `dsh-resource://file/…` address grammar: how a file is named across the
-		* Sidebar and the resource model, built and parsed without touching a
-		* filesystem.
-		* @module
-		*/
-		/** The scheme and type every file address opens with. */
-		const FILE_ADDRESS_PREFIX = "dsh-resource://file/";
-		/** Whether a decoded first path segment is a Windows drive (`C:`). */
-		function isDriveSegment(segment) {
-			return segment !== void 0 && /^[A-Za-z]:$/.test(segment);
-		}
-		/**
-		* Read a file address back into its parts without resolving `.` or `..`.
-		* Query and fragment suffixes are ignored; encoded path segments are decoded.
-		* @param address - a candidate address.
-		* @returns the parts, or `undefined` when the string is not a `dsh-resource://file/` URI in a known scope with a path, or a segment is not validly encoded.
-		*/
-		function parseFileAddress(address) {
-			try {
-				if (!address.startsWith(FILE_ADDRESS_PREFIX)) return void 0;
-				const end = address.search(/[?#]/);
-				const [scope, ...rest] = address.slice(20, end === -1 ? void 0 : end).split("/");
-				if (scope === "session") {
-					const [id, ...segments] = rest;
-					if (id === void 0 || id === "" || segments.length === 0) return void 0;
-					return {
-						scope,
-						sessionId: decodeURIComponent(id),
-						path: segments.map(decodeURIComponent).join("/")
-					};
+			const entryIds = new Set(moduleFields.map((row) => row.id));
+			const initialUrls = /* @__PURE__ */ new Map();
+			const batchUrls = /* @__PURE__ */ new Set();
+			for (const value of graph.batches) {
+				if (typeof value !== "object" || value === null) throw new Error("client-modules: boot manifest batch is not an object");
+				const batch = value;
+				const phase = batch.phase;
+				if (phase !== "bootstrap" && phase !== "application") throw new Error(`client-modules: boot manifest batch phase must be "bootstrap" or "application", received ${JSON.stringify(phase)}`);
+				if (typeof batch.url !== "string" || typeof batch.rev !== "string") throw new Error(`client-modules: boot manifest ${phase} batch must carry string url/rev`);
+				if (batchUrls.has(batch.url)) throw new Error(`client-modules: boot manifest carries duplicate batch URL ${JSON.stringify(batch.url)}`);
+				batchUrls.add(batch.url);
+				const entries = optionalStringArray(`boot manifest ${phase} batch`, "entries", batch.entries);
+				if (entries === void 0 || entries.length === 0) throw new Error(`client-modules: boot manifest ${phase} batch entries must be a non-empty string array`);
+				for (const id of entries) {
+					if (!entryIds.has(id)) throw new Error(`client-modules: boot manifest ${phase} batch names unknown entry "${id}"`);
+					if (initialUrls.has(id)) throw new Error(`client-modules: boot manifest entry "${id}" belongs to more than one batch`);
+					initialUrls.set(id, batch.url);
 				}
-				if (scope === "absolute") {
-					const unc = rest[0] === "" && rest.length > 1;
-					const segments = (unc ? rest.slice(1) : rest).map(decodeURIComponent);
-					if (segments.length === 0 || segments[0] === "") return void 0;
-					if (unc) return {
-						scope,
-						path: `//${segments.join("/")}`
-					};
-					return {
-						scope,
-						path: isDriveSegment(segments[0]) ? segments.join("/") : `/${segments.join("/")}`
-					};
-				}
-				return;
-			} catch {
-				return;
 			}
-		}
-		//#endregion
-		//#region lib/types/client/provider.js
-		/**
-		* Build the `file` provider over one Remote face and one change feed.
-		* @param remote - the Remote face carrying `workspaceFiles.stat`.
-		* @param changes - target-scoped change streams shared by file resources.
-		* @returns the provider to register into `ctx.resources`.
-		*/
-		function createFileResourceProvider(remote, changes) {
+			const modules = moduleFields.map((row) => {
+				const initialUrl = initialUrls.get(row.id);
+				if (initialUrl === void 0) throw new Error(`client-modules: boot manifest entry "${row.id}" belongs to no initial-load batch`);
+				return {
+					...row,
+					initialUrl
+				};
+			});
 			return {
-				protocol: "file",
-				async *open(address, { signal }) {
-					const resolved = resolve(address);
-					if (!resolved.ok) {
-						yield resolved;
+				rev: graph.rev,
+				modules,
+				plugins
+			};
+		}
+		//#endregion
+		//#region lib/types/client/entry-lifecycle.js
+		/**
+		* Release a runtime before clearing its entry fiber so Loader refresh can import new code.
+		* Registry deletion prevents Loader from treating replacement as a user disable.
+		* @param entry - Entry retained for code replacement.
+		*/
+		async function tearDownEntryFiber(entry) {
+			const fiber = entry.fiber;
+			if (fiber === void 0) return;
+			const runtime = fiber.runtime;
+			/* v8 ignore next -- Loader entries own plugin fibers; only the root context has a null runtime. */
+			if (runtime !== null) entry.ctx.registry.delete(runtime.callback);
+			while (fiber.inertia !== void 0) await fiber.inertia;
+			delete entry.fiber;
+		}
+		/**
+		* Remove styles after their plugin's effect cleanup has settled.
+		* @param id - Package whose factory owns the style tags.
+		*/
+		function removeOwnedStyles(id) {
+			if (typeof document === "undefined") return;
+			for (const el of document.querySelectorAll("style[data-plugin]")) if (el.getAttribute("data-plugin") === id) el.remove();
+		}
+		//#endregion
+		//#region lib/types/client/entries.js
+		/** Numeric values mirror Cordis's const enum, which bundle loaders cannot import as a runtime object. */
+		const ACTIVE = 2;
+		const FAILED = 3;
+		/** Revisions and requests identify desired code; URLs only select its immutable delivery resource. */
+		function entryTargets(manifest) {
+			return JSON.stringify(manifest.modules.map((row) => [
+				row.id,
+				row.rev,
+				row.inject,
+				row.external
+			]));
+		}
+		/** Manages only entries created from the Host manifest; other Loader contributors retain ownership. */
+		var ClientEntries = class {
+			modules;
+			index;
+			/** Stable observable consumed by page diagnostics through the renderer's injected hook. */
+			state = {
+				getSnapshot: () => this.snapshot,
+				subscribe: (listener) => {
+					this.listeners.add(listener);
+					return () => {
+						this.listeners.delete(listener);
+					};
+				}
+			};
+			snapshot = {
+				syncing: false,
+				failures: []
+			};
+			listeners = /* @__PURE__ */ new Set();
+			managed = /* @__PURE__ */ new Map();
+			revisions = /* @__PURE__ */ new Map();
+			loader;
+			queue = Promise.resolve();
+			desired;
+			generation = 0;
+			stopped = false;
+			/**
+			* Construct the page controller before Cordis boot.
+			* @param modules - Module arrival and materialization owner.
+			* @param index - Private descriptor replacement and unused-module cleanup.
+			*/
+			constructor(modules, index) {
+				this.modules = modules;
+				this.index = index;
+				this.desired = modules.manifest;
+			}
+			/**
+			* Create the initial roster and retain its entry identities for subsequent reconciliation.
+			* @param loader - Page Loader, already configured with the module system.
+			* @param manifest - Initial roster audited by the boot caller.
+			* @returns after initial entries and their activation settle; boot owns its activation audit.
+			*/
+			start(loader, manifest) {
+				if (this.loader !== void 0) throw new Error("client-modules: entries already started");
+				this.loader = loader;
+				this.desired = manifest;
+				loader.ctx.effect(() => () => {
+					this.stopped = true;
+					this.generation++;
+					return this.queue;
+				}, "client-modules: entry reconciliation");
+				return this.enqueue(async () => {
+					await Promise.all(this.desired.plugins.map(async ({ id }) => {
+						await this.create(loader, id);
+					}));
+					await loader.await();
+					for (const row of this.modules.manifest.modules) this.revisions.set(row.id, row.rev);
+				});
+			}
+			/**
+			* Validate and apply the latest full Host graph. Changed targets cancel obsolete mounts; identical targets share pending loads.
+			* @param graph - JSON-decoded graph received from the Host.
+			* @returns after the queued reconciliation; per-package failures remain available in {@link state}.
+			*/
+			sync(graph) {
+				const manifest = parseBootManifest(graph);
+				if (entryTargets(manifest) !== entryTargets(this.desired)) this.generation++;
+				this.desired = manifest;
+				const generation = this.generation;
+				return this.enqueue(() => this.reconcile(generation));
+			}
+			/**
+			* Retry failed entries against the latest graph, including an unchanged revision.
+			* @returns after retry settlement, with remaining errors in {@link state}.
+			*/
+			retry() {
+				const generation = ++this.generation;
+				return this.enqueue(() => this.reconcile(generation));
+			}
+			/**
+			* Replace one entry's code in the same queue as graph updates; duplicate revisions are ignored.
+			* Entries missing after a failed import are reconciled; bootstrap replacement fails before teardown.
+			* @param id - Package id from a rebuilt frame.
+			* @param rev - Opaque revision selecting the rebuilt artifact.
+			* @returns after queued work; replacement errors reject, while per-package reconciliation errors remain in {@link state}.
+			*/
+			reload(id, rev) {
+				this.desired = {
+					...this.desired,
+					modules: this.desired.modules.map((row) => row.id === id ? {
+						...row,
+						rev
+					} : row)
+				};
+				return this.enqueue(async () => {
+					const desired = this.desired.modules.find((row) => row.id === id);
+					if (this.stopped || desired === void 0) return;
+					const entry = this.managed.get(id);
+					if (entry === void 0) {
+						this.modules.invalidate(id, desired.rev);
+						removeOwnedStyles(id);
+						await this.reconcile(this.generation);
 						return;
 					}
-					const { sessionId, path } = resolved.value;
-					const notices = changes.follow(sessionId, path, signal);
-					const stat = () => remote.workspaceFiles.stat(sessionId, path, signal);
-					const aborted = () => signal.aborted;
-					let current;
+					if (this.revisions.get(id) === rev) return;
+					this.publish({
+						syncing: true,
+						failures: this.snapshot.failures.filter((failure) => failure.id !== id)
+					});
+					await this.replace(entry, id, rev, this.generation);
+					this.publish({
+						syncing: false,
+						failures: this.snapshot.failures
+					});
+				}, id);
+			}
+			publish(snapshot) {
+				this.snapshot = snapshot;
+				for (const listener of [...this.listeners]) try {
+					listener();
+				} catch (error) {
+					console.error("client-modules: synchronization subscriber failed", error);
+				}
+			}
+			enqueue(task, subject = "graph") {
+				const run = this.queue.then(task);
+				this.queue = run.then(() => void 0, (error) => {
+					this.publish({
+						syncing: false,
+						failures: [...this.snapshot.failures.filter((failure) => failure.id !== subject), {
+							id: subject,
+							message: String(error)
+						}]
+					});
+				});
+				return run;
+			}
+			current(generation) {
+				return !this.stopped && generation === this.generation;
+			}
+			/** Keep ownership even when Loader rejects a module's plugin exports after inserting its entry. */
+			async create(loader, id) {
+				const options = { name: id };
+				const entryId = loader.ensureId(options);
+				try {
+					await loader.create(options);
+				} finally {
+					this.managed.set(id, loader.resolve(entryId));
+				}
+			}
+			async replace(entry, id, rev, generation) {
+				this.index.invalidateForReplacement(id, rev);
+				await this.modules.prefetch(id);
+				if (!this.current(generation)) return;
+				await tearDownEntryFiber(entry);
+				removeOwnedStyles(id);
+				if (!this.current(generation)) return;
+				await this.modules.import(id, "", {});
+				if (!this.current(generation)) return;
+				await entry.refresh();
+				await entry.fiber?.await();
+				if (entry.fiber === void 0) throw new Error(`client-modules: ${id} import failed (see console)`);
+				this.revisions.set(id, rev);
+			}
+			async reconcile(generation) {
+				if (!this.current(generation)) return;
+				const loader = this.loader;
+				if (loader === void 0) throw new Error("client-modules: entries have not started");
+				const manifest = this.desired;
+				this.publish({
+					syncing: true,
+					failures: []
+				});
+				const failures = [];
+				this.index.update(manifest, this.managed.keys());
+				const wanted = new Set(manifest.plugins.map((row) => row.id));
+				for (const [id, entry] of this.managed) {
+					if (wanted.has(id)) continue;
+					const fiber = entry.fiber;
+					loader.remove(entry.id);
+					this.managed.delete(id);
+					this.revisions.delete(id);
+					while (fiber?.inertia !== void 0) await fiber.inertia;
+				}
+				for (const row of manifest.modules) {
+					if (!this.current(generation)) break;
 					try {
-						if (!await notices.ready) {
-							if (aborted()) return;
-							const result = await stat();
-							if (!aborted()) yield result;
-							return;
-						}
-						if (aborted()) return;
-						const first = await stat();
-						if (aborted()) return;
-						if (first.ok) {
-							notices.bind(first.value.absolutePath);
-							current = first.value;
-							yield {
-								ok: true,
-								value: current
-							};
-						} else yield first;
-						for await (const notice of notices) {
-							if (aborted()) return;
-							if (current === void 0) {
-								if (notice.kind === "absent") continue;
-							} else if (notice.kind === "changed") {
-								if (notice.version === current.version) continue;
-							}
-							const again = await stat();
-							if (aborted()) return;
-							if (!again.ok) {
-								current = void 0;
-								yield again;
-								continue;
-							}
-							notices.bind(again.value.absolutePath);
-							current = again.value;
-							yield {
-								ok: true,
-								value: current
-							};
-						}
-					} finally {
-						notices.dispose();
+						const entry = this.managed.get(row.id);
+						if (entry === void 0) {
+							await this.modules.prefetch(row.id);
+							if (!this.current(generation)) break;
+							await this.modules.import(row.id, "", {});
+							if (!this.current(generation)) break;
+							await this.create(loader, row.id);
+							this.revisions.set(row.id, row.rev);
+						} else if (this.revisions.get(row.id) !== row.rev) await this.replace(entry, row.id, row.rev, generation);
+						else if (entry.fiber === void 0) await this.replace(entry, row.id, row.rev, generation);
+						else if (entry.fiber.state === FAILED) entry.fiber.update(entry.options.config);
+					} catch (error) {
+						failures.push({
+							id: row.id,
+							message: String(error)
+						});
 					}
 				}
-			};
-		}
-		/**
-		* Resolve one address to the Host call it stands for, or to the failure frame it earns.
-		* @param address - the full address, scheme included.
-		* @returns the Host file, or the `unsupported-address` / `unknown-workspace` failure.
-		*/
-		function resolve(address) {
-			const parsed = parseFileAddress(address);
-			if (parsed === void 0) return {
-				ok: false,
-				error: unsupportedAddress(address)
-			};
-			if (parsed.scope === "session") return {
-				ok: true,
-				value: {
-					sessionId: parsed.sessionId,
-					path: parsed.path
+				await loader.await();
+				for (const [id, entry] of this.managed) {
+					if (failures.some((failure) => failure.id === id)) continue;
+					if (entry.fiber?.state === ACTIVE) continue;
+					try {
+						if (entry.fiber === void 0) throw new Error(`client-modules: ${id} import failed (see console)`);
+						await entry.fiber.await();
+						failures.push({
+							id,
+							message: `client-modules: ${id} is waiting for activation`
+						});
+					} catch (error) {
+						failures.push({
+							id,
+							message: String(error)
+						});
+					}
 				}
-			};
-			return {
-				ok: false,
-				error: unknownWorkspace(address)
-			};
-		}
+				this.index.prune([...loader.entries()].map((entry) => entry.options.name));
+				if (this.current(generation)) this.publish({
+					syncing: false,
+					failures
+				});
+			}
+		};
+		//#endregion
+		//#region lib/types/client/system.js
 		/**
-		* The failure frame's error for an address this provider does not serve.
-		* @param address - the offending address.
-		* @returns the typed error.
+		* ClientModuleSystem — the implementation behind the {@link ClientModuleLoader}
+		* contract. The conceptual contract (lazy CJS model, resolution branch order) is
+		* documented on the public interfaces in `./manifest.ts`; this file owns the
+		* state tables and the load/materialize machinery.
 		*/
-		function unsupportedAddress(address) {
-			return new RemoteError("workspace-file/unsupported-address", `${address} is not a dsh-resource://file/session/<sessionId>/<path> or dsh-resource://file/absolute/<path> address`, { address });
+		/** Default bundle-load hook: same-origin external classic script. */
+		const defaultLoadBundle = (url) => new Promise((resolve, reject) => {
+			const el = document.createElement("script");
+			el.async = true;
+			el.src = url;
+			el.addEventListener("load", () => {
+				el.remove();
+				resolve();
+			}, { once: true });
+			el.addEventListener("error", () => {
+				el.remove();
+				reject(/* @__PURE__ */ new Error(`client-modules: bundle script ${url} failed to load`));
+			}, { once: true });
+			document.head.append(el);
+		});
+		/** Replace the rev query while preserving absolute, protocol-relative, or path-relative form. */
+		function atRevision(url, rev) {
+			if (!/[?&]rev=[^&#]*/.test(url)) throw new Error(`client-modules: bundle URL ${url} has no revision`);
+			return url.replace(/([?&]rev=)[^&#]*/, `$1${encodeURIComponent(rev)}`);
 		}
+		const CLIENT_CHUNK = /^client\.[A-Za-z0-9][A-Za-z0-9._-]*\.js$/;
+		/** The message of a thrown value: an Error's message, anything else stringified. */
+		function describeError(error) {
+			return error instanceof Error ? error.message : String(error);
+		}
+		/** Internal module-table key for one package-local chunk. */
+		function chunkId(ownerId, fileName) {
+			return `${ownerId}/${fileName}`;
+		}
+		/** Resolve a sibling chunk against the package's one-resource URL and current revision. */
+		function chunkUrl(row, fileName, rev) {
+			const url = atRevision(row.url, rev);
+			const resourceStart = url.indexOf("/??");
+			const revisionStart = url.indexOf("&rev=", resourceStart + 3);
+			if ((resourceStart < 0 || revisionStart < 0 ? void 0 : url.slice(resourceStart + 3, revisionStart)) !== `${row.id}/client.js`) throw new Error(`client-modules: cannot resolve chunk ${JSON.stringify(fileName)} from bundle URL ${url}`);
+			return `${url.slice(0, resourceStart)}/${row.id}/${fileName}?${url.slice(revisionStart + 1)}`;
+		}
+		/** Untagged <style> elements present before a factory runs; the factory must not claim them. */
+		const untaggedStyles = () => typeof document === "undefined" ? /* @__PURE__ */ new Set() : new Set(document.querySelectorAll("style:not([data-plugin])"));
 		/**
-		* The failure frame's error for an absolute address with no Session.
-		* @param address - the offending address.
-		* @returns the typed error.
+		* Claim and inventory the <style> tags a factory injected during
+		* materialization: preset-emitted tags arrive pre-tagged with data-plugin;
+		* an untagged tag that was absent from `before` is claimed for the
+		* materializing plugin (HMR bookkeeping).
 		*/
-		function unknownWorkspace(address) {
-			return new RemoteError("workspace-file/unknown-workspace", `${address} requires a dsh-resource://file/session/<sessionId>/<path> address`, { address });
-		}
+		const claimStyles = (id, before) => {
+			if (typeof document === "undefined") return [];
+			for (const el of untaggedStyles()) if (!before.has(el)) el.setAttribute("data-plugin", id);
+			const owned = [];
+			for (const el of document.querySelectorAll(`style[data-plugin=${JSON.stringify(id)}]`)) owned.push(el.getAttribute("data-plugin-css") ?? id);
+			return owned;
+		};
+		/**
+		* The client module system: state tables plus the arrival/materialization
+		* machinery implementing {@link ClientModuleLoader} (whose members carry the
+		* contract documentation). Construction indexes the boot rows, retains the
+		* already-materialized bootstrap module, and switches the HTML-installed
+		* loader facade from its pending queue to live registration.
+		*/
+		var ClientModuleSystem = class {
+			version = "client";
+			manifest;
+			entries;
+			loadCache = /* @__PURE__ */ new Map();
+			seed;
+			factories = /* @__PURE__ */ new Map();
+			bootstrapIds = /* @__PURE__ */ new Set();
+			/** In-flight script transport per URL; every row in one batch shares it. */
+			pendingArrival = /* @__PURE__ */ new Map();
+			/** Owner generation captured by in-flight chunk requests and advanced on invalidation. */
+			generations = /* @__PURE__ */ new Map();
+			/** Single-resource combo URL selected by HMR after invalidating one row. */
+			reloadTargets = /* @__PURE__ */ new Map();
+			/** Materialization re-entrancy guard: factory-form CJS cannot deliver partial exports, so a cycle is fatal. */
+			materializing = /* @__PURE__ */ new Set();
+			graphRows = /* @__PURE__ */ new Map();
+			loadBundle;
+			/** Last import or prefetch failure per graph row, cleared by a later success or invalidation. */
+			importErrors = /* @__PURE__ */ new Map();
+			/** Batch URLs whose transport or execution already failed; rows still missing from them go straight to their one-resource URL. */
+			failedBundleUrls = /* @__PURE__ */ new Set();
+			/** Every URL whose script has executed once; a batch among them is never requested again. */
+			executedBundleUrls = /* @__PURE__ */ new Set();
+			/**
+			* Build the module system over the parsed boot rows.
+			* @param options - Parsed graph, platform seed, bootstrap module, registration facade, and transport.
+			*/
+			constructor(options) {
+				this.manifest = options.manifest;
+				this.entries = new ClientEntries(this, {
+					update: (manifest, managed) => {
+						this.updateManifest(manifest, managed);
+					},
+					invalidateForReplacement: (id, rev) => {
+						if (this.bootstrapIds.has(id)) throw new Error(`client-modules: replacing bootstrap module ${id} requires a page reload`);
+						this.invalidate(id, rev);
+					},
+					prune: (roots) => {
+						this.prune(roots);
+					}
+				});
+				this.seed = new Map(Object.entries(options.staticModules));
+				this.loadBundle = options.loadBundle ?? defaultLoadBundle;
+				for (const row of options.manifest.modules) this.graphRows.set(row.id, row);
+				const bootstrapId = stripClientSuffix(options.bootstrapModule.id);
+				this.bootstrapIds.add(bootstrapId);
+				this.loadCache.set(bootstrapId, {
+					id: bootstrapId,
+					exports: options.bootstrapModule.exports,
+					styles: [],
+					edges: /* @__PURE__ */ new Set()
+				});
+				const target = options.registrationTarget;
+				if (target.mode !== "queue") throw new Error("client-modules: window.__ModuleLoader__.create called after module-system boot");
+				const pending = target.pendingQueue.splice(0);
+				target.mode = "live";
+				target.load = (registration) => {
+					this.register(registration);
+				};
+				for (const registration of pending) target.load(registration);
+			}
+			/** Register one bundle factory, rejecting a script that executes twice without invalidation. */
+			register(registration) {
+				const ownerId = stripClientSuffix(registration.id);
+				if (registration.chunk !== void 0 && !CLIENT_CHUNK.test(registration.chunk)) throw new Error(`client-modules: invalid package-local chunk ${JSON.stringify(registration.chunk)}`);
+				const id = registration.chunk === void 0 ? ownerId : chunkId(ownerId, registration.chunk);
+				if (this.bootstrapIds.has(id) || this.factories.has(id)) {
+					const registrationName = registration.chunk === void 0 ? registration.id : id;
+					throw new Error(`client-modules: duplicate factory registration for "${registrationName}" (bundle executed twice without invalidate?)`);
+				}
+				this.factories.set(id, {
+					factory: registration.factory,
+					rev: this.reloadTargets.get(ownerId)?.rev ?? this.graphRows.get(ownerId)?.rev
+				});
+			}
+			/** Run one bundle transport per URL; every row waiting on the same URL shares the in-flight request. */
+			loadShared(url) {
+				let transport = this.pendingArrival.get(url);
+				if (transport === void 0) {
+					transport = this.loadBundle(url).then(() => {
+						this.executedBundleUrls.add(url);
+					}).finally(() => {
+						this.pendingArrival.delete(url);
+					});
+					this.pendingArrival.set(url, transport);
+				}
+				return transport;
+			}
+			/**
+			* Load one graph row so its factory is registered (idempotent per in-flight
+			* arrival). A batch script is one classic script that registers every
+			* package in sequence, and {@link register} rejects a second registration,
+			* so the two failure kinds differ: a transport failure (`error` event, nothing
+			* executed) is retried once on the same URL; a script that loaded without
+			* registering this row (a parse error registered nothing, or a runtime throw
+			* stopped it after registering others) is never re-executed, because a replay
+			* would stop again at the first duplicate registration; that holds even when
+			* the row that first imports from the batch is one it did register, because
+			* every executed batch URL is remembered. Either way the row then falls back
+			* to its own one-resource URL, which the Host serves for every package, so one
+			* failed batch costs at most three requests per missing row and never fails
+			* the rows that were registered.
+			*/
+			async arrive(row) {
+				const { id } = row;
+				if (this.loadCache.has(id) || this.factories.has(id)) return;
+				const reload = this.reloadTargets.get(id);
+				const preferred = reload?.url ?? row.initialUrl;
+				const fallback = reload === void 0 && row.url !== preferred ? row.url : void 0;
+				const failures = [];
+				const attempt = async (url) => {
+					try {
+						await this.loadShared(url);
+					} catch (error) {
+						failures.push(`${url}: ${describeError(error)}`);
+						return "transport-failed";
+					}
+					if (this.factories.has(id)) return "registered";
+					failures.push(`${url}: loaded without registering "${id}" via __ModuleLoader__.load`);
+					return "not-registered";
+				};
+				let outcome = "transport-failed";
+				if (this.failedBundleUrls.has(preferred)) failures.push(`${preferred}: skipped after an earlier failure of this bundle`);
+				else if (fallback !== void 0 && this.executedBundleUrls.has(preferred)) {
+					failures.push(`${preferred}: already executed without registering "${id}"`);
+					outcome = "not-registered";
+					this.failedBundleUrls.add(preferred);
+				} else {
+					outcome = await attempt(preferred);
+					if (outcome === "transport-failed") outcome = await attempt(preferred);
+					if (outcome !== "registered" && fallback !== void 0) this.failedBundleUrls.add(preferred);
+				}
+				if (outcome !== "registered" && fallback !== void 0) outcome = await attempt(fallback);
+				if (outcome !== "registered") throw new Error(`client-modules: could not load "${id}": ${failures.join("; ")}`);
+				if (reload !== void 0 && this.reloadTargets.get(id) === reload) this.reloadTargets.delete(id);
+			}
+			/** Register each injected package and unresolved dynamic request before its consumer. */
+			async arriveGraphRow(row, open = [], visited = /* @__PURE__ */ new Set()) {
+				const cycleStart = open.indexOf(row.id);
+				if (cycleStart !== -1) throw new Error(`client-modules: module arrival cycle ${[...open.slice(cycleStart), row.id].join(" -> ")} (the host must reject this graph before serving it)`);
+				if (visited.has(row.id)) return;
+				visited.add(row.id);
+				const next = [...open, row.id];
+				for (const request of row.external) {
+					const id = stripClientSuffix(request);
+					if (this.seed.has(request) || this.loadCache.has(id)) continue;
+					const dependency = this.graphRows.get(id);
+					if (dependency !== void 0) await this.arriveDependency(row.id, dependency, next, visited);
+				}
+				for (const packageName of row.inject) {
+					const dependency = this.graphRows.get(packageName);
+					if (dependency !== void 0) await this.arriveDependency(row.id, dependency, [], visited);
+				}
+				await this.arrive(row);
+			}
+			/** Arrive one dependency, naming the consumer it failed for so a cascade reads as a chain, not as 44 unrelated failures. */
+			async arriveDependency(consumerId, dependency, open, visited) {
+				try {
+					await this.arriveGraphRow(dependency, open, visited);
+				} catch (error) {
+					throw new Error(`client-modules: "${consumerId}" not loaded because dependency "${dependency.id}" failed: ${describeError(error)}`, { cause: error });
+				}
+			}
+			/** Materialize a registered factory (synchronous; memoized in loadCache). */
+			materialize(id, ownerId = id) {
+				const existing = this.loadCache.get(id);
+				if (existing !== void 0) return existing;
+				const registered = this.factories.get(id);
+				/* v8 ignore next -- callers check the factory branch before dispatching here. */
+				if (registered === void 0) throw new Error(`client-modules: no registered factory for "${id}"`);
+				if (this.materializing.has(id)) throw new Error(`client-modules: require cycle through "${id}" (factory-form CJS cannot deliver partial exports)`);
+				this.materializing.add(id);
+				const before = untaggedStyles();
+				try {
+					const edges = /* @__PURE__ */ new Set();
+					const record = {
+						id,
+						exports: registered.factory(this.makeRequire(ownerId, edges)),
+						styles: claimStyles(ownerId, before),
+						edges
+					};
+					this.loadCache.set(id, record);
+					return record;
+				} catch (error) {
+					claimStyles(ownerId, before);
+					removeOwnedStyles(ownerId);
+					throw error;
+				} finally {
+					this.materializing.delete(id);
+				}
+			}
+			/** Build the synchronous module-table require and its asynchronous chunk operation. */
+			makeRequire(ownerId, edges) {
+				const require = (spec) => {
+					edges.add(spec);
+					if (this.seed.has(spec)) return this.seed.get(spec);
+					const id = stripClientSuffix(spec);
+					const record = this.loadCache.get(id);
+					if (record !== void 0) return record.exports;
+					if (this.factories.has(id)) return this.materialize(id).exports;
+					throw new Error(`client-modules: require("${spec}") missed the module table — not a platform seed word, not a materialized module, and no registered package factory (a build-time externals drift, or a dynamic dependency that did not arrive)`);
+				};
+				require.async = async (spec) => {
+					edges.add(spec);
+					if (!spec.startsWith("./")) return await this.import(spec);
+					const fileName = spec.slice(2);
+					if (!CLIENT_CHUNK.test(fileName)) throw new Error(`client-modules: invalid relative chunk request ${JSON.stringify(spec)}`);
+					return await this.importChunk(ownerId, fileName);
+				};
+				return require;
+			}
+			/** Load, register, and materialize one package-local dynamic chunk. */
+			async importChunk(ownerId, fileName) {
+				const id = chunkId(ownerId, fileName);
+				const existing = this.loadCache.get(id);
+				if (existing !== void 0) return existing.exports;
+				if (!this.factories.has(id)) {
+					const generation = this.generations.get(ownerId) ?? 0;
+					const row = this.graphRows.get(ownerId);
+					if (row === void 0) throw new Error(`client-modules: chunk owner "${ownerId}" is not a boot graph entry`);
+					const url = chunkUrl(row, fileName, this.factories.get(ownerId)?.rev ?? this.reloadTargets.get(ownerId)?.rev ?? row.rev);
+					let transport = this.pendingArrival.get(url);
+					if (transport === void 0) {
+						transport = this.loadBundle(url).finally(() => {
+							this.pendingArrival.delete(url);
+						});
+						this.pendingArrival.set(url, transport);
+					}
+					await transport;
+					if ((this.generations.get(ownerId) ?? 0) !== generation) {
+						this.factories.delete(id);
+						this.loadCache.delete(id);
+						return await this.importChunk(ownerId, fileName);
+					}
+					if (!this.factories.has(id)) throw new Error(`client-modules: bundle ${url} loaded without registering "${id}" via __ModuleLoader__.load`);
+				}
+				return this.materialize(id, ownerId).exports;
+			}
+			async import(specifier) {
+				if (this.seed.has(specifier)) return this.seed.get(specifier);
+				const id = stripClientSuffix(specifier);
+				const existing = this.loadCache.get(id);
+				if (existing !== void 0) return existing.exports;
+				const row = this.graphRows.get(id);
+				if (row === void 0) {
+					if (this.factories.has(id)) return this.materialize(id).exports;
+					throw new Error(`client-modules: cannot resolve "${specifier}" — not a seed word, not a materialized module, and not a row in the boot graph (the runtime mirror of the bundle purity gate)`);
+				}
+				return this.recordingImportError(id, async () => {
+					await this.arriveGraphRow(row);
+					return this.materialize(id).exports;
+				});
+			}
+			async prefetch(id) {
+				const normalized = stripClientSuffix(id);
+				if (this.loadCache.has(normalized)) return;
+				const row = this.graphRows.get(normalized);
+				if (row === void 0) throw new Error(`client-modules: prefetch("${id}") — not a graph entry`);
+				await this.recordingImportError(normalized, () => this.arriveGraphRow(row));
+			}
+			importError(id) {
+				return this.importErrors.get(stripClientSuffix(id));
+			}
+			/**
+			* Run one graph-row operation, recording its failure for the boot audit and
+			* clearing the record on success. Arrival and materialization both run in
+			* here, so a factory that throws is recorded as well as a bundle that never
+			* arrived; the Loader only sees a missing fiber either way.
+			*/
+			async recordingImportError(id, operation) {
+				try {
+					const result = await operation();
+					this.importErrors.delete(id);
+					return result;
+				} catch (error) {
+					this.importErrors.set(id, error instanceof Error ? error : new Error(describeError(error)));
+					throw error;
+				}
+			}
+			/** Refresh descriptors and unowned factory revisions before any entry imports its dependencies. */
+			updateManifest(manifest, managed) {
+				for (const id of this.bootstrapIds) if (this.manifest.modules.some((row) => row.id === id) && !manifest.modules.some((row) => row.id === id)) throw new Error(`client-modules: removing bootstrap module ${id} requires a page reload`);
+				const owned = new Set(managed);
+				for (const row of manifest.modules) {
+					this.graphRows.set(row.id, {
+						...row,
+						initialUrl: row.url
+					});
+					const cachedRevision = this.factories.get(row.id)?.rev ?? this.reloadTargets.get(row.id)?.rev;
+					if (!owned.has(row.id) && cachedRevision !== void 0 && cachedRevision !== row.rev) {
+						this.invalidate(row.id, row.rev);
+						removeOwnedStyles(row.id);
+					}
+				}
+				this.manifest = manifest;
+			}
+			/** Retain live Loader modules and their transitive requests before evicting unreferenced graph records. */
+			prune(roots) {
+				const retained = new Set(this.bootstrapIds);
+				const visit = (specifier) => {
+					const id = stripClientSuffix(specifier);
+					if (retained.has(id)) return;
+					retained.add(id);
+					const row = this.graphRows.get(id);
+					for (const request of [
+						...row?.external ?? [],
+						...row?.inject ?? [],
+						...this.loadCache.get(id)?.edges ?? []
+					]) visit(request);
+				};
+				for (const row of this.manifest.modules) visit(row.id);
+				for (const id of roots) visit(id);
+				for (const id of this.graphRows.keys()) {
+					if (retained.has(id)) continue;
+					this.graphRows.delete(id);
+					this.invalidate(id);
+					removeOwnedStyles(id);
+				}
+			}
+			invalidate(id, rev) {
+				const normalized = stripClientSuffix(id);
+				if (this.bootstrapIds.has(normalized)) return;
+				this.importErrors.delete(normalized);
+				this.generations.set(normalized, (this.generations.get(normalized) ?? 0) + 1);
+				const row = this.graphRows.get(normalized);
+				if (row !== void 0) {
+					const revision = rev ?? row.rev;
+					this.reloadTargets.set(normalized, {
+						url: atRevision(row.url, revision),
+						rev: revision
+					});
+				} else this.reloadTargets.delete(normalized);
+				for (const key of this.factories.keys()) if (key === normalized || key.startsWith(`${normalized}/client.`)) this.factories.delete(key);
+				for (const key of this.loadCache.keys()) if (key === normalized || key.startsWith(`${normalized}/client.`)) this.loadCache.delete(key);
+			}
+		};
 		//#endregion
 		//#region lib/types/client/index.js
-		/** Required browser services: the resource model, the Remote carrier and its namespace. */
-		const inject = [
-			"resources",
-			"remote",
-			"remote.workspaceFiles"
-		];
 		/**
-		* Client plugin body: register the `file` provider for this plugin's lifetime.
-		* @param ctx - client root context carrying `resources` and the Remote face.
+		* Build the live module system from the HTML facade's materialized modules bundle.
+		* @param target - Stable registration facade whose pending queue becomes the live sink.
+		* @param bootstrapModule - This bundle's id and already-materialized exports.
+		* @param options - Raw boot graph, platform seed, and optional bundle transport.
+		* @returns The created module system.
+		*/
+		function createClientModuleSystem(target, bootstrapModule, options) {
+			return new ClientModuleSystem({
+				manifest: parseBootManifest(options.boot),
+				staticModules: options.staticModules,
+				registrationTarget: target,
+				bootstrapModule,
+				...options.loadBundle === void 0 ? {} : { loadBundle: options.loadBundle }
+			});
+		}
+		/** Required service: the Loader whose internal module system this plugin publishes. */
+		const inject = ["loader"];
+		/**
+		* Enroll the kernel-built module system as `ctx.modules`.
+		* @param ctx - client root context.
 		*/
 		function apply(ctx) {
-			const changes = new ChangeFeed(ctx.remote);
-			const provider = createFileResourceProvider(ctx.remote, changes);
-			ctx.effect(() => {
-				const release = ctx.resources.register(provider);
-				return async () => {
-					release();
-					await changes.settle();
-				};
-			}, "workspace-files: file resource provider");
+			const modules = ctx.loader.internal;
+			if (modules?.version !== "client") throw new Error("client-modules: the Loader has no client module system");
+			ctx.reflect.provide("modules", modules);
 		}
 		//#endregion
+		exports.ClientModuleSystem = ClientModuleSystem;
 		exports.apply = apply;
+		exports.createClientModuleSystem = createClientModuleSystem;
+		exports.exactPackageSpecifier = exactPackageSpecifier;
 		exports.inject = inject;
+		exports.parseBootManifest = parseBootManifest;
+		exports.parseDshClient = parseDshClient;
+		exports.stripClientSuffix = stripClientSuffix;
+		exports.tearDownEntryFiber = tearDownEntryFiber;
 		return module.exports;
 	}
 });
 ;
-//# sourceMappingURL=??@deepseek-ai/dsh-api-workspace-files/client.js.map&rev=34c3f69b486c
+//# sourceMappingURL=??@deepseek-ai/dsh-client-modules/client.js.map&rev=83f137eed78b

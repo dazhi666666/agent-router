@@ -1,5 +1,5 @@
 window.__ModuleLoader__.load({
-	id: "@deepseek-ai/dsh-client-ui-settings-agent-loop",
+	id: "@deepseek-ai/dsh-client-ui-settings-web-search",
 	factory: (require) => {
 		var module = { exports: {} };
 		var exports = module.exports;
@@ -7,13 +7,19 @@ window.__ModuleLoader__.load({
 		let react_jsx_runtime = require("react/jsx-runtime");
 		let _deepseek_ai_dsh_client_ui_primitives = require("@deepseek-ai/dsh-client-ui-primitives");
 		//#region lib/types/client/locales.js
-		/** Locale bundles for the agent loop's settings page. */
+		/** Locale bundles for the web-search provider's settings page. */
 		/** English copy. */
 		const en = {
-			title: "Agent loop",
-			description: "Control how the Agent dispatches tool calls.",
-			maxParallel: "Parallel tool calls",
-			maxParallelHint: "Upper bound on parallel-safe calls running at once within one step.",
+			title: "Web search",
+			description: "Set up the DeepSeek search provider.",
+			apiKey: "API key",
+			apiKeyHint: "Stored outside the settings file. Leave blank to keep the current key.",
+			apiKeySet: "A key is configured.",
+			apiKeyUnset: "No key is configured; only conversations using a DeepSeek Account model can search, through the default endpoint.",
+			baseUrl: "Endpoint",
+			baseUrlHint: "Leave blank to use the provider default.",
+			maxUses: "Max searches per request",
+			maxUsesHint: "How many times one request may search before it must answer.",
 			overridden: "Overridden",
 			reset: "Reset to default",
 			readOnly: "This deployment stores settings read-only.",
@@ -25,10 +31,16 @@ window.__ModuleLoader__.load({
 		};
 		/** Simplified Chinese copy. */
 		const zh = {
-			title: "Agent 循环",
-			description: "控制 Agent 派发工具调用的方式。",
-			maxParallel: "并行工具调用数",
-			maxParallelHint: "同一步内最多同时运行多少个可并行的调用。",
+			title: "网页搜索",
+			description: "设置 DeepSeek 的搜索提供方。",
+			apiKey: "API Key",
+			apiKeyHint: "不写入设置文件。留空表示保持当前密钥。",
+			apiKeySet: "已配置密钥。",
+			apiKeyUnset: "未配置密钥；仅使用 DeepSeek 账号模型的对话可以通过默认接口地址搜索。",
+			baseUrl: "接口地址",
+			baseUrlHint: "留空则使用提供方默认地址。",
+			maxUses: "单次请求最多搜索次数",
+			maxUsesHint: "一次请求在必须作答前最多可以搜索多少次。",
 			overridden: "已覆盖",
 			reset: "恢复默认",
 			readOnly: "本部署的设置为只读。",
@@ -53,62 +65,173 @@ window.__ModuleLoader__.load({
 			};
 		}
 		//#endregion
-		//#region lib/types/client/AgentLoopCard.js
+		//#region lib/types/client/WebSearchCard.js
 		/**
-		* Render the agent loop's one-liner or its settings form, as the Plugins page asks.
+		* Render the web-search provider's one-liner or its settings form, as the Plugins page asks.
 		* @param props - the view asked for, locale copy, the form snapshot, and its actions.
 		* @returns the one-liner, or the form.
 		*/
-		function AgentLoopCard(props) {
+		function WebSearchCard(props) {
 			const { t } = props;
-			const state = props.useAgentLoopCard((snapshot) => snapshot);
+			const state = props.useWebSearchCard((snapshot) => snapshot);
 			if (props.view === "summary") return t("description");
-			return (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.SettingsForm, {
+			const disabled = !state.writable;
+			return (0, react_jsx_runtime.jsxs)(_deepseek_ai_dsh_client_ui_primitives.SettingsForm, {
 				labels: formLabels(t),
 				state,
 				onSave: props.save,
 				onDiscard: props.discard,
-				children: (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.SettingsValueField, {
-					id: "plugin-config-agent-loop-parallel",
-					label: t("maxParallel"),
-					hint: t("maxParallelHint"),
-					overriddenLabel: t("overridden"),
-					resetLabel: t("reset"),
-					invalidLabel: t("invalidNumber"),
-					numeric: true,
-					disabled: !state.writable,
-					...state.maxParallelToolCalls,
-					onEdit: (text) => {
-						props.edit("maxParallelToolCalls", text);
-					},
-					onReset: () => {
-						props.resetField("maxParallelToolCalls");
-					}
-				})
+				children: [
+					(0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.SettingsSecretField, {
+						id: "plugin-config-web-search-key",
+						label: t("apiKey"),
+						hint: t("apiKeyHint"),
+						disabled: !state.apiKeyWritable,
+						text: state.apiKey.text,
+						configured: state.apiKeyConfigured,
+						stateLabel: state.apiKeyConfigured ? t("apiKeySet") : t("apiKeyUnset"),
+						onEdit: (text) => {
+							props.edit("apiKey", text);
+						}
+					}),
+					(0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.SettingsValueField, {
+						id: "plugin-config-web-search-endpoint",
+						label: t("baseUrl"),
+						hint: t("baseUrlHint"),
+						overriddenLabel: t("overridden"),
+						resetLabel: t("reset"),
+						invalidLabel: t("invalidNumber"),
+						disabled,
+						...state.baseURL,
+						onEdit: (text) => {
+							props.edit("baseURL", text);
+						},
+						onReset: () => {
+							props.resetField("baseURL");
+						}
+					}),
+					(0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.SettingsValueField, {
+						id: "plugin-config-web-search-max-uses",
+						label: t("maxUses"),
+						hint: t("maxUsesHint"),
+						overriddenLabel: t("overridden"),
+						resetLabel: t("reset"),
+						invalidLabel: t("invalidNumber"),
+						numeric: true,
+						disabled,
+						...state.maxUses,
+						onEdit: (text) => {
+							props.edit("maxUses", text);
+						},
+						onReset: () => {
+							props.resetField("maxUses");
+						}
+					})
+				]
 			});
 		}
 		//#endregion
-		//#region lib/types/client/agent-loop-card-controller.js
-		/** The agent-loop page's staged form over the `agent-loop` settings namespace. */
+		//#region lib/types/client/web-search-card-controller.js
 		/**
-		* Namespace of the agent loop's user-owned settings. Spelled here rather than
+		* The web-search page's staged form over the `web-search-deepseek` settings
+		* namespace.
+		*
+		* The key is the one control that does not live in the section: its literal
+		* never rides a response, so the page learns only whether one is configured
+		* and writes it through the credentials domain, addressed by the reference the
+		* section names. It is still staged with the rest of the form, so one save
+		* covers everything the page shows.
+		*/
+		/**
+		* Namespace of the DeepSeek search provider. Spelled here rather than
 		* imported: a client package must not depend on a Host package.
 		*/
-		const AGENT_LOOP_NS = "agent-loop";
-		/** Bridges the `agent-loop` scope onto the page's staged form. */
-		var AgentLoopCardController = class {
+		const WEB_SEARCH_NS = "web-search-deepseek";
+		/** Credential reference the provider resolves when the section names none. */
+		const DEFAULT_API_KEY_REF = "DEEPSEEK_API_KEY";
+		/** Form field the credential control stages under. */
+		const API_KEY_FIELD = "apiKey";
+		/** Bridges the `web-search-deepseek` scope and the credentials domain onto the page. */
+		var WebSearchCardController = class {
+			scope;
+			ctx;
 			form;
 			store;
-			/** @param scope - the bound settings scope for the `agent-loop` namespace. */
-			constructor(scope) {
-				this.form = new _deepseek_ai_dsh_client_ui_primitives.SettingsFormModel(scope, [(0, _deepseek_ai_dsh_client_ui_primitives.settingsNumberField)("maxParallelToolCalls")]);
+			unsubscribe;
+			credential = {
+				ref: "",
+				configured: false,
+				writable: true
+			};
+			/**
+			* @param scope - the bound settings scope for the `web-search-deepseek` namespace.
+			* @param ctx - the page plugin's context, whose `remote.credentials` namespace
+			* answers for the credential the section references.
+			*/
+			constructor(scope, ctx) {
+				this.scope = scope;
+				this.ctx = ctx;
+				this.form = new _deepseek_ai_dsh_client_ui_primitives.SettingsFormModel(scope, [(0, _deepseek_ai_dsh_client_ui_primitives.settingsTextField)("baseURL"), (0, _deepseek_ai_dsh_client_ui_primitives.settingsNumberField)("maxUses")], [{
+					field: API_KEY_FIELD,
+					write: (text) => this.writeKey(text)
+				}]);
 				this.store = this.form.bind(() => this.projection());
+				this.unsubscribe = scope.subscribe(() => {
+					this.readCredential();
+				});
+				this.readCredential();
 			}
 			projection() {
 				return {
 					...this.form.shell(),
-					maxParallelToolCalls: this.form.field("maxParallelToolCalls")
+					baseURL: this.form.field("baseURL"),
+					maxUses: this.form.field("maxUses"),
+					apiKey: this.form.field(API_KEY_FIELD),
+					apiKeyConfigured: this.credential.configured,
+					apiKeyWritable: this.credential.writable
 				};
+			}
+			/**
+			* Ask the credentials domain about the reference the section currently names.
+			*
+			* The answer is stored with the reference it describes: `apiKeyEnv` can
+			* change between the request and its response, and two reads can settle out
+			* of order, so a response is published only while it still answers for the
+			* reference in force.
+			*/
+			async readCredential() {
+				const ref = refOf(this.scope.getSnapshot());
+				if (ref !== this.credential.ref) {
+					this.credential = {
+						ref,
+						configured: false,
+						writable: true
+					};
+					this.store.set(this.projection());
+				}
+				const response = await this.ctx.remote.credentials.describe([ref]);
+				if (!response.ok || ref !== refOf(this.scope.getSnapshot())) return;
+				const view = response.value[ref];
+				const next = {
+					ref,
+					configured: view?.configured ?? false,
+					writable: view?.writable ?? true
+				};
+				if (next.configured === this.credential.configured && next.writable === this.credential.writable) return;
+				this.credential = next;
+				this.store.set(this.projection());
+			}
+			/**
+			* Re-read after the Host reports a change to the reference this page watches.
+			*
+			* A key can be written from somewhere else — the Models page addresses the
+			* same reference — and the settings section does not change when it is, so
+			* without this the badge keeps reporting a state the Host already replaced.
+			* @param ref - the reference the Host reports as changed.
+			*/
+			refreshCredential(ref) {
+				if (ref !== this.credential.ref) return;
+				this.readCredential();
 			}
 			/**
 			* Build the face the page's slot registration injects.
@@ -116,33 +239,56 @@ window.__ModuleLoader__.load({
 			*/
 			inject() {
 				return {
-					hooks: { agentLoopCard: this.store },
+					hooks: { webSearchCard: this.store },
 					...this.form.actions()
 				};
 			}
-			/** Release accepted-value subscriptions. */
+			/**
+			* Write the staged key, then re-read whether the Host now holds one.
+			* @param value - the staged credential literal.
+			* @returns whether the Host reports a configured credential afterwards.
+			*/
+			async writeKey(value) {
+				await this.ctx.remote.credentials.set(refOf(this.scope.getSnapshot()), value);
+				await this.readCredential();
+				return this.credential.configured;
+			}
+			/** Release configuration subscriptions. */
 			dispose() {
+				this.unsubscribe();
 				this.form.dispose();
 			}
 		};
+		/**
+		* The credential reference the section names, or the provider's default.
+		* @param snapshot - the current scope snapshot.
+		* @returns the reference to address.
+		*/
+		function refOf(snapshot) {
+			const declared = snapshot.value?.apiKeyEnv;
+			return declared !== void 0 && declared.length > 0 ? declared : DEFAULT_API_KEY_REF;
+		}
 		//#endregion
 		//#region lib/types/client/index.js
 		/**
-		* The agent loop's settings page, browser half: the parallel tool-call cap
-		* over the `agent-loop` namespace the loop registers. The page registers into
-		* the Plugins page's `plugins.item` slot while the Host serves that namespace,
-		* so a deployment that exposes no agent-loop settings shows no trace of it.
+		* The web-search provider's settings page, browser half: the key, the
+		* endpoint, and the per-request search budget over the `web-search-deepseek`
+		* namespace the provider registers. The page registers into the Plugins
+		* page's `plugins.item` slot while the Host serves that namespace, so a
+		* deployment without the provider shows no trace of it.
 		*/
 		/** Dictionary namespace owned by this plugin. */
-		const NS = "settings.agentLoop";
+		const NS = "settings.webSearch";
 		/** Required services (cordis fiber inject). */
 		const inject = [
 			"slots",
 			"locale",
+			"remote",
+			"remote.credentials",
 			"configForms"
 		];
 		/**
-		* Mount the agent loop's settings page while the Host serves its namespace.
+		* Mount the web-search settings page while the Host serves its namespace.
 		* @param ctx - the browser plugin context.
 		*/
 		function apply(ctx) {
@@ -150,19 +296,22 @@ window.__ModuleLoader__.load({
 			ctx.effect(() => ctx.locale.register(NS, {
 				zh,
 				en
-			}), "ui-settings-agent-loop: dictionaries");
-			const card = new AgentLoopCardController(ctx.configForms.get(AGENT_LOOP_NS));
+			}), "ui-settings-web-search: dictionaries");
+			const card = new WebSearchCardController(ctx.configForms.get(WEB_SEARCH_NS), ctx);
 			ctx.effect(() => () => {
 				card.dispose();
-			}, "ui-settings-agent-loop: form subscription");
-			ctx.effect(() => ctx.configForms.whileServed([AGENT_LOOP_NS], () => ctx.slots.inject("plugins.item", () => ctx.slots.register({
+			}, "ui-settings-web-search: form subscription");
+			ctx.effect(() => ctx.remote.$on("credentials/reference-updated", (ref) => {
+				card.refreshCredential(ref);
+			}), "ui-settings-web-search: credential invalidations");
+			ctx.effect(() => ctx.configForms.whileServed([WEB_SEARCH_NS], () => ctx.slots.inject("plugins.item", () => ctx.slots.register({
 				name: "plugins.item",
-				id: "agent-loop",
-				order: 20,
+				id: "web-search",
+				order: 40,
 				label: () => t("title"),
 				locale: NS,
 				inject: () => card.inject()
-			}, AgentLoopCard))), "ui-settings-agent-loop: page");
+			}, WebSearchCard))), "ui-settings-web-search: page");
 		}
 		//#endregion
 		exports.NS = NS;
@@ -172,4 +321,4 @@ window.__ModuleLoader__.load({
 	}
 });
 ;
-//# sourceMappingURL=??@deepseek-ai/dsh-client-ui-settings-agent-loop/client.js.map&rev=79a02f941136
+//# sourceMappingURL=??@deepseek-ai/dsh-client-ui-settings-web-search/client.js.map&rev=42288cb5f899

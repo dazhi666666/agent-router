@@ -1,615 +1,1909 @@
 window.__ModuleLoader__.load({
-	id: "@deepseek-ai/dsh-client-ui-goal",
+	id: "@deepseek-ai/dsh-client-ui-model-selection",
 	factory: (require) => {
 		var module = { exports: {} };
 		var exports = module.exports;
 		Object.defineProperty(exports, Symbol.toStringTag, { value: "Module" });
+		let _deepseek_ai_dsh_client_ui_primitives = require("@deepseek-ai/dsh-client-ui-primitives");
+		let _deepseek_ai_cordis = require("@deepseek-ai/cordis");
+		let _deepseek_ai_dsh_client_store = require("@deepseek-ai/dsh-client-store");
 		let react_jsx_runtime = require("react/jsx-runtime");
 		let react = require("react");
-		let _deepseek_ai_dsh_client_ui_primitives = require("@deepseek-ai/dsh-client-ui-primitives");
-		//#region lib/types/client/activation-source.js
-		/** Goal activation observable that orders Remote reads and live activation events. */
-		/** Compare two empty-or-populated activation snapshots by value. */
-		function sameSnapshot(left, right) {
-			return left.id === right.id && left.revision === right.revision && left.activation === right.activation;
-		}
-		/** Return the current active CAS ref, or undefined when the goal is not active. */
-		function activeRef(projection) {
-			return projection?.goal.phase === "active" ? projection.goal : void 0;
-		}
+		let react_dom = require("react-dom");
+		//#region ../../util/values/src/partial-json.ts
 		/**
-		* Create one registrant-private activation source. The source subscribes only
-		* while a framework hook observes it, so unmount releases the Remote event,
-		* projection, running-snapshot, and reset listeners.
-		* @param deps - projection, session, Remote read, and live-event inputs.
-		* @returns stable snapshot source consumed by `useGoalActivation`.
+		* Lazily scanned view of one JSON object's top-level fields, built from text
+		* that may still be streaming or from an already parsed object. Nothing is
+		* scanned until a reader asks; the view remembers every question it answered
+		* and reports changed answers when the owner refreshes for publication.
+		* Used for model tool-call arguments: a row reads the fields it
+		* cares about at whatever granularity it displays, at every stage of the call.
+		* @module @deepseek-ai/dsh-util-values/src/partial-json
 		*/
-		function createGoalActivationSource(deps) {
-			let snapshot = {};
-			let subscriptions = 0;
-			let disposers = [];
-			let running = deps.session.getSnapshot().running;
-			let eventEpoch = 0;
-			let projectionEpoch = 0;
-			let readEpoch = 0;
-			const listeners = /* @__PURE__ */ new Set();
-			const publish = (next) => {
-				if (sameSnapshot(snapshot, next)) return;
-				snapshot = next;
-				for (const listener of listeners) listener();
-			};
-			const startRead = (ref) => {
-				if (ref === void 0) return;
-				const read = ++readEpoch;
-				const startedAtEvent = eventEpoch;
-				const startedAtProjection = projectionEpoch;
-				deps.getGoal().then((result) => {
-					if (read !== readEpoch || startedAtEvent !== eventEpoch || startedAtProjection !== projectionEpoch) return;
-					if (!result.ok) return;
-					const goal = result.value;
-					/* v8 ignore next 4 -- projection drive is the authoritative clear edge; an active projection with no live goal is transient. */
-					if (goal === void 0) {
-						if (activeRef(deps.projection.getSnapshot()) === void 0) publish({});
-						return;
-					}
-					publish({
-						id: goal.id,
-						revision: goal.revision,
-						activation: goal.activation
-					});
-				}, (error) => {
-					console.warn("[ui-goal] goal activation read failed:", error);
-				});
-			};
-			const refreshProjection = () => {
-				projectionEpoch++;
-				const ref = activeRef(deps.projection.getSnapshot());
-				if (ref === void 0) {
-					/* v8 ignore next -- clearing an already-empty activation snapshot is idempotent. */
-					if (snapshot.id !== void 0) publish({});
-					return;
+		const SIMPLE_ESCAPES = {
+			"\"": "\"",
+			"\\": "\\",
+			"/": "/",
+			b: "\b",
+			f: "\f",
+			n: "\n",
+			r: "\r",
+			t: "	"
+		};
+		const CONTENT_ESCAPE = /[\\\u0000-\u001f]/u;
+		function isWhitespace(c) {
+			return c === " " || c === "\n" || c === "\r" || c === "	";
+		}
+		function isHex(c) {
+			return c >= "0" && c <= "9" || c >= "a" && c <= "f" || c >= "A" && c <= "F";
+		}
+		(class PartialArguments {
+			/** The view of a call with no arguments available. */
+			static EMPTY = PartialArguments.fromObject({});
+			/**
+			* View finished argument text without scanning it until a reader asks.
+			* @param text - the complete argument JSON text.
+			* @returns a sealed view.
+			*/
+			static fromText(text) {
+				const view = new PartialArguments();
+				view.append(text);
+				view.sealed = true;
+				return view;
+			}
+			/**
+			* View an already parsed argument payload, such as a PTC dispatch object.
+			* @param value - the parsed argument value.
+			* @returns a sealed view; a non-object payload has no fields.
+			*/
+			static fromObject(value) {
+				const view = new PartialArguments();
+				view.object = typeof value === "object" && value !== null && !Array.isArray(value) ? value : {};
+				view.sealed = true;
+				return view;
+			}
+			/**
+			* The source: text so far or a parsed object, plus whether it can still grow.
+			* These are the only enumerable fields, so two views over the same source
+			* compare equal structurally however far each has been read.
+			*/
+			chunks = [];
+			object;
+			sealed = false;
+			#ends = [];
+			#size = 0;
+			#consumed = 0;
+			#mode = "root";
+			#escape = false;
+			#keyStart = 0;
+			#keyEscaped = false;
+			#key = "";
+			#current = null;
+			#nestedEnds = [];
+			#nestedInString = false;
+			#invalidAt;
+			#invalidValue = false;
+			#entries = /* @__PURE__ */ new Map();
+			#order = [];
+			#reads = /* @__PURE__ */ new Map();
+			/** Whether this view rejects further appends; does not scan text or register reads. */
+			get isSealed() {
+				return this.sealed;
+			}
+			/** Whether indexing or a content read found invalid JSON; unread value contents are not validated. */
+			get invalid() {
+				this.scan();
+				return this.#mode === "invalid" || this.#invalidValue;
+			}
+			/**
+			* Retain streamed argument text without scanning or comparing observed answers.
+			* @param fragment - the text following every fragment appended before.
+			*/
+			append(fragment) {
+				if (this.sealed) throw new Error("PartialArguments: cannot append to a sealed view");
+				if (fragment.length === 0) return;
+				this.chunks.push(fragment);
+				this.#size += fragment.length;
+				this.#ends.push(this.#size);
+			}
+			/**
+			* Reconcile a streamed prefix with authoritative complete text without joining the fragments.
+			* @param text - the final argument text, which replaces missing or conflicting deltas.
+			* @returns this view sealed with its caches retained when every character matches; otherwise a new sealed view.
+			*/
+			settle(text) {
+				if (this.object !== void 0 || text.length !== this.#size) return PartialArguments.fromText(text);
+				let offset = 0;
+				for (const chunk of this.chunks) {
+					if (!text.startsWith(chunk, offset)) return PartialArguments.fromText(text);
+					offset += chunk.length;
 				}
-				if (snapshot.id !== ref.id || snapshot.revision !== ref.revision) publish({
-					id: ref.id,
-					revision: ref.revision
-				});
-				startRead(ref);
-			};
-			const onActivation = (goal) => {
-				eventEpoch++;
-				readEpoch++;
-				publish(goal === void 0 ? {} : {
-					id: goal.id,
-					revision: goal.revision,
-					activation: goal.activation
-				});
-			};
-			const onRunning = () => {
-				const next = deps.session.getSnapshot().running;
-				if (next === running) return;
-				running = next;
-				startRead(activeRef(deps.projection.getSnapshot()));
-			};
-			const onReset = () => {
-				eventEpoch++;
-				projectionEpoch++;
-				startRead(activeRef(deps.projection.getSnapshot()));
-			};
-			const start = () => {
-				disposers = [
-					deps.projection.subscribe(refreshProjection),
-					deps.session.subscribe(onRunning),
-					deps.subscribeActivation(onActivation),
-					deps.subscribeReset(onReset)
-				];
-				running = deps.session.getSnapshot().running;
-				refreshProjection();
-			};
-			const stop = () => {
-				for (const dispose of disposers) dispose();
-				disposers = [];
-				readEpoch++;
-			};
-			return {
-				getSnapshot: () => snapshot,
-				subscribe(listener) {
-					listeners.add(listener);
-					if (subscriptions === 0) start();
-					subscriptions++;
-					return () => {
-						listeners.delete(listener);
-						subscriptions--;
-						if (subscriptions === 0) stop();
+				this.chunks = text.length === 0 ? [] : [text];
+				this.#ends = text.length === 0 ? [] : [text.length];
+				this.sealed = true;
+				return this;
+			}
+			/**
+			* Compare observed answers and advance their publication baseline. Unread views remain unscanned.
+			* @returns whether any observed answer changed since its first read or the preceding refresh.
+			*/
+			refresh() {
+				if (this.#reads.size === 0) return false;
+				this.scan();
+				let changed = false;
+				let completions = false;
+				for (const read of this.#reads.values()) {
+					if (read.completion) {
+						completions = true;
+						continue;
+					}
+					changed = this.refreshRead(read) || changed;
+				}
+				if (completions) {
+					for (const read of this.#reads.values()) if (read.completion) changed = this.refreshRead(read) || changed;
+				}
+				if (this.sealed) this.#reads.clear();
+				return changed;
+			}
+			refreshRead(read) {
+				const now = read.answer();
+				if (Object.is(now, read.last)) return false;
+				read.last = now;
+				return true;
+			}
+			/**
+			* Check whether no further fields can arrive.
+			* @returns whether the outer object closed, indexing failed, or the view is sealed; unread values are not validated.
+			*/
+			closed() {
+				return this.remember("closed", "", () => this.closedNow());
+			}
+			/**
+			* List discovered fields in first-appearance order.
+			* @returns top-level keys seen so far, in first-appearance order.
+			*/
+			keys() {
+				return this.remember("keys", "", () => this.keysNow(), (keys) => keys.length);
+			}
+			/**
+			* Check whether a top-level field has appeared.
+			* @param key - argument name.
+			* @returns whether the field has appeared (a string opened or another value began).
+			*/
+			has(key) {
+				return this.remember("has", key, () => this.hasNow(key));
+			}
+			/**
+			* Check whether a field's closing delimiter has arrived, without validating its contents.
+			* @param key - argument name.
+			* @returns whether its delimiter arrived and no content reader has reported an error for this value.
+			*/
+			complete(key) {
+				return this.remember("complete", key, () => this.completeNow(key));
+			}
+			/**
+			* Read string length without materializing its text.
+			* @param key - argument name.
+			* @param options - change granularity for a streaming string.
+			* @returns decoded UTF-16 length of the string field so far; undefined when absent or not a string.
+			*/
+			stringLength(key, options) {
+				const step = Math.max(1, Math.floor(options?.step ?? 1));
+				const offset = options?.offset ?? 0;
+				return this.remember(`length:${step}:${offset}`, key, () => this.lengthNow(key), (length) => length === void 0 ? void 0 : Math.ceil((length + offset) / step));
+			}
+			/**
+			* Check a string against a decoded UTF-16 length limit without materializing it.
+			* @param key - argument name.
+			* @param maxLength - decoded UTF-16 limit, floored to at least zero.
+			* @returns whether the string is longer than the limit; false when absent or not a string.
+			*/
+			stringExceeds(key, maxLength) {
+				const limit = Math.max(0, Math.floor(maxLength));
+				return this.remember(`exceeds:${limit}`, key, () => (this.lengthNow(key, limit + 1) ?? 0) > limit);
+			}
+			/**
+			* Read a decoded string, including a streaming prefix.
+			* @param key - argument name.
+			* @returns the string field's decoded text so far; undefined when absent or not a string.
+			*/
+			text(key) {
+				return this.remember("text", key, () => this.textNow(key));
+			}
+			/**
+			* Read at most the first decoded UTF-16 units of a string.
+			* @param key - argument name.
+			* @param maxLength - maximum decoded UTF-16 length, floored to at least one.
+			* @returns the bounded string prefix; undefined when absent or not a string.
+			*/
+			textPrefix(key, maxLength) {
+				const limit = Math.max(1, Math.floor(maxLength));
+				return this.remember(`prefix:${limit}`, key, () => this.textPrefixNow(key, limit));
+			}
+			/**
+			* Read a completed non-string argument.
+			* @param key - argument name.
+			* @returns the parsed non-string value once it closed; undefined while open, absent, or a string.
+			*/
+			value(key) {
+				return this.remember("value", key, () => this.valueNow(key));
+			}
+			/** Answer a question and, on a streaming view, remember it for change detection. */
+			remember(kind, key, read, comparison) {
+				this.scan();
+				const result = read();
+				if (!this.sealed) {
+					const id = `${kind}/${key}`;
+					if (!this.#reads.has(id)) this.#reads.set(id, {
+						completion: kind === "complete",
+						answer: comparison === void 0 ? read : () => comparison(read()),
+						last: comparison === void 0 ? result : comparison(result)
+					});
+				}
+				return result;
+			}
+			closedNow() {
+				return this.sealed || this.#mode === "closed" || this.#mode === "invalid";
+			}
+			keysNow() {
+				return this.object === void 0 ? this.#order : Object.keys(this.object);
+			}
+			hasNow(key) {
+				return this.object === void 0 ? this.#entries.has(key) : Object.hasOwn(this.object, key);
+			}
+			completeNow(key) {
+				if (this.object !== void 0) return Object.hasOwn(this.object, key);
+				const entry = this.#entries.get(key);
+				return entry !== void 0 && entry.end >= 0 && (entry.kind === "string" ? entry.invalidAt === void 0 : !entry.invalid);
+			}
+			lengthNow(key, limit = Number.POSITIVE_INFINITY) {
+				if (this.object !== void 0) {
+					const field = Object.hasOwn(this.object, key) ? this.object[key] : void 0;
+					return typeof field === "string" ? field.length : void 0;
+				}
+				const entry = this.#entries.get(key);
+				if (entry?.kind !== "string") return void 0;
+				if (entry.text !== void 0 && entry.text.at === entry.end) return entry.text.length;
+				const read = entry.length ??= {
+					at: entry.start,
+					length: 0,
+					text: ""
+				};
+				this.readString(entry, read, limit, false);
+				return read.length;
+			}
+			textNow(key) {
+				if (this.object !== void 0) {
+					const field = Object.hasOwn(this.object, key) ? this.object[key] : void 0;
+					return typeof field === "string" ? field : void 0;
+				}
+				const entry = this.#entries.get(key);
+				if (entry?.kind !== "string") return void 0;
+				if (entry.text === void 0 && entry.end >= 0 && entry.needsDecoding && entry.invalidAt === void 0) {
+					let text;
+					try {
+						text = JSON.parse(`"${this.slice(entry.start, entry.end)}"`);
+					} catch (_error) {}
+					if (text !== void 0) entry.text = {
+						at: entry.end,
+						length: text.length,
+						text
 					};
 				}
-			};
-		}
-		//#endregion
-		//#region \0dsh-css:D:\deepseek-harness\packages\client\ui-goal\src\client\GoalBar.module.css.mjs
-		const css$1 = ".mcvBRG_dock{box-sizing:border-box;width:calc(100% - var(--dsh-composer-side-clearance) - var(--dsh-composer-side-clearance) - var(--dsh-composer-dock-inset) - var(--dsh-composer-dock-inset) - var(--dsh-composer-dock-inset) - var(--dsh-composer-dock-inset));margin:0 auto}.mcvBRG_bar{isolation:isolate;box-sizing:border-box;width:100%;max-width:calc(var(--dsh-composer-card-max-width) - 4 * var(--dsh-composer-dock-inset));--dsw-elevation-stroke-color:var(--dsw-alias-border-l1);border-radius:var(--dsw-radius-md);height:36px;box-shadow:var(--dsw-elevation-panel);border:0;align-items:center;gap:10px;margin:0 auto;padding:4px 5px 4px 12px;display:flex;position:relative}.mcvBRG_bar:before{z-index:-1;border-radius:inherit;background:var(--dsw-specific-menu);backdrop-filter:var(--dsw-menu-backdrop-filter);content:\"\";pointer-events:none;position:absolute;inset:0}.mcvBRG_goalGlyph{color:var(--dsw-alias-label-tertiary);flex:none;display:inline-flex}.mcvBRG_label{color:var(--dsw-alias-label-primary);flex:none;font-size:13px;font-weight:500;line-height:24px}.mcvBRG_objective{min-width:0;color:var(--dsw-alias-label-primary-dimmed);text-overflow:ellipsis;white-space:nowrap;flex:1;font-size:13px;line-height:20px;overflow:hidden}.mcvBRG_error{min-width:0;color:var(--dsw-alias-state-error-primary);text-overflow:ellipsis;white-space:nowrap;flex:1;font-size:12px;line-height:20px;overflow:hidden}.mcvBRG_objectiveInput{border:.5px solid var(--dsw-alias-border-l4);border-radius:var(--dsw-radius-sm);background:var(--dsw-alias-bg-base);min-width:0;height:26px;color:var(--dsw-alias-label-primary);outline:none;flex:1;padding:0 8px;font-size:13px;line-height:20px}.mcvBRG_objectiveInput:focus{border-color:var(--dsw-alias-state-business-primary)}.mcvBRG_objectiveInput::placeholder{color:var(--dsw-alias-label-caption)}.mcvBRG_actions{flex:none;align-items:center;gap:10px;display:flex}.mcvBRG_iconBtn{corner-shape:round;width:28px;height:28px;color:var(--dsw-alias-label-tertiary);cursor:pointer;background:0 0;border:none;border-radius:999px;justify-content:center;align-items:center;padding:0;display:inline-flex}.mcvBRG_iconBtn:hover{background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-secondary)}.mcvBRG_iconBtn:disabled{opacity:.4;cursor:default}";
-		const tagId$1 = "@deepseek-ai/dsh-client-ui-goal/GoalBar.module.css";
-		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId$1) + "]") === null) {
-			const tag = document.createElement("style");
-			tag.dataset.plugin = "@deepseek-ai/dsh-client-ui-goal";
-			tag.dataset.pluginCss = tagId$1;
-			tag.textContent = css$1;
-			document.head.appendChild(tag);
-		}
-		var GoalBar_module_css_default = {
-			"actions": "mcvBRG_actions",
-			"bar": "mcvBRG_bar",
-			"dock": "mcvBRG_dock",
-			"error": "mcvBRG_error",
-			"goalGlyph": "mcvBRG_goalGlyph",
-			"iconBtn": "mcvBRG_iconBtn",
-			"label": "mcvBRG_label",
-			"objective": "mcvBRG_objective",
-			"objectiveInput": "mcvBRG_objectiveInput"
-		};
-		//#endregion
-		//#region lib/types/client/GoalBar.js
-		/**
-		* GoalBar: the goal indicator docked above the message composer (input dock
-		* strip). A present goal shows a goal glyph, a phase label, the truncated
-		* objective, and icon actions — resume when active-disarmed or paused, edit
-		* (inline form in the same strip), and clear. Goal creation lives on the
-		* `/goal` command, not here: loading (undefined), no goal (null), and complete
-		* goals render nothing. Durable state arrives as the projected whole snapshot;
-		* process-local activation arrives through the injected activation hook.
-		*/
-		/** Strip label keys per visible phase; complete goals render nothing. */
-		const PHASE_LABELS = {
-			active: "phase.active",
-			paused: "phase.paused",
-			blocked: "phase.blocked"
-		};
-		/** Strip label for an active goal using its process-local activation. */
-		function activeLabel(activation, t) {
-			if (activation === "disarmed") return t("phase.active.disarmed");
-			return t(PHASE_LABELS.active);
-		}
-		function GoalBar({ goal, activation, onEdit, onPause, onResume, onClear, t }) {
-			const [editing, setEditing] = (0, react.useState)(false);
-			const [draft, setDraft] = (0, react.useState)("");
-			const [pending, setPending] = (0, react.useState)(false);
-			const [actionError, setActionError] = (0, react.useState)(null);
-			const [clearedGoalId, setClearedGoalId] = (0, react.useState)(null);
-			const pendingRef = (0, react.useRef)(false);
-			const goalId = goal?.id;
-			(0, react.useEffect)(() => {
-				setEditing(false);
-				setActionError(null);
-				setClearedGoalId(null);
-			}, [goalId]);
-			const runAction = (0, react.useCallback)(async (action) => {
-				if (pendingRef.current) return void 0;
-				pendingRef.current = true;
-				setPending(true);
-				setActionError(null);
-				const result = await action();
-				pendingRef.current = false;
-				setPending(false);
-				if (!result.ok) setActionError(`${result.error.message} (${result.error.code})`);
-				return result;
-			}, []);
-			const handleEdit = (0, react.useCallback)(async () => {
-				const trimmed = draft.trim();
-				if (trimmed === "") return;
-				if ((await runAction(() => onEdit(trimmed)))?.ok) setEditing(false);
-			}, [
-				draft,
-				onEdit,
-				runAction
-			]);
-			const handleClear = (0, react.useCallback)(async (clearedId) => {
-				if ((await runAction(onClear))?.ok) setClearedGoalId(clearedId);
-			}, [onClear, runAction]);
-			if (goal === void 0 || goal === null || goal.phase === "complete" || goal.id === clearedGoalId) return null;
-			if (editing) return (0, react_jsx_runtime.jsx)("div", {
-				className: GoalBar_module_css_default.dock,
-				"data-goal-bar": true,
-				children: (0, react_jsx_runtime.jsxs)("div", {
-					className: GoalBar_module_css_default.bar,
-					children: [
-						(0, react_jsx_runtime.jsx)("input", {
-							className: GoalBar_module_css_default.objectiveInput,
-							type: "text",
-							"aria-label": t("objective.aria"),
-							value: draft,
-							onChange: (e) => {
-								setDraft(e.target.value);
-							},
-							onKeyDown: (e) => {
-								if (e.key === "Enter") handleEdit();
-								if (e.key === "Escape") setEditing(false);
-							},
-							autoFocus: true
-						}),
-						actionError !== null && (0, react_jsx_runtime.jsx)("span", {
-							className: GoalBar_module_css_default.error,
-							role: "alert",
-							children: actionError
-						}),
-						(0, react_jsx_runtime.jsxs)("div", {
-							className: GoalBar_module_css_default.actions,
-							children: [(0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Tooltip, {
-								portal: true,
-								label: t("action.save"),
-								side: "bottom",
-								delayMs: 500,
-								children: (0, react_jsx_runtime.jsx)("button", {
-									type: "button",
-									className: GoalBar_module_css_default.iconBtn,
-									onClick: () => {
-										handleEdit();
-									},
-									disabled: pending || draft.trim() === "",
-									"aria-label": t("action.save"),
-									children: (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconCheckOutlineRegular, { size: 14 })
-								})
-							}), (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Tooltip, {
-								portal: true,
-								label: t("action.cancel"),
-								side: "bottom",
-								delayMs: 500,
-								children: (0, react_jsx_runtime.jsx)("button", {
-									type: "button",
-									className: GoalBar_module_css_default.iconBtn,
-									onClick: () => {
-										setEditing(false);
-									},
-									disabled: pending,
-									"aria-label": t("action.cancel"),
-									children: (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconCloseOutlineRegular, { size: 14 })
-								})
-							})]
-						})
-					]
-				})
-			});
-			const title = goal.phase === "blocked" ? goal.blockedReason?.message : void 0;
-			const label = goal.phase === "active" ? activeLabel(activation, t) : t(PHASE_LABELS[goal.phase]);
-			const showResume = goal.phase === "paused" || goal.phase === "active" && activation === "disarmed";
-			return (0, react_jsx_runtime.jsx)("div", {
-				className: GoalBar_module_css_default.dock,
-				"data-goal-bar": true,
-				children: (0, react_jsx_runtime.jsxs)("div", {
-					className: GoalBar_module_css_default.bar,
-					title,
-					children: [
-						(0, react_jsx_runtime.jsx)("span", {
-							className: GoalBar_module_css_default.goalGlyph,
-							children: (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconGoalOutlineRegular, { size: 14 })
-						}),
-						(0, react_jsx_runtime.jsx)("span", {
-							className: GoalBar_module_css_default.label,
-							children: label
-						}),
-						(0, react_jsx_runtime.jsx)("span", {
-							className: GoalBar_module_css_default.objective,
-							children: goal.objective
-						}),
-						actionError !== null && (0, react_jsx_runtime.jsx)("span", {
-							className: GoalBar_module_css_default.error,
-							role: "alert",
-							children: actionError
-						}),
-						(0, react_jsx_runtime.jsxs)("div", {
-							className: GoalBar_module_css_default.actions,
-							children: [
-								goal.phase === "active" && activation === "armed" && (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Tooltip, {
-									portal: true,
-									label: t("action.pause"),
-									side: "bottom",
-									delayMs: 500,
-									children: (0, react_jsx_runtime.jsx)("button", {
-										type: "button",
-										className: GoalBar_module_css_default.iconBtn,
-										disabled: pending,
-										onClick: () => {
-											runAction(onPause);
-										},
-										"aria-label": t("action.pause"),
-										children: (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconPauseOutlineRegular, { size: 14 })
-									})
-								}),
-								showResume && (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Tooltip, {
-									portal: true,
-									label: t("action.resume"),
-									side: "bottom",
-									delayMs: 500,
-									children: (0, react_jsx_runtime.jsx)("button", {
-										type: "button",
-										className: GoalBar_module_css_default.iconBtn,
-										disabled: pending,
-										onClick: () => {
-											runAction(onResume);
-										},
-										"aria-label": t("action.resume"),
-										children: (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconPlayOutlineRegular, { size: 14 })
-									})
-								}),
-								(0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Tooltip, {
-									portal: true,
-									label: t("action.edit"),
-									side: "bottom",
-									delayMs: 500,
-									children: (0, react_jsx_runtime.jsx)("button", {
-										type: "button",
-										className: GoalBar_module_css_default.iconBtn,
-										disabled: pending,
-										onClick: () => {
-											setDraft(goal.objective);
-											setEditing(true);
-										},
-										"aria-label": t("action.edit"),
-										children: (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconEditOutlineRegular, { size: 14 })
-									})
-								}),
-								(0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Tooltip, {
-									portal: true,
-									label: t("action.clear"),
-									side: "bottom",
-									delayMs: 500,
-									children: (0, react_jsx_runtime.jsx)("button", {
-										type: "button",
-										className: GoalBar_module_css_default.iconBtn,
-										disabled: pending,
-										onClick: () => {
-											handleClear(goal.id);
-										},
-										"aria-label": t("action.clear"),
-										children: (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconTrashOutlineRegular, { size: 14 })
-									})
-								})
-							]
-						})
-					]
-				})
-			});
-		}
-		/** Dock adapter: overlays process-local activation on the durable goal projection. */
-		function GoalDock({ useProjection, useGoalActivation, onEdit, onPause, onResume, onClear, t }) {
-			const projection = useProjection("goal");
-			const goal = projection === void 0 || projection === null ? projection : projection.goal;
-			const goalId = goal?.id;
-			const revision = goal?.revision;
-			const activation = useGoalActivation((next) => next.id === goalId && next.revision === revision ? next.activation : void 0);
-			return (0, react_jsx_runtime.jsx)(GoalBar, {
-				goal,
-				...activation === void 0 ? {} : { activation },
-				onEdit,
-				onPause,
-				onResume,
-				onClear,
-				t
-			});
-		}
-		//#endregion
-		//#region lib/types/client/goal-command-input.js
-		/** The command name whose runs this projection owns. */
-		const GOAL_COMMAND = "goal";
-		/**
-		* Derive the visible command line from its structured durable run.
-		* @param event - `/goal` command run.
-		* @returns command text with trailing parser whitespace removed.
-		*/
-		function goalCommandText(event) {
-			return `/${event.data.name}${(event.data.args ?? "").trimEnd()}`;
-		}
-		/** Goal-owned command input projection; the generic command Definition retains the result row. */
-		const goalCommandInputDefinition = {
-			kind: "goal-command-input",
-			target: "chat",
-			match: (event) => event.type === "command/run" && event.data.name === "goal" ? {
-				id: String(event.data.commandId),
-				role: "start"
-			} : null,
-			start: (_context, match) => {
-				if (match.event.type !== "command/run") throw new Error("goal-command-input start requires command/run");
-				return {
-					commandId: match.event.data.commandId,
-					seq: match.event.seq,
-					time: match.event.time,
-					text: goalCommandText(match.event)
+				const read = entry.text ??= {
+					at: entry.start,
+					length: 0,
+					text: ""
 				};
-			},
-			update: (context) => context.state,
-			buildViewNode: (context) => {
-				if (context.state === void 0) return null;
-				return {
-					key: context.key,
-					kind: "command-input",
-					id: context.id,
-					target: "chat",
-					anchorSeq: context.state.seq - .1,
-					location: context.start?.location ?? { kind: "unresolved" },
-					visibility: "visible",
-					data: {
-						commandId: context.state.commandId,
-						text: context.state.text,
-						time: context.state.time
+				this.readString(entry, read, Number.POSITIVE_INFINITY, true);
+				return read.text;
+			}
+			textPrefixNow(key, maxLength) {
+				if (this.object !== void 0) {
+					const field = Object.hasOwn(this.object, key) ? this.object[key] : void 0;
+					return typeof field === "string" ? field.slice(0, maxLength) : void 0;
+				}
+				const entry = this.#entries.get(key);
+				if (entry?.kind !== "string") return void 0;
+				const prefixes = entry.prefixes ??= /* @__PURE__ */ new Map();
+				let read = prefixes.get(maxLength);
+				if (read === void 0) {
+					read = {
+						at: entry.start,
+						length: 0,
+						text: ""
+					};
+					prefixes.set(maxLength, read);
+				}
+				this.readString(entry, read, maxLength, true);
+				return read.text;
+			}
+			valueNow(key) {
+				if (this.object !== void 0) {
+					if (!Object.hasOwn(this.object, key)) return void 0;
+					const field = this.object[key];
+					return typeof field === "string" ? void 0 : field;
+				}
+				const entry = this.#entries.get(key);
+				if (entry?.kind !== "value" || entry.end < 0 || entry.invalid) return void 0;
+				if (entry.parsed === void 0) try {
+					entry.parsed = JSON.parse(this.slice(entry.start, entry.end));
+				} catch (_error) {
+					entry.invalid = true;
+					this.#invalidValue = true;
+				}
+				return entry.parsed;
+			}
+			chunkAt(at) {
+				let low = 0;
+				let high = this.#ends.length;
+				while (low < high) {
+					const mid = low + high >>> 1;
+					if (this.#ends[mid] <= at) low = mid + 1;
+					else high = mid;
+				}
+				return low;
+			}
+			/** Materialize only a requested range, never the cumulative source. */
+			slice(start, end) {
+				if (start >= end) return "";
+				const first = this.chunkAt(start);
+				const last = this.chunkAt(end - 1);
+				const base = first === 0 ? 0 : this.#ends[first - 1];
+				if (first === last) return this.chunks[first].slice(start - base, end - base);
+				const parts = [this.chunks[first].slice(start - base)];
+				for (let i = first + 1; i < last; i++) parts.push(this.chunks[i]);
+				parts.push(this.chunks[last].slice(0, end - this.#ends[last - 1]));
+				return parts.join("");
+			}
+			readString(entry, read, limit, materialize) {
+				const end = Math.min(entry.end < 0 ? this.#consumed : entry.end, entry.invalidAt ?? Number.POSITIVE_INFINITY, this.#invalidAt ?? Number.POSITIVE_INFINITY);
+				if (!entry.needsDecoding) {
+					const length = Math.min(end - read.at, limit - read.length);
+					if (length <= 0) return;
+					if (materialize) read.text += this.slice(read.at, read.at + length);
+					read.at += length;
+					read.length += length;
+					return;
+				}
+				let chunkIndex = this.chunkAt(read.at);
+				while (read.at < end && read.length < limit) {
+					const base = chunkIndex === 0 ? 0 : this.#ends[chunkIndex - 1];
+					const chunk = this.chunks[chunkIndex];
+					const remaining = chunk.slice(read.at - base, Math.min(chunk.length, end - base));
+					const boundary = remaining.search(CONTENT_ESCAPE);
+					const length = Math.min(boundary < 0 ? remaining.length : boundary, limit - read.length);
+					if (length > 0) {
+						if (materialize) read.text += remaining.slice(0, length);
+						read.at += length;
+						read.length += length;
+						if (read.at === base + chunk.length) chunkIndex++;
+						continue;
 					}
-				};
+					const type = remaining.length > 1 ? remaining[1] : read.at + 1 < end ? this.chunks[chunkIndex + 1][0] : void 0;
+					let decoded;
+					let width = 2;
+					if (remaining[0] === "\\" && type === void 0 && entry.end < 0) return;
+					if (remaining[0] === "\\" && type === "u") {
+						const hex = this.slice(read.at + 2, Math.min(end, read.at + 6));
+						let valid = true;
+						for (let i = 0; i < hex.length; i++) if (!isHex(hex[i])) valid = false;
+						if (valid) {
+							if (hex.length < 4 && entry.end < 0) return;
+							if (hex.length === 4) decoded = String.fromCharCode(Number.parseInt(hex, 16));
+						}
+						width = 6;
+					} else if (remaining[0] === "\\" && type !== void 0) decoded = SIMPLE_ESCAPES[type];
+					if (decoded === void 0) {
+						entry.invalidAt = read.at;
+						this.#invalidValue = true;
+						return;
+					}
+					if (materialize) read.text += decoded;
+					read.length++;
+					read.at += width;
+					while (chunkIndex < this.chunks.length && read.at >= this.#ends[chunkIndex]) chunkIndex++;
+				}
+			}
+			/** Locate new field ranges without decoding or parsing their contents. */
+			scan() {
+				if (this.object !== void 0 || this.#consumed === this.#size) return;
+				for (let i = this.chunkAt(this.#consumed); i < this.chunks.length && this.#invalidAt === void 0; i++) {
+					const pending = this.chunks[i];
+					const base = i === 0 ? 0 : this.#ends[i - 1];
+					for (let index = this.#consumed - base; index < pending.length && this.#mode !== "invalid"; index++) {
+						if (this.#mode === "string" || this.#mode === "nested" && this.#nestedInString) {
+							const end = this.stringBoundary(pending, index);
+							this.#consumed += end - index;
+							index = end;
+							if (index === pending.length) break;
+						}
+						this.step(pending[index], this.#consumed);
+						this.#consumed++;
+					}
+				}
+			}
+			/** Only raw quotes and their preceding backslash runs can terminate a string. */
+			stringBoundary(fragment, start) {
+				let at = start;
+				while (true) {
+					const quote = fragment.indexOf("\"", at);
+					const end = quote < 0 ? fragment.length : quote;
+					if (this.#mode === "string") {
+						const entry = this.#current;
+						if (!entry.needsDecoding && CONTENT_ESCAPE.test(fragment.slice(at, end))) entry.needsDecoding = true;
+					}
+					let slashStart = end;
+					while (slashStart > at && fragment[slashStart - 1] === "\\") slashStart--;
+					const escaped = (end - slashStart) % 2 === 1 !== (slashStart === at && this.#escape);
+					this.#escape = quote < 0 && escaped;
+					if (quote < 0 || !escaped) return end;
+					at = quote + 1;
+				}
+			}
+			step(c, at) {
+				switch (this.#mode) {
+					case "root":
+						if (isWhitespace(c)) return;
+						if (c === "{") {
+							this.#mode = "key-or-end";
+							return;
+						}
+						this.fail();
+						return;
+					case "key-or-end":
+						if (isWhitespace(c)) return;
+						if (c === "}") {
+							this.#mode = "closed";
+							return;
+						}
+						if (c === "\"") {
+							this.beginKey(at);
+							return;
+						}
+						this.fail();
+						return;
+					case "key-only":
+						if (isWhitespace(c)) return;
+						if (c === "\"") {
+							this.beginKey(at);
+							return;
+						}
+						this.fail();
+						return;
+					case "key":
+						this.stepKey(c, at);
+						return;
+					case "colon":
+						if (isWhitespace(c)) return;
+						if (c === ":") {
+							this.#mode = "value";
+							return;
+						}
+						this.fail();
+						return;
+					case "value":
+						this.beginValue(c, at);
+						return;
+					case "string": {
+						const entry = this.#current;
+						entry.end = at;
+						this.#current = null;
+						this.#mode = "comma-or-end";
+						return;
+					}
+					case "scalar":
+						this.stepScalar(c, at);
+						return;
+					case "nested":
+						this.stepNested(c, at);
+						return;
+					case "comma-or-end":
+						if (isWhitespace(c)) return;
+						if (c === ",") {
+							this.#mode = "key-only";
+							return;
+						}
+						if (c === "}") {
+							this.#mode = "closed";
+							return;
+						}
+						this.fail();
+						return;
+					case "closed":
+						if (isWhitespace(c)) return;
+						this.fail();
+						return;
+					/* v8 ignore next 2 -- scan() stops stepping once the view is invalid. */
+					case "invalid": return;
+					/* v8 ignore next 2 -- Every scanner mode has a handler above. */
+					default: assertNever(this.#mode);
+				}
+			}
+			fail() {
+				this.#invalidAt = this.#consumed;
+				this.#mode = "invalid";
+				this.#current = null;
+			}
+			beginKey(at) {
+				this.#mode = "key";
+				this.#keyStart = at + 1;
+				this.#keyEscaped = false;
+				this.#escape = false;
+			}
+			stepKey(c, at) {
+				if (c < " ") {
+					this.fail();
+					return;
+				}
+				if (this.#escape) {
+					this.#escape = false;
+					return;
+				}
+				if (c === "\\") {
+					this.#escape = true;
+					this.#keyEscaped = true;
+					return;
+				}
+				if (c !== "\"") return;
+				const raw = this.slice(this.#keyStart, at);
+				if (this.#keyEscaped) try {
+					this.#key = JSON.parse(`"${raw}"`);
+				} catch (_error) {
+					this.fail();
+					return;
+				}
+				else this.#key = raw;
+				this.#mode = "colon";
+			}
+			open(entry) {
+				if (!this.#entries.has(this.#key)) this.#order.push(this.#key);
+				this.#entries.set(this.#key, entry);
+				this.#current = entry;
+			}
+			beginValue(c, at) {
+				if (isWhitespace(c)) return;
+				if (c === "\"") {
+					this.open({
+						kind: "string",
+						start: at + 1,
+						end: -1,
+						needsDecoding: false,
+						invalidAt: void 0,
+						length: void 0,
+						text: void 0,
+						prefixes: void 0
+					});
+					this.#escape = false;
+					this.#mode = "string";
+					return;
+				}
+				if (c === "}" || c === "," || c === ":" || c === "]") {
+					this.fail();
+					return;
+				}
+				this.open({
+					kind: "value",
+					start: at,
+					end: -1,
+					parsed: void 0,
+					invalid: false
+				});
+				if (c === "{" || c === "[") {
+					this.#mode = "nested";
+					this.#nestedEnds = [c === "{" ? "}" : "]"];
+					this.#nestedInString = false;
+					this.#escape = false;
+					return;
+				}
+				this.#mode = "scalar";
+			}
+			stepScalar(c, at) {
+				if (c !== "," && c !== "}" && !isWhitespace(c)) return;
+				this.closeValue(at);
+				this.#mode = c === "," ? "key-only" : c === "}" ? "closed" : "comma-or-end";
+			}
+			stepNested(c, at) {
+				if (this.#nestedInString) {
+					this.#nestedInString = false;
+					return;
+				}
+				if (c === "\"") {
+					this.#nestedInString = true;
+					return;
+				}
+				if (c === "{" || c === "[") {
+					this.#nestedEnds.push(c === "{" ? "}" : "]");
+					return;
+				}
+				if (c === "}" || c === "]") {
+					if (this.#nestedEnds.pop() !== c) {
+						this.fail();
+						return;
+					}
+					if (this.#nestedEnds.length === 0) {
+						this.closeValue(at + 1);
+						this.#mode = "comma-or-end";
+					}
+				}
+			}
+			closeValue(end) {
+				const entry = this.#current;
+				entry.end = end;
+				this.#current = null;
+			}
+		});
+		//#endregion
+		//#region ../../util/values/src/index.ts
+		/**
+		* Mark an unreachable closed-union branch.
+		* @param value - impossible value; an unhandled typed variant fails at the call site.
+		* @param context - optional switch-site label included in the failure message.
+		* @returns never; a runtime value that escaped its type always throws.
+		*/
+		function assertNever(value, context) {
+			const rendered = JSON.stringify(value) ?? String(value);
+			throw new Error(`unreachable variant${context ? ` in ${context}` : ""}: ${rendered}`);
+		}
+		/**
+		* Weak-key lookup with a strongly retained iterable set of associated values.
+		*
+		* Each value must belong to only one key. The container performs no automatic
+		* cleanup; owners delete associations or clear the container at lifecycle end.
+		*/
+		var WeakMapWithValues = class {
+			keys = /* @__PURE__ */ new WeakMap();
+			valueSet = /* @__PURE__ */ new Set();
+			/** Live strongly retained values in insertion order. */
+			values = this.valueSet;
+			/**
+			* Read the value associated with a key.
+			* @param key - weakly held lookup key.
+			* @returns the associated value, or absence.
+			*/
+			get(key) {
+				return this.keys.get(key);
+			}
+			/**
+			* Test whether a key has an association.
+			* @param key - weakly held lookup key.
+			* @returns whether the key is present.
+			*/
+			has(key) {
+				return this.keys.has(key);
+			}
+			/**
+			* Associate one key with one caller-unique value.
+			* @param key - weakly held lookup key.
+			* @param value - strongly retained value that belongs to no other key.
+			* @returns this container.
+			*/
+			set(key, value) {
+				if (this.keys.has(key)) {
+					const previous = this.keys.get(key);
+					if (previous === value) return this;
+					this.valueSet.delete(previous);
+				}
+				this.keys.set(key, value);
+				this.valueSet.add(value);
+				return this;
+			}
+			/**
+			* Remove one association and its strongly retained value.
+			* @param key - weakly held lookup key.
+			* @returns whether an association was removed.
+			*/
+			delete(key) {
+				if (!this.keys.has(key)) return false;
+				const value = this.keys.get(key);
+				const deleted = this.keys.delete(key);
+				this.valueSet.delete(value);
+				return deleted;
+			}
+			/** Remove every association and strongly retained value. */
+			clear() {
+				this.keys = /* @__PURE__ */ new WeakMap();
+				this.valueSet.clear();
 			}
 		};
 		//#endregion
-		//#region \0dsh-css:D:\deepseek-harness\packages\client\ui-goal\src\client\GoalCommandInputView.module.css.mjs
-		const css = ".NkfN_W_row{flex-direction:column;align-items:flex-end;gap:6px;display:flex}.NkfN_W_stack{min-width:0;max-width:min(calc(var(--dsh-chat-content-width,748px) * .702), 82%);flex-direction:column;align-items:flex-end;display:flex}.NkfN_W_bubble{overflow-wrap:anywhere;border-radius:var(--dsw-radius-xl);background:var(--dsw-specific-bubble);max-width:100%;color:var(--dsw-alias-label-primary);font-size:var(--dsh-content-font-size,14px);line-height:calc(22px + var(--dsh-content-font-delta,0px));white-space:pre-wrap;padding:10px 16px}";
-		const tagId = "@deepseek-ai/dsh-client-ui-goal/GoalCommandInputView.module.css";
+		//#region lib/types/client/catalog.js
+		/** One Host-generation model catalog shared by every Session selector. */
+		/** Loads at most one model catalog for the current Host generation. */
+		var ModelCatalogDirectory = class {
+			ctx;
+			/** Current shared catalog value and load lifecycle. */
+			store = (0, _deepseek_ai_dsh_client_store.createSnapshotStore)({
+				value: null,
+				status: "idle",
+				error: null
+			});
+			reasoning = /* @__PURE__ */ new Map();
+			/**
+			* Read the last advertised reasoning metadata, including unavailable models.
+			* @param selection - provider and model whose effort is displayed.
+			* @returns reasoning metadata observed during this Host generation.
+			*/
+			reasoningFor(selection) {
+				return this.reasoning.get(JSON.stringify([selection.provider, selection.model]));
+			}
+			generation = 0;
+			inflight;
+			/**
+			* @param ctx - the providing plugin's context, whose `remote.session`
+			* namespace carries the Host-generation catalog.
+			*/
+			constructor(ctx) {
+				this.ctx = ctx;
+			}
+			/**
+			* Return the current generation's catalog, sharing its one in-flight load.
+			* @returns the loaded global catalog.
+			*/
+			load() {
+				const state = this.store.getSnapshot();
+				if (state.status === "ready" && state.value !== null) return Promise.resolve(state.value);
+				if (this.inflight !== void 0) return this.inflight;
+				const generation = this.generation;
+				this.store.update((draft) => {
+					draft.status = "loading";
+					draft.error = null;
+				});
+				const operation = this.ctx.remote.session.modelCatalog().then((response) => {
+					if (!response.ok) throw new Error(`${response.error.code}: ${response.error.message}`);
+					if (generation === this.generation) {
+						for (const group of response.value.groups) for (const model of group.models) this.reasoning.set(JSON.stringify([group.id, model.id]), model.reasoning);
+						this.store.set({
+							value: response.value,
+							status: "ready",
+							error: null
+						});
+					}
+					return response.value;
+				}).catch((error) => {
+					if (generation === this.generation) this.store.update((draft) => {
+						draft.status = "error";
+						draft.error = error instanceof Error ? error.message : String(error);
+					});
+					throw error;
+				}).finally(() => {
+					if (generation === this.generation && this.inflight === operation) this.inflight = void 0;
+				});
+				this.inflight = operation;
+				return operation;
+			}
+			/**
+			* Invalidate the loaded catalog; the next explicit menu read reloads it.
+			* @param clear - whether values from the previous Host generation must be hidden.
+			*/
+			invalidate(clear = false) {
+				this.generation += 1;
+				this.inflight = void 0;
+				const value = clear ? null : this.store.getSnapshot().value;
+				this.store.set({
+					value,
+					status: "idle",
+					error: null
+				});
+			}
+			/** Invalidate and reload the catalog after a Host-side model input changes. */
+			refresh() {
+				this.invalidate();
+				this.load().catch(() => {});
+			}
+			/** Clear Host-specific values and load the replacement Host generation. */
+			resetGeneration() {
+				this.reasoning.clear();
+				this.invalidate(true);
+				this.load().catch(() => {});
+			}
+		};
+		//#endregion
+		//#region lib/types/client/directory.js
+		/** One session's shared directory controller; disposed with the session scope. */
+		var ModelDirectory = class {
+			sessions;
+			sessionId;
+			available;
+			catalog;
+			projected;
+			isBlank;
+			track;
+			/** The shared snapshot both entries render from (uSES-safe store). */
+			store = (0, _deepseek_ai_dsh_client_store.createSnapshotStore)({
+				current: null,
+				routable: null,
+				groups: [],
+				failures: [],
+				status: "idle",
+				pending: null,
+				error: null
+			});
+			/** Latest selection operation wins; an older response never overwrites a newer one. */
+			generation = 0;
+			disposed = false;
+			unsubscribeCatalog;
+			unsubscribeSelection;
+			/**
+			* @param sessions - the session wire face (captured from the plugin's root connection).
+			* @param sessionId - the owning session.
+			* @param available - whether this session may use Agent-bound model RPCs.
+			* @param catalog - Host-generation catalog shared by every Session.
+			* @param projected - durable model selection projected from Session history.
+			* @param isBlank - whether this Session has no first message yet.
+			* @param track - desktop-only callback after a successful user selection.
+			*/
+			constructor(sessions, sessionId, available, catalog, projected, isBlank, track) {
+				this.sessions = sessions;
+				this.sessionId = sessionId;
+				this.available = available;
+				this.catalog = catalog;
+				this.projected = projected;
+				this.isBlank = isBlank;
+				this.track = track;
+				this.unsubscribeCatalog = catalog.store.subscribe(() => {
+					this.syncInputs();
+				});
+				this.unsubscribeSelection = projected.subscribe(() => {
+					this.syncInputs();
+				});
+				this.syncInputs();
+			}
+			/**
+			* Ensure the Host generation's shared available catalog is loaded.
+			* @returns the fresh directory value.
+			*/
+			async load() {
+				this.assertAvailable();
+				await this.catalog.load();
+				this.syncInputs();
+				return this.store.getSnapshot();
+			}
+			/**
+			* Select the complete provider/model/reasoning selection. The durable
+			* projection frame updates the shared current; failures surface on the store
+			* and return with the operation so each entry can present its own failure.
+			* @param selection - provider, provider-owned model id, and optional adapter-owned effort.
+			* @returns the selection outcome, including the original Remote failure.
+			*/
+			async select(selection) {
+				this.assertAvailable();
+				const previous = this.store.getSnapshot().current;
+				const previousEffort = previous?.reasoningEffort ?? (previous === null ? void 0 : this.catalog.reasoningFor(previous)?.defaultEffort);
+				const nextEffort = selection.reasoningEffort ?? this.catalog.reasoningFor(selection)?.defaultEffort;
+				const generation = ++this.generation;
+				this.store.update((s) => {
+					s.status = "selecting";
+					s.pending = selection;
+					s.error = null;
+				});
+				const result = await this.sessions.selectModel({
+					sessionId: this.sessionId,
+					provider: selection.provider,
+					model: selection.model,
+					...selection.reasoningEffort === void 0 ? {} : { reasoningEffort: selection.reasoningEffort }
+				});
+				if (this.disposed || generation !== this.generation) return result.ok ? {
+					ok: true,
+					value: void 0
+				} : result;
+				if (!result.ok) {
+					this.store.update((s) => {
+						s.status = "error";
+						s.pending = null;
+						s.error = `${result.error.code}: ${result.error.message}`;
+					});
+					return result;
+				}
+				if (previous !== null) {
+					const from = `${previous.provider}/${previous.model}`;
+					const to = `${selection.provider}/${selection.model}`;
+					if (from !== to) this.track?.("model_switch", {
+						...this.isBlank() ? {} : { session_id: this.sessionId },
+						switch_from: from,
+						switch_to: to
+					});
+					if (from === to && previousEffort !== nextEffort) this.track?.("thinking_level_switch", {
+						...this.isBlank() ? {} : { session_id: this.sessionId },
+						model_name: to,
+						switch_from: previousEffort ?? "default",
+						switch_to: nextEffort ?? "default"
+					});
+				}
+				this.store.update((s) => {
+					s.status = "ready";
+					s.pending = null;
+					s.error = null;
+				});
+				this.syncInputs();
+				return {
+					ok: true,
+					value: void 0
+				};
+			}
+			/**
+			* Invalidate an in-flight selection response from the previous Host generation.
+			*/
+			resetConnected() {
+				if (this.disposed) return;
+				++this.generation;
+				this.store.update((state) => {
+					if (state.status === "selecting") state.status = "idle";
+					state.pending = null;
+					state.error = null;
+				});
+				this.syncInputs();
+			}
+			/** Scope teardown: late settlements lose write access to the store. */
+			dispose() {
+				this.disposed = true;
+				this.unsubscribeSelection();
+				this.unsubscribeCatalog();
+			}
+			assertAvailable() {
+				if (!this.available()) throw new Error("model selection is unavailable for addressed subagent sessions");
+			}
+			syncInputs() {
+				if (this.disposed) return;
+				const catalog = this.catalog.store.getSnapshot();
+				const projected = modelSelectionProjection(this.projected.getSnapshot());
+				const intended = projected?.next ?? catalog.value?.default;
+				const reasoning = intended === void 0 ? void 0 : this.catalog.reasoningFor(intended);
+				const effort = intended?.reasoningEffort ?? reasoning?.defaultEffort;
+				const retainedEffort = effort === void 0 ? void 0 : reasoning?.efforts.find((level) => level.id === effort)?.name ?? effort;
+				if (catalog.status !== "ready" || catalog.value === null || projected === void 0) {
+					this.store.set({
+						current: catalog.value === null ? null : this.store.getSnapshot().current,
+						...retainedEffort === void 0 ? {} : { retainedEffort },
+						routable: null,
+						groups: catalog.value?.groups ?? [],
+						failures: catalog.value?.failures ?? [],
+						status: catalog.status === "error" ? "error" : "loading",
+						pending: this.store.getSnapshot().pending,
+						error: catalog.error
+					});
+					return;
+				}
+				const selection = projected.next ?? catalog.value.default;
+				const routable = catalog.value.groups.some((group) => group.id === selection.provider && group.models.some((model) => model.id === selection.model));
+				this.store.set({
+					current: selection,
+					...retainedEffort === void 0 ? {} : { retainedEffort },
+					routable,
+					groups: catalog.value.groups,
+					failures: catalog.value.failures,
+					status: this.store.getSnapshot().status === "selecting" ? "selecting" : "ready",
+					pending: this.store.getSnapshot().pending,
+					error: null
+				});
+			}
+		};
+		function modelSelectionProjection(value) {
+			return value === void 0 ? void 0 : value;
+		}
+		//#endregion
+		//#region lib/types/client/service.js
+		/** The `ctx.modelDirectories` session model-selection service. */
+		var ModelDirectoryResolver = class extends _deepseek_ai_cordis.Service {
+			static inject = [
+				"sessions",
+				"remote",
+				"remote.session"
+			];
+			live = { directories: new WeakMapWithValues() };
+			catalog;
+			/**
+			* @param ctx - owning root context (the service registers itself as `models`).
+			*/
+			constructor(ctx) {
+				super(ctx, "modelDirectories");
+				this.catalog = new ModelCatalogDirectory(ctx);
+				this.catalog.load().catch(() => {});
+				ctx.on("connection/reset", () => {
+					this.catalog.resetGeneration();
+					for (const directory of this.live.directories.values) directory.resetConnected();
+				});
+				ctx.remote.$on("llm/adapters-updated", () => {
+					this.catalog.refresh();
+				});
+				ctx.remote.$on("settings/document-updated", () => {
+					this.catalog.refresh();
+				});
+				ctx.remote.$on("credentials/record-updated", () => {
+					this.catalog.refresh();
+				});
+				ctx.remote.$on("credentials/reference-updated", () => {
+					this.catalog.refresh();
+				});
+			}
+			/**
+			* Resolve the per-session shared directory (lazy; the scope disposer
+			* removes and disposes it). Unknown sessions fail loud.
+			* @param sessionId - the owning session.
+			* @returns the resident directory both entries share.
+			*/
+			directoryFor(sessionId) {
+				const { live } = this;
+				const sessions = this.ctx.sessions;
+				const actx = sessions.scope(sessionId);
+				if (actx === void 0) throw new Error(`ui-model-selection: session "${String(sessionId)}" resolved no scope`);
+				const binding = sessions.binding(sessionId);
+				if (binding === void 0) throw new Error(`ui-model-selection: session "${String(sessionId)}" resolved no binding`);
+				const existing = live.directories.get(binding);
+				if (existing !== void 0) return existing;
+				const directory = new ModelDirectory(this.ctx.remote.session, sessionId, () => sessions.subagentAddress(sessionId) === void 0, this.catalog, binding.session.projections.faceOf("modelSelection"), () => binding.session.getSnapshot().blank, (name, attributes) => this.ctx.get("productAnalytics")?.track(name, attributes));
+				live.directories.set(binding, directory);
+				actx.effect(() => () => {
+					directory.dispose();
+					live.directories.delete(binding);
+				}, "ui-model-selection: session directory");
+				return directory;
+			}
+		};
+		//#endregion
+		//#region ../../../node_modules/.pnpm/clsx@2.1.1/node_modules/clsx/dist/clsx.mjs
+		function r(e) {
+			var t, f, n = "";
+			if ("string" == typeof e || "number" == typeof e) n += e;
+			else if ("object" == typeof e) if (Array.isArray(e)) {
+				var o = e.length;
+				for (t = 0; t < o; t++) e[t] && (f = r(e[t])) && (n && (n += " "), n += f);
+			} else for (f in e) e[f] && (n && (n += " "), n += f);
+			return n;
+		}
+		function clsx() {
+			for (var e, t, f = 0, n = "", o = arguments.length; f < o; f++) (e = arguments[f]) && (t = r(e)) && (n && (n += " "), n += t);
+			return n;
+		}
+		//#endregion
+		//#region \0dsh-css:D:\deepseek-harness\packages\client\ui-model-selection\src\client\ModelSelect.module.css.mjs
+		const css = ".-uY0IW_root{min-width:0;position:relative}.-uY0IW_trigger{border-radius:var(--dsw-radius-sm);min-width:0;max-width:min(360px,45cqw);height:28px;color:var(--dsw-alias-label-secondary);cursor:pointer;background:0 0;border:none;outline:none;align-items:center;gap:4px;padding:0 4px 0 8px;font-size:13px;font-weight:400;line-height:20px;display:flex}.-uY0IW_trigger:hover:not(:disabled){background:var(--dsw-alias-interactive-bg-hover)}.-uY0IW_trigger:focus-visible:not([data-selection-focus]){box-shadow:0 0 0 2px var(--dsw-focus-ring-color,var(--dsw-alias-state-business-primary))}.-uY0IW_trigger:disabled{color:var(--dsw-alias-label-dimmed);cursor:default}.-uY0IW_triggerLabel{text-overflow:ellipsis;white-space:nowrap;min-width:0;overflow:hidden}.-uY0IW_triggerEffort{text-overflow:ellipsis;white-space:nowrap;min-width:0;color:var(--dsw-alias-label-caption);flex-shrink:1000;overflow:hidden}.-uY0IW_triggerIcon{display:var(--dsh-composer-model-icon-display,none);flex:none}.-uY0IW_triggerLabel,.-uY0IW_triggerEffort{display:var(--dsh-composer-model-text-display,block)}.-uY0IW_chevron{color:var(--dsw-alias-label-caption);flex:none;transition:transform .12s}.-uY0IW_chevronOpen{transform:rotate(180deg)}.-uY0IW_menu{z-index:1100;--dsw-elevation-stroke-color:var(--dsw-alias-border-l1);width:max-content;min-width:min(240px,100vw - 32px);max-width:min(420px,100vw - 32px);max-height:min(360px,100vh - 96px);box-shadow:var(--dsw-elevation-prominent);color:var(--dsw-alias-label-primary);--dsh-scrollbar-thumb:var(--dsw-alias-scrollbar-bg-l2);--dsh-scrollbar-thumb-hover:var(--dsw-alias-scrollbar-hover-l2);border:0;flex-direction:column;padding:4px;display:flex;position:fixed;overflow:hidden}.-uY0IW_status,.-uY0IW_empty{color:var(--dsw-alias-label-tertiary);padding:8px;font-size:12px;line-height:18px}.-uY0IW_error,.-uY0IW_warning{border-radius:var(--dsw-radius-md);background:var(--dsw-alias-interactive-bg-hover-danger);color:var(--dsw-alias-state-error-primary);justify-content:space-between;align-items:flex-start;gap:6px;margin-bottom:3px;padding:6px 7px;font-size:11px;line-height:16px;display:flex}.-uY0IW_warning{background:var(--dsw-alias-bg-module-platform);color:var(--dsw-alias-state-warn-label)}.-uY0IW_retry{color:inherit;font:inherit;cursor:pointer;background:0 0;border:none;flex:none;padding:0;font-weight:600}.-uY0IW_searchRow{flex-shrink:0;margin:2px 0 3px;position:relative}.-uY0IW_searchRow .-uY0IW_search{border-radius:var(--dsw-radius-md);background:0 0;border:0 solid #0000;height:auto;padding:5px 7px;display:flex}.-uY0IW_searchRow .-uY0IW_searchWithQuery{padding-right:34px}.-uY0IW_searchClear{corner-shape:round;width:24px;height:24px;color:var(--dsw-alias-label-secondary);cursor:pointer;background:0 0;border:none;border-radius:50%;justify-content:center;align-items:center;padding:0;display:inline-flex;position:absolute;top:50%;right:4px;transform:translateY(-50%)}.-uY0IW_searchClear:hover,.-uY0IW_searchClear:focus-visible{background:var(--dsw-alias-interactive-bg-hover);outline:none}.-uY0IW_searchRow .-uY0IW_search:focus-within{border-color:#0000}.-uY0IW_searchRow .-uY0IW_search input{padding:0;font-size:12px;line-height:normal}.-uY0IW_searchRow .-uY0IW_search input::placeholder{color:var(--dsw-alias-label-caption)}.-uY0IW_groups{min-height:0;overflow-y:auto}.-uY0IW_option{box-sizing:border-box;border-radius:var(--dsw-radius-md);width:auto;min-width:100%;min-height:34px;color:inherit;text-align:left;cursor:pointer;background:0 0;border:none;outline:none;align-items:center;gap:6px;padding:5px 7px;display:flex}.-uY0IW_option:not(.-uY0IW_modelOption):hover:not(:disabled),.-uY0IW_option:focus-visible,.-uY0IW_optionActive:not(:disabled){background:var(--dsw-alias-interactive-bg-hover)}.-uY0IW_selected{background:0 0}.-uY0IW_option:disabled{color:var(--dsw-alias-label-dimmed);cursor:default}.-uY0IW_optionCopy{flex-direction:column;flex:1;min-width:0;display:flex}.-uY0IW_modelName{color:inherit;text-overflow:ellipsis;white-space:nowrap;font-size:13px;font-weight:400;line-height:18px;overflow:hidden}.-uY0IW_check{color:var(--dsw-alias-label-primary);flex:0 0 14px;place-items:center;display:grid}.-uY0IW_check svg{width:14px;height:14px}.-uY0IW_cell{box-sizing:border-box;border-radius:var(--dsw-radius-md);width:auto;min-width:100%;height:34px;color:var(--dsw-alias-label-primary);cursor:pointer;text-align:left;background:0 0;border:none;outline:none;align-items:center;gap:6px;padding:0 8px;font-size:13px;line-height:20px;display:flex}.-uY0IW_cell:hover,.-uY0IW_cell:focus-visible{background:var(--dsw-alias-interactive-bg-hover)}.-uY0IW_cellLabel{white-space:nowrap;flex:none}.-uY0IW_cellValue{text-overflow:ellipsis;white-space:nowrap;text-align:right;min-width:0;color:var(--dsw-alias-label-tertiary);flex:auto;overflow:hidden}.-uY0IW_cellChevron{width:12px;height:12px;color:var(--dsw-alias-menu-icon);flex:none}";
+		const tagId = "@deepseek-ai/dsh-client-ui-model-selection/ModelSelect.module.css";
 		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId) + "]") === null) {
 			const tag = document.createElement("style");
-			tag.dataset.plugin = "@deepseek-ai/dsh-client-ui-goal";
+			tag.dataset.plugin = "@deepseek-ai/dsh-client-ui-model-selection";
 			tag.dataset.pluginCss = tagId;
 			tag.textContent = css;
 			document.head.appendChild(tag);
 		}
-		var GoalCommandInputView_module_css_default = {
-			"bubble": "NkfN_W_bubble",
-			"row": "NkfN_W_row",
-			"stack": "NkfN_W_stack"
+		var ModelSelect_module_css_default = {
+			"cell": "-uY0IW_cell",
+			"cellChevron": "-uY0IW_cellChevron",
+			"cellLabel": "-uY0IW_cellLabel",
+			"cellValue": "-uY0IW_cellValue",
+			"check": "-uY0IW_check",
+			"chevron": "-uY0IW_chevron",
+			"chevronOpen": "-uY0IW_chevronOpen",
+			"empty": "-uY0IW_empty",
+			"error": "-uY0IW_error",
+			"groups": "-uY0IW_groups",
+			"menu": "-uY0IW_menu",
+			"modelName": "-uY0IW_modelName",
+			"modelOption": "-uY0IW_modelOption",
+			"option": "-uY0IW_option",
+			"optionActive": "-uY0IW_optionActive",
+			"optionCopy": "-uY0IW_optionCopy",
+			"retry": "-uY0IW_retry",
+			"root": "-uY0IW_root",
+			"search": "-uY0IW_search",
+			"searchClear": "-uY0IW_searchClear",
+			"searchRow": "-uY0IW_searchRow",
+			"searchWithQuery": "-uY0IW_searchWithQuery",
+			"selected": "-uY0IW_selected",
+			"status": "-uY0IW_status",
+			"trigger": "-uY0IW_trigger",
+			"triggerEffort": "-uY0IW_triggerEffort",
+			"triggerIcon": "-uY0IW_triggerIcon",
+			"triggerLabel": "-uY0IW_triggerLabel",
+			"warning": "-uY0IW_warning"
 		};
 		//#endregion
-		//#region lib/types/client/GoalCommandInputView.js
+		//#region lib/types/client/provider-order.js
+		/** Shared provider display order for the composer and command model pickers. */
 		/**
-		* Right-aligned `/goal` input bubble without ordinary message actions. The
-		* echoed line decorates its leading `/goal` token as a command chip — the run
-		* this Node projects is the fact that that token was a command — and keeps
-		* the objective, `/goal` mentions included, as plain text.
+		* Put the account and official providers first, preserving every other relative order.
+		* @param groups - Provider groups in catalog order.
+		* @returns a sorted copy; model order within each group is unchanged.
 		*/
-		const GoalCommandInputView = (0, react.memo)(function GoalCommandInputView({ node, t }) {
-			const data = node.data;
-			const split = data.text.search(/\s/u);
-			const head = split === -1 ? data.text : data.text.slice(0, split);
-			const rest = split === -1 ? "" : data.text.slice(split);
-			return (0, react_jsx_runtime.jsx)("div", {
-				className: GoalCommandInputView_module_css_default.row,
-				"data-command-input": "",
-				role: "group",
-				"aria-label": t("commandInput.aria"),
-				children: (0, react_jsx_runtime.jsx)("div", {
-					className: GoalCommandInputView_module_css_default.stack,
-					children: (0, react_jsx_runtime.jsxs)("div", {
-						className: GoalCommandInputView_module_css_default.bubble,
-						children: [(0, _deepseek_ai_dsh_client_ui_primitives.projectUserText)(head, [], [GOAL_COMMAND], "command"), rest !== "" && (0, _deepseek_ai_dsh_client_ui_primitives.projectUserText)(rest, [])]
-					})
-				})
+		function orderModelProviders(groups) {
+			return groups.toSorted((left, right) => (left.id === "deepseek-account" ? 0 : left.id === "deepseek-official" ? 1 : 2) - (right.id === "deepseek-account" ? 0 : right.id === "deepseek-official" ? 1 : 2));
+		}
+		//#endregion
+		//#region lib/types/client/ModelSelect.js
+		/**
+		* ModelSelect: the composer's named model seat (`conversation.input.model`).
+		* Two-level selection per figma 496:26454's MenuDropdown: the root menu is
+		* the Model / Effort row pair (label + current value + a right chevron),
+		* each drilling into its own list — the provider-grouped model list over
+		* the shared directory, and the effort levels. The trigger (313:14108's
+		* ToggleButton) shows both: model name + effort in the caption tone.
+		* Model catalogs above four entries show search, which retains focus while
+		* ↑/↓ cycle the highlighted result; Enter and Tab accept it. Smaller model
+		* catalogs, root panes, and effort panes move focus between rows. Escape and Shift+Tab leave a drilled pane first and otherwise close
+		* back to the trigger. A drilled pane focuses the current effort or model
+		* search field. Provider headings paint their background only while pinned
+		* by scrolling. Clearing a query restores the full list and search focus.
+		* Selecting restores trigger focus without a ring until the trigger loses focus
+		* or the menu reopens. Model names match a case-insensitive ordered subsequence
+		* within each provider group, ranked by
+		* prefix, alignment score, then catalog order. Returning to the root pane
+		* hands focus back to the cell that opened it. Data and submission ride the
+		* same per-session ModelDirectory as the /model popup; exact-model reasoning
+		* metadata and the selected effort come from the Host rather than a
+		* client-owned vocabulary. A rejected selection announces through the shared
+		* transient Toast anchored to the composer card; the in-menu strip with
+		* Retry remains the catalog-load surface. While the directory's pending
+		* selection is unsettled, the trigger shows a spinner in place of its
+		* chevron, and each row whose value that selection carries shows one in place
+		* of its check mark.
+		*/
+		/** Unplaced portal card: hidden but laid out at a fixed origin so offsetWidth/offsetHeight are real (Menu primitive's measure pass). */
+		const MEASURE_STYLE = {
+			visibility: "hidden",
+			left: 0,
+			top: 0
+		};
+		/**
+		* Render the composer model seat.
+		* @param props - owner share (locked) + injected face (shared directory
+		* store/verbs) + the standard locale seat.
+		* @returns the trigger and, while open, the two-level menu.
+		*/
+		function ModelSelect({ locked, available, directory, load, select, t }) {
+			const state = (0, react.useSyncExternalStore)((fn) => directory.subscribe(fn), () => directory.getSnapshot());
+			const [open, setOpen] = (0, react.useState)(false);
+			const [pane, setPane] = (0, react.useState)("root");
+			const [query, setQuery] = (0, react.useState)("");
+			const [highlightedIndex, setHighlightedIndex] = (0, react.useState)(null);
+			const [selectionFocus, setSelectionFocus] = (0, react.useState)(false);
+			const lastActionRef = (0, react.useRef)("load");
+			const [toast, setToast] = (0, react.useState)(null);
+			const toastSeq = (0, react.useRef)(0);
+			const rootRef = (0, react.useRef)(null);
+			const triggerRef = (0, react.useRef)(null);
+			const searchRef = (0, react.useRef)(null);
+			const menuRef = (0, react.useRef)(null);
+			const groupsRef = (0, react.useRef)(null);
+			const [menuPos, setMenuPos] = (0, react.useState)(null);
+			const itemRefs = (0, react.useRef)([]);
+			const id = (0, react.useId)();
+			const groups = (0, react.useMemo)(() => orderModelProviders(state.groups), [state.groups]);
+			const choices = (0, react.useMemo)(() => groups.flatMap((group) => group.models.map((model) => ({
+				group,
+				model,
+				selection: {
+					provider: group.id,
+					model: model.id,
+					...model.reasoning?.defaultEffort === void 0 ? {} : { reasoningEffort: model.reasoning.defaultEffort }
+				}
+			}))), [groups]);
+			const showSearch = choices.length > 4;
+			const filteredGroups = (0, react.useMemo)(() => groups.map((group) => ({
+				...group,
+				models: (0, _deepseek_ai_dsh_client_ui_primitives.rankByName)(group.models, showSearch ? query.trim() : "")
+			})).filter((group) => group.models.length > 0), [
+				groups,
+				query,
+				showSearch
+			]);
+			const visibleModels = (0, react.useMemo)(() => filteredGroups.flatMap((group) => group.models.map((model) => ({
+				provider: group.id,
+				model: model.id
+			}))), [filteredGroups]);
+			const currentVisibleIndex = visibleModels.findIndex((model) => model.provider === state.current?.provider && model.model === state.current.model);
+			const activeModelIndex = Math.min(highlightedIndex ?? Math.max(0, currentVisibleIndex), visibleModels.length - 1);
+			const currentChoice = choices[state.current === null ? -1 : choices.findIndex((c) => c.selection.provider === state.current?.provider && c.selection.model === state.current.model)];
+			const reasoning = currentChoice?.model.reasoning;
+			const effectiveEffort = state.current?.reasoningEffort ?? reasoning?.defaultEffort;
+			const effortLabel = reasoning === void 0 ? state.retainedEffort : effectiveEffort === void 0 ? t("effort.providerDefault") : reasoning.efforts.find((level) => level.id === effectiveEffort)?.name ?? effectiveEffort;
+			const effortChoices = (0, react.useMemo)(() => reasoning === void 0 ? [] : [...reasoning.defaultEffort === void 0 ? [{
+				key: "provider-default",
+				effort: void 0,
+				label: t("effort.providerDefault")
+			}] : [], ...reasoning.efforts.map((effort) => ({
+				key: `effort:${effort.id}`,
+				effort: effort.id,
+				label: effort.name
+			}))], [reasoning, t]);
+			const { pending } = state;
+			const busy = pending !== null;
+			const reload = () => {
+				lastActionRef.current = "load";
+				load();
+			};
+			(0, react.useEffect)(() => {
+				if (!open) return;
+				const closeOutside = (event) => {
+					if (rootRef.current?.contains(event.target) === true) return;
+					if (menuRef.current?.contains(event.target) === true) return;
+					setOpen(false);
+				};
+				document.addEventListener("mousedown", closeOutside);
+				return () => {
+					document.removeEventListener("mousedown", closeOutside);
+				};
+			}, [open]);
+			(0, react.useLayoutEffect)(() => {
+				if (!showSearch) {
+					setQuery("");
+					setHighlightedIndex(null);
+				}
+			}, [showSearch]);
+			const paneFocus = (0, react.useRef)(null);
+			const previousShowSearch = (0, react.useRef)(showSearch);
+			(0, react.useEffect)(() => {
+				const changedSearchMode = previousShowSearch.current !== showSearch;
+				previousShowSearch.current = showSearch;
+				const intent = paneFocus.current ?? (changedSearchMode && pane === "model" ? "drill" : null);
+				paneFocus.current = null;
+				if (!open || intent === null) return;
+				if (intent === "drill") {
+					if (pane === "model" && showSearch) {
+						searchRef.current?.focus();
+						return;
+					}
+					(menuRef.current?.querySelector("[role=\"menuitemradio\"][aria-checked=\"true\"]:not([disabled])") ?? itemRefs.current.find((item) => item !== null && !item.disabled) ?? triggerRef.current)?.focus();
+					return;
+				}
+				const cell = itemRefs.current[intent === "effort" ? 1 : 0];
+				(cell !== null && cell !== void 0 && !cell.disabled ? cell : triggerRef.current)?.focus();
+			}, [
+				open,
+				pane,
+				showSearch
+			]);
+			(0, react.useEffect)(() => {
+				const viewport = groupsRef.current;
+				if (viewport === null) return;
+				return (0, _deepseek_ai_dsh_client_ui_primitives.observeStickyMenuGroups)(viewport);
+			}, [
+				available,
+				open,
+				pane,
+				filteredGroups
+			]);
+			(0, react.useLayoutEffect)(() => {
+				if (open && pane === "model" && activeModelIndex >= 0) itemRefs.current[activeModelIndex]?.scrollIntoView({ block: "nearest" });
+			}, [
+				open,
+				pane,
+				activeModelIndex,
+				visibleModels
+			]);
+			(0, react.useLayoutEffect)(() => {
+				if (!open) {
+					setMenuPos(null);
+					return;
+				}
+				const place = () => {
+					/* v8 ignore next 2 -- the trigger ref is attached whenever the menu is open. */
+					const rect = triggerRef.current?.getBoundingClientRect();
+					if (rect === void 0) return;
+					const MARGIN = 12;
+					const lw = menuRef.current?.offsetWidth ?? 0;
+					const lh = menuRef.current?.offsetHeight ?? 0;
+					let x = rect.right - lw;
+					let y = rect.top - 8 - lh;
+					if (lw > 0) x = Math.min(Math.max(x, MARGIN), window.innerWidth - lw - MARGIN);
+					if (lh > 0) y = Math.min(Math.max(y, MARGIN), window.innerHeight - lh - MARGIN);
+					setMenuPos({
+						left: x,
+						top: y
+					});
+				};
+				place();
+				window.addEventListener("scroll", place, true);
+				window.addEventListener("resize", place);
+				return () => {
+					window.removeEventListener("scroll", place, true);
+					window.removeEventListener("resize", place);
+				};
+			}, [
+				open,
+				pane,
+				state,
+				query
+			]);
+			if (!available) return null;
+			const show = () => {
+				setSelectionFocus(false);
+				triggerRef.current?.focus();
+				setQuery("");
+				setHighlightedIndex(null);
+				if (state.current === null) paneFocus.current = "drill";
+				setPane(state.current === null ? "model" : "root");
+				setOpen(true);
+				reload();
+			};
+			const changeQuery = (next) => {
+				setQuery(next);
+				setHighlightedIndex(0);
+			};
+			const close = (restoreFocus = false) => {
+				setOpen(false);
+				setPane("root");
+				if (restoreFocus) queueMicrotask(() => {
+					triggerRef.current?.focus();
+				});
+			};
+			const closeAfterSelection = () => {
+				setSelectionFocus(true);
+				close(true);
+			};
+			const drill = (next) => {
+				setQuery("");
+				setHighlightedIndex(null);
+				paneFocus.current = "drill";
+				setPane(next);
+			};
+			/** Leave a drilled pane for the root one, handing the keyboard back to its cell. */
+			const back = (from) => {
+				paneFocus.current = from;
+				setPane("root");
+			};
+			const moveFocus = (offset) => {
+				const items = itemRefs.current.filter((item) => item !== null);
+				if (items.length === 0) return;
+				const active = items.findIndex((item) => item === document.activeElement);
+				items[active === -1 ? offset > 0 ? 0 : items.length - 1 : (active + offset + items.length) % items.length]?.focus();
+			};
+			const onRootKeyDown = (event) => {
+				if (event.nativeEvent.isComposing) return;
+				if (event.key === "Escape" && open) {
+					event.preventDefault();
+					if (pane !== "root" && state.current !== null) back(pane);
+					else close(true);
+					return;
+				}
+				if (!open) return;
+				if (pane === "model" && showSearch && (event.key === "ArrowDown" || event.key === "ArrowUp")) {
+					event.preventDefault();
+					if (!busy && visibleModels.length > 0) {
+						setHighlightedIndex((activeModelIndex + (event.key === "ArrowDown" ? 1 : -1) + visibleModels.length) % visibleModels.length);
+						searchRef.current?.focus();
+					}
+					return;
+				}
+				if (pane === "model" && showSearch && event.target instanceof HTMLInputElement && (event.key === "Enter" || event.key === "Tab" && !event.shiftKey)) {
+					if (event.key === "Tab" && visibleModels.length === 0) return;
+					event.preventDefault();
+					const highlighted = visibleModels[activeModelIndex];
+					if (!busy && highlighted !== void 0) choose(highlighted);
+					return;
+				}
+				if (event.key === "Tab") {
+					if (event.shiftKey) {
+						event.preventDefault();
+						if (pane !== "root" && state.current !== null) back(pane);
+						else close(true);
+						return;
+					}
+					const focused = document.activeElement;
+					const rows = itemRefs.current.filter((item) => item !== null);
+					if (focused instanceof HTMLButtonElement && rows.includes(focused)) {
+						event.preventDefault();
+						focused.click();
+						return;
+					}
+					if (focused !== triggerRef.current) return;
+					event.preventDefault();
+					if (pane === "model" && showSearch) {
+						setHighlightedIndex(null);
+						searchRef.current?.focus();
+						return;
+					}
+					(menuRef.current?.querySelector("[role=\"menuitemradio\"][aria-checked=\"true\"]:not([disabled])") ?? rows.find((item) => !item.disabled))?.focus();
+					return;
+				}
+				if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+					event.preventDefault();
+					moveFocus(event.key === "ArrowDown" ? 1 : -1);
+				}
+			};
+			const onBlur = (event) => {
+				if (event.relatedTarget instanceof Node && (rootRef.current?.contains(event.relatedTarget) === true || menuRef.current?.contains(event.relatedTarget) === true)) return;
+				close();
+			};
+			const settleSelection = (result) => {
+				if (result === void 0) return;
+				if (result.ok) {
+					if (rootRef.current !== null) closeAfterSelection();
+					return;
+				}
+				const { error } = result;
+				toastSeq.current += 1;
+				setToast({
+					seq: toastSeq.current,
+					text: error.code === "session/writer-held" ? t("error.sessionInUse") : t("error.action", { message: `${error.code}: ${error.message}` })
+				});
+			};
+			const submit = (selection) => {
+				lastActionRef.current = "select";
+				setSelectionFocus(true);
+				triggerRef.current?.focus();
+				select(selection).then(settleSelection);
+			};
+			const choose = (selection) => {
+				if (state.current?.provider === selection.provider && state.current.model === selection.model) {
+					closeAfterSelection();
+					return;
+				}
+				submit(selection);
+			};
+			const chooseEffort = (effort) => {
+				if (state.current === null) return;
+				if (effectiveEffort === effort) {
+					closeAfterSelection();
+					return;
+				}
+				submit({
+					provider: state.current.provider,
+					model: state.current.model,
+					...effort === void 0 ? {} : { reasoningEffort: effort }
+				});
+			};
+			const waiting = state.current === null && state.status === "loading";
+			const modelLabel = waiting ? t("trigger.loading") : currentChoice?.model.name ?? (state.current === null ? t("trigger.fallback") : `${state.current.provider}/${state.current.model}`);
+			const triggerLabel = effortLabel === void 0 ? modelLabel : `${modelLabel} · ${effortLabel}`;
+			const triggerAria = waiting ? t("trigger.loading") : state.current === null ? t("trigger.selectAria") : effortLabel === void 0 ? t("trigger.aria", { model: modelLabel }) : t("trigger.ariaEffort", {
+				model: modelLabel,
+				effort: effortLabel
 			});
-		});
+			itemRefs.current = [];
+			let itemIndex = 0;
+			let modelIndex = 0;
+			const itemRef = () => {
+				const at = itemIndex++;
+				return (node) => {
+					itemRefs.current[at] = node;
+				};
+			};
+			return (0, react_jsx_runtime.jsxs)("div", {
+				ref: rootRef,
+				className: ModelSelect_module_css_default.root,
+				onKeyDown: onRootKeyDown,
+				onBlur,
+				onMouseDown: (event) => {
+					if (event.target instanceof Element && event.target.closest("button") !== null) event.preventDefault();
+				},
+				children: [
+					(0, react_jsx_runtime.jsxs)("button", {
+						ref: triggerRef,
+						type: "button",
+						className: ModelSelect_module_css_default.trigger,
+						"aria-label": triggerAria,
+						"aria-haspopup": "menu",
+						"aria-expanded": open,
+						"aria-controls": open ? `${id}-menu` : void 0,
+						title: triggerLabel,
+						"aria-busy": busy,
+						"data-selection-focus": selectionFocus ? "" : void 0,
+						onBlur: () => {
+							setSelectionFocus(false);
+						},
+						disabled: locked,
+						onClick: () => {
+							if (open) close(true);
+							else show();
+						},
+						children: [
+							(0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconDataOutlineRegular, {
+								className: ModelSelect_module_css_default.triggerIcon,
+								size: 16
+							}),
+							(0, react_jsx_runtime.jsx)("span", {
+								className: ModelSelect_module_css_default.triggerLabel,
+								children: modelLabel
+							}),
+							effortLabel !== void 0 && (0, react_jsx_runtime.jsx)("span", {
+								className: ModelSelect_module_css_default.triggerEffort,
+								children: effortLabel
+							}),
+							busy ? (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.StateDot, { state: "ongoing" }) : (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconChevronDownOutlineRegular, { className: clsx(ModelSelect_module_css_default.chevron, open && ModelSelect_module_css_default.chevronOpen) })
+						]
+					}),
+					open && (0, react_dom.createPortal)((0, react_jsx_runtime.jsxs)(_deepseek_ai_dsh_client_ui_primitives.MenuSurface, {
+						ref: menuRef,
+						id: `${id}-menu`,
+						className: ModelSelect_module_css_default.menu,
+						style: menuPos ?? MEASURE_STYLE,
+						role: pane === "model" ? "group" : "menu",
+						"aria-label": t("menu.aria"),
+						"aria-busy": state.status === "loading" || busy,
+						children: [
+							pane === "root" && (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [(0, react_jsx_runtime.jsxs)("button", {
+								ref: itemRef(),
+								type: "button",
+								role: "menuitem",
+								className: ModelSelect_module_css_default.cell,
+								onClick: () => {
+									drill("model");
+								},
+								children: [
+									(0, react_jsx_runtime.jsx)("span", {
+										className: ModelSelect_module_css_default.cellLabel,
+										children: t("menu.model")
+									}),
+									(0, react_jsx_runtime.jsx)("span", {
+										className: ModelSelect_module_css_default.cellValue,
+										children: modelLabel
+									}),
+									(0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconChevronRightOutlineRegular, { className: ModelSelect_module_css_default.cellChevron })
+								]
+							}), reasoning !== void 0 && (0, react_jsx_runtime.jsxs)("button", {
+								ref: itemRef(),
+								type: "button",
+								role: "menuitem",
+								className: ModelSelect_module_css_default.cell,
+								onClick: () => {
+									drill("effort");
+								},
+								children: [
+									(0, react_jsx_runtime.jsx)("span", {
+										className: ModelSelect_module_css_default.cellLabel,
+										children: t("menu.effort")
+									}),
+									(0, react_jsx_runtime.jsx)("span", {
+										className: ModelSelect_module_css_default.cellValue,
+										children: effortLabel
+									}),
+									(0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconChevronRightOutlineRegular, { className: ModelSelect_module_css_default.cellChevron })
+								]
+							})] }),
+							pane === "model" && (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [
+								showSearch && (0, react_jsx_runtime.jsxs)("div", {
+									className: ModelSelect_module_css_default.searchRow,
+									children: [(0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Input, {
+										ref: searchRef,
+										className: clsx(ModelSelect_module_css_default.search, query !== "" && ModelSelect_module_css_default.searchWithQuery),
+										type: "text",
+										role: "searchbox",
+										"aria-label": t("search.placeholder"),
+										"aria-controls": `${id}-models`,
+										"aria-activedescendant": activeModelIndex < 0 ? void 0 : `${id}-model-${activeModelIndex}`,
+										placeholder: t("search.placeholder"),
+										value: query,
+										readOnly: busy,
+										onChange: (event) => {
+											changeQuery(event.target.value);
+										}
+									}), query !== "" && (0, react_jsx_runtime.jsx)("button", {
+										type: "button",
+										className: ModelSelect_module_css_default.searchClear,
+										"aria-label": t("search.clear"),
+										disabled: busy,
+										onClick: () => {
+											changeQuery("");
+											searchRef.current?.focus();
+										},
+										children: (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconCloseFillRegular, {})
+									})]
+								}),
+								state.status === "loading" && (0, react_jsx_runtime.jsx)("div", {
+									className: ModelSelect_module_css_default.status,
+									children: t("status.loading")
+								}),
+								state.error !== null && lastActionRef.current === "load" && (0, react_jsx_runtime.jsxs)("div", {
+									className: ModelSelect_module_css_default.error,
+									children: [(0, react_jsx_runtime.jsx)("span", { children: t("error.action", { message: state.error }) }), (0, react_jsx_runtime.jsx)("button", {
+										type: "button",
+										className: ModelSelect_module_css_default.retry,
+										onClick: reload,
+										children: t("retry")
+									})]
+								}),
+								state.failures.map((failure) => (0, react_jsx_runtime.jsxs)("div", {
+									className: ModelSelect_module_css_default.warning,
+									children: [(0, react_jsx_runtime.jsx)("span", { children: t("warning.groupLoad", {
+										name: failure.id === "deepseek-account" ? t("provider.account") : failure.name,
+										message: failure.message
+									}) }), (0, react_jsx_runtime.jsx)("button", {
+										type: "button",
+										className: ModelSelect_module_css_default.retry,
+										onClick: reload,
+										children: t("retry")
+									})]
+								}, failure.id)),
+								(0, react_jsx_runtime.jsx)("div", {
+									ref: groupsRef,
+									id: `${id}-models`,
+									className: clsx(ModelSelect_module_css_default.groups, "scrollable"),
+									role: "menu",
+									"aria-label": t("menu.model"),
+									hidden: filteredGroups.length === 0,
+									children: filteredGroups.map((group) => {
+										return (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.MenuGroup, {
+											label: group.id === "deepseek-account" ? t("provider.account") : group.name,
+											children: group.models.map((model) => {
+												const index = modelIndex++;
+												const selected = state.current?.provider === group.id && state.current.model === model.id;
+												return (0, react_jsx_runtime.jsxs)("button", {
+													ref: itemRef(),
+													type: "button",
+													role: "menuitemradio",
+													"aria-checked": selected,
+													id: `${id}-model-${index}`,
+													tabIndex: showSearch ? -1 : 0,
+													onFocus: () => {
+														setHighlightedIndex(index);
+													},
+													"data-highlighted": index === activeModelIndex ? "" : void 0,
+													className: clsx(ModelSelect_module_css_default.option, ModelSelect_module_css_default.modelOption, selected && ModelSelect_module_css_default.selected, index === activeModelIndex && ModelSelect_module_css_default.optionActive),
+													onMouseMove: busy || index === activeModelIndex ? void 0 : () => {
+														if (showSearch) setHighlightedIndex(index);
+														else itemRefs.current[index]?.focus();
+													},
+													title: model.name,
+													disabled: busy,
+													onClick: () => {
+														choose({
+															provider: group.id,
+															model: model.id
+														});
+													},
+													children: [(0, react_jsx_runtime.jsx)("span", {
+														className: ModelSelect_module_css_default.optionCopy,
+														children: (0, react_jsx_runtime.jsx)("span", {
+															className: ModelSelect_module_css_default.modelName,
+															children: model.name
+														})
+													}), (0, react_jsx_runtime.jsx)("span", {
+														className: ModelSelect_module_css_default.check,
+														children: pending?.provider === group.id && pending.model === model.id ? (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.StateDot, { state: "ongoing" }) : selected ? (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconCheckOutlineRegular, {}) : null
+													})]
+												}, model.id);
+											})
+										}, group.id);
+									})
+								}),
+								state.status === "ready" && filteredGroups.length === 0 && (0, react_jsx_runtime.jsx)("div", {
+									className: ModelSelect_module_css_default.empty,
+									role: "status",
+									children: t(choices.length === 0 ? "empty.models" : "search.empty")
+								})
+							] }),
+							pane === "effort" && (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [state.error !== null && lastActionRef.current === "load" && (0, react_jsx_runtime.jsxs)("div", {
+								className: ModelSelect_module_css_default.error,
+								children: [(0, react_jsx_runtime.jsx)("span", { children: t("error.action", { message: state.error }) }), (0, react_jsx_runtime.jsx)("button", {
+									type: "button",
+									className: ModelSelect_module_css_default.retry,
+									onClick: reload,
+									children: t("action.reload")
+								})]
+							}), effortChoices.length === 0 ? (0, react_jsx_runtime.jsx)("div", {
+								className: ModelSelect_module_css_default.empty,
+								children: t("empty.efforts")
+							}) : effortChoices.map((level) => (0, react_jsx_runtime.jsxs)("button", {
+								ref: itemRef(),
+								type: "button",
+								role: "menuitemradio",
+								"aria-checked": effectiveEffort === level.effort,
+								className: clsx(ModelSelect_module_css_default.option, effectiveEffort === level.effort && ModelSelect_module_css_default.selected),
+								disabled: busy,
+								onClick: () => {
+									chooseEffort(level.effort);
+								},
+								children: [(0, react_jsx_runtime.jsx)("span", {
+									className: ModelSelect_module_css_default.optionCopy,
+									children: (0, react_jsx_runtime.jsx)("span", {
+										className: ModelSelect_module_css_default.modelName,
+										children: level.label
+									})
+								}), (0, react_jsx_runtime.jsx)("span", {
+									className: ModelSelect_module_css_default.check,
+									children: pending !== null && pending.provider === state.current?.provider && pending.model === state.current.model && pending.reasoningEffort === level.effort ? (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.StateDot, { state: "ongoing" }) : effectiveEffort === level.effort ? (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconCheckOutlineRegular, {}) : null
+								})]
+							}, level.key))] })
+						]
+					}), document.body),
+					toast !== null && (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Toast, {
+						text: toast.text,
+						icon: (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconWarningOutlineRegular, {}),
+						anchor: rootRef.current?.closest("[data-composer-card]") ?? null,
+						onDone: () => {
+							setToast(null);
+						}
+					}, toast.seq)
+				]
+			});
+		}
 		//#endregion
 		//#region lib/types/client/locales.js
-		/** `goal` namespace dictionaries. */
+		/**
+		* `model` namespace dictionaries.
+		*
+		* `trigger.selectAria` intentionally matches `trigger.fallback` but remains a
+		* separate key: the visible fallback label and the accessible name of
+		* an unset trigger are free to diverge per locale, and folding it into
+		* `trigger.aria` would announce the degenerate "Select model, current Select
+		* model".
+		*/
 		/** Simplified Chinese dictionary (the key-set source of truth). */
 		const zh = {
-			"phase.active": "进行中的目标",
-			"phase.active.disarmed": "未运行的目标",
-			"phase.paused": "已暂停的目标",
-			"phase.blocked": "受阻的目标",
-			"objective.aria": "目标内容",
-			"commandInput.aria": "指令输入",
-			"action.save": "保存目标",
-			"action.cancel": "取消编辑",
-			"action.pause": "暂停目标",
-			"action.resume": "恢复目标",
-			"action.edit": "编辑目标",
-			"action.clear": "清除目标"
+			"provider.account": "DeepSeek 账号",
+			"command.label": "模型",
+			"command.description": "选择本会话使用的模型",
+			"option.loadError": "目录加载失败：{message}",
+			"trigger.fallback": "请选择模型",
+			"trigger.loading": "正在加载模型…",
+			"trigger.selectAria": "请选择模型",
+			"trigger.aria": "选择模型，当前 {model}",
+			"trigger.ariaEffort": "选择模型，当前 {model}，推理等级 {effort}",
+			"menu.aria": "模型与推理等级",
+			"menu.model": "模型",
+			"menu.effort": "推理等级",
+			"effort.providerDefault": "Default",
+			"status.loading": "正在刷新模型列表…",
+			"error.action": "模型操作失败：{message}",
+			"error.sessionInUse": "当前会话已被占用，可能是其他正在运行的 DSH 导致的（如其他 dsh web、桌面端），请退出其他正在运行的 DSH 后重试。",
+			"action.reload": "重新加载",
+			"warning.groupLoad": "{name} 加载失败：{message}",
+			"search.placeholder": "搜索模型…",
+			"search.clear": "清除搜索",
+			"search.empty": "没有匹配的模型。",
+			"empty.models": "没有可用的模型。",
+			"empty.efforts": "当前模型未提供推理等级。"
 		};
 		/** English dictionary, checked complete against the zh key set. */
 		const en = {
-			"phase.active": "Ongoing Goal",
-			"phase.active.disarmed": "Inactive Goal",
-			"phase.paused": "Paused Goal",
-			"phase.blocked": "Blocked Goal",
-			"objective.aria": "Goal objective",
-			"commandInput.aria": "Command input",
-			"action.save": "Save goal",
-			"action.cancel": "Cancel edit",
-			"action.pause": "Pause goal",
-			"action.resume": "Resume goal",
-			"action.edit": "Edit goal",
-			"action.clear": "Clear goal"
+			"provider.account": "DeepSeek Account",
+			"command.label": "Model",
+			"command.description": "Select the model for this conversation",
+			"option.loadError": "Catalog failed to load: {message}",
+			"trigger.fallback": "Select model",
+			"trigger.loading": "Loading models…",
+			"trigger.selectAria": "Select model",
+			"trigger.aria": "Select model, current {model}",
+			"trigger.ariaEffort": "Select model, current {model}, reasoning effort {effort}",
+			"menu.aria": "Model and reasoning effort",
+			"menu.model": "Model",
+			"menu.effort": "Effort",
+			"effort.providerDefault": "Default",
+			"status.loading": "Refreshing model list…",
+			"error.action": "Model operation failed: {message}",
+			"error.sessionInUse": "This session is already in use, possibly by another running DSH instance (such as dsh web or the desktop app). Quit other running DSH instances and try again.",
+			"action.reload": "Reload",
+			"warning.groupLoad": "{name} failed to load: {message}",
+			"search.placeholder": "Search models…",
+			"search.clear": "Clear search",
+			"search.empty": "No matching models.",
+			"empty.models": "No models available.",
+			"empty.efforts": "This model provides no reasoning effort levels."
 		};
 		//#endregion
 		//#region lib/types/client/index.js
+		/** One selectable row's id: an opaque row key (resolved by lookup, never parsed). */
+		function rowId(providerId, modelId) {
+			return `${providerId}/${modelId}`;
+		}
+		/** Flatten the directory into popup rows; failure rows are listed for visibility but never selectable. */
+		function optionsOf(directory, t) {
+			const rows = [];
+			for (const group of orderModelProviders(directory.groups)) {
+				const name = group.id === "deepseek-account" ? t("provider.account") : group.name;
+				for (const model of group.models) rows.push({
+					id: rowId(group.id, model.id),
+					label: model.name,
+					group: {
+						name: group.id,
+						label: name
+					},
+					...directory.current !== null && directory.current.provider === group.id && directory.current.model === model.id ? { active: true } : {}
+				});
+			}
+			for (const failure of directory.failures) rows.push({
+				id: `failure/${failure.id}`,
+				label: failure.id === "deepseek-account" ? t("provider.account") : failure.name,
+				detail: t("option.loadError", { message: failure.message })
+			});
+			return rows;
+		}
+		/**
+		* Resolve a picked row back to its model selection by matching against the loaded
+		* groups (the same data the rows were built from — ids stay opaque).
+		* @param state - the session's directory snapshot.
+		* @param id - the picked row id.
+		* @returns the row's model selection, or undefined for failure rows / stale ids.
+		*/
+		function selectionOf(state, id) {
+			for (const group of state.groups) for (const model of group.models) {
+				if (rowId(group.id, model.id) !== id) continue;
+				const reasoningEffort = state.current?.provider === group.id && state.current.model === model.id ? state.current?.reasoningEffort ?? model.reasoning?.defaultEffort : model.reasoning?.defaultEffort;
+				return {
+					provider: group.id,
+					model: model.id,
+					...reasoningEffort === void 0 ? {} : { reasoningEffort }
+				};
+			}
+		}
 		/** Dictionary namespace owned by this plugin. */
-		const NS = "goal";
-		/** Required services for the Goal dock, command-input projection, Remote mutations, and copy. */
+		const NS = "model";
+		/** Required services: the contribution registry, the seat's slot registry, locale, and the service's own faces. */
 		const inject = [
-			"slots",
-			"sessions",
-			"remote",
-			"remote.goals",
+			"commandUi",
 			"locale",
-			"uiConversation"
+			"sessions",
+			"slots",
+			"remote",
+			"remote.session"
 		];
 		/**
-		* Client plugin body: the GoalBar dock entry with its mutation verbs.
+		* Client plugin body: mount ModelDirectoryResolver, register the `model` dictionaries,
+		* then register the /model popup contribution and the composer model seat
+		* over the service.
 		* @param ctx - client root context.
 		*/
 		function apply(ctx) {
-			ctx.uiConversation.events.register(goalCommandInputDefinition);
 			ctx.effect(() => ctx.locale.register(NS, {
 				zh,
 				en
-			}), "ui-goal: dictionaries");
-			ctx.slots.inject("conversation.chat.node", () => ctx.slots.register({
-				name: "conversation.chat.node",
-				key: "command-input",
-				locale: NS
-			}, GoalCommandInputView));
-			const sessions = ctx.sessions;
-			/** The session's current projected CAS ref, read at verb call time (no staleness fence: the RPC's CAS is the guard). */
-			const refOf = (sessionId) => {
-				const projection = (sessions.binding(sessionId)?.session.projections.faceOf("goal"))?.getSnapshot();
-				if (projection == null) return void 0;
-				return {
-					id: projection.goal.id,
-					revision: projection.goal.revision
-				};
-			};
-			const noCurrentGoal = {
-				ok: false,
-				error: {
-					code: "no-current-goal",
-					message: "no current goal to mutate"
-				}
-			};
-			ctx.slots.inject("conversation.input.dock", () => ctx.slots.register({
-				name: "conversation.input.dock",
-				id: "goal",
-				order: 10,
-				locale: NS,
-				inject: (sessionId) => {
-					const binding = sessions.binding(sessionId);
-					if (binding === void 0) throw new Error(`ui-goal: session "${sessionId}" is unavailable`);
-					return {
-						hooks: { goalActivation: createGoalActivationSource({
-							projection: binding.session.projections.faceOf("goal"),
-							session: binding.session,
-							getGoal: async () => {
-								if (sessions.binding(sessionId) !== binding) throw new Error(`ui-goal: session "${sessionId}" is unavailable`);
-								return sessions.using(sessionId, { source: "goalActivation" }, async (reference) => {
-									const state = reference.binding.session.getSnapshot();
-									if (state.openState !== "open") throw state.openError ?? /* @__PURE__ */ new Error(`session "${sessionId}" is not open`);
-									return ctx.remote.goals.get(sessionId);
-								});
-							},
-							subscribeActivation: (listener) => ctx.remote.$on("goal/activation-changed", (event) => {
-								if (event.sessionId === sessionId) listener(event.goal);
-							}),
-							subscribeReset: (listener) => ctx.on("connection/reset", listener)
-						}) },
-						onEdit: async (objective) => {
-							const ref = refOf(sessionId);
-							if (ref === void 0) return noCurrentGoal;
-							return await ctx.remote.goals.edit(sessionId, ref, { objective });
+			}), "ui-model-selection: dictionaries");
+			const t = ctx.locale.bind(NS);
+			ctx.plugin(ModelDirectoryResolver);
+			ctx.inject(["commandUi", "modelDirectories"], (scope) => {
+				const command = scope.get("commandUi");
+				const models = scope.modelDirectories;
+				const sessions = scope.sessions;
+				scope.effect(() => command.register({
+					name: "model",
+					label: () => t("command.label"),
+					description: () => t("command.description"),
+					icon: _deepseek_ai_dsh_client_ui_primitives.IconDataOutlineRegular,
+					available: (session) => sessions.subagentAddress(session.sessionId) === void 0,
+					ui: {
+						kind: "popupSelect",
+						searchMode: "fuzzy-label",
+						searchLabels: () => ({
+							placeholder: t("search.placeholder"),
+							empty: t("empty.models"),
+							noResults: t("search.empty")
+						}),
+						options: async (session) => {
+							if (sessions.subagentAddress(session.sessionId) !== void 0) throw new Error("model selection is unavailable for addressed subagent sessions");
+							return optionsOf(await models.directoryFor(session.sessionId).load(), t);
 						},
-						onPause: async () => {
-							const ref = refOf(sessionId);
-							if (ref === void 0) return noCurrentGoal;
-							return await ctx.remote.goals.pause(sessionId, ref);
-						},
-						onResume: async () => {
-							const ref = refOf(sessionId);
-							if (ref === void 0) return noCurrentGoal;
-							return await ctx.remote.goals.resume(sessionId, ref);
-						},
-						onClear: async () => {
-							const ref = refOf(sessionId);
-							if (ref === void 0) return noCurrentGoal;
-							return await ctx.remote.goals.clear(sessionId, ref);
+						onSelect: async (option, session) => {
+							if (sessions.subagentAddress(session.sessionId) !== void 0) throw new Error("model selection is unavailable for addressed subagent sessions");
+							const directory = models.directoryFor(session.sessionId);
+							const selection = selectionOf(directory.store.getSnapshot(), option.id);
+							if (selection === void 0) throw new Error("this provider's catalog failed to load — pick a model from a loaded group");
+							const result = await directory.select(selection);
+							if (!result.ok) {
+								if (result.error.code === "session/writer-held") throw new Error(t("error.sessionInUse"));
+								throw result.error;
+							}
 						}
-					};
-				}
-			}, GoalDock));
+					}
+				}), "ui-model-selection: /model contribution");
+			});
+			ctx.inject(["slots", "modelDirectories"], (scope) => {
+				const models = scope.modelDirectories;
+				const sessions = scope.sessions;
+				scope.slots.inject("conversation.input.model", () => scope.slots.register({
+					name: "conversation.input.model",
+					locale: NS,
+					inject: (sessionId) => {
+						const directory = models.directoryFor(sessionId);
+						const available = sessions.subagentAddress(sessionId) === void 0;
+						return {
+							available,
+							directory: directory.store,
+							load: () => {
+								if (available) directory.load().catch(() => {});
+							},
+							select: (selection) => available ? directory.select(selection) : Promise.resolve(void 0)
+						};
+					}
+				}, ModelSelect));
+			});
 		}
 		//#endregion
-		exports.GoalBar = GoalBar;
-		exports.GoalDock = GoalDock;
+		exports.ModelDirectory = ModelDirectory;
+		exports.ModelDirectoryResolver = ModelDirectoryResolver;
 		exports.apply = apply;
 		exports.inject = inject;
 		return module.exports;
 	}
 });
 ;
-//# sourceMappingURL=??@deepseek-ai/dsh-client-ui-goal/client.js.map&rev=fbf343b3b079
+//# sourceMappingURL=??@deepseek-ai/dsh-client-ui-model-selection/client.js.map&rev=de6717475970

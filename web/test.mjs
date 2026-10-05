@@ -69,7 +69,64 @@ test('concurrent runs isolate process, model configuration, messages, SSE, and s
   const models=(await f.call(`/api/runs/${a.id}/models`,'PATCH',{models:{claude:'model-c'}})).data;
   assert.equal(models.ok,true);assert.equal(f.runs.detail(b.id).settings.models.claude,'model-b');
   f.runs.stop(a.id);assert.deepEqual(f.killed,[100]);assert.equal(f.runs.running(b.id),true);
-  assert.throws(()=>f.runs.message(a.id,{text:'late'}),/不在进行中/);
+  // 对话模式：停止后再发消息 = 用 --resume 续接原会话
+  assert.equal(f.runs.message(a.id,{text:'late'}).delivery,'resumed');
+  const resumed=f.launches[f.launches.length-1].args;
+  assert.equal(resumed[0],'late');assert.ok(resumed.includes('--chat')&&resumed.includes('--resume'));
+  assert.equal(resumed[resumed.indexOf('--data')+1],f.runs.dir(a.id));
+  // 只有发给主代理的消息会唤醒对话；运行停止时不能直接给子代理留言
+  f.runs.stop(a.id);
+  assert.throws(()=>f.runs.message(a.id,{text:'y',to:'claude'}),/不在进行中/);
+});
+test('switching the main agent: live runs get a command, sleeping runs relaunch with the new main', async t => {
+  const f=await httpFixture(t), a=f.runs.start({goal:'A',repo:f.repoA,agents:['claude'],main:'claude'});
+  const r=await f.call(`/api/runs/${a.id}/main`,'PATCH',{main:'zcode'});
+  assert.equal(r.data.applied,'after_turn');
+  assert.match(fs.readFileSync(path.join(a.dir,'commands.jsonl'),'utf8'),/"type":"switch_main","main":"zcode"/);
+  assert.equal(f.runs.detail(a.id).settings.main,'zcode');
+  f.runs.stop(a.id);
+  assert.equal(f.runs.switchMain(a.id,'codex').applied,'next_message');
+  f.runs.message(a.id,{text:'wake up'});
+  const args=f.launches.at(-1).args;
+  assert.equal(args[args.indexOf('--main')+1],'codex');assert.ok(args.includes('--resume'));
+  assert.equal((await f.call(`/api/runs/${a.id}/main`,'PATCH',{main:'nope'})).status,400);
+});
+test('dsh bridge: titled sessions, subagent catalog on the manager, subagent addresses', t => {
+  const f=fixture(t),a=f.runs.start({goal:'Build the thing',repo:f.repoA,agents:['zcode']});
+  fs.mkdirSync(path.join(a.dir,'threads'),{recursive:true});
+  fs.writeFileSync(path.join(a.dir,'threads','manager.jsonl'),JSON.stringify({seq:1,ts:'2026-09-28T00:00:00Z',kind:'user',data:{text:'Build the thing'}})+'\n');
+  fs.writeFileSync(path.join(a.dir,'threads','T1-zcode.jsonl'),JSON.stringify({seq:1,ts:'2026-09-28T00:00:01Z',kind:'assistant',data:{text:'SUB-REPORT'}})+'\n');
+  writeJson(path.join(a.dir,'board.json'),{seq:{task:1,msg:0},tasks:[{id:'T1',title:'Write tests',assignee:'zcode',status:'in_progress',created_at:'2026-09-28T00:00:01Z'}],messages:[]});
+  const items=f.bridge.unary('session/list',{}).value.items;
+  const mgr=f.sessions.managerId(a.id),child=threadSessionId(a.id,'T1-zcode');
+  assert.equal(items.find(i=>i.sessionId===mgr).title,'Build the thing');
+  assert.equal(items.find(i=>i.sessionId===child).title,'↳ T1 · ZCode · Write tests');
+  const catalog=f.bridge.unary('session/projections',{sessionId:mgr}).value.values.subagentCatalog;
+  assert.deepEqual(catalog.map(c=>[c.id,c.mode,c.label]),[[child,'continuable','T1 · ZCode · Write tests']]);
+  // 从目录进入子代理时，dsh 用 { parentSessionId, childSessionId } 寻址
+  const page=f.bridge.unary('session/page',{address:{parentSessionId:mgr,childSessionId:child,mode:'continuable'}});
+  assert.match(JSON.stringify(page),/SUB-REPORT/);
+  assert.equal(f.bridge.unary('subagents/prompt',{requestId:'r',parentSessionId:mgr,childSessionId:child,mode:'continuable',delivery:'queue',content:[{type:'text',text:'hi sub'}]}).value.accepted,true);
+  assert.match(fs.readFileSync(path.join(a.dir,'commands.jsonl'),'utf8'),/"to":"zcode","task_id":"T1","text":"hi sub"/);
+  assert.equal(f.bridge.unary('subagents/interruptByParent',{args:[child,mgr,'continuable']}).value.accepted,true);
+  assert.match(fs.readFileSync(path.join(a.dir,'commands.jsonl'),'utf8'),/"type":"cancel","task_id":"T1"/);
+});
+test('dsh bridge: workspace stream sends one baseline, then upserts new sessions', t => {
+  const f = fixture(t), frames = [];
+  const stop = f.bridge.stream('workspace/follow', {}, frame => frames.push(frame)); t.after(stop);
+  assert.deepEqual(frames.map(x => x.type), ['baseline']);
+  const created = f.bridge.unary('session/create', {}).value.sessionId;
+  return new Promise(resolve => setTimeout(() => {
+    assert.deepEqual(frames.map(x => x.type), ['baseline', 'upsert']);
+    assert.ok(frames[1].workspace.sessionIds.includes(created));
+    resolve();
+  }, 1700));
+});
+test('goal-mode runs cannot be resumed after stopping', async t => {
+  const f=fixture(t), g=f.runs.start({goal:'G',mode:'goal',repo:f.repoA});
+  assert.ok(!f.launches[0].args.includes('--chat'));
+  f.runs.stop(g.id);
+  assert.throws(()=>f.runs.message(g.id,{text:'late'}),/不在进行中/);
 });
 test('historical same-name sessions and streams remain bound to the correct run', async t => {
   const f=fixture(t), a=f.runs.start({goal:'A',repo:f.repoA}), b=f.runs.start({goal:'B',repo:f.repoB});
@@ -101,7 +158,10 @@ test('direct subagent messages record unread/read state and validate target owne
   const id=threadSessionId(a.id,'T1-claude');
   const result=f.bridge.unary('session/prompt',{sessionId:id,content:[{type:'text',text:'用户直接消息'}]});
   assert.equal(result.value.delivery,'mailbox');
-  const file=path.join(a.dir,'board.json');assert.equal(read(file).messages[0].to,'claude');assert.equal(read(file).messages[0].read,false);
+  // 任务板归 Router 进程所有：Web 端的留言以命令形式交给 Router
+  const cmd=JSON.parse(fs.readFileSync(path.join(a.dir,'commands.jsonl'),'utf8').trim().split('\n').pop());
+  assert.deepEqual([cmd.type,cmd.to,cmd.text],['message','claude','用户直接消息']);
+  const file=path.join(a.dir,'board.json');mutate(file,b=>b.messages.push({id:'M1',from:'user',to:'claude',read:false}));
   assert.throws(()=>f.runs.message(a.id,{text:'bad',to:'devin'}),/不属于/);
   assert.throws(()=>f.runs.message(a.id,{text:'bad',to:'claude',task_id:'T2'}),/不匹配/);
   mutate(file,b=>b.messages[0].read=true);assert.equal(f.runs.detail(a.id).board.messages[0].read,true);
@@ -124,7 +184,8 @@ test('cross-process task-board updates do not overwrite each other',async t=>{
 });
 test('routes, validation, and interruption reporting',async t=>{
   const f=await httpFixture(t);
-  for(const url of ['/','/console/','/board','/router-ui.css','/router-integration.js'])assert.equal((await fetch(f.base+url)).status,200);
+  for(const url of ['/','/console/','/board','/router-ui.css','/router-integration.js','/board-embed.js'])assert.equal((await fetch(f.base+url)).status,200);
+  assert.equal((await fetch(f.base+'/chat')).status,404);
   assert.equal((await f.call('/api/events')).status,400);
   assert.equal((await f.call('/api/runs','POST',{goal:'invalid',repo:f.repoA,agents:['unknown']})).status,400);
   assert.equal((await f.call('/api/runs','POST',{goal:'invalid',repo:f.repoA,timeout:1})).status,400);

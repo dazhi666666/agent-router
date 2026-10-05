@@ -1,5 +1,6 @@
 import http from 'node:http';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
@@ -8,18 +9,19 @@ import { createBridge } from './dsh-bridge.mjs';
 import { Sessions, readJson, safeId } from './sessions.mjs';
 import { Runs } from './runs.mjs';
 import { modelCatalog } from './models.mjs';
+import { providerReady } from '../chat-agent/provider.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const PUBLIC = path.join(ROOT, 'web', 'public');
 const DSH = path.join(ROOT, 'dsh-web');
 const MIME = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.json': 'application/json', '.webmanifest': 'application/manifest+json', '.woff': 'font/woff', '.woff2': 'font/woff2', '.ttf': 'font/ttf', '.map': 'application/json' };
 const PLUGINS = readJson(path.join(DSH, 'plugins', 'map.json'), {});
-// dsh-web/ 是 deepseek-harness 的本地构建产物（不随本仓库分发）；缺失时首页降级为说明页，/console/ 与 /board/ 不受影响
+// 首页是 dsh 界面（dsh-web/ 为 deepseek-harness 的本地构建），注入 Agent Router 的样式、顶栏与面板；构建缺失时首页转到经典控制台
 const INDEX = (() => {
   try {
     return fs.readFileSync(path.join(DSH, 'index.html'), 'utf8').replace('<title>DSH Local Build</title>', '<title>Agent Router · 协作空间</title>').replace('</head>', '<link rel="stylesheet" href="/router-ui.css"><script src="/router-transport.js" defer></script></head>').replace('</body>', '<script src="/board-embed.js" defer></script></body>');
   } catch {
-    return '<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><title>Agent Router</title></head><body style="font-family:system-ui,sans-serif;max-width:640px;margin:80px auto;line-height:1.7"><h1>⧉ Agent Router</h1><p>dsh 界面的本地构建产物（<code>dsh-web/</code>）未放置，本页为降级说明页。</p><p>可用入口：<a href="/console/">经典控制台</a> · <a href="/board">任务板</a></p><p>启用 dsh 界面：把 deepseek-harness 的本地构建放到项目根目录 <code>dsh-web/</code>（需含 <code>index.html</code> 与 <code>dist/</code>），重启 <code>node web/server.mjs</code> 即可。</p></body></html>';
+    return null;
   }
 })();
 function json(res, status, value) { res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' }); res.end(JSON.stringify(value)); }
@@ -40,9 +42,32 @@ function codexAvailable() {
   else codexOk = spawnSync(exe, ['--version'], { encoding: 'utf8', timeout: 8000, windowsHide: true }).status === 0;
   return codexOk;
 }
+// 目录浏览（新建任务时选择工作目录）：只列子目录；不传 path 时返回主目录与 Windows 盘符
+function listDirs(dir) {
+  const home = os.homedir();
+  const roots = process.platform === 'win32'
+    ? 'CDEFGHIJ'.split('').map(l => `${l}:\\`).filter(d => fs.existsSync(d))
+    : ['/'];
+  const target = path.resolve(dir || home);
+  const st = fs.statSync(target);
+  if (!st.isDirectory()) throw new Error('不是文件夹');
+  const dirs = fs.readdirSync(target, { withFileTypes: true })
+    .filter(e => e.isDirectory() && !e.name.startsWith('.') && !/^(node_modules|\$Recycle\.Bin|System Volume Information)$/i.test(e.name))
+    .map(e => e.name).sort((a, b) => a.localeCompare(b)).slice(0, 500);
+  const parent = path.dirname(target);
+  return { path: target, parent: parent === target ? null : parent, dirs, home, roots, isGit: fs.existsSync(path.join(target, '.git')) };
+}
+// 示例项目随仓库分发；新 clone 下它没有自己的 .git，会被当成 Agent Router 仓库的一部分（任务提交会落进本仓库）。首次启动时给它单独初始化一个仓库
+function ensureDemoRepo(dir) {
+  if (!fs.existsSync(dir) || fs.existsSync(path.join(dir, '.git'))) return;
+  const git = (...args) => spawnSync('git', ['-C', dir, '-c', 'user.name=Agent Router', '-c', 'user.email=agent-router@localhost', ...args], { encoding: 'utf8', windowsHide: true });
+  if (git('init', '-q').status !== 0) return;
+  git('add', '-A'); git('commit', '-q', '-m', 'demo: initial snapshot');
+}
 export function createApp({ dataDir = process.env.AGENT_ROUTER_DATA_DIR || path.join(ROOT, 'data'), launch, kill } = {}) {
   dataDir = path.resolve(dataDir);
   const runs = new Runs({ root: ROOT, dataDir, launch, kill });
+  ensureDemoRepo(path.join(ROOT, 'demo', 'todo-cli'));
   const sessions = new Sessions(dataDir, path.join(ROOT, 'demo', 'todo-cli'));
   const bridge = createBridge({ runs, sessions });
   // 预热可选模型清单（首个 CLI 扫描要数秒，避免第一个打开设置面板的请求卡顿）
@@ -69,8 +94,9 @@ export function createApp({ dataDir = process.env.AGENT_ROUTER_DATA_DIR || path.
       }
       if (u.pathname === '/api/health') {
         const cfg = loadConfig(), catalog = modelCatalog(), activeRuns = runs.list().filter(r => r.live);
-        return json(res, 200, { claude: fs.existsSync(cfg.claude.exe), zcode: fs.existsSync(cfg.zcode.entry), devin: fs.existsSync(cfg.devin.exe), codex: codexAvailable(), opencode: fs.existsSync(cfg.opencode.exe), antigravity: fs.existsSync(cfg.antigravity.exe), checks: { claude: '仅检测 CLI 路径，未验证登录', zcode: '仅检测 CLI 路径，未验证登录', devin: '仅检测 CLI 路径，未验证登录', codex: '检测 codex --version 可执行（未验证登录）', opencode: '仅检测 CLI 路径，未验证登录', antigravity: '仅检测 CLI 路径，未验证登录（密钥环静默登录，生成接口走本地代理）' }, models: Object.fromEntries(Object.entries(catalog).map(([k, v]) => [k, v.default || '客户端默认'])), busy: activeRuns.length > 0, activeRuns, activeRun: activeRuns[0] || null });
+        return json(res, 200, { claude: fs.existsSync(cfg.claude.exe), zcode: fs.existsSync(cfg.zcode.entry), devin: fs.existsSync(cfg.devin.exe), codex: codexAvailable(), opencode: fs.existsSync(cfg.opencode.exe), antigravity: fs.existsSync(cfg.antigravity.exe), checks: { claude: '仅检测 CLI 路径，未验证登录', zcode: '仅检测 CLI 路径，未验证登录', devin: '仅检测 CLI 路径，未验证登录', codex: '检测 codex --version 可执行（未验证登录）', opencode: '仅检测 CLI 路径，未验证登录', antigravity: '仅检测 CLI 路径，未验证登录（密钥环静默登录，生成接口走本地代理）' }, models: Object.fromEntries(Object.entries(catalog).map(([k, v]) => [k, v.default || '客户端默认'])), paths: { claude: cfg.claude.exe, zcode: cfg.zcode.entry, devin: cfg.devin.exe, codex: cfg.codex.exe, opencode: cfg.opencode.exe, antigravity: cfg.antigravity.exe }, llm: Object.fromEntries(Object.entries(cfg.llm).map(([k, v]) => [k, { label: v.label || v.model || k, model: v.model || (v.module ? 'custom module' : null), ready: providerReady(v), apiKeyEnv: v.apiKeyEnv || null }])), consult: cfg.llm[cfg.consult] ? cfg.consult : null, busy: activeRuns.length > 0, activeRuns, activeRun: activeRuns[0] || null });
       }
+      if (u.pathname === '/api/fs/dirs') return json(res, 200, listDirs(u.searchParams.get('path')));
       if (u.pathname === '/api/models') return json(res, 200, modelCatalog());
       if (u.pathname === '/api/events') {
         const id = u.searchParams.get('runId');
@@ -96,6 +122,7 @@ export function createApp({ dataDir = process.env.AGENT_ROUTER_DATA_DIR || path.
         if (!action && req.method === 'GET') return json(res, 200, { ...d, managerSessionId: sessions.managerId(id) });
         if (action === 'stop' && req.method === 'POST') return json(res, 200, runs.stop(id));
         if (action === 'message' && req.method === 'POST') return json(res, 200, runs.message(id, await body(req)));
+        if (action === 'main' && req.method === 'PATCH') return json(res, 200, runs.switchMain(id, (await body(req)).main));
         if (action === 'models' && req.method === 'PATCH') return json(res, 200, runs.models(id, (await body(req)).models));
         if (action === 'task' && req.method === 'POST') {
           const task = d.board?.tasks?.find(t => t.id === parts[4]), command = parts[5];
@@ -112,7 +139,10 @@ export function createApp({ dataDir = process.env.AGENT_ROUTER_DATA_DIR || path.
         }
       }
       if (parts[0] === 'api') return json(res, 404, { error: '接口不存在' });
-      if (u.pathname === '/' || u.pathname === '/index.html') { res.writeHead(200, { 'Content-Type': MIME['.html'], 'Cache-Control': 'no-store' }); return res.end(INDEX); }
+      if (['/', '/index.html', '/dsh', '/dsh/'].includes(u.pathname)) {
+        if (!INDEX) { res.writeHead(302, { Location: '/console/' }); return res.end(); }
+        res.writeHead(200, { 'Content-Type': MIME['.html'], 'Cache-Control': 'no-store' }); return res.end(INDEX);
+      }
       if (u.pathname.startsWith('/assets/router-transport-')) return file(res, PUBLIC, 'router-transport-module.js');
       if (parts[0] === 'plugins') {
         const key = PLUGINS[u.pathname.slice(1) + u.search] || PLUGINS[u.pathname.slice('/plugins/'.length) + u.search];

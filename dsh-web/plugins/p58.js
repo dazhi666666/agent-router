@@ -1,5 +1,5 @@
 window.__ModuleLoader__.load({
-	id: "@deepseek-ai/dsh-client-ui-user-questions",
+	id: "@deepseek-ai/dsh-session-log-export",
 	factory: (require) => {
 		var module = { exports: {} };
 		var exports = module.exports;
@@ -8,886 +8,304 @@ window.__ModuleLoader__.load({
 		let react_jsx_runtime = require("react/jsx-runtime");
 		let react = require("react");
 		let _deepseek_ai_dsh_client_ui_primitives = require("@deepseek-ai/dsh-client-ui-primitives");
-		//#region lib/types/client/contract/slots.js
-		function settlePendingComposer(settle, failureMessage) {
-			try {
-				settle();
-				return Promise.resolve();
-			} catch (error) {
-				return Promise.reject(error instanceof Error ? error : new Error(failureMessage, { cause: error }));
-			}
-		}
-		/**
-		* Narrow a request to a renderable plan review, or return undefined to leave it
-		* to the generic question flow.
-		*
-		* The card offers approval and a return to the composer for change requests.
-		* It accepts one question carrying the plan as detail and the named approve
-		* option, with at most one alternative and no multi-select. Larger choices
-		* remain in the generic question flow.
-		*
-		* @param questions - the request's whole question batch.
-		* @returns The narrowed review, or undefined when the generic flow owns it.
-		*/
-		function planReviewOf(questions) {
-			if (questions.length !== 1) return void 0;
-			const question = questions[0];
-			const intent = question.intent;
-			if (intent?.kind !== "plan-review" || question.detail === void 0) return void 0;
-			if (question.multiSelect === true) return void 0;
-			const options = question.options ?? [];
-			if (options.length > 2) return void 0;
-			const approve = options.find((option) => option.label === intent.approve);
-			if (approve === void 0) return void 0;
-			const decline = options.find((option) => option.label !== intent.approve);
-			return {
-				id: question.id,
-				question: question.question,
-				plan: question.detail,
-				...intent.callId === void 0 ? {} : { callId: intent.callId },
-				approve,
-				...decline === void 0 ? {} : { decline }
-			};
-		}
-		let nextQuestionKey = 0;
-		/** Create a wire-preserved user-question rejection. */
-		function questionError(message, code) {
-			const error = new Error(message);
-			error.name = "UserQuestionError";
-			error.code = code;
-			return error;
-		}
-		/** One answerable Client presentation of a pending Host waterfall. */
-		var PendingQuestion = class {
-			sessionId;
-			/** Presentation discriminator used by Session pending-interaction consumers. */
-			kind;
-			/** Opaque render identity and request key for the Session-scoped draft store. */
-			key;
-			/** The request's question list. */
-			questions;
-			/** Result returned by the Remote Event listener to the Host waterfall. */
-			result;
-			#resolve;
-			#reject;
-			#signal;
-			#onAbort;
-			#delegated = Symbol("pending question delegated");
-			#settled = false;
-			/**
-			* @param sessionId - Agent/Session identity owning the scoped request.
-			* @param questions - complete question batch.
-			* @param signal - Host request and delivery lifetime.
-			*/
-			constructor(sessionId, questions, signal) {
-				this.sessionId = sessionId;
-				nextQuestionKey += 1;
-				this.key = `question:${String(nextQuestionKey)}`;
-				this.questions = questions;
-				this.kind = planReviewOf(questions) === void 0 ? "question" : "plan-review";
-				const completion = Promise.withResolvers();
-				this.result = completion.promise;
-				this.#resolve = completion.resolve;
-				this.#reject = completion.reject;
-				this.#signal = signal;
-				if (signal === void 0) {
-					this.#onAbort = void 0;
-					return;
-				}
-				const onAbort = () => {
-					this.abort(questionError("ask_user_question was aborted before the user answered", "ASK_ABORTED"));
-				};
-				this.#onAbort = onAbort;
-				signal.addEventListener("abort", onAbort, { once: true });
-				if (signal.aborted) onAbort();
-			}
-			/**
-			* Resolve the Host waterfall with the whole answer batch.
-			* @param answer - complete structured answer batch.
-			*/
-			answer(answer) {
-				return settlePendingComposer(() => {
-					this.finish(() => {
-						this.#resolve(answer);
-					});
-				}, "pending question settlement failed");
-			}
-			/** Delegate an unanswered request to the next waterfall listener. */
-			delegate() {
-				if (this.#settled) return;
-				this.finish(() => {
-					this.#reject(this.#delegated);
-				});
-			}
-			/**
-			* Test whether a rejection requests waterfall delegation.
-			* @param reason - rejection received from {@link PendingQuestion.result}.
-			* @returns whether {@link PendingQuestion.delegate} produced it.
-			*/
-			isDelegation(reason) {
-				return reason === this.#delegated;
-			}
-			/** Reject the Host waterfall because the user closed the question. */
-			cancel() {
-				return settlePendingComposer(() => {
-					this.finish(() => {
-						this.#reject(questionError("the user cancelled ask_user_question", "ASK_CANCELLED"));
-					});
-				}, "pending question cancellation failed");
-			}
-			/**
-			* End an unanswered presentation when its transport, scope, or plugin lifetime ends.
-			* @param reason - rejection exposed to the waiting Remote Event listener.
-			*/
-			abort(reason) {
-				if (this.#settled) return;
-				this.finish(() => {
-					this.#reject(reason);
-				});
-			}
-			finish(settle) {
-				if (this.#settled) throw new Error(`pending question ${this.key} is already settled`);
-				this.#settled = true;
-				if (this.#signal !== void 0 && this.#onAbort !== void 0) this.#signal.removeEventListener("abort", this.#onAbort);
-				settle();
-			}
-		};
+		/** Browser-relative form of {@link SESSION_LOG_EXPORT_PATH}. */
+		const SESSION_LOG_EXPORT_ROUTE = "/api/session.export".slice(1);
 		//#endregion
-		//#region lib/types/client/draft-store.js
+		//#region lib/types/client/controller.js
+		/** Browser download state shared by the Session Header button and `/export`. */
+		const INITIAL = { bySession: {} };
 		/**
-		* Session-scoped draft state for the generic question composer. The Slot
-		* registry owns store instances; this module exports only the factory so a
-		* plugin reload cannot reuse a module-global handle.
+		* Collapse an untrusted Session id into the filename convention owned by the host endpoint.
+		* @param sessionId - Session whose archive is downloaded.
+		* @returns one safe browser download filename.
 		*/
-		const emptyProgress = () => ({
-			index: 0,
-			drafts: []
-		});
+		function sessionLogZipFilename(sessionId) {
+			return `dsh-session-${String(sessionId).replace(/[^A-Za-z0-9_-]/g, "_")}.zip`;
+		}
 		/**
-		* Declare the question composer's transient Session store.
-		* @returns a non-persisted store handle whose instance is owned by the Slot registry.
+		* Hand a Host download route to the browser download manager, which resolves it
+		* against the document's own base.
+		* @param url - document-relative Host download route.
+		* @param filename - browser download filename.
 		*/
-		function createQuestionDraftStore() {
-			return (0, _deepseek_ai_dsh_client_store.defineStore)({
-				init: () => ({ progress: emptyProgress() }),
-				actions: {
-					replace: (draft, requestKey, progress) => {
-						draft.requestKey = requestKey;
-						draft.progress = progress;
-					},
-					clear: (draft, requestKey) => {
-						if (draft.requestKey !== requestKey) return;
-						delete draft.requestKey;
-						draft.progress = emptyProgress();
+		function downloadUrl(url, filename) {
+			const anchor = document.createElement("a");
+			anchor.href = url;
+			anchor.download = filename;
+			anchor.click();
+		}
+		function messageOf(error) {
+			return error instanceof Error ? error.message : String(error);
+		}
+		/** Owns one in-flight browser download per Session and publishes modal state. */
+		var SessionLogDownloadController = class {
+			fetcher;
+			save;
+			/** uSES-safe state source shared by every Session-scoped modal contribution. */
+			store = (0, _deepseek_ai_dsh_client_store.createSnapshotStore)(INITIAL);
+			active = /* @__PURE__ */ new Map();
+			disposed = false;
+			/**
+			* @param fetcher - HTTP carrier used to read the host-streamed ZIP.
+			* @param save - browser save operation.
+			*/
+			constructor(fetcher = (input, init) => fetch(input, init), save = downloadUrl) {
+				this.fetcher = fetcher;
+				this.save = save;
+			}
+			/**
+			* Download one Session tree; concurrent gestures for the same Session share one operation.
+			* @param sessionId - root Session whose ZIP includes descendants and attachments.
+			* @returns after the browser save starts, an error state is published, or a late post-disposal request is ignored.
+			*/
+			download(sessionId) {
+				const existing = this.active.get(sessionId);
+				if (existing !== void 0) return existing.done;
+				if (this.disposed) return Promise.resolve();
+				const abort = new AbortController();
+				const done = this.run(sessionId, abort.signal).finally(() => {
+					this.active.delete(sessionId);
+				});
+				this.active.set(sessionId, {
+					abort,
+					done
+				});
+				return done;
+			}
+			/**
+			* Close one Session's dialog without cancelling an in-flight browser download.
+			* @param sessionId - Session whose modal closes.
+			*/
+			dismiss(sessionId) {
+				const current = this.store.getSnapshot().bySession[String(sessionId)];
+				if (current === void 0 || !current.open) return;
+				this.publish(sessionId, {
+					...current,
+					open: false
+				});
+			}
+			/**
+			* Abort active fetches and reach quiescence.
+			* @returns after every active operation settles.
+			*/
+			async dispose() {
+				this.disposed = true;
+				const active = [...this.active.values()];
+				for (const operation of active) operation.abort.abort();
+				await Promise.allSettled(active.map((operation) => operation.done));
+			}
+			async run(sessionId, signal) {
+				this.publish(sessionId, {
+					open: true,
+					status: "downloading",
+					error: null
+				});
+				try {
+					const route = `${SESSION_LOG_EXPORT_ROUTE}?${new URLSearchParams({
+						sessionId,
+						includeDescendants: "true"
+					}).toString()}`;
+					const response = await this.fetcher(route, {
+						method: "HEAD",
+						signal
+					});
+					if (!response.ok) {
+						const detail = await response.text().catch(() => "");
+						throw new Error(`Export failed: HTTP ${response.status}${detail === "" ? "" : ` ${detail}`}`);
 					}
+					this.save(route, sessionLogZipFilename(sessionId));
+					const open = this.store.getSnapshot().bySession[String(sessionId)]?.open ?? true;
+					this.publish(sessionId, {
+						open,
+						status: "success",
+						error: null
+					});
+				} catch (error) {
+					if (signal.aborted) return;
+					const open = this.store.getSnapshot().bySession[String(sessionId)]?.open ?? true;
+					this.publish(sessionId, {
+						open,
+						status: "error",
+						error: messageOf(error)
+					});
 				}
-			});
-		}
-		//#endregion
-		//#region ../../../node_modules/.pnpm/clsx@2.1.1/node_modules/clsx/dist/clsx.mjs
-		function r(e) {
-			var t, f, n = "";
-			if ("string" == typeof e || "number" == typeof e) n += e;
-			else if ("object" == typeof e) if (Array.isArray(e)) {
-				var o = e.length;
-				for (t = 0; t < o; t++) e[t] && (f = r(e[t])) && (n && (n += " "), n += f);
-			} else for (f in e) e[f] && (n && (n += " "), n += f);
-			return n;
-		}
-		function clsx() {
-			for (var e, t, f = 0, n = "", o = arguments.length; f < o; f++) (e = arguments[f]) && (t = r(e)) && (n && (n += " "), n += t);
-			return n;
-		}
-		//#endregion
-		//#region \0dsh-css:D:\deepseek-harness\packages\client\ui-user-questions\src\client\PlanReviewPanel.module.css.mjs
-		const css$1 = ".ipArEa_frame{padding:6px calc(var(--dsh-composer-side-clearance) + 16px) 10px;justify-content:center;display:flex}.ipArEa_card{width:100%;max-width:var(--dsh-chat-content-width);--dsw-elevation-stroke-color:var(--dsw-alias-border-l2);border-radius:var(--dsw-radius-xl);background:var(--dsw-specific-input-major);box-shadow:var(--dsw-elevation-panel);color:var(--dsw-alias-label-primary);border:0;flex-direction:column;display:flex;overflow:hidden}.ipArEa_card,.ipArEa_card *{box-sizing:border-box}.ipArEa_strip{background:var(--dsw-alias-state-warn-tertiary);color:var(--dsw-alias-state-warn-primary);flex-shrink:0;align-items:center;gap:8px;padding:12px 16px;font-size:14px;line-height:20px;display:flex}.ipArEa_footer{flex-shrink:0;justify-content:space-between;align-items:center;gap:12px;padding:8px 16px 12px;display:flex}.ipArEa_feedback{min-height:16px;color:var(--dsw-alias-state-error-primary);font-size:11px;line-height:16px}.ipArEa_actions{flex-shrink:0;align-items:center;gap:8px;display:flex}.ipArEa_summary{min-width:0;padding:14px 16px 12px}.ipArEa_title{text-overflow:ellipsis;white-space:nowrap;margin:0;font-size:15px;font-weight:500;line-height:22px;overflow:hidden}.ipArEa_description{-webkit-line-clamp:2;color:var(--dsw-alias-label-secondary);-webkit-box-orient:vertical;margin:8px 0 0;font-size:14px;line-height:24px;display:-webkit-box;overflow:hidden}.ipArEa_discuss{gap:6px}@media (width<=720px){.ipArEa_card{border-radius:var(--dsw-radius-xl)}.ipArEa_footer{align-items:flex-end;padding:8px 12px 10px}}.ipArEa_previewActions{align-items:center;margin-left:auto;display:flex}";
-		const tagId$1 = "@deepseek-ai/dsh-client-ui-user-questions/PlanReviewPanel.module.css";
-		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId$1) + "]") === null) {
-			const tag = document.createElement("style");
-			tag.dataset.plugin = "@deepseek-ai/dsh-client-ui-user-questions";
-			tag.dataset.pluginCss = tagId$1;
-			tag.textContent = css$1;
-			document.head.appendChild(tag);
-		}
-		var PlanReviewPanel_module_css_default = {
-			"actions": "ipArEa_actions",
-			"card": "ipArEa_card",
-			"description": "ipArEa_description",
-			"discuss": "ipArEa_discuss",
-			"feedback": "ipArEa_feedback",
-			"footer": "ipArEa_footer",
-			"frame": "ipArEa_frame",
-			"previewActions": "ipArEa_previewActions",
-			"strip": "ipArEa_strip",
-			"summary": "ipArEa_summary",
-			"title": "ipArEa_title"
+			}
+			publish(sessionId, entry) {
+				this.store.update((state) => {
+					state.bySession = {
+						...state.bySession,
+						[String(sessionId)]: entry
+					};
+				});
+			}
 		};
 		//#endregion
-		//#region lib/types/client/PlanReviewPanel.js
+		//#region lib/types/client/Dialog.js
 		/**
-		* Optional-prop spread for a decision button's tooltip: `title` is optional on
-		* the DOM props, and exactOptionalPropertyTypes rejects an explicit undefined.
-		*
-		* @param description - the asker's option description, when it carries one.
-		* @returns The `title` prop to spread, or nothing.
+		* Modal shared by the Session Header download menu item and this browser's `/export` command.
+		* @param props - Session runtime, bound controller state, actions, and localized copy.
+		* @returns the modal portal contribution.
 		*/
-		function tooltip(description) {
-			return description === void 0 ? {} : { title: description };
-		}
-		/**
-		* Render plan review controls; the submitted document opens in the sidebar.
-		*
-		* @param props - the question domain face, the narrowed plan review, and `t`.
-		* @returns The plan-review takeover for this request.
-		*/
-		function PlanReviewPanel({ pending, review, t, renderSlot }) {
-			const [busy, setBusy] = (0, react.useState)(false);
-			const [error, setError] = (0, react.useState)(null);
-			const settle = (send) => {
-				setBusy(true);
-				setError(null);
-				send().catch((cause) => {
-					setBusy(false);
-					setError(cause instanceof Error ? cause.message : String(cause));
-				});
-			};
-			const decide = (label) => {
-				settle(() => pending.answer({ answers: [{
-					id: review.id,
-					selected: [label]
-				}] }));
-			};
-			const summary = (0, react.useMemo)(() => {
-				const title = (0, _deepseek_ai_dsh_client_ui_primitives.extractMarkdownPlainText)(review.plan, { mode: "first-line" });
-				const description = (0, _deepseek_ai_dsh_client_ui_primitives.extractMarkdownPlainText)(review.plan, { mode: "first-paragraph" });
-				return {
-					title,
-					description: description === title ? "" : description
-				};
-			}, [review.plan]);
-			return (0, react_jsx_runtime.jsx)("div", {
-				className: PlanReviewPanel_module_css_default.frame,
-				"data-plan-review-key": pending.key,
-				children: (0, react_jsx_runtime.jsxs)("section", {
-					className: PlanReviewPanel_module_css_default.card,
-					"aria-label": review.question,
-					"aria-busy": busy,
-					children: [
-						(0, react_jsx_runtime.jsxs)("div", {
-							className: PlanReviewPanel_module_css_default.strip,
-							children: [
-								(0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.StateDot, { state: busy ? "ongoing" : "warning" }),
-								t("plan.header"),
-								(0, react_jsx_runtime.jsx)("div", {
-									className: PlanReviewPanel_module_css_default.previewActions,
-									children: renderSlot("conversation.plan-review.actions", {
-										review,
-										requestKey: pending.key
-									})
-								})
-							]
-						}),
-						(0, react_jsx_runtime.jsxs)("div", {
-							className: PlanReviewPanel_module_css_default.summary,
-							children: [(0, react_jsx_runtime.jsx)("h3", {
-								className: PlanReviewPanel_module_css_default.title,
-								children: summary.title
-							}), summary.description !== "" && (0, react_jsx_runtime.jsx)("p", {
-								className: PlanReviewPanel_module_css_default.description,
-								children: summary.description
-							})]
-						}),
-						(0, react_jsx_runtime.jsxs)("div", {
-							className: PlanReviewPanel_module_css_default.footer,
-							children: [(0, react_jsx_runtime.jsx)("div", {
-								className: PlanReviewPanel_module_css_default.feedback,
-								role: "status",
-								children: error
-							}), (0, react_jsx_runtime.jsxs)("div", {
-								className: PlanReviewPanel_module_css_default.actions,
-								children: [(0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
-									variant: "outline",
-									className: PlanReviewPanel_module_css_default.discuss,
-									icon: (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconEditOutlineRegular, { size: 14 }),
-									disabled: busy,
-									onClick: () => {
-										settle(() => pending.cancel());
-									},
-									children: t("plan.discuss")
-								}), (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
-									variant: "primary",
-									...tooltip(review.approve.description),
-									disabled: busy,
-									onClick: () => {
-										decide(review.approve.label);
-									},
-									children: t("plan.approve")
-								})]
-							})]
-						})
-					]
+		function SessionLogDownloadDialog({ sessionId, useSessionLogDownload, dismiss, t }) {
+			const entry = useSessionLogDownload((state) => state.bySession[String(sessionId)]);
+			const status = entry?.status;
+			const open = entry?.open === true;
+			const error = status === "error" ? entry?.error || t("dialog.commandFailed") : null;
+			return (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Modal, {
+				open,
+				onClose: () => {
+					dismiss(sessionId);
+				},
+				title: status === "downloading" ? t("dialog.preparingTitle") : status === "success" ? t("dialog.successTitle") : t("dialog.errorTitle"),
+				description: status === "downloading" ? t("dialog.preparingDescription") : status === "success" ? t("dialog.successDescription") : error ?? t("dialog.commandFailed"),
+				closeLabel: t("dialog.close"),
+				footer: (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
+					variant: "primary",
+					onClick: () => {
+						dismiss(sessionId);
+					},
+					children: t("dialog.close")
 				})
 			});
 		}
 		//#endregion
-		//#region \0dsh-css:D:\deepseek-harness\packages\client\ui-user-questions\src\client\QuestionComposer.module.css.mjs
-		const css = ".vKg9-W_frame{padding:6px calc(var(--dsh-composer-side-clearance) + 16px) 10px;justify-content:center;display:flex}.vKg9-W_card{width:100%;max-width:var(--dsh-chat-content-width);--dsw-elevation-stroke-color:var(--dsw-alias-border-l2-darkmode-thin);border-radius:var(--dsw-radius-xl);background:var(--dsw-specific-input-major);max-height:min(60vh,520px);box-shadow:var(--dsw-elevation-panel);color:var(--dsw-alias-label-primary);--dsh-scrollbar-thumb:var(--dsw-alias-scrollbar-bg-l2);--dsh-scrollbar-thumb-hover:var(--dsw-alias-scrollbar-hover-l2);border:0;flex-direction:column;padding:0 0 10px;display:flex;overflow:hidden}.vKg9-W_card,.vKg9-W_card *{box-sizing:border-box}.vKg9-W_cardMinimized{max-height:none}.vKg9-W_cardMinimized .vKg9-W_header{padding-bottom:14px}.vKg9-W_headerActions{flex-shrink:0;align-items:center;gap:4px;display:flex}.vKg9-W_header{flex-shrink:0;justify-content:space-between;align-items:flex-start;gap:16px;padding:20px 16px 0 24px;display:flex}.vKg9-W_headingBlock{min-width:0}.vKg9-W_eyebrow{color:var(--dsw-alias-label-tertiary);margin-bottom:5px;font-size:11px;line-height:16px}.vKg9-W_title{margin:0;font-size:16px;font-weight:500;line-height:22px}.vKg9-W_detail{margin:0 2px 8px}.vKg9-W_footerActions{flex-shrink:0;align-items:center;gap:12px;display:flex}.vKg9-W_pager{flex-shrink:0;align-items:center;gap:6px;display:flex}.vKg9-W_progress{color:var(--dsw-alias-label-secondary);white-space:nowrap;word-spacing:-2px;padding:0 4px;font-size:14px;font-weight:500;line-height:24px}.vKg9-W_iconButton{corner-shape:round;width:24px;height:24px;color:var(--dsw-alias-label-tertiary);cursor:pointer;background:0 0;border:none;border-radius:999px;place-items:center;padding:0;display:grid}.vKg9-W_iconButton:hover:not(:disabled){background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-primary)}.vKg9-W_iconButton:disabled{color:var(--dsw-alias-label-dimmed);cursor:default}.vKg9-W_body{overscroll-behavior:contain;flex-direction:column;flex:auto;min-height:0;display:flex;overflow-y:auto}.vKg9-W_options{flex-direction:column;gap:1px;margin:8px 0 0;padding:4px 12px;display:flex}.vKg9-W_option{border-radius:var(--dsw-radius-md);width:100%;min-height:40px;color:inherit;text-align:left;cursor:pointer;background:0 0;border:1px solid #0000;flex-shrink:0;align-items:flex-start;gap:8px;padding:8px 12px 8px 8px;transition:background-color .12s,border-color .12s;display:flex}.vKg9-W_option:hover:not(:disabled),.vKg9-W_optionSelected{background:var(--dsw-alias-interactive-bg-hover)}.vKg9-W_optionSelected{border-color:var(--dsw-alias-border-l2)}.vKg9-W_option:disabled{cursor:default}.vKg9-W_number{border-radius:var(--dsw-radius-xs);background:var(--dsw-alias-bg-overlay);width:20px;height:20px;color:var(--dsw-alias-label-secondary);flex:0 0 20px;place-items:center;margin-top:2px;font-size:12px;font-weight:500;line-height:18px;display:grid}.vKg9-W_checkbox{flex:0 0 20px;place-items:center;width:20px;height:20px;margin-top:2px;display:grid}.vKg9-W_checkbox:before{content:\"\";border:.5px solid var(--dsw-alias-border-l4);border-radius:var(--dsw-radius-xs);grid-area:1/1;width:14px;height:14px;transition:background-color .12s,border-color .12s}.vKg9-W_checkbox>svg{grid-area:1/1}.vKg9-W_checkboxChecked{color:var(--dsw-alias-label-primary-foreground)}.vKg9-W_checkboxChecked:before{border-color:var(--dsw-alias-label-primary);background:var(--dsw-alias-label-primary)}.vKg9-W_optionCopy{flex:1;min-width:0}.vKg9-W_optionLine{flex-wrap:wrap;align-items:baseline;gap:2px 6px;display:flex}.vKg9-W_optionLabel{font-size:14px;font-weight:500;line-height:24px}.vKg9-W_badge{border-radius:var(--dsw-radius-xs);background:var(--dsw-specific-sidebar-nav-item-active-accent);color:var(--dsw-alias-button-info-fill);padding:0 4px;font-size:11px;font-weight:600;line-height:18px}.vKg9-W_description{color:var(--dsw-alias-label-tertiary);font-size:14px;font-weight:400;line-height:24px}.vKg9-W_customRow{border-radius:var(--dsw-radius-md);border:1px solid #0000;flex-shrink:0;align-items:flex-start;gap:8px;width:100%;min-height:40px;padding:8px 12px 8px 8px;transition:background-color .12s,border-color .12s;display:flex}.vKg9-W_customRow:hover,.vKg9-W_customRow:focus-within,.vKg9-W_customRowActive{background:var(--dsw-alias-interactive-bg-hover)}.vKg9-W_customRow:focus-within,.vKg9-W_customRowActive{border-color:var(--dsw-alias-border-l2)}.vKg9-W_field{--dsh-answer-field-padding:0;min-width:0;display:grid}.vKg9-W_field>*{min-width:0;padding:var(--dsh-answer-field-padding);font:inherit;white-space:pre-wrap;word-break:break-word;overflow-wrap:anywhere;grid-area:1/1;font-size:14px;line-height:24px}.vKg9-W_fieldMirror{box-sizing:content-box;visibility:hidden;max-height:144px;overflow:hidden}.vKg9-W_fieldInput{resize:none;color:var(--dsw-alias-label-primary);caret-color:var(--dsw-alias-state-business-primary);background:0 0;border:none;outline:none;overflow-y:auto}.vKg9-W_fieldInput::placeholder{color:var(--dsw-alias-label-caption)}.vKg9-W_customInline{flex:1}.vKg9-W_customBlock{border:.5px solid var(--dsw-alias-border-l4);border-radius:var(--dsw-radius-lg);background:var(--dsw-alias-bg-module-platform);--dsh-answer-field-padding:8px 12px;flex-shrink:0;min-height:64px;margin:0 12px}.vKg9-W_customBlock:focus-within{border-color:var(--dsw-alias-state-business-primary)}.vKg9-W_footer{flex-shrink:0;justify-content:space-between;align-items:center;gap:12px;margin-top:12px;padding:0 10px 0 18px;display:flex}.vKg9-W_feedback{min-height:16px;color:var(--dsw-alias-state-error-primary);text-align:right;flex:1;font-size:11px;line-height:16px}@media (width<=720px){.vKg9-W_card{border-radius:var(--dsw-radius-xl)}.vKg9-W_header{padding:10px 12px 0 18px}.vKg9-W_options{padding:4px 8px}.vKg9-W_title{font-size:15px;line-height:21px}.vKg9-W_option,.vKg9-W_customRow{padding:8px 6px}.vKg9-W_footer{align-items:flex-end;padding:0 10px}.vKg9-W_footerActions{flex-shrink:0}}@media (prefers-reduced-motion:reduce){.vKg9-W_option,.vKg9-W_customRow{transition:none}}";
-		const tagId = "@deepseek-ai/dsh-client-ui-user-questions/QuestionComposer.module.css";
+		//#region \0dsh-css:D:\deepseek-harness\packages\session-query\session-log-export\src\client\HeaderAction.module.css.mjs
+		const css = ".kD8epW_moreButton{width:28px;color:var(--dsw-alias-label-secondary);flex:none;padding:0}.kD8epW_moreButton svg{width:15px;height:15px}";
+		const tagId = "@deepseek-ai/dsh-session-log-export/HeaderAction.module.css";
 		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId) + "]") === null) {
 			const tag = document.createElement("style");
-			tag.dataset.plugin = "@deepseek-ai/dsh-client-ui-user-questions";
+			tag.dataset.plugin = "@deepseek-ai/dsh-session-log-export";
 			tag.dataset.pluginCss = tagId;
 			tag.textContent = css;
 			document.head.appendChild(tag);
 		}
-		var QuestionComposer_module_css_default = {
-			"badge": "vKg9-W_badge",
-			"body": "vKg9-W_body",
-			"card": "vKg9-W_card",
-			"cardMinimized": "vKg9-W_cardMinimized",
-			"checkbox": "vKg9-W_checkbox",
-			"checkboxChecked": "vKg9-W_checkboxChecked",
-			"customBlock": "vKg9-W_customBlock",
-			"customInline": "vKg9-W_customInline",
-			"customRow": "vKg9-W_customRow",
-			"customRowActive": "vKg9-W_customRowActive",
-			"description": "vKg9-W_description",
-			"detail": "vKg9-W_detail",
-			"eyebrow": "vKg9-W_eyebrow",
-			"feedback": "vKg9-W_feedback",
-			"field": "vKg9-W_field",
-			"fieldInput": "vKg9-W_fieldInput",
-			"fieldMirror": "vKg9-W_fieldMirror",
-			"footer": "vKg9-W_footer",
-			"footerActions": "vKg9-W_footerActions",
-			"frame": "vKg9-W_frame",
-			"header": "vKg9-W_header",
-			"headerActions": "vKg9-W_headerActions",
-			"headingBlock": "vKg9-W_headingBlock",
-			"iconButton": "vKg9-W_iconButton",
-			"number": "vKg9-W_number",
-			"option": "vKg9-W_option",
-			"optionCopy": "vKg9-W_optionCopy",
-			"optionLabel": "vKg9-W_optionLabel",
-			"optionLine": "vKg9-W_optionLine",
-			"optionSelected": "vKg9-W_optionSelected",
-			"options": "vKg9-W_options",
-			"pager": "vKg9-W_pager",
-			"progress": "vKg9-W_progress",
-			"title": "vKg9-W_title"
-		};
+		var HeaderAction_module_css_default = { "moreButton": "kD8epW_moreButton" };
 		//#endregion
-		//#region lib/types/client/QuestionComposer.js
+		//#region lib/types/client/HeaderAction.js
 		/**
-		* Split the conventional recommendation suffix without changing the answer value.
-		* @param label - Original option label returned if selected.
-		* @returns Display label plus recommendation state.
+		* Render the Session Header menu with download and optional feedback actions.
+		* @param props - Session runtime, download controller, and localized copy.
+		* @returns the persistent Header action and Session-scoped dialog.
 		*/
-		function parseRecommendedLabel(label) {
-			const suffix = /\s*(?:\((?:recommended|推荐)\)|（(?:recommended|推荐)）)\s*$/i;
-			return suffix.test(label) ? {
-				label: label.replace(suffix, ""),
-				recommended: true
-			} : {
-				label,
-				recommended: false
-			};
-		}
-		/** Return whether a text-field key event belongs to an active IME composition. */
-		function isComposing(event) {
-			return event.nativeEvent.isComposing || Reflect.get(event.nativeEvent, "keyCode") === 229;
-		}
-		/**
-		* Auto-growing free-text answer: a textarea, so a long answer soft-wraps and
-		* Shift+Enter breaks a line, over a hidden mirror that owns the height.
-		*
-		* The mirror renders the draft plus a trailing newline in normal flow and so
-		* sizes the grid row (counting rows by '\n' cannot see soft wraps); the
-		* textarea shares that one cell and stretches to it, and `rows={1}` keeps the
-		* control's own intrinsic height out of the row sizing so the mirror alone
-		* decides. Past the mirror's cap the textarea scrolls itself — it is the only
-		* scrollport in the stack, there being no second glyph layer to keep aligned.
-		* Mirror and textarea MUST share font, line-height, padding and wrapping rules
-		* or the two heights diverge.
-		*
-		* @param props - visual variant, draft text, and the field's event handlers.
-		* @returns The mirrored auto-growing field.
-		*/
-		function AnswerField(props) {
-			return (0, react_jsx_runtime.jsxs)("div", {
-				className: clsx(QuestionComposer_module_css_default.field, props.variant === "inline" ? QuestionComposer_module_css_default.customInline : QuestionComposer_module_css_default.customBlock),
-				children: [(0, react_jsx_runtime.jsx)("div", {
-					"aria-hidden": true,
-					className: QuestionComposer_module_css_default.fieldMirror,
-					children: `${props.value}\n`
-				}), (0, react_jsx_runtime.jsx)("textarea", {
-					autoFocus: props.autoFocus,
-					className: QuestionComposer_module_css_default.fieldInput,
-					value: props.value,
-					disabled: props.disabled,
-					rows: 1,
-					placeholder: props.placeholder,
-					onFocus: props.onFocus,
-					onChange: props.onChange,
-					onKeyDown: props.onKeyDown
-				})]
-			});
-		}
-		/**
-		* Composer takeover router. Generic-question drafts live in this entry's
-		* Session-scoped Slot store, keyed by the pending carrier, so a strict Session
-		* entry remount restores the same request without exposing it to another one.
-		*
-		* One takeover, two presentations: a request that declares a presentation intent this
-		* package renders uses that presentation (a plan review is one decision over one
-		* plan, not a question set), and every other request takes the generic flow.
-		* The routing lives here, at the one entry that owns the composer seat, so
-		* neither presentation can claim a request the other is already rendering.
-		*
-		* @param props - the selector-matched pending question carrier plus the framework standard kit.
-		* @returns The question flow, or the intent's own surface, for this request.
-		*/
-		function QuestionComposer(props) {
-			const question = props.matched;
-			const review = (0, react.useMemo)(() => planReviewOf(question.questions), [question]);
-			return review === void 0 ? (0, react_jsx_runtime.jsx)(QuestionFlow, {
-				pending: question,
-				t: props.t,
-				useStore: props.useStore,
-				actions: props.actions
-			}, question.key) : (0, react_jsx_runtime.jsx)(PlanReviewPanel, {
-				pending: question,
-				review,
-				t: props.t,
-				renderSlot: props.renderSlot
-			}, question.key);
-		}
-		function QuestionFlow({ pending, t, useStore, actions }) {
-			const questions = pending.questions;
-			const markdownLabels = (0, react.useMemo)(() => ({
-				code: {
-					copyLabel: t("copy"),
-					copiedLabel: t("copied"),
-					toolbarLabels: {
-						codeLabel: t("codeBlock.title"),
-						wrapLabel: t("codeBlock.wrap"),
-						unwrapLabel: t("codeBlock.unwrap")
-					}
+		function SessionLogDownloadHeaderAction(props) {
+			const { sessionId, useSessionLogDownload, useFeedbackAvailable, request, openFeedback, t } = props;
+			const feedbackAvailable = useFeedbackAvailable((value) => value);
+			const busy = useSessionLogDownload((state) => state.bySession[String(sessionId)])?.status === "downloading";
+			const [open, setOpen] = (0, react.useState)(false);
+			return (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [(0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Menu, {
+				open,
+				align: "end",
+				dense: true,
+				onClose: () => {
+					setOpen(false);
 				},
-				footnotes: t("markdown.footnotes")
-			}), [t]);
-			const initialProgress = (0, react.useMemo)(() => ({
-				index: 0,
-				drafts: questions.map(() => ({
-					selected: [],
-					custom: "",
-					skipped: false
-				}))
-			}), [questions]);
-			const { index, drafts } = useStore((state) => state.requestKey === pending.key && state.progress.drafts.length === questions.length ? state.progress : void 0) ?? initialProgress;
-			const [busy, setBusy] = (0, react.useState)(null);
-			const [error, setError] = (0, react.useState)(null);
-			const [minimized, setMinimized] = (0, react.useState)(false);
-			const focusedQuestions = (0, react.useRef)(/* @__PURE__ */ new Set());
-			const question = questions[index];
-			const draft = drafts[index];
-			const hasOptions = (question.options?.length ?? 0) > 0;
-			const replaceProgress = (nextIndex, nextDrafts) => {
-				actions.replace(pending.key, {
-					index: nextIndex,
-					drafts: nextDrafts
-				});
-			};
-			const cancelFlow = () => {
-				setBusy("cancel");
-				setError(null);
-				pending.cancel().then(() => {
-					actions.clear(pending.key);
-				}).catch((cause) => {
-					setBusy(null);
-					setError({ text: cause instanceof Error ? cause.message : String(cause) });
-				});
-			};
-			const updateDraft = (update, nextIndex = index) => {
-				replaceProgress(nextIndex, drafts.map((item, itemIndex) => itemIndex === index ? update(item) : item));
-				setError(null);
-			};
-			const choose = (label) => {
-				updateDraft((current) => {
-					if (question.multiSelect === true) {
-						const selected = current.selected.includes(label) ? current.selected.filter((item) => item !== label) : [...current.selected, label];
-						return {
-							...current,
-							selected,
-							skipped: false
-						};
-					}
-					return {
-						selected: [label],
-						custom: "",
-						skipped: false
-					};
-				}, question.multiSelect !== true && index < questions.length - 1 ? index + 1 : index);
-			};
-			const answered = (item) => item.selected.length > 0 || item.custom.trim() !== "";
-			const completed = (item) => answered(item) || item.skipped;
-			const submitDrafts = (values) => {
-				const missing = values.findIndex((item) => !completed(item));
-				if (missing >= 0) {
-					replaceProgress(missing, values);
-					setError({ key: "error.incomplete" });
-					return;
-				}
-				const answer = { answers: questions.map((item, itemIndex) => {
-					const value = values[itemIndex];
-					if (value.skipped) return {
-						id: item.id,
-						selected: []
-					};
-					const custom = value.custom.trim();
-					return {
-						id: item.id,
-						selected: custom === "" || item.multiSelect === true ? value.selected : [],
-						...custom === "" ? {} : { custom }
-					};
-				}) };
-				setBusy("answer");
-				setError(null);
-				pending.answer(answer).then(() => {
-					actions.clear(pending.key);
-				}).catch((cause) => {
-					setBusy(null);
-					setError({ text: cause instanceof Error ? cause.message : String(cause) });
-				});
-			};
-			const continueFlow = () => {
-				if (!answered(draft)) {
-					setError({ key: "error.unanswered" });
-					return;
-				}
-				if (index < questions.length - 1) {
-					replaceProgress(index + 1, drafts);
-					setError(null);
-					return;
-				}
-				submitDrafts(drafts);
-			};
-			const draftCustom = (event) => {
-				const value = event.target.value;
-				updateDraft((current) => ({
-					...current,
-					selected: question.multiSelect === true ? current.selected : [],
-					custom: value,
-					skipped: false
-				}));
-			};
-			const continueFromCustom = (event) => {
-				if (event.key !== "Enter" || event.shiftKey || isComposing(event)) return;
-				event.preventDefault();
-				continueFlow();
-			};
-			const skipQuestion = () => {
-				const nextDrafts = drafts.map((item, itemIndex) => itemIndex === index ? {
-					selected: [],
-					custom: "",
-					skipped: true
-				} : item);
-				replaceProgress(index < questions.length - 1 ? index + 1 : index, nextDrafts);
-				setError(null);
-				if (index < questions.length - 1) return;
-				submitDrafts(nextDrafts);
-			};
-			return (0, react_jsx_runtime.jsx)("div", {
-				className: QuestionComposer_module_css_default.frame,
-				"data-question-key": pending.key,
-				children: (0, react_jsx_runtime.jsxs)("section", {
-					className: clsx(QuestionComposer_module_css_default.card, minimized && QuestionComposer_module_css_default.cardMinimized),
-					"aria-labelledby": `question-${pending.key}-${String(index)}`,
-					children: [(0, react_jsx_runtime.jsxs)("header", {
-						className: QuestionComposer_module_css_default.header,
-						children: [(0, react_jsx_runtime.jsxs)("div", {
-							className: QuestionComposer_module_css_default.headingBlock,
-							children: [question.header !== void 0 && (0, react_jsx_runtime.jsx)("div", {
-								className: QuestionComposer_module_css_default.eyebrow,
-								children: question.header
-							}), (0, react_jsx_runtime.jsx)("h2", {
-								className: QuestionComposer_module_css_default.title,
-								id: `question-${pending.key}-${String(index)}`,
-								children: question.question
-							})]
-						}), (0, react_jsx_runtime.jsxs)("div", {
-							className: QuestionComposer_module_css_default.headerActions,
-							children: [(0, react_jsx_runtime.jsx)("button", {
-								type: "button",
-								className: QuestionComposer_module_css_default.iconButton,
-								"aria-label": t(minimized ? "nav.maximize" : "nav.minimize"),
-								title: t(minimized ? "nav.maximize" : "nav.minimize"),
-								"aria-expanded": !minimized,
-								disabled: busy !== null,
-								onClick: () => {
-									setMinimized((current) => !current);
-								},
-								children: minimized ? (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconChevronUpOutlineRegular, {}) : (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconChevronDownOutlineRegular, {})
-							}), (0, react_jsx_runtime.jsx)("button", {
-								type: "button",
-								className: QuestionComposer_module_css_default.iconButton,
-								"aria-label": t("nav.cancel"),
-								title: t("nav.cancel"),
-								disabled: busy !== null,
-								onClick: cancelFlow,
-								children: (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconCloseOutlineRegular, {})
-							})]
-						})]
-					}), !minimized && (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [(0, react_jsx_runtime.jsxs)("div", {
-						className: QuestionComposer_module_css_default.body,
-						"data-question-scroll": true,
-						children: [question.detail !== void 0 && (0, react_jsx_runtime.jsx)("div", {
-							className: QuestionComposer_module_css_default.detail,
-							children: (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.MarkdownText, {
-								text: question.detail,
-								labels: markdownLabels
-							})
-						}), (0, react_jsx_runtime.jsxs)("div", {
-							className: QuestionComposer_module_css_default.options,
-							role: question.multiSelect === true ? "group" : "radiogroup",
-							children: [(question.options ?? []).map((option, optionIndex) => {
-								const selected = draft.selected.includes(option.label);
-								const display = parseRecommendedLabel(option.label);
-								return (0, react_jsx_runtime.jsxs)("button", {
-									type: "button",
-									className: clsx(QuestionComposer_module_css_default.option, selected && question.multiSelect !== true && QuestionComposer_module_css_default.optionSelected),
-									role: question.multiSelect === true ? "checkbox" : "radio",
-									"aria-checked": selected,
-									"aria-label": display.label,
-									disabled: busy !== null,
-									onClick: () => {
-										choose(option.label);
-									},
-									onKeyDown: (event) => {
-										if (event.key !== "Enter" || !drafts.every(completed)) return;
-										event.preventDefault();
-										submitDrafts(drafts);
-									},
-									children: [question.multiSelect === true ? (0, react_jsx_runtime.jsx)("span", {
-										className: clsx(QuestionComposer_module_css_default.checkbox, selected && QuestionComposer_module_css_default.checkboxChecked),
-										"aria-hidden": "true",
-										children: selected && (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconCheckOutlineRegular, { size: 12 })
-									}) : (0, react_jsx_runtime.jsx)("span", {
-										className: QuestionComposer_module_css_default.number,
-										children: optionIndex + 1
-									}), (0, react_jsx_runtime.jsx)("span", {
-										className: QuestionComposer_module_css_default.optionCopy,
-										children: (0, react_jsx_runtime.jsxs)("span", {
-											className: QuestionComposer_module_css_default.optionLine,
-											children: [
-												(0, react_jsx_runtime.jsx)("span", {
-													className: QuestionComposer_module_css_default.optionLabel,
-													children: display.label
-												}),
-												display.recommended && (0, react_jsx_runtime.jsx)("span", {
-													className: QuestionComposer_module_css_default.badge,
-													children: t("option.recommended")
-												}),
-												option.description !== void 0 && (0, react_jsx_runtime.jsx)("span", {
-													className: QuestionComposer_module_css_default.description,
-													children: option.description
-												})
-											]
-										})
-									})]
-								}, `${option.label}-${String(optionIndex)}`);
-							}), hasOptions ? (0, react_jsx_runtime.jsxs)("div", {
-								className: clsx(QuestionComposer_module_css_default.customRow, draft.custom !== "" && QuestionComposer_module_css_default.customRowActive),
-								children: [question.multiSelect === true ? (0, react_jsx_runtime.jsx)("span", {
-									className: clsx(QuestionComposer_module_css_default.checkbox, draft.custom !== "" && QuestionComposer_module_css_default.checkboxChecked),
-									"aria-hidden": "true",
-									children: draft.custom !== "" && (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconCheckOutlineRegular, { size: 12 })
-								}) : (0, react_jsx_runtime.jsx)("span", {
-									className: QuestionComposer_module_css_default.number,
-									"aria-hidden": "true",
-									children: (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconEditOutlineRegular, { size: 12 })
-								}), (0, react_jsx_runtime.jsx)(AnswerField, {
-									variant: "inline",
-									value: draft.custom,
-									disabled: busy !== null,
-									placeholder: t("custom.placeholder"),
-									onChange: draftCustom,
-									onKeyDown: continueFromCustom
-								})]
-							}) : (0, react_jsx_runtime.jsx)(AnswerField, {
-								autoFocus: !focusedQuestions.current.has(index),
-								variant: "block",
-								value: draft.custom,
-								disabled: busy !== null,
-								placeholder: t("custom.placeholder"),
-								onFocus: () => {
-									focusedQuestions.current.add(index);
-								},
-								onChange: draftCustom,
-								onKeyDown: continueFromCustom
-							})]
-						})]
-					}), (0, react_jsx_runtime.jsxs)("footer", {
-						className: QuestionComposer_module_css_default.footer,
-						children: [
-							(0, react_jsx_runtime.jsxs)("div", {
-								className: QuestionComposer_module_css_default.pager,
-								children: [
-									(0, react_jsx_runtime.jsx)("button", {
-										type: "button",
-										className: QuestionComposer_module_css_default.iconButton,
-										"aria-label": t("nav.prev"),
-										disabled: index === 0 || busy !== null,
-										onClick: () => {
-											replaceProgress(index - 1, drafts);
-											setError(null);
-										},
-										children: (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconChevronLeftOutlineRegular, {})
-									}),
-									(0, react_jsx_runtime.jsxs)("span", {
-										className: QuestionComposer_module_css_default.progress,
-										children: [
-											index + 1,
-											" / ",
-											questions.length
-										]
-									}),
-									(0, react_jsx_runtime.jsx)("button", {
-										type: "button",
-										className: QuestionComposer_module_css_default.iconButton,
-										"aria-label": t("nav.next"),
-										disabled: index === questions.length - 1 || busy !== null,
-										onClick: () => {
-											replaceProgress(index + 1, drafts);
-											setError(null);
-										},
-										children: (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconChevronRightOutlineRegular, {})
-									})
-								]
-							}),
-							(0, react_jsx_runtime.jsx)("div", {
-								className: QuestionComposer_module_css_default.feedback,
-								role: "status",
-								children: error === null ? null : "key" in error ? t(error.key) : error.text
-							}),
-							(0, react_jsx_runtime.jsxs)("div", {
-								className: QuestionComposer_module_css_default.footerActions,
-								children: [(0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
-									variant: "outline",
-									disabled: busy !== null,
-									onClick: skipQuestion,
-									children: t("action.skip")
-								}), (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
-									variant: "primary",
-									disabled: busy !== null || !answered(draft),
-									onClick: continueFlow,
-									children: busy === "answer" ? t("submitting") : index === questions.length - 1 ? t("submit") : t("action.next")
-								})]
-							})
-						]
-					})] })]
+				items: [{
+					id: "download",
+					label: t("menu.download"),
+					icon: (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconDownloadOutlineRegular, {}),
+					disabled: busy
+				}, ...feedbackAvailable ? [{
+					id: "feedback",
+					label: t("menu.feedback"),
+					icon: (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconPaperPlaneOutlineRegular, {})
+				}] : []],
+				onSelect: (id) => {
+					setOpen(false);
+					if (id === "feedback") openFeedback(sessionId);
+					else request(sessionId);
+				},
+				anchor: (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
+					size: "sm",
+					className: HeaderAction_module_css_default.moreButton,
+					"aria-label": t("header.more"),
+					"aria-haspopup": "menu",
+					"aria-expanded": open,
+					"aria-busy": busy,
+					onClick: () => {
+						setOpen((value) => !value);
+					},
+					children: (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconEllipsisOutlineRegular, {})
 				})
-			});
+			}), (0, react_jsx_runtime.jsx)(SessionLogDownloadDialog, { ...props })] });
 		}
 		//#endregion
 		//#region lib/types/client/locales.js
-		/** `question` namespace dictionaries. */
-		/** Simplified Chinese dictionary (the key-set source of truth). */
+		/** Locale namespace owned by Session export browser feedback. */
+		const NS = "session-log-download";
+		/** Simplified-Chinese Session export strings. */
 		const zh = {
-			"error.incomplete": "请先完成这道问题。",
-			"error.unanswered": "请选择一个选项或填写自定义答案。",
-			"nav.prev": "上一题",
-			"nav.next": "下一题",
-			"nav.minimize": "收起问题卡片",
-			"nav.maximize": "展开问题卡片",
-			"nav.cancel": "放弃整组问题",
-			"option.recommended": "推荐",
-			"custom.placeholder": "输入你的答案",
-			"action.skip": "跳过",
-			"action.next": "下一题",
-			"plan.header": "计划待审",
-			"plan.approve": "同意执行",
-			"plan.decline": "拒绝",
-			"plan.discuss": "要求修改"
+			"header.more": "更多操作",
+			"menu.download": "下载 Session 日志",
+			"menu.feedback": "反馈",
+			"dialog.preparingTitle": "正在导出 Session",
+			"dialog.preparingDescription": "正在准备包含当前 Session、子 Session 和附件的 ZIP 文件。",
+			"dialog.successTitle": "Session 导出已开始下载",
+			"dialog.successDescription": "浏览器正在下载 Session ZIP 文件。",
+			"dialog.errorTitle": "Session 导出失败",
+			"dialog.close": "关闭",
+			"dialog.commandFailed": "无法启动 Session 导出。"
 		};
-		/** English dictionary, checked complete against the zh key set. */
+		/** English Session export strings. */
 		const en = {
-			"error.incomplete": "Please complete this question first.",
-			"error.unanswered": "Please select an option or enter a custom answer.",
-			"nav.prev": "Previous question",
-			"nav.next": "Next question",
-			"nav.minimize": "Collapse the question card",
-			"nav.maximize": "Expand the question card",
-			"nav.cancel": "Dismiss all questions",
-			"option.recommended": "Recommended",
-			"custom.placeholder": "Type your answer",
-			"action.skip": "Skip",
-			"action.next": "Next",
-			"plan.header": "Plan review",
-			"plan.approve": "Approve",
-			"plan.decline": "Refuse",
-			"plan.discuss": "Request changes"
+			"header.more": "More actions",
+			"menu.download": "Download session log",
+			"menu.feedback": "Feedback",
+			"dialog.preparingTitle": "Exporting Session",
+			"dialog.preparingDescription": "Preparing a ZIP containing this Session, its sub-Sessions, and attachments.",
+			"dialog.successTitle": "Session download started",
+			"dialog.successDescription": "The browser is downloading the Session ZIP.",
+			"dialog.errorTitle": "Session export failed",
+			"dialog.close": "Close",
+			"dialog.commandFailed": "Could not start the Session export."
 		};
 		//#endregion
 		//#region lib/types/client/index.js
-		/** Dictionary namespace owned by this plugin. */
-		const NS = "question";
-		/** Required services: Agent scopes, Remote Events, Session UI, Slot registry, and copy. */
-		const inject = [
-			"sessions",
-			"remote",
-			"uiSession",
-			"slots",
-			"locale"
-		];
-		/** Present one request until the user answers, cancels, or its lifetime ends. */
-		async function answerQuestion(ctx, owner, request, next, registerPendingInteraction) {
-			const sessionId = ctx.sessions.scopeOf(owner);
-			if (sessionId === void 0) return next();
-			const pending = new PendingQuestion(sessionId, request.questions, request.signal);
-			const completed = Promise.withResolvers();
-			const remove = registerPendingInteraction(pending, async () => {
-				pending.delegate();
-				await completed.promise;
-			});
-			try {
-				try {
-					return await pending.result;
-				} catch (error) {
-					if (pending.isDelegation(error)) return await next();
-					throw error;
-				}
-			} finally {
-				remove();
-				completed.resolve();
-			}
-		}
+		/** Browser plugin owning Session export download state and its shared modal. */
+		const inject = ["slots", "locale"];
 		/**
-		* Client plugin body: register the `question` dictionaries and the question
-		* composer into the composer chain. Zero business face — data and verbs live
-		* on the matched carrier; t rides the standard locale seat.
-		* @param ctx - client root context.
+		* Provide the download controller and mount its modal into the Session Header.
+		* @param ctx - browser context carrying slots and locale services.
 		*/
 		function apply(ctx) {
+			const controller = new SessionLogDownloadController();
+			ctx.provide("sessionLogDownload", controller);
+			ctx.effect(() => async () => {
+				await controller.dispose();
+			}, "session-log-download: browser download lifecycle");
 			ctx.effect(() => ctx.locale.register(NS, {
 				zh,
 				en
-			}), "ui-user-questions: dictionaries");
-			const questionDraftStore = createQuestionDraftStore();
-			const registerPendingInteraction = ctx.uiSession.registerPendingInteraction((pending) => pending.kind === "plan-review" ? 2 : 1);
-			ctx.slots.inject("conversation.composer", () => ctx.slots.register({
-				name: "conversation.composer",
-				select: ({ pendingInteraction }) => pendingInteraction instanceof PendingQuestion ? pendingInteraction : null,
-				locale: NS,
-				store: questionDraftStore,
-				children: { "conversation.plan-review.actions": {
-					kind: "list",
-					scope: "session"
-				} }
-			}, QuestionComposer));
-			ctx.remote.$on("user-questions/request", function(request, next) {
-				return answerQuestion(ctx, this, request, next, registerPendingInteraction);
+			}), "session-log-download: browser dictionaries");
+			const feedbackAvailable = (0, _deepseek_ai_dsh_client_store.createSnapshotStore)(false);
+			ctx.inject(["feedbackUi"], (scope) => {
+				scope.effect(() => {
+					feedbackAvailable.set(true);
+					return () => {
+						feedbackAvailable.set(false);
+					};
+				}, "session-log-download: feedback availability");
 			});
+			ctx.on("command/executed", (sessionId, commandName, result) => {
+				if (commandName === "export" && result.kind === "success") controller.download(sessionId);
+			});
+			ctx.slots.inject("conversation.session.header.utilities", () => ctx.slots.register({
+				name: "conversation.session.header.utilities",
+				id: "session-log-download",
+				locale: NS,
+				inject: () => ({
+					hooks: {
+						sessionLogDownload: controller.store,
+						feedbackAvailable
+					},
+					request: (sessionId) => controller.download(sessionId),
+					dismiss: (sessionId) => {
+						controller.dismiss(sessionId);
+					},
+					openFeedback: (sessionId) => {
+						ctx.get("feedbackUi")?.openSession(sessionId);
+					}
+				})
+			}, SessionLogDownloadHeaderAction));
 		}
 		//#endregion
 		exports.apply = apply;
@@ -896,4 +314,4 @@ window.__ModuleLoader__.load({
 	}
 });
 ;
-//# sourceMappingURL=??@deepseek-ai/dsh-client-ui-user-questions/client.js.map&rev=8b7d0f471a81
+//# sourceMappingURL=??@deepseek-ai/dsh-session-log-export/client.js.map&rev=411964d0aa63

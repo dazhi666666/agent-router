@@ -1,876 +1,838 @@
 window.__ModuleLoader__.load({
-	id: "@deepseek-ai/dsh-client-ui-message-feedback",
+	id: "@deepseek-ai/dsh-client-ui-permission-presets",
 	factory: (require) => {
 		var module = { exports: {} };
 		var exports = module.exports;
 		Object.defineProperty(exports, Symbol.toStringTag, { value: "Module" });
+		let _deepseek_ai_dsh_client_store = require("@deepseek-ai/dsh-client-store");
 		let react_jsx_runtime = require("react/jsx-runtime");
 		let react = require("react");
 		let _deepseek_ai_dsh_client_ui_primitives = require("@deepseek-ai/dsh-client-ui-primitives");
-		let _deepseek_ai_dsh_client_store = require("@deepseek-ai/dsh-client-store");
-		//#region \0dsh-css:D:\deepseek-harness\packages\client\ui-message-feedback\src\client\FeedbackDialog.module.css.mjs
-		const css$1 = ".TEgbpq_dialog.TEgbpq_dialog{border-radius:var(--dsw-radius-panel);gap:38px;width:min(488px,100%)}.TEgbpq_categories{flex-wrap:wrap;gap:8px;margin-top:-14px;display:flex}.TEgbpq_chip{border:.5px solid var(--dsw-alias-border-l4);border-radius:var(--dsw-radius-sm);height:28px;color:var(--dsw-alias-label-primary);font:inherit;cursor:pointer;background:0 0;padding:0 12px;font-size:13px;line-height:18px;transition:background-color .12s,border-color .12s,color .12s}.TEgbpq_chip:hover:not(:disabled){background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-primary)}.TEgbpq_chip:disabled{cursor:default;opacity:.4}.TEgbpq_chip:focus-visible{outline:var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color,var(--dsw-alias-state-business-primary));outline-offset:2px}.TEgbpq_chipActive,.TEgbpq_chipActive:hover:not(:disabled){border-color:var(--dsw-alias-button-primary-fill);background:var(--dsw-alias-button-primary-fill);color:var(--dsw-alias-label-primary-foreground)}.TEgbpq_detail{box-sizing:border-box;border:.5px solid var(--dsw-alias-border-l4);border-radius:var(--dsw-radius-lg);background:var(--dsw-alias-bg-layer-1);width:100%;min-height:116px;max-height:280px;color:var(--dsw-alias-label-primary);font:inherit;field-sizing:content;resize:none;margin-top:18px;padding:12px 14px;font-size:14px;line-height:22px;transition:border-color .12s,box-shadow .12s;display:block}.TEgbpq_detail::placeholder{color:var(--dsw-alias-label-caption)}.TEgbpq_detail:focus{border-color:var(--dsw-alias-border-l3);box-shadow:0 0 0 1px var(--dsw-alias-state-business-primary);outline:none}.TEgbpq_submit{border-radius:var(--dsw-radius-lg);width:100%;height:44px;font-size:14px;font-weight:500}@media (prefers-reduced-motion:reduce){.TEgbpq_chip,.TEgbpq_detail{transition:none}}";
-		const tagId$1 = "@deepseek-ai/dsh-client-ui-message-feedback/FeedbackDialog.module.css";
+		//#region lib/types/client/catalog.js
+		/** Identity-stable process permission catalog shared by both selection surfaces. */
+		/** One latest-result-wins catalog reader for the whole browser process. */
+		var PermissionCatalogDirectory = class {
+			ctx;
+			/** Complete snapshot consumed by both the slash popup and composer seat. */
+			store = (0, _deepseek_ai_dsh_client_store.createSnapshotStore)({ value: null });
+			/**
+			* One tick per invalidation (a catalog notification or a connection-generation
+			* change), published before the replacement read starts. Consumers that must
+			* drop displayed options subscribe here instead of to {@link store}, whose
+			* publications also settle a read a displayed surface is waiting for.
+			*/
+			invalidations = (0, _deepseek_ai_dsh_client_store.createSnapshotStore)({ count: 0 });
+			connection;
+			stopCatalog;
+			stopGeneration;
+			generationId;
+			initialized = false;
+			epoch = 0;
+			pending;
+			failure = /* @__PURE__ */ new Error("permission catalog has no complete value");
+			disposed = false;
+			/**
+			* Subscribe to both invalidation sources before the first read, closing the
+			* install/read race.
+			* @param ctx - root Client context carrying Remote and Connection.
+			*/
+			constructor(ctx) {
+				this.ctx = ctx;
+				this.connection = ctx.get("connection");
+				this.stopCatalog = ctx.remote.$on("permission-presets/catalog-changed", () => {
+					this.invalidate();
+					this.refresh();
+				});
+				this.stopGeneration = this.connection.generation.subscribe(() => {
+					this.syncGeneration();
+				});
+				this.syncGeneration();
+			}
+			/**
+			* Publish one invalidation tick for consumers holding displayed options.
+			* Neither caller can run after disposal: `dispose()` unsubscribes the
+			* catalog-changed listener, and `syncGeneration()` returns early when the
+			* directory is disposed.
+			*/
+			invalidate() {
+				this.invalidations.set({ count: this.invalidations.getSnapshot().count + 1 });
+			}
+			/** Force a fresh complete read for the active connection generation. */
+			refresh() {
+				if (this.disposed) return;
+				const generationId = this.connection.generation.getSnapshot()?.id;
+				if (generationId === void 0) return;
+				if (generationId !== this.generationId) {
+					this.syncGeneration();
+					return;
+				}
+				this.startRead(generationId);
+			}
+			/**
+			* Resolve a complete current-generation catalog for an imperative popup
+			* open. An active refresh settles before a retained value can be reused.
+			* @returns The active Host generation's complete permission catalog.
+			*/
+			async load() {
+				if (this.pending === void 0 && this.store.getSnapshot().value === null) this.refresh();
+				while (!this.disposed) {
+					const generationId = this.connection.generation.getSnapshot()?.id;
+					if (generationId === void 0) throw new Error("permission catalog has no active Host connection");
+					if (generationId !== this.generationId) this.syncGeneration();
+					const pending = this.pending;
+					if (pending !== void 0) {
+						await pending;
+						continue;
+					}
+					const state = this.store.getSnapshot();
+					if (state.value !== null) return state.value;
+					throw this.failure;
+				}
+				throw new Error("permission catalog directory is disposed");
+			}
+			/** Stop subscriptions and revoke every late settlement's write access. */
+			dispose() {
+				if (this.disposed) return;
+				this.disposed = true;
+				++this.epoch;
+				this.pending = void 0;
+				this.stopGeneration();
+				this.stopCatalog();
+			}
+			/** Observe generation loss/replacement and hard-clear the old Host value. */
+			syncGeneration() {
+				if (this.disposed) return;
+				const generationId = this.connection.generation.getSnapshot()?.id;
+				if (this.initialized && generationId === this.generationId) return;
+				if (this.initialized) this.invalidate();
+				this.initialized = true;
+				this.generationId = generationId;
+				++this.epoch;
+				this.pending = void 0;
+				this.failure = /* @__PURE__ */ new Error("permission catalog has no complete value");
+				this.store.set({ value: null });
+				if (generationId !== void 0) this.startRead(generationId);
+			}
+			/** Start one independent read; the newest epoch in the same generation wins. */
+			startRead(generationId) {
+				const epoch = ++this.epoch;
+				this.failure = /* @__PURE__ */ new Error("permission catalog has no complete value");
+				const operation = this.ctx.remote.permissionPresets.catalog().then((result) => {
+					if (!result.ok) throw new Error(`${result.error.code}: ${result.error.message}`);
+					if (!this.accepts(epoch, generationId)) return;
+					this.store.set({ value: result.value });
+				}).catch((error) => {
+					if (!this.accepts(epoch, generationId)) return;
+					this.failure = error instanceof Error ? error : new Error(String(error));
+					this.store.set({ value: null });
+				}).finally(() => {
+					if (this.pending === operation) this.pending = void 0;
+				});
+				this.pending = operation;
+			}
+			/** Fence by disposal, refresh epoch, and the actual Connection generation. */
+			accepts(epoch, generationId) {
+				return !this.disposed && epoch === this.epoch && generationId === this.generationId && this.connection.generation.getSnapshot()?.id === generationId;
+			}
+		};
+		//#endregion
+		//#region ../../../node_modules/.pnpm/clsx@2.1.1/node_modules/clsx/dist/clsx.mjs
+		function r(e) {
+			var t, f, n = "";
+			if ("string" == typeof e || "number" == typeof e) n += e;
+			else if ("object" == typeof e) if (Array.isArray(e)) {
+				var o = e.length;
+				for (t = 0; t < o; t++) e[t] && (f = r(e[t])) && (n && (n += " "), n += f);
+			} else for (f in e) e[f] && (n && (n += " "), n += f);
+			return n;
+		}
+		function clsx() {
+			for (var e, t, f = 0, n = "", o = arguments.length; f < o; f++) (e = arguments[f]) && (t = r(e)) && (n && (n += " "), n += t);
+			return n;
+		}
+		//#endregion
+		//#region lib/types/client/locales.js
+		/** `settings.permission` namespace dictionaries (the Permission row's copy). */
+		/** Locale namespace shared by both current-session permission pickers. */
+		const PERMISSION_ACCESS_NS = "permission.access";
+		/** Simplified Chinese dictionary (the key-set source of truth). */
+		const zh = {
+			"title": "权限",
+			"description": "选择新会话的默认权限模式",
+			"loading": "加载中",
+			"unavailable": "不可用",
+			"preset.readOnly": "仅可查看",
+			"preset.workspaceWrite": "工作区内修改",
+			"preset.fullAccess": "完全权限",
+			"confirm.title": "确认启用完全权限？",
+			"confirm.description": "启用完全权限后，新会话将减少确认步骤，并且可以直接执行更多操作，包括敏感操作、文件修改或外部命令。仅建议在你信任后续任务时使用。",
+			"confirm.acknowledge": "我已了解风险，并愿意继续",
+			"confirm.cancel": "取消",
+			"confirm.enable": "启用完全权限"
+		};
+		/** English dictionary, checked complete against the zh key set. */
+		const en = {
+			"title": "Permission",
+			"description": "Choose the default permission mode for new sessions",
+			"loading": "Loading",
+			"unavailable": "Unavailable",
+			"preset.readOnly": "Read Only",
+			"preset.workspaceWrite": "Workspace Write",
+			"preset.fullAccess": "Full access",
+			"confirm.title": "Enable Full access?",
+			"confirm.description": "Full access lets new sessions reduce confirmation steps and perform more actions directly, including sensitive operations, file changes, or external commands. Only use it when you trust subsequent tasks.",
+			"confirm.acknowledge": "I understand the risks and want to continue",
+			"confirm.cancel": "Cancel",
+			"confirm.enable": "Enable Full access"
+		};
+		/** Simplified Chinese dictionary for the current-session popup gate. */
+		const accessZh = {
+			"mode": "访问模式，当前：{name}",
+			"close": "关闭",
+			"preset.readOnly": "仅可查看",
+			"preset.workspaceWrite": "工作区内修改",
+			"preset.fullAccess": "完全权限",
+			"confirm.title": "确认启用完全权限？",
+			"confirm.description": "启用完全权限后，智能体将减少确认步骤，并且可以直接执行更多操作，包括敏感操作、文件修改或外部命令。仅建议在你信任当前任务时使用。",
+			"confirm.acknowledge": "我已了解风险，并愿意继续",
+			"confirm.cancel": "取消",
+			"confirm.enable": "启用完全权限",
+			"auto.label": "Auto review",
+			"auto.badge": "EXP",
+			"auto.description": "无沙箱运行；每次原生工具调用和 PTC 内层调用前由同一模型进行实验性审查。",
+			"auto.confirm.title": "确认启用 Auto review（实验）？",
+			"auto.confirm.description": "Auto review 不使用沙箱。每次原生工具调用和 PTC 内层调用前，都会由与当前 agent 相同的模型进行审查；审查拒绝的调用由你批准或拒绝。此功能仍属实验性，可能误放行或误拒绝，并会消耗额外 token。",
+			"auto.confirm.acknowledge": "我已了解这些风险，并愿意继续",
+			"auto.confirm.enable": "启用 Auto review"
+		};
+		/** English dictionary for the current-session popup gate. */
+		const accessEn = {
+			"mode": "Access mode, current: {name}",
+			"close": "Close",
+			"preset.readOnly": "Read Only",
+			"preset.workspaceWrite": "Workspace Write",
+			"preset.fullAccess": "Full access",
+			"confirm.title": "Enable Full access?",
+			"confirm.description": "Full access reduces confirmation steps and lets the agent perform more actions directly, including sensitive operations, file changes, or external commands. Only use it when you trust the current task.",
+			"confirm.acknowledge": "I understand the risks and want to continue",
+			"confirm.cancel": "Cancel",
+			"confirm.enable": "Enable Full access",
+			"auto.label": "Auto review",
+			"auto.badge": "EXP",
+			"auto.description": "Run without a sandbox after an experimental same-model review of every native tool call and PTC inner call.",
+			"auto.confirm.title": "Enable Auto review (experimental)?",
+			"auto.confirm.description": "Auto review runs without a sandbox. Before every native tool call and PTC inner call, the same model as the current agent reviews whether to allow it; you approve or reject each call it denies. This feature is experimental, can falsely allow or deny actions, and uses additional tokens.",
+			"auto.confirm.acknowledge": "I understand these risks and want to continue",
+			"auto.confirm.enable": "Enable Auto review"
+		};
+		//#endregion
+		//#region lib/types/client/presentation.js
+		/** Machine value of the preset that requires an explicit GUI risk gate. */
+		const FULL_ACCESS_PRESET = "danger-full-access";
+		const PRESET_LABEL_KEYS = new Map([
+			["read-only", "preset.readOnly"],
+			["workspace-write", "preset.workspaceWrite"],
+			[FULL_ACCESS_PRESET, "preset.fullAccess"]
+		]);
+		const DEFAULT_PRESET_LABELS = {
+			"preset.readOnly": en["preset.readOnly"],
+			"preset.workspaceWrite": en["preset.workspaceWrite"],
+			"preset.fullAccess": en["preset.fullAccess"]
+		};
+		/**
+		* Convert conventional kebab-case preset names into user-facing title case.
+		* @param name - host-supplied preset label or key.
+		* @returns the title-cased conventional key, or a non-kebab label unchanged.
+		*/
+		function displayPresetName(name) {
+			if (!/^[a-z0-9]+(-[a-z0-9]+)*$/.test(name)) return name;
+			return name.split("-").map((word) => word.charAt(0).toUpperCase() + word.slice(1)).join(" ");
+		}
+		/**
+		* Render a permission preset under its product label.
+		* @param value - preset machine value.
+		* @param name - host-supplied preset name.
+		* @param t - optional locale dictionary lookup for built-in product labels.
+		* @returns the built-in product label or the conventional display name.
+		*/
+		function displayPermissionPreset(value, name, t) {
+			const key = PRESET_LABEL_KEYS.get(value);
+			if (key !== void 0 && (name === value || name === DEFAULT_PRESET_LABELS[key])) return t?.(key) ?? DEFAULT_PRESET_LABELS[key];
+			return displayPresetName(name);
+		}
+		//#endregion
+		//#region \0dsh-css:D:\deepseek-harness\packages\client\ui-permission-presets\src\client\PermissionSelect.module.css.mjs
+		const css$1 = ".-PWAcq_trigger{border-radius:var(--dsw-radius-sm);min-width:0;max-width:220px;height:28px;color:var(--dsw-alias-label-secondary);cursor:pointer;background:0 0;border:none;outline:none;align-items:center;gap:4px;padding:0 4px 0 8px;font-size:13px;font-weight:500;line-height:20px;display:inline-flex}.-PWAcq_trigger:hover:not(:disabled){background:var(--dsw-alias-interactive-bg-hover)}.-PWAcq_trigger:focus-visible{box-shadow:0 0 0 2px var(--dsw-focus-ring-color,var(--dsw-alias-state-business-primary))}.-PWAcq_trigger:disabled{color:var(--dsw-alias-label-dimmed);cursor:default}.-PWAcq_triggerIcon{flex:none;display:inline-flex}.-PWAcq_triggerIcon svg{width:14px;height:14px}.-PWAcq_triggerLabel{text-overflow:ellipsis;white-space:nowrap;min-width:0;overflow:hidden}.-PWAcq_optionLabel{align-items:baseline;gap:4px;min-width:0;max-width:100%;display:inline-flex}.-PWAcq_optionLabelText{text-overflow:ellipsis;white-space:nowrap;min-width:0;overflow:hidden}.-PWAcq_badge{color:var(--dsw-alias-label-tertiary);letter-spacing:.2px;flex:none;align-self:flex-start;margin-top:-1px;font-size:8px;font-weight:600;line-height:10px}.-PWAcq_chevron{color:var(--dsw-alias-label-caption);flex:none;transition:transform .12s;display:inline-flex}@container (width<=460px){.-PWAcq_trigger:has(.-PWAcq_triggerIcon) .-PWAcq_triggerLabel{display:none}}.-PWAcq_chevronOpen{transform:rotate(180deg)}";
+		const tagId$1 = "@deepseek-ai/dsh-client-ui-permission-presets/PermissionSelect.module.css";
 		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId$1) + "]") === null) {
 			const tag = document.createElement("style");
-			tag.dataset.plugin = "@deepseek-ai/dsh-client-ui-message-feedback";
+			tag.dataset.plugin = "@deepseek-ai/dsh-client-ui-permission-presets";
 			tag.dataset.pluginCss = tagId$1;
 			tag.textContent = css$1;
 			document.head.appendChild(tag);
 		}
-		var FeedbackDialog_module_css_default = {
-			"categories": "TEgbpq_categories",
-			"chip": "TEgbpq_chip",
-			"chipActive": "TEgbpq_chipActive",
-			"detail": "TEgbpq_detail",
-			"dialog": "TEgbpq_dialog",
-			"submit": "TEgbpq_submit"
+		var PermissionSelect_module_css_default = {
+			"badge": "-PWAcq_badge",
+			"chevron": "-PWAcq_chevron",
+			"chevronOpen": "-PWAcq_chevronOpen",
+			"optionLabel": "-PWAcq_optionLabel",
+			"optionLabelText": "-PWAcq_optionLabelText",
+			"trigger": "-PWAcq_trigger",
+			"triggerIcon": "-PWAcq_triggerIcon",
+			"triggerLabel": "-PWAcq_triggerLabel"
 		};
 		//#endregion
-		//#region lib/types/client/FeedbackDialog.js
-		/**
-		* The feedback dialog and its acknowledgement and failure toasts, rendered as one entry
-		* of `conversation.input.overlay` so each Session owns exactly one of each.
-		* The Modal and the Toast both portal to `document.body`; the overlay slot
-		* only supplies the per-session controller and the composer card the toast
-		* centers over.
-		* @module @deepseek-ai/dsh-client-ui-message-feedback/client/FeedbackDialog
-		*/
-		const CATEGORIES = Object.keys({
-			"task-result": true,
-			"instruction-following": true,
-			"product-interaction": true,
-			"service-stability": true,
-			"resource-cost": true,
-			"security-privacy-permission": true,
-			"other": true
-		});
-		/** Failure codes with their own copy; every other code reads the generic line. */
-		const FAILURE_COPY = {
-			"version-conflict": "error.conflict",
-			"note-too-large": "error.noteTooLarge"
-		};
-		/**
-		* Render one Session's feedback dialog and toast.
-		* @param props - the dialog hook, the draft verbs, and the locale seat.
-		* @returns the modal while a target is open and either toast while it is showing.
-		*/
-		function FeedbackDialog({ useDialog, edit, submit, dismiss, dismissFailure, dismissToast, t }) {
-			const state = useDialog((s) => s);
-			const probeRef = (0, react.useRef)(null);
-			const [card, setCard] = (0, react.useState)(null);
-			(0, react.useLayoutEffect)(() => {
-				setCard(probeRef.current?.closest("[data-composer-card]") ?? null);
-			}, []);
-			const toast = state.toast;
-			const onToastDone = (0, react.useCallback)(() => {
-				dismissToast(toast);
-			}, [dismissToast, toast]);
-			(0, react.useEffect)(() => () => {
-				dismissToast(toast);
-			}, [dismissToast, toast]);
-			const failureCode = state.failure;
-			const failure = failureCode === null ? null : t(FAILURE_COPY[failureCode] ?? "error.generic");
-			const onFailureDone = (0, react.useCallback)(() => {
-				dismissFailure();
-			}, [dismissFailure]);
-			return (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [
-				(0, react_jsx_runtime.jsx)("span", {
-					ref: probeRef,
-					hidden: true
-				}),
-				toast > 0 && failure === null && (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Toast, {
-					text: t("toast.recorded"),
-					tone: "success",
-					anchor: card,
-					onDone: onToastDone
-				}, toast),
-				failure !== null && (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Toast, {
-					text: failure,
-					icon: (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconWarningOutlineRegular, {}),
-					anchor: card,
-					holdMs: 6e3,
-					onDone: onFailureDone
-				}, `failure-${failureCode}`),
-				(0, react_jsx_runtime.jsxs)(_deepseek_ai_dsh_client_ui_primitives.Modal, {
-					open: state.target !== null,
-					title: t("dialog.title"),
-					closeLabel: t("close"),
-					onClose: dismiss,
-					className: FeedbackDialog_module_css_default.dialog,
-					footer: (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
-						variant: "primary",
-						className: FeedbackDialog_module_css_default.submit,
-						disabled: state.submitting,
-						onClick: () => {
-							submit();
-						},
-						children: state.submitting ? t("submitting") : t("submit")
+		//#region lib/types/client/PermissionSelect.js
+		const permissionGlyphs = new Map([
+			["read-only", (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.PermissionIconReadOnlyRegular, {})],
+			["workspace-write", (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.PermissionIconWorkspaceWriteRegular, {})],
+			[FULL_ACCESS_PRESET, (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.PermissionIconFullAccessRegular, {})]
+		]);
+		/** Glyph for a permission option value; host-configured names outside the design set get none. */
+		function permissionGlyph(value) {
+			return permissionGlyphs.get(value);
+		}
+		function permissionLabel(value, name, t) {
+			if (value === "auto") return t("auto.label");
+			return displayPermissionPreset(value, name, (key) => t(key));
+		}
+		function optionBadge(value, t) {
+			return value === "auto" ? t("auto.badge") : void 0;
+		}
+		/** Resolve locale-owned copy for the shipped Auto option; preserve host copy for other presets. */
+		function optionDescription(option, t) {
+			return option.value === "auto" ? t("auto.description") : option.description;
+		}
+		function PermissionSelect({ locked, select, usePermissionCatalog, useProjection, t }) {
+			const selection = useProjection("permissions");
+			const catalog = usePermissionCatalog((state) => state.value);
+			const [pick, setPick] = (0, react.useState)(null);
+			const [open, setOpen] = (0, react.useState)(false);
+			const [confirmation, setConfirmation] = (0, react.useState)(null);
+			const [acknowledged, setAcknowledged] = (0, react.useState)(false);
+			(0, react.useEffect)(() => {
+				if (!locked && selection !== void 0 && catalog !== null && (confirmation === null || catalog.options.some((option) => option.value === confirmation))) return;
+				setOpen(false);
+				setAcknowledged(false);
+				setConfirmation(null);
+			}, [
+				catalog,
+				confirmation,
+				locked,
+				selection
+			]);
+			if (selection === void 0 || catalog === null) return null;
+			const currentValue = pick !== null && catalog.options.some((option) => option.value === pick) ? pick : selection.currentValue;
+			const current = catalog.options.find((option) => option.value === currentValue);
+			const currentLabel = current === void 0 ? permissionLabel(currentValue, currentValue, t) : permissionLabel(current.value, current.name, t);
+			const busy = pick !== null || confirmation !== null;
+			const items = catalog.options.map((option) => {
+				const icon = permissionGlyph(option.value);
+				const label = permissionLabel(option.value, option.name, t);
+				const badge = optionBadge(option.value, t);
+				return {
+					id: option.value,
+					label: badge === void 0 ? label : (0, react_jsx_runtime.jsxs)("span", {
+						className: PermissionSelect_module_css_default.optionLabel,
+						"aria-label": `${label} ${badge}`,
+						children: [(0, react_jsx_runtime.jsx)("span", {
+							className: PermissionSelect_module_css_default.optionLabelText,
+							children: label
+						}), (0, react_jsx_runtime.jsx)("sup", {
+							className: PermissionSelect_module_css_default.badge,
+							children: badge
+						})]
 					}),
-					children: [(0, react_jsx_runtime.jsx)("div", {
-						className: FeedbackDialog_module_css_default.categories,
-						role: "group",
-						"aria-label": t("dialog.categories"),
-						children: CATEGORIES.map((category) => (0, react_jsx_runtime.jsx)("button", {
-							type: "button",
-							className: state.category === category ? `${FeedbackDialog_module_css_default.chip} ${FeedbackDialog_module_css_default.chipActive}` : FeedbackDialog_module_css_default.chip,
-							"aria-pressed": state.category === category,
-							disabled: state.submitting,
-							onClick: () => {
-								edit({ category: state.category === category ? null : category });
-							},
-							children: t(`category.${category}`)
-						}, category))
-					}), (0, react_jsx_runtime.jsx)("textarea", {
-						className: FeedbackDialog_module_css_default.detail,
-						"aria-label": t("dialog.detail"),
-						placeholder: t("dialog.hint"),
-						value: state.text,
-						readOnly: state.submitting,
-						onChange: (event) => {
-							edit({ text: event.target.value });
-						}
-					})]
+					...icon === void 0 ? {} : { icon }
+				};
+			});
+			const submit = (id) => {
+				setPick(id);
+				select(id).catch(() => false).then(() => {
+					setPick(null);
+				});
+			};
+			const choose = (id) => {
+				setOpen(false);
+				if (id === selection.currentValue) return;
+				if (id === "danger-full-access" || id === "auto") {
+					setAcknowledged(false);
+					setConfirmation(id);
+					return;
+				}
+				submit(id);
+			};
+			const closeConfirmation = () => {
+				setAcknowledged(false);
+				setConfirmation(null);
+			};
+			const confirmSelection = (id) => {
+				closeConfirmation();
+				submit(id);
+			};
+			const confirmationTitle = confirmation === "auto" ? t("auto.confirm.title") : t("confirm.title");
+			const confirmationDescription = confirmation === "auto" ? t("auto.confirm.description") : t("confirm.description");
+			const confirmationAcknowledge = confirmation === "auto" ? t("auto.confirm.acknowledge") : t("confirm.acknowledge");
+			const confirmationEnable = confirmation === "auto" ? t("auto.confirm.enable") : t("confirm.enable");
+			const currentBadge = optionBadge(currentValue, t);
+			const currentAccessibleLabel = currentBadge === void 0 ? currentLabel : `${currentLabel} ${currentBadge}`;
+			return (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [(0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Menu, {
+				open,
+				items,
+				selectedId: currentValue,
+				onSelect: choose,
+				onClose: () => {
+					setOpen(false);
+				},
+				side: "top",
+				portal: true,
+				anchor: (0, react_jsx_runtime.jsxs)("button", {
+					type: "button",
+					className: PermissionSelect_module_css_default.trigger,
+					"aria-label": t("mode", { name: currentAccessibleLabel }),
+					title: current === void 0 ? void 0 : optionDescription(current, t),
+					disabled: locked || busy,
+					onClick: () => {
+						setOpen(!open);
+					},
+					children: [
+						permissionGlyph(currentValue) !== void 0 && (0, react_jsx_runtime.jsx)("span", {
+							className: PermissionSelect_module_css_default.triggerIcon,
+							"aria-hidden": true,
+							children: permissionGlyph(currentValue)
+						}),
+						(0, react_jsx_runtime.jsx)("span", {
+							className: PermissionSelect_module_css_default.triggerLabel,
+							children: currentLabel
+						}),
+						currentBadge !== void 0 && (0, react_jsx_runtime.jsx)("sup", {
+							className: PermissionSelect_module_css_default.badge,
+							children: currentBadge
+						}),
+						(0, react_jsx_runtime.jsx)("span", {
+							className: clsx(PermissionSelect_module_css_default.chevron, open && PermissionSelect_module_css_default.chevronOpen),
+							"aria-hidden": true,
+							children: (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconChevronDownOutlineRegular, {})
+						})
+					]
 				})
-			] });
+			}), confirmation !== null && (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.RiskConfirmation, {
+				open: true,
+				title: confirmationTitle,
+				description: confirmationDescription,
+				acknowledgeLabel: confirmationAcknowledge,
+				cancelLabel: t("confirm.cancel"),
+				closeLabel: t("close"),
+				confirmLabel: confirmationEnable,
+				acknowledged,
+				disabled: locked,
+				onAcknowledgedChange: setAcknowledged,
+				onCancel: closeConfirmation,
+				onConfirm: () => {
+					confirmSelection(confirmation);
+				}
+			})] });
 		}
 		//#endregion
-		//#region \0dsh-css:D:\deepseek-harness\packages\client\ui-message-feedback\src\client\MessageFeedbackActions.module.css.mjs
-		const css = ".a8U9Ja_action{width:calc(28px + var(--dsh-content-font-delta,0px));height:calc(28px + var(--dsh-content-font-delta,0px));border-radius:var(--dsw-radius-sm);color:var(--dsw-alias-label-tertiary);cursor:pointer;background:0 0;border:none;justify-content:center;align-items:center;padding:6px;display:inline-flex}.a8U9Ja_action svg{width:calc(15px + var(--dsh-content-font-delta,0px));height:calc(15px + var(--dsh-content-font-delta,0px))}.a8U9Ja_action:hover{background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-secondary)}.a8U9Ja_action:disabled{cursor:default;opacity:.4}.a8U9Ja_action[data-active]{color:var(--dsw-alias-label-tertiary)}.a8U9Ja_failure{color:var(--dsw-alias-label-tertiary);padding-left:4px;font-size:13px;line-height:20px}";
-		const tagId = "@deepseek-ai/dsh-client-ui-message-feedback/MessageFeedbackActions.module.css";
+		//#region \0dsh-css:D:\deepseek-harness\packages\client\ui-permission-presets\src\client\PermissionRow.module.css.mjs
+		const css = ".X1E7tq_row{border-bottom:.5px solid var(--dsw-alias-border-l2);align-items:center;gap:8px;padding:16px 0;display:flex}.X1E7tq_rowText{flex-direction:column;flex:1;gap:4px;min-width:0;padding-right:48px;display:flex}.X1E7tq_title{color:var(--dsw-alias-label-primary);font-size:14px;font-weight:400;line-height:22px}.X1E7tq_desc{color:var(--dsw-alias-label-tertiary);font-size:12px;font-weight:400;line-height:18px}.X1E7tq_selector{border-radius:var(--dsw-radius-md);background:var(--dsw-alias-bg-module-platform);height:36px;font:inherit;color:var(--dsw-alias-label-primary);cursor:pointer;border:none;align-items:center;gap:12px;padding:0 14px;font-size:14px;line-height:22px;display:inline-flex}.X1E7tq_selector:hover:not(:disabled){background:var(--dsw-alias-interactive-bg-hover)}.X1E7tq_selector:disabled{cursor:default}.X1E7tq_chevron{flex:none}";
+		const tagId = "@deepseek-ai/dsh-client-ui-permission-presets/PermissionRow.module.css";
 		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId) + "]") === null) {
 			const tag = document.createElement("style");
-			tag.dataset.plugin = "@deepseek-ai/dsh-client-ui-message-feedback";
+			tag.dataset.plugin = "@deepseek-ai/dsh-client-ui-permission-presets";
 			tag.dataset.pluginCss = tagId;
 			tag.textContent = css;
 			document.head.appendChild(tag);
 		}
-		var MessageFeedbackActions_module_css_default = {
-			"action": "a8U9Ja_action",
-			"failure": "a8U9Ja_failure"
+		var PermissionRow_module_css_default = {
+			"chevron": "X1E7tq_chevron",
+			"desc": "X1E7tq_desc",
+			"row": "X1E7tq_row",
+			"rowText": "X1E7tq_rowText",
+			"selector": "X1E7tq_selector",
+			"title": "X1E7tq_title"
 		};
 		//#endregion
-		//#region lib/types/client/MessageFeedbackActions.js
+		//#region lib/types/client/PermissionRow.js
 		/**
-		* Per-message feedback controls: the Like/Dislike pair inside the assistant
-		* message's IconActions row, between copy and branch. Either rating opens the
-		* Session's feedback dialog, whose submission records that judgment with its
-		* category and text. Clicking the recorded rating retracts it. A recorded rating
-		* shows the filled glyph so the signal survives a pointer leaving the row.
-		* @module @deepseek-ai/dsh-client-ui-message-feedback/client/MessageFeedbackActions
+		* Permission preference row: the default preset for subsequently created
+		* sessions. Current-session switches remain on the composer `/permission`
+		* control.
 		*/
 		/**
-		* One message's feedback controls.
-		* @param props - the owner's message identity, the injected verbs, and the
-		* shared feedback hook.
-		* @returns the rating buttons with any failure notice beside them.
+		* Render the new-session Permission default selector.
+		* @param props - composed slot props.
+		* @returns the row, or null when the host does not expose permission settings.
 		*/
-		function MessageFeedbackActions({ messageId, ensure, current, retract, openDialog, useFeedback, t }) {
-			const item = useFeedback((view) => view.items.get(messageId));
-			const loadFailed = useFeedback((view) => view.status === "error");
-			const rating = item?.rating;
-			const [pending, setPending] = (0, react.useState)(false);
-			const [failure, setFailure] = (0, react.useState)(null);
-			const seeded = (0, react.useRef)(false);
-			const seed = (0, react.useCallback)(() => {
-				if (seeded.current) return;
-				seeded.current = true;
-				ensure();
-			}, [ensure]);
-			const alive = (0, react.useRef)(true);
-			(0, react.useEffect)(() => () => {
-				alive.current = false;
-			}, []);
-			const errorCopy = (0, react.useCallback)((result) => {
-				return result.error.code === "version-conflict" ? t("error.conflict") : t("error.generic");
-			}, [t]);
-			const choose = (0, react.useCallback)((nextRating) => {
-				setPending(true);
-				setFailure(null);
-				ensure().then((loaded) => {
-					if (!alive.current) return;
-					if (!loaded.ok || current(messageId)?.rating !== nextRating) {
-						setPending(false);
-						openDialog(messageId, nextRating);
-						return;
-					}
-					retract(messageId, nextRating).then((result) => {
-						if (!alive.current) return;
-						setPending(false);
-						if (!result.ok) setFailure(errorCopy(result));
-					});
-				});
-			}, [
-				current,
-				ensure,
-				errorCopy,
-				messageId,
-				openDialog,
-				retract
-			]);
-			const onLike = (0, react.useCallback)(() => {
-				choose("positive");
-			}, [choose]);
-			const onDislike = (0, react.useCallback)(() => {
-				choose("negative");
-			}, [choose]);
-			const likeLabel = rating === "positive" ? t("action.likeActive") : t("action.like");
-			const dislikeLabel = rating === "negative" ? t("action.dislikeActive") : t("action.dislike");
-			return (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [
-				(0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Tooltip, {
-					label: likeLabel,
-					side: "bottom",
-					children: (0, react_jsx_runtime.jsx)("button", {
+		function PermissionRow({ load, select, usePermission, t }) {
+			const state = usePermission((snapshot) => snapshot);
+			const [open, setOpen] = (0, react.useState)(false);
+			const [confirmingFullAccess, setConfirmingFullAccess] = (0, react.useState)(false);
+			const [acknowledged, setAcknowledged] = (0, react.useState)(false);
+			(0, react.useEffect)(() => {
+				load();
+			}, [load]);
+			(0, react.useEffect)(() => {
+				if (state.writable && state.status !== "unavailable") return;
+				setOpen(false);
+				setAcknowledged(false);
+				setConfirmingFullAccess(false);
+			}, [state.status, state.writable]);
+			if (state.status === "unavailable") return null;
+			const selected = state.options.find((option) => option.id === state.currentValue);
+			const busy = state.status === "loading" || state.status === "saving" || confirmingFullAccess;
+			const optionLabel = (option) => displayPermissionPreset(option.id, option.label, t);
+			const label = selected !== void 0 ? optionLabel(selected) : busy ? t("loading") : t("unavailable");
+			const description = state.error ?? t("description");
+			return (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [(0, react_jsx_runtime.jsxs)("div", {
+				className: PermissionRow_module_css_default.row,
+				children: [(0, react_jsx_runtime.jsxs)("div", {
+					className: PermissionRow_module_css_default.rowText,
+					children: [(0, react_jsx_runtime.jsx)("div", {
+						className: PermissionRow_module_css_default.title,
+						children: t("title")
+					}), (0, react_jsx_runtime.jsx)("div", {
+						className: PermissionRow_module_css_default.desc,
+						role: state.error === null ? void 0 : "alert",
+						children: description
+					})]
+				}), (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Menu, {
+					open,
+					onClose: () => {
+						setOpen(false);
+					},
+					items: state.options.map((option) => ({
+						id: option.id,
+						label: optionLabel(option)
+					})),
+					selectedId: state.currentValue,
+					onSelect: (id) => {
+						setOpen(false);
+						if (id === state.currentValue) return;
+						if (id === "danger-full-access") {
+							setAcknowledged(false);
+							setConfirmingFullAccess(true);
+							return;
+						}
+						select(id);
+					},
+					align: "end",
+					portal: true,
+					anchor: (0, react_jsx_runtime.jsxs)("button", {
 						type: "button",
-						className: MessageFeedbackActions_module_css_default.action,
-						"aria-label": likeLabel,
-						"aria-pressed": rating === "positive",
-						"data-active": rating === "positive" || void 0,
-						disabled: pending,
-						onFocus: seed,
-						onPointerEnter: seed,
-						onClick: onLike,
-						children: rating === "positive" ? (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconLikeFillRegular, {}) : (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconLikeOutlineRegular, {})
+						className: PermissionRow_module_css_default.selector,
+						"aria-haspopup": "menu",
+						"aria-expanded": open,
+						disabled: busy || !state.writable || state.options.length === 0,
+						onClick: () => {
+							setOpen((value) => !value);
+						},
+						children: [label, (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconChevronDownOutlineRegular, { className: PermissionRow_module_css_default.chevron })]
 					})
-				}),
-				(0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Tooltip, {
-					label: dislikeLabel,
-					side: "bottom",
-					children: (0, react_jsx_runtime.jsx)("button", {
-						type: "button",
-						className: MessageFeedbackActions_module_css_default.action,
-						"aria-label": dislikeLabel,
-						"aria-pressed": rating === "negative",
-						"data-active": rating === "negative" || void 0,
-						disabled: pending,
-						onFocus: seed,
-						onPointerEnter: seed,
-						onClick: onDislike,
-						children: rating === "negative" ? (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconDislikeFillRegular, {}) : (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconDislikeOutlineRegular, {})
-					})
-				}),
-				failure === null && loadFailed && (0, react_jsx_runtime.jsx)("span", {
-					className: MessageFeedbackActions_module_css_default.failure,
-					role: "status",
-					children: t("error.load")
-				}),
-				failure !== null && (0, react_jsx_runtime.jsx)("span", {
-					className: MessageFeedbackActions_module_css_default.failure,
-					role: "status",
-					children: failure
-				})
-			] });
+				})]
+			}), (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.RiskConfirmation, {
+				open: confirmingFullAccess,
+				title: t("confirm.title"),
+				description: t("confirm.description"),
+				acknowledgeLabel: t("confirm.acknowledge"),
+				cancelLabel: t("confirm.cancel"),
+				closeLabel: t("close"),
+				confirmLabel: t("confirm.enable"),
+				acknowledged,
+				disabled: !state.writable || state.status === "saving",
+				onAcknowledgedChange: setAcknowledged,
+				onCancel: () => {
+					setAcknowledged(false);
+					setConfirmingFullAccess(false);
+				},
+				onConfirm: () => {
+					setAcknowledged(false);
+					setConfirmingFullAccess(false);
+					select(FULL_ACCESS_PRESET);
+				}
+			})] });
 		}
 		//#endregion
-		//#region lib/types/client/controller.js
-		const INITIAL_VIEW = Object.freeze({
-			status: "cold",
-			items: /* @__PURE__ */ new Map(),
-			error: null
-		});
-		const OK = Object.freeze({ ok: true });
-		const DISPOSED = Object.freeze({
-			ok: false,
-			error: Object.freeze({
-				code: "disposed",
-				message: "feedback controller is disposed"
-			})
-		});
+		//#region lib/types/client/settings-store.js
 		/**
-		* Human-readable text for one business failure code.
-		* @param code - the Host's business failure code.
-		* @returns the developer-facing description carried in the failure branch.
+		* Permission default-settings controller. The permission descriptor comes
+		* from the shared describe mirror and choices from the permission catalog; writes target
+		* only `defaultPreset`, carry the descriptor revision, and fold their answer
+		* back into the mirror.
 		*/
-		function describe(code) {
-			switch (code) {
-				case "session-not-found": return "this session is no longer persisted";
-				case "target-not-found": return "this message is not a persisted assistant message";
-				case "version-conflict": return "feedback changed elsewhere";
-				case "note-blank": return "a note must contain a non-whitespace character";
-				case "note-too-large": return "the note is too long";
-				default: return code;
-			}
-		}
-		/** Build the rejected branch for one business failure code. */
-		function fail(code) {
+		/** Permission's settings namespace on the host wire. */
+		const PERMISSION_SETTINGS_NS = "permission";
+		/** Resolve the new-session choices from the permission domain's catalog.
+		* @param view Live configuration descriptor.
+		* @param catalog Configured permission options and effective default.
+		* @returns Current choice and labels for its allowed options.
+		*/
+		function permissionDefaultOf(view, catalog) {
+			const currentValue = view.value.defaultPreset ?? catalog.defaultPreset;
+			const options = catalog.defaultOptions.map((option) => ({
+				id: option.value,
+				label: displayPermissionPreset(option.value, option.name)
+			}));
+			if (!options.some((option) => option.id === currentValue)) throw new Error("permission catalog does not advertise its current default");
 			return {
-				ok: false,
-				error: {
-					code,
-					message: describe(code)
-				}
+				currentValue,
+				options
 			};
 		}
-		/** Carrier failure rendered with the Host-supplied code and message. */
-		function carrierFailure(error) {
-			return {
-				ok: false,
-				error: {
-					code: error.code,
-					message: error.message
-				}
-			};
-		}
-		/**
-		* Per-session feedback object layer. One instance backs every per-message
-		* control in that Session, so a single list read seeds them all.
-		*/
-		var MessageFeedbackController = class {
-			remote;
-			sessionId;
-			view = INITIAL_VIEW;
-			listeners = /* @__PURE__ */ new Set();
-			loadPromise = null;
-			operationTail = Promise.resolve();
+		/** Controller deriving the row from the shared mirror and writing the default through it. */
+		var PermissionPresetSettingsController = class {
+			describeFace;
+			ctx;
+			catalog;
+			/** Row snapshot consumed through a bound selector hook. */
+			store = (0, _deepseek_ai_dsh_client_store.createSnapshotStore)({
+				status: "idle",
+				error: null,
+				writable: false,
+				currentValue: "",
+				options: [],
+				revision: 0
+			});
+			following;
+			followingCatalog;
+			saving = false;
 			disposed = false;
 			/**
-			* @param remote - the messageFeedback Remote namespace.
-			* @param sessionId - Session owning every addressed assistant message.
+			* @param describeFace - the shared mirror's read/fold face (descriptor and schema source).
+			* @param ctx - the row plugin's context, whose `remote.settings` namespace
+			* carries the `defaultPreset` write.
+			* @param catalog - configured permission choices and their effective default.
 			*/
-			constructor(remote, sessionId) {
-				this.remote = remote;
-				this.sessionId = sessionId;
-			}
-			/** Return the cached immutable view. */
-			getSnapshot = () => this.view;
-			/** Subscribe to view replacement. */
-			subscribe = (listener) => {
-				this.listeners.add(listener);
-				return () => {
-					this.listeners.delete(listener);
-				};
-			};
-			/**
-			* Load once; a failed load stays retryable.
-			* @returns the settled load result, shared by concurrent callers.
-			*/
-			ensure() {
-				if (this.view.status === "ready") return Promise.resolve(OK);
-				return this.refresh();
+			constructor(describeFace, ctx, catalog) {
+				this.describeFace = describeFace;
+				this.ctx = ctx;
+				this.catalog = catalog;
 			}
 			/**
-			* Re-read the authoritative list, collapsing concurrent callers onto one
-			* in-flight read.
-			*
-			* This is the unserialized read used to seed a cold controller, where no
-			* mutation can be in flight yet. A reconnect must use {@link resync} instead:
-			* an unserialized list response can otherwise arrive after a newer mutation's
-			* reply and overwrite the version that mutation just committed.
-			* @returns the settled reload result.
+			* Begin following the mirror (idempotent) and reflect its current answer.
+			* @returns settlement once the snapshot reflects the mirror.
 			*/
-			refresh() {
-				if (this.loadPromise !== null) return this.loadPromise;
-				this.publish({
-					status: "loading",
-					items: this.view.items,
-					error: null
-				});
-				const pending = this.load();
-				this.loadPromise = pending;
-				return pending.finally(() => {
-					this.loadPromise = null;
-				});
-			}
-			/**
-			* Re-read the list behind this Session's queued mutations, so a reconnect
-			* cannot resurrect a version an in-flight mutation already replaced.
-			* @returns the settled reload result.
-			*/
-			resync() {
-				return this.mutate(() => this.refresh(), { seed: false });
-			}
-			/**
-			* Create or replace feedback for one message, comparing against the version
-			* this controller last observed. The item stores exactly `entry`: an entry
-			* without a note or category replaces whatever the stored item carried.
-			* @param messageId - target assistant message.
-			* @param rating - desired judgment.
-			* @param entry - explanation and category to store with the judgment.
-			* @returns the settled mutation result.
-			*/
-			rate(messageId, rating, entry = {}) {
-				return this.mutate(async () => {
-					const observed = this.view.items.get(messageId);
-					return await this.putCommitted(messageId, rating, entry, observed);
-				});
-			}
-			/**
-			* Retract one message's matching committed rating. The serialized operation
-			* rechecks the current item and becomes a no-op if another operation already
-			* changed or removed it, so a stale retraction can never record a bare rating.
-			* @param messageId - target assistant message.
-			* @param rating - judgment the human asked to retract.
-			* @returns the settled mutation result.
-			*/
-			retract(messageId, rating) {
-				return this.mutate(async () => {
-					const observed = this.view.items.get(messageId);
-					return observed?.rating === rating ? await this.deleteCommitted(messageId, observed) : OK;
-				});
-			}
-			/** Commit one put against the observed version and reconcile a conflict. */
-			async putCommitted(messageId, rating, entry, observed) {
-				const carried = await this.remote.put({
-					sessionId: this.sessionId,
-					messageId,
-					rating,
-					...entry.text === void 0 ? {} : { note: entry.text },
-					...entry.category === void 0 ? {} : { category: entry.category },
-					ifVersion: observed?.version ?? null
-				});
-				if (!carried.ok) return carrierFailure(carried.error);
-				const result = carried.value;
-				if (result.ok) {
-					this.commit(messageId, result.value);
-					return OK;
-				}
-				if (result.error.code === "version-conflict") this.commit(messageId, result.error.current);
-				return fail(result.error.code);
-			}
-			/** Commit one delete against the observed version and reconcile a conflict. */
-			async deleteCommitted(messageId, observed) {
-				const carried = await this.remote.delete({
-					sessionId: this.sessionId,
-					messageId,
-					ifVersion: observed.version
-				});
-				if (!carried.ok) return carrierFailure(carried.error);
-				const result = carried.value;
-				if (result.ok) {
-					this.commit(messageId, null);
-					return OK;
-				}
-				if (result.error.code === "version-conflict") this.commit(messageId, result.error.current);
-				return fail(result.error.code);
-			}
-			/** Drop subscribers and refuse further work when the owning fiber unloads. */
-			dispose() {
-				this.disposed = true;
-				this.listeners.clear();
-			}
-			/** Fetch the whole sidecar and publish it as the seeded view. */
 			async load() {
-				const carried = await this.remote.list({ sessionId: this.sessionId });
-				if (this.disposed) return OK;
-				if (!carried.ok) {
-					this.publish({
-						status: "error",
-						items: this.view.items,
-						error: carried.error.message
-					});
-					return carrierFailure(carried.error);
-				}
-				const result = carried.value;
-				if (!result.ok) {
-					this.publish({
-						status: "error",
-						items: this.view.items,
-						error: describe(result.error.code)
-					});
-					return fail(result.error.code);
-				}
-				const items = /* @__PURE__ */ new Map();
-				for (const item of result.value.items) items.set(item.messageId, item);
-				this.publish({
-					status: "ready",
-					items,
-					error: null
+				if (this.disposed) return;
+				this.following ??= this.describeFace.subscribe(() => {
+					this.derive();
 				});
-				return OK;
-			}
-			/**
-			* Serialize one mutation behind this Session's prior mutation so queued
-			* operations always compare against the committed version.
-			*/
-			mutate(operation, options = {}) {
-				const guarded = async () => {
-					if (this.disposed) return DISPOSED;
-					if (options.seed !== false) {
-						const loaded = await this.ensure();
-						if (!loaded.ok) return loaded;
-						if (this.disposed) return DISPOSED;
-					}
-					return await operation();
-				};
-				const result = this.operationTail.then(guarded, guarded);
-				this.operationTail = result.then(() => void 0);
-				return result;
-			}
-			/**
-			* Replace one message's entry, keeping every other entry's identity. Only a
-			* `mutate` operation reaches this, and `mutate` refuses admission once the
-			* controller is disposed, so no disposal guard belongs here; `publish` is
-			* the single place that stops notifying after listeners are dropped.
-			*/
-			commit(messageId, item) {
-				const items = new Map(this.view.items);
-				if (item === null) items.delete(messageId);
-				else items.set(messageId, item);
-				this.publish({
-					status: "ready",
-					items,
-					error: null
+				this.followingCatalog ??= this.catalog.store.subscribe(() => {
+					this.derive();
 				});
-			}
-			/** Replace the view and contain subscriber failures at the observable boundary. */
-			publish(view) {
-				this.view = Object.freeze(view);
-				for (const listener of this.listeners) try {
-					listener();
+				this.store.update((state) => {
+					state.status = "loading";
+					state.error = null;
+				});
+				await this.describeFace.ensure();
+				if (this.describeFace.getSnapshot().status !== "unavailable") try {
+					await this.catalog.load();
 				} catch (error) {
-					console.error("[ui-message-feedback] subscriber threw:", error);
-				}
-			}
-		};
-		//#endregion
-		//#region lib/types/client/dialog.js
-		/**
-		* Headless state of one Session's feedback dialog and its acknowledgement and
-		* failure toasts. One form serves two targets: the Session itself (a bare `/feedback`)
-		* and one assistant message (Like or Dislike). The overlay view renders from
-		* the store and raises the acknowledgement after a successful submission.
-		* @module @deepseek-ai/dsh-client-ui-message-feedback/client/dialog
-		*/
-		const CLOSED = {
-			target: null,
-			category: null,
-			text: "",
-			submitting: false,
-			failure: null
-		};
-		/** Per-session dialog controller; one instance backs the overlay entry and every message control. */
-		var FeedbackDialogController = class {
-			submit;
-			/** Dialog state store (the overlay entry subscribes here). */
-			state = (0, _deepseek_ai_dsh_client_store.createSnapshotStore)({
-				...CLOSED,
-				toast: 0
-			});
-			/** Bumped by every open, dismiss, and dispose so a late settlement can tell its draft is gone. */
-			generation = 0;
-			toastSeq = 0;
-			/**
-			* @param submit - records one submission; the owner routes it by target.
-			*/
-			constructor(submit) {
-				this.submit = submit;
-			}
-			/**
-			* Open the dialog with an empty draft, replacing any open draft.
-			* @param target - what the submission records against.
-			*/
-			open(target) {
-				this.generation += 1;
-				this.state.set({
-					...CLOSED,
-					target,
-					toast: this.state.getSnapshot().toast
-				});
-			}
-			/** Close the dialog and discard the draft; a toast on screen stays. */
-			dismiss() {
-				this.generation += 1;
-				this.state.set({
-					...CLOSED,
-					toast: this.state.getSnapshot().toast
-				});
-			}
-			/**
-			* Replace part of the draft while it is editable.
-			* @param draft - the category (null clears it) or the text as typed.
-			*/
-			edit(draft) {
-				const s = this.state.getSnapshot();
-				if (s.target === null || s.submitting) return;
-				this.state.set({
-					...s,
-					...draft
-				});
-			}
-			/**
-			* Submit the draft; an empty draft is a valid submission. Success closes the
-			* dialog and raises the acknowledgement toast; a failure keeps the dialog
-			* open and publishes its code for the failure toast.
-			* @returns after the submission settles.
-			*/
-			async submitDraft() {
-				const s = this.state.getSnapshot();
-				if (s.target === null || s.submitting) return;
-				const generation = this.generation;
-				this.state.set({
-					...s,
-					submitting: true,
-					failure: null
-				});
-				const text = s.text.trim();
-				const result = await this.submit(s.target, {
-					...text.length === 0 ? {} : { text },
-					...s.category === null ? {} : { category: s.category }
-				});
-				if (result.ok) {
-					if (generation === this.generation) this.dismiss();
-					this.acknowledge();
+					this.fail(error);
 					return;
 				}
-				if (generation !== this.generation) return;
-				this.state.set({
-					...this.state.getSnapshot(),
-					submitting: false,
-					failure: result.error.code,
-					toast: 0
-				});
-			}
-			/** Clear the current failure toast without closing its draft. */
-			dismissFailure() {
-				const s = this.state.getSnapshot();
-				this.state.set({
-					...s,
-					failure: null
-				});
-			}
-			/** Show the acknowledgement toast; a toast already on screen restarts. */
-			acknowledge() {
-				this.toastSeq += 1;
-				this.state.set({
-					...this.state.getSnapshot(),
-					toast: this.toastSeq
-				});
+				this.derive();
 			}
 			/**
-			* Retire one toast after its fade; a newer toast is left alone.
-			* @param seq - the toast sequence the view finished showing.
+			* Persist one preset as the default for subsequently created sessions.
+			* A selection made while one is already saving is ignored — the row's
+			* control is disabled during the save, so this only drops programmatic
+			* double-submits rather than user intent.
+			* @param preset - advertised preset key.
+			* @returns nothing; {@link store} carries success or failure.
 			*/
-			dismissToast(seq) {
-				const s = this.state.getSnapshot();
-				if (s.toast === seq) this.state.set({
-					...s,
-					toast: 0
+			async select(preset) {
+				const state = this.store.getSnapshot();
+				const view = this.describeFace.getSnapshot().view?.namespaces.find((entry) => entry.ns === PERMISSION_SETTINGS_NS);
+				if (view === void 0 || !state.writable || this.saving) return;
+				this.saving = true;
+				this.store.update((draft) => {
+					draft.status = "saving";
+					draft.error = null;
 				});
+				let response;
+				try {
+					response = await this.ctx.remote.settings.mutate(PERMISSION_SETTINGS_NS, [{
+						op: "set",
+						path: ["defaultPreset"],
+						value: preset
+					}], view.revision);
+				} finally {
+					this.saving = false;
+				}
+				if (this.disposed) return;
+				if (!response.ok) {
+					this.fail(response.error);
+					return;
+				}
+				this.describeFace.acceptView(response.value);
 			}
-			/** Scope-teardown disposer: drop the draft and the toast, orphan in-flight work. */
+			/** Stop following the mirror; later publishes leave the snapshot alone. */
 			dispose() {
-				this.generation += 1;
-				this.state.set({
-					...CLOSED,
-					toast: 0
+				this.disposed = true;
+				this.following?.();
+				this.following = void 0;
+				this.followingCatalog?.();
+				this.followingCatalog = void 0;
+			}
+			derive() {
+				if (this.disposed || this.saving) return;
+				const mirrored = this.describeFace.getSnapshot();
+				if (mirrored.status === "unavailable") {
+					this.store.update((state) => {
+						state.status = "unavailable";
+						state.writable = false;
+						state.currentValue = "";
+						state.options = [];
+					});
+					return;
+				}
+				if (mirrored.view === void 0) {
+					if (mirrored.error !== null) this.fail(new Error(mirrored.error));
+					return;
+				}
+				const view = mirrored.view.namespaces.find((entry) => entry.ns === PERMISSION_SETTINGS_NS);
+				if (view === void 0) {
+					this.store.update((state) => {
+						state.status = "unavailable";
+						state.writable = false;
+						state.currentValue = "";
+						state.options = [];
+					});
+					return;
+				}
+				try {
+					const catalog = this.catalog.store.getSnapshot().value;
+					if (catalog === null) return;
+					const resolved = permissionDefaultOf(view, catalog);
+					const { writable } = mirrored.view;
+					this.store.update((state) => {
+						state.status = "ready";
+						state.error = null;
+						state.writable = writable;
+						state.currentValue = resolved.currentValue;
+						state.options = resolved.options;
+						state.revision = view.revision;
+					});
+				} catch (error) {
+					this.fail(error);
+				}
+			}
+			fail(error) {
+				this.store.update((state) => {
+					state.status = "error";
+					state.error = error instanceof Error ? error.message : String(error);
 				});
 			}
-		};
-		//#endregion
-		//#region lib/types/client/surface.js
-		/**
-		* One Session's feedback surface: the message-feedback object layer and the
-		* dialog controller, plus the routing between them. A message target puts a
-		* selected judgment through the message controller; the Session target records
-		* through the `sessionFeedback` Remote.
-		* @module @deepseek-ai/dsh-client-ui-message-feedback/client/surface
-		*/
-		/** The per-session pair behind every entry of one Session. */
-		var FeedbackSurface = class {
-			ctx;
-			sessionId;
-			/** The Session's message-feedback object layer, shared by every message control. */
-			feedback;
-			/** The Session's dialog and toast state, shared by the overlay entry and the message controls. */
-			dialog;
-			/**
-			* @param ctx - the browser plugin context carrying both feedback Remotes.
-			* @param sessionId - Session owning the transcript and the remark.
-			*/
-			constructor(ctx, sessionId) {
-				this.ctx = ctx;
-				this.sessionId = sessionId;
-				this.feedback = new MessageFeedbackController(ctx.remote.messageFeedback, sessionId);
-				this.dialog = new FeedbackDialogController((target, entry) => target.kind === "message" ? this.feedback.rate(target.messageId, target.rating, entry) : this.recordSession(entry));
-			}
-			/** Record one Session-level remark through the sessionFeedback Remote. */
-			async recordSession(entry) {
-				const carried = await this.ctx.remote.sessionFeedback.record({
-					sessionId: this.sessionId,
-					...entry
-				});
-				if (!carried.ok) return {
-					ok: false,
-					error: {
-						code: carried.error.code,
-						message: carried.error.message
-					}
-				};
-				if (carried.value.ok) return { ok: true };
-				return {
-					ok: false,
-					error: {
-						code: carried.value.error.code,
-						message: describe(carried.value.error.code)
-					}
-				};
-			}
-			/** Drop both controllers when the owning fiber unloads. */
-			dispose() {
-				this.feedback.dispose();
-				this.dialog.dispose();
-			}
-		};
-		//#endregion
-		//#region lib/types/client/locales.js
-		/** `feedback` namespace dictionaries. */
-		/** Simplified Chinese dictionary (the key-set source of truth). */
-		const zh = {
-			"action.like": "好的回答",
-			"action.likeActive": "取消标记",
-			"action.dislike": "有问题的回答",
-			"action.dislikeActive": "取消标记",
-			"dialog.title": "提交反馈",
-			"dialog.categories": "反馈分类",
-			"dialog.detail": "反馈详情",
-			"dialog.hint": "填写详情以帮助我们改进体验，提交内容会包括当前对话的日志",
-			"category.task-result": "任务结果",
-			"category.instruction-following": "指令理解与遵循",
-			"category.product-interaction": "产品功能与交互",
-			"category.service-stability": "稳定性和速度",
-			"category.resource-cost": "资源使用与费用",
-			"category.security-privacy-permission": "安全隐私与权限",
-			"category.other": "其他",
-			"toast.recorded": "感谢你的反馈",
-			"error.conflict": "这条反馈已在别处改动，已显示最新状态",
-			"error.load": "反馈状态加载失败",
-			"error.generic": "反馈保存失败",
-			"error.noteTooLarge": "描述太长，请缩短后再提交"
-		};
-		/** English dictionary, checked complete against the zh key set. */
-		const en = {
-			"action.like": "Good response",
-			"action.likeActive": "Remove rating",
-			"action.dislike": "Bad response",
-			"action.dislikeActive": "Remove rating",
-			"dialog.title": "Submit feedback",
-			"dialog.categories": "Feedback category",
-			"dialog.detail": "Feedback details",
-			"dialog.hint": "Add details to help us improve. Your submission will include the current conversation log.",
-			"category.task-result": "Task result",
-			"category.instruction-following": "Instruction understanding and following",
-			"category.product-interaction": "Product features and interaction",
-			"category.service-stability": "Stability and speed",
-			"category.resource-cost": "Resource usage and cost",
-			"category.security-privacy-permission": "Security, privacy, and permissions",
-			"category.other": "Other",
-			"toast.recorded": "Thanks for your feedback",
-			"error.conflict": "This feedback changed elsewhere; the latest state is shown",
-			"error.load": "Could not load feedback",
-			"error.generic": "Could not save feedback",
-			"error.noteTooLarge": "The description is too long; shorten it and submit again"
 		};
 		//#endregion
 		//#region lib/types/client/index.js
-		/**
-		* Feedback surface plugin, browser half: the Like/Dislike entry in the
-		* conversation.chat.assistant-actions strip, the feedback dialog and its
-		* acknowledgement and failure toasts in conversation.input.overlay, and the `/feedback`
-		* decoration that opens the dialog from the composer menu or a bare typed
-		* command. The feedbackUi service opens the same dialog for other plugins.
-		* One FeedbackSurface per Session backs every entry in that Session.
-		* @module @deepseek-ai/dsh-client-ui-message-feedback/client
-		*/
-		/** Dictionary namespace owned by this plugin. */
-		const NS = "feedback";
-		/** Required services: the slot registry, the two Remote namespaces, and the copy. */
+		/** Required services (cordis fiber inject). */
 		const inject = [
+			"commandUi",
+			"connection",
+			"sessions",
 			"slots",
+			"locale",
 			"remote",
-			"remote.messageFeedback",
-			"remote.sessionFeedback",
-			"locale"
+			"remote.permissionPresets",
+			"remote.settings",
+			"configForms",
+			"settingsSchema"
 		];
+		/** Read one session's current permissions projection value (undefined = capability absent). */
+		function selectionOf(session) {
+			return session?.projections.faceOf("permissions").getSnapshot();
+		}
+		/** Join the process catalog with one Session's current value. */
+		function optionsOf(catalog, currentValue, t) {
+			return catalog.options.map((option) => ({
+				id: option.value,
+				label: option.value === "auto" ? t("auto.label") : displayPermissionPreset(option.value, option.name, t),
+				...option.value === "auto" ? { badge: t("auto.badge") } : {},
+				...option.value === "auto" ? { detail: t("auto.description") } : option.description !== void 0 ? { detail: option.description } : {},
+				...option.value === currentValue ? { active: true } : {},
+				...option.value === "danger-full-access" || option.value === "auto" ? { confirmation: {
+					title: t(option.value === "auto" ? "auto.confirm.title" : "confirm.title"),
+					description: t(option.value === "auto" ? "auto.confirm.description" : "confirm.description"),
+					acknowledgeLabel: t(option.value === "auto" ? "auto.confirm.acknowledge" : "confirm.acknowledge"),
+					cancelLabel: t("confirm.cancel"),
+					confirmLabel: t(option.value === "auto" ? "auto.confirm.enable" : "confirm.enable")
+				} } : {}
+			}));
+		}
 		/**
-		* Client plugin body: the per-message feedback entry, the Session's dialog
-		* entry, the `feedbackUi` service, the `/feedback` decoration, and their
-		* per-session surfaces.
+		* Client plugin body: register the /permission popup picker over the
+		* permissions projection.
 		* @param ctx - client root context.
 		*/
 		function apply(ctx) {
-			ctx.effect(() => ctx.locale.register(NS, {
+			const command = ctx.get("commandUi");
+			const sessions = ctx.sessions;
+			ctx.effect(() => ctx.locale.register(PERMISSION_ACCESS_NS, {
+				zh: accessZh,
+				en: accessEn
+			}), "ui-permission: current-session dictionaries");
+			const t = ctx.locale.bind(PERMISSION_ACCESS_NS);
+			const sessionFor = (session) => sessions.binding(session.sessionId)?.session;
+			const submit = async (sessionId, preset) => {
+				const live = sessions.binding(sessionId)?.session;
+				if (live === void 0) throw new Error("this session is not materialized yet");
+				const result = await live.command(`/permission ${preset}`);
+				if (!result.ok) throw new Error(`permission switch failed: ${result.error.code}: ${result.error.message}`);
+				if (!result.value.matched) throw new Error("the host offers no /permission command");
+				return true;
+			};
+			const catalog = new PermissionCatalogDirectory(ctx);
+			ctx.effect(() => () => {
+				catalog.dispose();
+			}, "ui-permission: process catalog directory");
+			ctx.effect(() => catalog.invalidations.subscribe(() => {
+				command.dismiss("permission");
+			}), "ui-permission: dismiss stale slash choices");
+			ctx.effect(() => ctx.locale.register("settings.permission", {
 				zh,
 				en
-			}), "ui-message-feedback: dictionaries");
-			const surfaces = /* @__PURE__ */ new Map();
-			const surfaceFor = (sessionId) => {
-				let surface = surfaces.get(sessionId);
-				if (surface === void 0) {
-					surface = new FeedbackSurface(ctx, sessionId);
-					surfaces.set(sessionId, surface);
-				}
-				return surface;
-			};
+			}), "ui-permission: settings row dictionaries");
+			const controller = new PermissionPresetSettingsController(ctx.configForms.describe(), ctx, catalog);
+			const load = () => controller.load();
+			const select = (preset) => controller.select(preset);
+			const injected = () => ({
+				hooks: { permission: controller.store },
+				load,
+				select
+			});
 			ctx.effect(() => () => {
-				for (const surface of surfaces.values()) surface.dispose();
-				surfaces.clear();
-			}, "ui-message-feedback: per-session surfaces");
-			const feedbackUi = { openSession: (sessionId) => {
-				surfaceFor(sessionId).dialog.open({ kind: "session" });
-			} };
-			ctx.provide("feedbackUi", feedbackUi);
-			ctx.on("connection/reset", () => {
-				for (const { feedback } of surfaces.values()) if (feedback.getSnapshot().status !== "cold") feedback.resync();
-			});
-			ctx.slots.inject("conversation.chat.assistant-actions", () => ctx.slots.register({
-				name: "conversation.chat.assistant-actions",
-				id: "feedback",
-				order: 10,
-				locale: NS,
-				inject: (sessionId) => {
-					const { feedback, dialog } = surfaceFor(sessionId);
-					return {
-						hooks: { feedback },
-						ensure: () => feedback.ensure(),
-						current: (messageId) => feedback.getSnapshot().items.get(messageId),
-						retract: (messageId, rating) => feedback.retract(messageId, rating),
-						openDialog: (messageId, rating) => {
-							dialog.open({
-								kind: "message",
-								messageId,
-								rating
-							});
-						}
-					};
+				controller.dispose();
+			}, "ui-permission: settings row directory");
+			ctx.slots.inject("settings.general.item", () => ctx.slots.register({
+				name: "settings.general.item",
+				id: "permission",
+				order: -20,
+				locale: "settings.permission",
+				inject: injected
+			}, PermissionRow));
+			ctx.slots.inject("conversation.input.permission", () => ctx.slots.register({
+				name: "conversation.input.permission",
+				locale: PERMISSION_ACCESS_NS,
+				inject: (sessionId) => ({
+					hooks: { permissionCatalog: catalog.store },
+					select: (preset) => submit(sessionId, preset)
+				})
+			}, PermissionSelect));
+			ctx.effect(() => command.decorate({
+				name: "permission",
+				available: (session) => selectionOf(sessionFor(session)) !== void 0,
+				ui: {
+					kind: "popupSelect",
+					options: async (session) => {
+						const selection = selectionOf(sessionFor(session));
+						if (selection === void 0) throw new Error("permission presets are not available on this host");
+						return optionsOf(await catalog.load(), selection.currentValue, t);
+					},
+					onSelect: (option, session) => submit(session.sessionId, option.id).then(() => void 0)
 				}
-			}, MessageFeedbackActions));
-			ctx.slots.inject("conversation.input.overlay", () => ctx.slots.register({
-				name: "conversation.input.overlay",
-				id: "feedback-dialog",
-				order: 2,
-				locale: NS,
-				inject: (sessionId) => {
-					const { dialog } = surfaceFor(sessionId);
-					return {
-						hooks: { dialog: dialog.state },
-						edit: (draft) => {
-							dialog.edit(draft);
-						},
-						submit: () => dialog.submitDraft(),
-						dismiss: () => {
-							dialog.dismiss();
-						},
-						dismissFailure: () => {
-							dialog.dismissFailure();
-						},
-						dismissToast: (seq) => {
-							dialog.dismissToast(seq);
-						}
-					};
-				}
-			}, FeedbackDialog));
-			ctx.inject(["commandUi"], (scope) => {
-				scope.effect(() => scope.commandUi.decorate({
-					name: "feedback",
-					available: () => true,
-					ui: {
-						kind: "action",
-						run: (session) => {
-							feedbackUi.openSession(session.sessionId);
-						}
-					}
-				}), "ui-message-feedback: /feedback decoration");
-			});
+			}), "ui-permission: /permission decoration");
 		}
 		//#endregion
 		exports.apply = apply;
@@ -879,4 +841,4 @@ window.__ModuleLoader__.load({
 	}
 });
 ;
-//# sourceMappingURL=??@deepseek-ai/dsh-client-ui-message-feedback/client.js.map&rev=d811784c38d3
+//# sourceMappingURL=??@deepseek-ai/dsh-client-ui-permission-presets/client.js.map&rev=5c88c7c2055a

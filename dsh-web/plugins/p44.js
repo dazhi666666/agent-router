@@ -1,331 +1,612 @@
 window.__ModuleLoader__.load({
-	id: "@deepseek-ai/dsh-client-ui-reference",
+	id: "@deepseek-ai/dsh-client-ui-goal",
 	factory: (require) => {
 		var module = { exports: {} };
 		var exports = module.exports;
 		Object.defineProperty(exports, Symbol.toStringTag, { value: "Module" });
+		let react_jsx_runtime = require("react/jsx-runtime");
+		let react = require("react");
 		let _deepseek_ai_dsh_client_ui_primitives = require("@deepseek-ai/dsh-client-ui-primitives");
-		//#region ../../context/file-reference/src/grammar.ts
+		//#region lib/types/client/activation-source.js
+		/** Goal activation observable that orders Remote reads and live activation events. */
+		/** Compare two empty-or-populated activation snapshots by value. */
+		function sameSnapshot(left, right) {
+			return left.id === right.id && left.revision === right.revision && left.activation === right.activation;
+		}
+		/** Return the current active CAS ref, or undefined when the goal is not active. */
+		function activeRef(projection) {
+			return projection?.goal.phase === "active" ? projection.goal : void 0;
+		}
 		/**
-		* Format a selected path as prompt text. Whitespace uses the quoted
-		* `@"path"` grammar; a quoted directory keeps that quote open after its
-		* trailing slash so completion can descend another level.
-		* @param candidate - selected file or directory.
-		* @param preserveQuote - retain an explicitly opened quote even when unnecessary.
-		* @returns the insertion value, or `undefined` for a path the editor grammar cannot represent safely.
+		* Create one registrant-private activation source. The source subscribes only
+		* while a framework hook observes it, so unmount releases the Remote event,
+		* projection, running-snapshot, and reset listeners.
+		* @param deps - projection, session, Remote read, and live-event inputs.
+		* @returns stable snapshot source consumed by `useGoalActivation`.
 		*/
-		function formatFileMention(candidate, preserveQuote) {
-			const path = candidate.kind === "directory" ? `${candidate.path}/` : candidate.path;
-			if (/[\u0000-\u001f\u007f-\u009f"]/u.test(path)) return void 0;
-			if (!(preserveQuote || /\s/u.test(path))) return `@${path}`;
-			if (candidate.kind === "directory") return `@"${path}`;
-			return `@"${path}"`;
+		function createGoalActivationSource(deps) {
+			let snapshot = {};
+			let subscriptions = 0;
+			let disposers = [];
+			let running = deps.session.getSnapshot().running;
+			let eventEpoch = 0;
+			let projectionEpoch = 0;
+			let readEpoch = 0;
+			const listeners = /* @__PURE__ */ new Set();
+			const publish = (next) => {
+				if (sameSnapshot(snapshot, next)) return;
+				snapshot = next;
+				for (const listener of listeners) listener();
+			};
+			const startRead = (ref) => {
+				if (ref === void 0) return;
+				const read = ++readEpoch;
+				const startedAtEvent = eventEpoch;
+				const startedAtProjection = projectionEpoch;
+				deps.getGoal().then((result) => {
+					if (read !== readEpoch || startedAtEvent !== eventEpoch || startedAtProjection !== projectionEpoch) return;
+					if (!result.ok) return;
+					const goal = result.value;
+					/* v8 ignore next 4 -- projection drive is the authoritative clear edge; an active projection with no live goal is transient. */
+					if (goal === void 0) {
+						if (activeRef(deps.projection.getSnapshot()) === void 0) publish({});
+						return;
+					}
+					publish({
+						id: goal.id,
+						revision: goal.revision,
+						activation: goal.activation
+					});
+				}, (error) => {
+					console.warn("[ui-goal] goal activation read failed:", error);
+				});
+			};
+			const refreshProjection = () => {
+				projectionEpoch++;
+				const ref = activeRef(deps.projection.getSnapshot());
+				if (ref === void 0) {
+					/* v8 ignore next -- clearing an already-empty activation snapshot is idempotent. */
+					if (snapshot.id !== void 0) publish({});
+					return;
+				}
+				if (snapshot.id !== ref.id || snapshot.revision !== ref.revision) publish({
+					id: ref.id,
+					revision: ref.revision
+				});
+				startRead(ref);
+			};
+			const onActivation = (goal) => {
+				eventEpoch++;
+				readEpoch++;
+				publish(goal === void 0 ? {} : {
+					id: goal.id,
+					revision: goal.revision,
+					activation: goal.activation
+				});
+			};
+			const onRunning = () => {
+				const next = deps.session.getSnapshot().running;
+				if (next === running) return;
+				running = next;
+				startRead(activeRef(deps.projection.getSnapshot()));
+			};
+			const onReset = () => {
+				eventEpoch++;
+				projectionEpoch++;
+				startRead(activeRef(deps.projection.getSnapshot()));
+			};
+			const start = () => {
+				disposers = [
+					deps.projection.subscribe(refreshProjection),
+					deps.session.subscribe(onRunning),
+					deps.subscribeActivation(onActivation),
+					deps.subscribeReset(onReset)
+				];
+				running = deps.session.getSnapshot().running;
+				refreshProjection();
+			};
+			const stop = () => {
+				for (const dispose of disposers) dispose();
+				disposers = [];
+				readEpoch++;
+			};
+			return {
+				getSnapshot: () => snapshot,
+				subscribe(listener) {
+					listeners.add(listener);
+					if (subscriptions === 0) start();
+					subscriptions++;
+					return () => {
+						listeners.delete(listener);
+						subscriptions--;
+						if (subscriptions === 0) stop();
+					};
+				}
+			};
 		}
 		//#endregion
-		//#region ../../util/workspace-path/src/file-address.ts
-		/** The scheme and type every file address opens with. */
-		const FILE_ADDRESS_PREFIX = "dsh-resource://file/";
-		/** Component-encode one id or path segment, keeping `:` literal for drive letters. */
-		function encodeSegment(segment) {
-			return encodeURIComponent(segment).replace(/%3A/gi, ":");
+		//#region \0dsh-css:D:\deepseek-harness\packages\client\ui-goal\src\client\GoalBar.module.css.mjs
+		const css$1 = ".mcvBRG_dock{box-sizing:border-box;width:calc(100% - var(--dsh-composer-side-clearance) - var(--dsh-composer-side-clearance) - var(--dsh-composer-dock-inset) - var(--dsh-composer-dock-inset) - var(--dsh-composer-dock-inset) - var(--dsh-composer-dock-inset));margin:0 auto}.mcvBRG_bar{isolation:isolate;box-sizing:border-box;width:100%;max-width:calc(var(--dsh-composer-card-max-width) - 4 * var(--dsh-composer-dock-inset));--dsw-elevation-stroke-color:var(--dsw-alias-border-l1);border-radius:var(--dsw-radius-md);height:36px;box-shadow:var(--dsw-elevation-panel);border:0;align-items:center;gap:10px;margin:0 auto;padding:4px 5px 4px 12px;display:flex;position:relative}.mcvBRG_bar:before{z-index:-1;border-radius:inherit;background:var(--dsw-specific-menu);backdrop-filter:var(--dsw-menu-backdrop-filter);content:\"\";pointer-events:none;position:absolute;inset:0}.mcvBRG_goalGlyph{color:var(--dsw-alias-label-tertiary);flex:none;display:inline-flex}.mcvBRG_label{color:var(--dsw-alias-label-primary);flex:none;font-size:13px;font-weight:500;line-height:24px}.mcvBRG_objective{min-width:0;color:var(--dsw-alias-label-primary-dimmed);text-overflow:ellipsis;white-space:nowrap;flex:1;font-size:13px;line-height:20px;overflow:hidden}.mcvBRG_error{min-width:0;color:var(--dsw-alias-state-error-primary);text-overflow:ellipsis;white-space:nowrap;flex:1;font-size:12px;line-height:20px;overflow:hidden}.mcvBRG_editBar{--dsh-scrollbar-thumb:var(--dsw-alias-scrollbar-bg-l2);--dsh-scrollbar-thumb-hover:var(--dsw-alias-scrollbar-hover-l2);align-items:flex-end;height:auto;min-height:36px}.mcvBRG_actions{flex:none;align-items:center;gap:10px;display:flex}.mcvBRG_iconBtn{corner-shape:round;width:28px;height:28px;color:var(--dsw-alias-label-tertiary);cursor:pointer;background:0 0;border:none;border-radius:999px;justify-content:center;align-items:center;padding:0;display:inline-flex}.mcvBRG_iconBtn:hover{background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-secondary)}.mcvBRG_iconBtn:disabled{opacity:.4;cursor:default}";
+		const tagId$1 = "@deepseek-ai/dsh-client-ui-goal/GoalBar.module.css";
+		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId$1) + "]") === null) {
+			const tag = document.createElement("style");
+			tag.dataset.plugin = "@deepseek-ai/dsh-client-ui-goal";
+			tag.dataset.pluginCss = tagId$1;
+			tag.textContent = css$1;
+			document.head.appendChild(tag);
 		}
-		/** Encode a `/`-separated path segment by segment. */
-		function encodePath(path) {
-			return path.split("/").map(encodeSegment).join("/");
-		}
+		var GoalBar_module_css_default = {
+			"actions": "mcvBRG_actions",
+			"bar": "mcvBRG_bar",
+			"dock": "mcvBRG_dock",
+			"editBar": "mcvBRG_editBar",
+			"error": "mcvBRG_error",
+			"goalGlyph": "mcvBRG_goalGlyph",
+			"iconBtn": "mcvBRG_iconBtn",
+			"label": "mcvBRG_label",
+			"objective": "mcvBRG_objective"
+		};
+		//#endregion
+		//#region lib/types/client/GoalBar.js
 		/**
-		* Build the address of a file read through one Session.
-		* @param sessionId - the Session whose Host workspace resolves the path.
-		* @param path - absolute or workspace-relative path; backslashes are normalized to `/`, and leading `./` prefixes are dropped.
-		* @returns the `dsh-resource://file/session/<sessionId>/<path>` address.
+		* GoalBar: the goal indicator docked above the message composer (input dock
+		* strip). A present goal shows a goal glyph, a phase label, the truncated
+		* objective, and icon actions — resume when active-disarmed or paused, edit
+		* (inline form in the same strip), and clear. Goal creation lives on the
+		* `/goal` command, not here: loading (undefined), no goal (null), and complete
+		* goals render nothing. Durable state arrives as the projected whole snapshot;
+		* process-local activation arrives through the injected activation hook.
 		*/
-		function sessionFileAddress(sessionId, path) {
-			const normalized = path.replace(/\\/g, "/").replace(/^(?:\.\/)+/, "");
-			return `${FILE_ADDRESS_PREFIX}session/${encodeSegment(sessionId)}/${encodePath(normalized)}`;
+		/** Strip label keys per visible phase; complete goals render nothing. */
+		const PHASE_LABELS = {
+			active: "phase.active",
+			paused: "phase.paused",
+			blocked: "phase.blocked"
+		};
+		/** Strip label for an active goal using its process-local activation. */
+		function activeLabel(activation, t) {
+			if (activation === "disarmed") return t("phase.active.disarmed");
+			return t(PHASE_LABELS.active);
+		}
+		function GoalBar({ goal, activation, onEdit, onPause, onResume, onClear, t }) {
+			const [editing, setEditing] = (0, react.useState)(false);
+			const [draft, setDraft] = (0, react.useState)("");
+			const [pending, setPending] = (0, react.useState)(false);
+			const [actionError, setActionError] = (0, react.useState)(null);
+			const [clearedGoalId, setClearedGoalId] = (0, react.useState)(null);
+			const pendingRef = (0, react.useRef)(false);
+			const goalId = goal?.id;
+			(0, react.useEffect)(() => {
+				setEditing(false);
+				setActionError(null);
+				setClearedGoalId(null);
+			}, [goalId]);
+			const runAction = (0, react.useCallback)(async (action) => {
+				if (pendingRef.current) return void 0;
+				pendingRef.current = true;
+				setPending(true);
+				setActionError(null);
+				const result = await action();
+				pendingRef.current = false;
+				setPending(false);
+				if (!result.ok) setActionError(`${result.error.message} (${result.error.code})`);
+				return result;
+			}, []);
+			const handleEdit = (0, react.useCallback)(async () => {
+				const trimmed = draft.trim();
+				if (trimmed === "") return;
+				if ((await runAction(() => onEdit(trimmed)))?.ok) setEditing(false);
+			}, [
+				draft,
+				onEdit,
+				runAction
+			]);
+			const handleClear = (0, react.useCallback)(async (clearedId) => {
+				if ((await runAction(onClear))?.ok) setClearedGoalId(clearedId);
+			}, [onClear, runAction]);
+			if (goal === void 0 || goal === null || goal.phase === "complete" || goal.id === clearedGoalId) return null;
+			if (editing) return (0, react_jsx_runtime.jsx)("div", {
+				className: GoalBar_module_css_default.dock,
+				"data-goal-bar": true,
+				children: (0, react_jsx_runtime.jsxs)("div", {
+					className: `${GoalBar_module_css_default.bar} ${GoalBar_module_css_default.editBar}`,
+					children: [
+						(0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.InlineEditor, {
+							value: draft,
+							label: t("objective.aria"),
+							onChange: setDraft,
+							onSave: () => {
+								handleEdit();
+							},
+							onCancel: () => {
+								setEditing(false);
+							}
+						}),
+						actionError !== null && (0, react_jsx_runtime.jsx)("span", {
+							className: GoalBar_module_css_default.error,
+							role: "alert",
+							children: actionError
+						}),
+						(0, react_jsx_runtime.jsxs)("div", {
+							className: GoalBar_module_css_default.actions,
+							children: [(0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Tooltip, {
+								portal: true,
+								label: t("action.save"),
+								side: "bottom",
+								delayMs: 500,
+								children: (0, react_jsx_runtime.jsx)("button", {
+									type: "button",
+									className: GoalBar_module_css_default.iconBtn,
+									onClick: () => {
+										handleEdit();
+									},
+									disabled: pending || draft.trim() === "",
+									"aria-label": t("action.save"),
+									children: (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconCheckOutlineRegular, { size: 14 })
+								})
+							}), (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Tooltip, {
+								portal: true,
+								label: t("action.cancel"),
+								side: "bottom",
+								delayMs: 500,
+								children: (0, react_jsx_runtime.jsx)("button", {
+									type: "button",
+									className: GoalBar_module_css_default.iconBtn,
+									onClick: () => {
+										setEditing(false);
+									},
+									disabled: pending,
+									"aria-label": t("action.cancel"),
+									children: (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconCloseOutlineRegular, { size: 14 })
+								})
+							})]
+						})
+					]
+				})
+			});
+			const title = goal.phase === "blocked" ? goal.blockedReason?.message : void 0;
+			const label = goal.phase === "active" ? activeLabel(activation, t) : t(PHASE_LABELS[goal.phase]);
+			const showResume = goal.phase === "paused" || goal.phase === "active" && activation === "disarmed";
+			return (0, react_jsx_runtime.jsx)("div", {
+				className: GoalBar_module_css_default.dock,
+				"data-goal-bar": true,
+				children: (0, react_jsx_runtime.jsxs)("div", {
+					className: GoalBar_module_css_default.bar,
+					title,
+					children: [
+						(0, react_jsx_runtime.jsx)("span", {
+							className: GoalBar_module_css_default.goalGlyph,
+							children: (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconGoalOutlineRegular, { size: 14 })
+						}),
+						(0, react_jsx_runtime.jsx)("span", {
+							className: GoalBar_module_css_default.label,
+							children: label
+						}),
+						(0, react_jsx_runtime.jsx)("span", {
+							className: GoalBar_module_css_default.objective,
+							children: goal.objective
+						}),
+						actionError !== null && (0, react_jsx_runtime.jsx)("span", {
+							className: GoalBar_module_css_default.error,
+							role: "alert",
+							children: actionError
+						}),
+						(0, react_jsx_runtime.jsxs)("div", {
+							className: GoalBar_module_css_default.actions,
+							children: [
+								goal.phase === "active" && activation === "armed" && (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Tooltip, {
+									portal: true,
+									label: t("action.pause"),
+									side: "bottom",
+									delayMs: 500,
+									children: (0, react_jsx_runtime.jsx)("button", {
+										type: "button",
+										className: GoalBar_module_css_default.iconBtn,
+										disabled: pending,
+										onClick: () => {
+											runAction(onPause);
+										},
+										"aria-label": t("action.pause"),
+										children: (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconPauseOutlineRegular, { size: 14 })
+									})
+								}),
+								showResume && (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Tooltip, {
+									portal: true,
+									label: t("action.resume"),
+									side: "bottom",
+									delayMs: 500,
+									children: (0, react_jsx_runtime.jsx)("button", {
+										type: "button",
+										className: GoalBar_module_css_default.iconBtn,
+										disabled: pending,
+										onClick: () => {
+											runAction(onResume);
+										},
+										"aria-label": t("action.resume"),
+										children: (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconPlayOutlineRegular, { size: 14 })
+									})
+								}),
+								(0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Tooltip, {
+									portal: true,
+									label: t("action.edit"),
+									side: "bottom",
+									delayMs: 500,
+									children: (0, react_jsx_runtime.jsx)("button", {
+										type: "button",
+										className: GoalBar_module_css_default.iconBtn,
+										disabled: pending,
+										onClick: () => {
+											setDraft(goal.objective);
+											setEditing(true);
+										},
+										"aria-label": t("action.edit"),
+										children: (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconEditOutlineRegular, { size: 14 })
+									})
+								}),
+								(0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Tooltip, {
+									portal: true,
+									label: t("action.clear"),
+									side: "bottom",
+									delayMs: 500,
+									children: (0, react_jsx_runtime.jsx)("button", {
+										type: "button",
+										className: GoalBar_module_css_default.iconBtn,
+										disabled: pending,
+										onClick: () => {
+											handleClear(goal.id);
+										},
+										"aria-label": t("action.clear"),
+										children: (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconTrashOutlineRegular, { size: 14 })
+									})
+								})
+							]
+						})
+					]
+				})
+			});
+		}
+		/** Dock adapter: overlays process-local activation on the durable goal projection. */
+		function GoalDock({ useProjection, useGoalActivation, onEdit, onPause, onResume, onClear, t }) {
+			const projection = useProjection("goal");
+			const goal = projection === void 0 || projection === null ? projection : projection.goal;
+			const goalId = goal?.id;
+			const revision = goal?.revision;
+			const activation = useGoalActivation((next) => next.id === goalId && next.revision === revision ? next.activation : void 0);
+			return (0, react_jsx_runtime.jsx)(GoalBar, {
+				goal,
+				...activation === void 0 ? {} : { activation },
+				onEdit,
+				onPause,
+				onResume,
+				onClear,
+				t
+			});
 		}
 		//#endregion
-		//#region ../../util/workspace-path/src/index.ts
+		//#region lib/types/client/goal-command-input.js
+		/** The command name whose runs this projection owns. */
+		const GOAL_COMMAND = "goal";
 		/**
-		* Browser-safe Workspace path and display helpers.
-		* @module @deepseek-ai/dsh-util-workspace-path
+		* Derive the visible command line from its structured durable run.
+		* @param event - `/goal` command run.
+		* @returns command text with trailing parser whitespace removed.
 		*/
-		/** Whether a path uses a Windows drive or UNC prefix. */
-		function isWindowsStylePath(value) {
-			return /^[A-Za-z]:[/\\]/.test(value) || value.startsWith("\\\\");
+		function goalCommandText(event) {
+			return `/${event.data.name}${(event.data.args ?? "").trimEnd()}`;
 		}
+		/** Goal-owned command input projection; the generic command Definition retains the result row. */
+		const goalCommandInputDefinition = {
+			kind: "goal-command-input",
+			target: "chat",
+			match: (event) => event.type === "command/run" && event.data.name === "goal" ? {
+				id: String(event.data.commandId),
+				role: "start"
+			} : null,
+			start: (_context, match) => {
+				if (match.event.type !== "command/run") throw new Error("goal-command-input start requires command/run");
+				return {
+					commandId: match.event.data.commandId,
+					seq: match.event.seq,
+					time: match.event.time,
+					text: goalCommandText(match.event)
+				};
+			},
+			update: (context) => context.state,
+			buildViewNode: (context) => {
+				if (context.state === void 0) return null;
+				return {
+					key: context.key,
+					kind: "command-input",
+					id: context.id,
+					target: "chat",
+					anchorSeq: context.state.seq - .1,
+					location: context.start?.location ?? { kind: "unresolved" },
+					visibility: "visible",
+					data: {
+						commandId: context.state.commandId,
+						text: context.state.text,
+						time: context.state.time
+					}
+				};
+			}
+		};
+		//#endregion
+		//#region \0dsh-css:D:\deepseek-harness\packages\client\ui-goal\src\client\GoalCommandInputView.module.css.mjs
+		const css = ".NkfN_W_row{flex-direction:column;align-items:flex-end;gap:6px;display:flex}.NkfN_W_stack{min-width:0;max-width:min(calc(var(--dsh-chat-content-width,748px) * .702), 82%);flex-direction:column;align-items:flex-end;display:flex}.NkfN_W_bubble{overflow-wrap:anywhere;border-radius:var(--dsw-radius-xl);background:var(--dsw-specific-bubble);max-width:100%;color:var(--dsw-alias-label-primary);font-size:var(--dsh-content-font-size,14px);line-height:calc(22px + var(--dsh-content-font-delta,0px));white-space:pre-wrap;padding:10px 16px}";
+		const tagId = "@deepseek-ai/dsh-client-ui-goal/GoalCommandInputView.module.css";
+		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId) + "]") === null) {
+			const tag = document.createElement("style");
+			tag.dataset.plugin = "@deepseek-ai/dsh-client-ui-goal";
+			tag.dataset.pluginCss = tagId;
+			tag.textContent = css;
+			document.head.appendChild(tag);
+		}
+		var GoalCommandInputView_module_css_default = {
+			"bubble": "NkfN_W_bubble",
+			"row": "NkfN_W_row",
+			"stack": "NkfN_W_stack"
+		};
+		//#endregion
+		//#region lib/types/client/GoalCommandInputView.js
 		/**
-		* Whether a path is absolute in either spelling the Host accepts: POSIX (`/a/b`) or Windows drive or UNC.
-		* @param path - the path to classify.
-		* @returns `true` for an absolute path; `false` for a Workspace-relative one.
+		* Right-aligned `/goal` input bubble without ordinary message actions. The
+		* echoed line decorates its leading `/goal` token as a command chip — the run
+		* this Node projects is the fact that that token was a command — and keeps
+		* the objective, `/goal` mentions included, as plain text.
 		*/
-		function isAbsoluteWorkspacePath(path) {
-			return path.startsWith("/") || isWindowsStylePath(path);
-		}
-		/**
-		* Abbreviate a POSIX home directory for display.
-		* @param path - Absolute or already-short display path.
-		* @param home - Host account home; absent skips abbreviation.
-		* @returns `~` or `~/…` for the POSIX home and its descendants, otherwise `path`.
-		*/
-		function abbreviateHomePath(path, home) {
-			if (home === void 0 || home === "") return path;
-			if (isWindowsStylePath(path) || isWindowsStylePath(home)) return path;
-			const root = home.replace(/\/+$/, "");
-			if (root === "" || root === "/") return path;
-			if (path.replace(/\/+$/, "") === root) return "~";
-			if (path.startsWith(`${root}/`)) return `~${path.slice(root.length)}`;
-			return path;
-		}
-		/**
-		* The address for a path as a caller holds it: a relative path, or an absolute
-		* path inside the Session's workspace, becomes a `session`-scoped address; an
-		* absolute path outside it, or one whose workspace root is unknown, keeps its
-		* absolute path in that Session's address.
-		* @param sessionId - the Session the path is read in.
-		* @param cwd - that Session's workspace root, when known.
-		* @param path - absolute or workspace-relative path, in either separator spelling.
-		* @returns the `dsh-resource://file/…` address.
-		*/
-		function fileAddressFor(sessionId, cwd, path) {
-			const normalized = path.replace(/\\/g, "/");
-			if (!isAbsoluteWorkspacePath(normalized)) return sessionFileAddress(sessionId, normalized);
-			const root = cwd === void 0 ? "" : cwd.replace(/\\/g, "/").replace(/\/+$/, "");
-			if (root !== "" && normalized === root) return sessionFileAddress(sessionId, "");
-			if (root !== "" && normalized.startsWith(`${root}/`)) return sessionFileAddress(sessionId, normalized.slice(root.length + 1));
-			return sessionFileAddress(sessionId, normalized);
-		}
+		const GoalCommandInputView = (0, react.memo)(function GoalCommandInputView({ node, t }) {
+			const data = node.data;
+			const split = data.text.search(/\s/u);
+			const head = split === -1 ? data.text : data.text.slice(0, split);
+			const rest = split === -1 ? "" : data.text.slice(split);
+			return (0, react_jsx_runtime.jsx)("div", {
+				className: GoalCommandInputView_module_css_default.row,
+				"data-command-input": "",
+				role: "group",
+				"aria-label": t("commandInput.aria"),
+				children: (0, react_jsx_runtime.jsx)("div", {
+					className: GoalCommandInputView_module_css_default.stack,
+					children: (0, react_jsx_runtime.jsxs)("div", {
+						className: GoalCommandInputView_module_css_default.bubble,
+						children: [(0, _deepseek_ai_dsh_client_ui_primitives.projectUserText)(head, [], [GOAL_COMMAND], "command"), rest !== "" && (0, _deepseek_ai_dsh_client_ui_primitives.projectUserText)(rest, [])]
+					})
+				})
+			});
+		});
 		//#endregion
 		//#region lib/types/client/locales.js
-		/** `reference` namespace dictionaries for the unified `@` source. */
-		/** Dictionary namespace owned by this plugin. */
-		const NS = "reference";
-		/**
-		* Simplified Chinese dictionary (the key-set source of truth).
-		*
-		* The `time.*` bucket words are this namespace's own copy of the session-row
-		* vocabulary: locale-owned copy keeps the words per plugin, while the
-		* bucketing they name is the one shared {@link relativeTime} in ui-primitives.
-		*/
+		/** `goal` namespace dictionaries. */
+		/** Simplified Chinese dictionary (the key-set source of truth). */
 		const zh = {
-			"section.files": "文件与文件夹",
-			"section.subagents": "子智能体",
-			"section.sessions": "对话",
-			"candidate.noCwd": "（无工作目录）",
-			"crumb.root": "工作区",
-			"time.now": "刚刚",
-			"time.minutes": "{n}分钟",
-			"time.hours": "{n}小时",
-			"time.days": "{n}天",
-			"time.months": "{n}个月",
-			"time.years": "{n}年"
+			"phase.active": "进行中的目标",
+			"phase.active.disarmed": "已暂停的目标",
+			"phase.paused": "已暂停的目标",
+			"phase.blocked": "受阻的目标",
+			"objective.aria": "目标内容",
+			"commandInput.aria": "指令输入",
+			"action.save": "保存目标",
+			"action.cancel": "取消编辑",
+			"action.pause": "暂停目标",
+			"action.resume": "恢复目标",
+			"action.edit": "编辑目标",
+			"action.clear": "清除目标"
 		};
 		/** English dictionary, checked complete against the zh key set. */
 		const en = {
-			"section.files": "Files & folders",
-			"section.subagents": "Subagents",
-			"section.sessions": "Sessions",
-			"candidate.noCwd": "(no cwd)",
-			"crumb.root": "Workspace",
-			"time.now": "now",
-			"time.minutes": "{n}min",
-			"time.hours": "{n}h",
-			"time.days": "{n}d",
-			"time.months": "{n}mo",
-			"time.years": "{n}y"
+			"phase.active": "Ongoing Goal",
+			"phase.active.disarmed": "Inactive Goal",
+			"phase.paused": "Paused Goal",
+			"phase.blocked": "Blocked Goal",
+			"objective.aria": "Goal objective",
+			"commandInput.aria": "Command input",
+			"action.save": "Save goal",
+			"action.cancel": "Cancel edit",
+			"action.pause": "Pause goal",
+			"action.resume": "Resume goal",
+			"action.edit": "Edit goal",
+			"action.clear": "Clear goal"
 		};
 		//#endregion
 		//#region lib/types/client/index.js
-		/** Required services: the trigger registry, the Remote namespaces, and the copy. */
+		/** Dictionary namespace owned by this plugin. */
+		const NS = "goal";
+		/** Required services for the Goal dock, command-input projection, Remote mutations, and copy. */
 		const inject = [
-			"inputTriggers",
-			"locale",
+			"slots",
 			"sessions",
 			"remote",
-			"remote.fileReferences",
-			"remote.sessionReferenceResolver",
-			"sidebarRight"
+			"remote.goals",
+			"locale",
+			"uiConversation"
 		];
 		/**
-		* Register the combined `@file` / `@session` source.
+		* Client plugin body: the GoalBar dock entry with its mutation verbs.
 		* @param ctx - client root context.
 		*/
 		function apply(ctx) {
+			ctx.uiConversation.events.register(goalCommandInputDefinition);
 			ctx.effect(() => ctx.locale.register(NS, {
 				zh,
 				en
-			}), "ui-reference: dictionaries");
-			const t = ctx.locale.bind(NS);
-			const sessions = ctx.get("sessions");
-			const source = {
-				trigger: "@",
-				name: "reference",
-				showGroupTitle: false,
-				async candidates(session, { query, quoted, drilled, signal }) {
-					if (sessions.binding(session.sessionId) === void 0) throw new Error(`reference candidates require a retained session "${session.sessionId}"`);
-					const [fileItems, sessionItems] = await sessions.using(session.sessionId, {
-						source: "referenceCandidates",
-						signal
-					}, async (reference) => {
-						signal.throwIfAborted();
-						const state = reference.binding.session.getSnapshot();
-						if (state.openState !== "open") throw state.openError ?? /* @__PURE__ */ new Error(`session "${session.sessionId}" is not open`);
-						const fileLookup = ctx.remote.fileReferences.list(session.sessionId, query, signal).then((result) => result.ok ? result.value : []);
-						const sessionLookup = quoted === true ? Promise.resolve([]) : ctx.remote.sessionReferenceResolver.candidates(session.sessionId, query, signal).then((result) => result.ok ? result.value : []);
-						return Promise.all([fileLookup, sessionLookup]);
-					});
-					if (signal.aborted) return [];
-					const withLocation = crumbsFor(query, quoted === true, drilled, t) === void 0;
-					const now = Date.now();
-					const home = ctx.remote.$host.home;
-					const listed = sessions.list.getSnapshot().byId;
-					const sessionRows = sessionItems.map((candidate) => {
-						const summary = listed[candidate.sessionId];
-						const child = summary?.origin === "subagent" && summary.parentId === session.sessionId;
-						return {
-							child,
-							row: sessionCandidate(candidate, candidate.displayTitle ?? candidate.label, summary?.updatedAt ?? candidate.createdAt, now, home, t(child ? "section.subagents" : "section.sessions"), t)
-						};
-					});
-					return [
-						...fileItems.flatMap((candidate) => fileCandidate(candidate, quoted === true, withLocation, t)),
-						...sessionRows.filter((item) => item.child).map((item) => item.row),
-						...sessionRows.filter((item) => !item.child).map((item) => item.row)
-					];
-				},
-				header(_session, req) {
-					return crumbsFor(req.query, req.quoted === true, req.drilled, t);
-				},
-				onPick({ candidate, action }) {
-					const value = parseCandidate(candidate.value);
-					if (value?.kind === "file") {
-						if (value.fileKind === "directory" && action === "drill") return {
-							text: value.mention,
-							continue: true
-						};
-						return { insert: {
-							source: "reference",
-							ref: value.mention,
-							label: value.fileKind === "directory" ? `${value.label}/` : value.label,
-							appearance: value.fileKind === "directory" ? "folder" : "file",
-							clipboardText: value.mention
-						} };
-					}
-					if (value?.kind === "session") return { insert: {
-						source: "reference",
-						ref: value.mention,
-						label: value.label,
-						appearance: "session",
-						clipboardText: value.mention
-					} };
-				},
-				openReference(session, { ref, appearance }) {
-					if (appearance !== "file") return false;
-					const path = ref.startsWith("@\"") ? ref.slice(2, -1) : ref.slice(1);
-					const cwd = sessions.list.getSnapshot().byId[session.sessionId]?.cwd;
-					ctx.sidebarRight.openResource(fileAddressFor(session.sessionId, cwd, path));
-					return true;
-				},
-				codec: {
-					clipboardText: (ref) => ref,
-					serialize: (ref) => Promise.resolve(ref)
+			}), "ui-goal: dictionaries");
+			ctx.slots.inject("conversation.chat.node", () => ctx.slots.register({
+				name: "conversation.chat.node",
+				key: "command-input",
+				locale: NS
+			}, GoalCommandInputView));
+			const sessions = ctx.sessions;
+			/** The session's current projected CAS ref, read at verb call time (no staleness fence: the RPC's CAS is the guard). */
+			const refOf = (sessionId) => {
+				const projection = (sessions.binding(sessionId)?.session.projections.faceOf("goal"))?.getSnapshot();
+				if (projection == null) return void 0;
+				return {
+					id: projection.goal.id,
+					revision: projection.goal.revision
+				};
+			};
+			const noCurrentGoal = {
+				ok: false,
+				error: {
+					code: "no-current-goal",
+					message: "no current goal to mutate"
 				}
 			};
-			const inputTriggers = ctx.get("inputTriggers");
-			ctx.effect(() => inputTriggers.registerSource(source), "ui-reference: @ source");
-		}
-		/**
-		* The breadcrumb of a drilled directory listing, from the workspace root down
-		* to the directory being listed.
-		*
-		* Only a drill produces one: a path the user typed carries its own context in
-		* the draft, while a drill replaced the text they were reading with a deeper
-		* one and owes them the way back.
-		* @param query - the live query, path text following `@` or `@"`.
-		* @param quoted - whether the active token is an open quoted path.
-		* @param drilled - whether a drill pick, rather than typing, produced the query.
-		* @param t - the reference dictionary.
-		* @returns the crumbs, or undefined when this listing needs no header.
-		*/
-		function crumbsFor(query, quoted, drilled, t) {
-			if (!drilled) return void 0;
-			const slash = query.lastIndexOf("/");
-			if (slash < 0) return void 0;
-			const segments = query.slice(0, slash).split("/").filter((segment) => segment !== "");
-			const crumbs = [{
-				label: t("crumb.root"),
-				value: directoryValue(t("crumb.root"), quoted ? "@\"" : "@")
-			}];
-			for (const [index, segment] of segments.entries()) {
-				const mention = formatFileMention({
-					path: segments.slice(0, index + 1).join("/"),
-					kind: "directory"
-				}, quoted);
-				if (mention === void 0) return void 0;
-				crumbs.push({
-					label: segment,
-					value: directoryValue(segment, mention),
-					...index === segments.length - 1 ? { current: true } : {}
-				});
-			}
-			return crumbs;
-		}
-		/** Project one directory destination as the drill payload `onPick` already understands. */
-		function directoryValue(label, mention) {
-			return JSON.stringify({
-				kind: "file",
-				fileKind: "directory",
-				label,
-				mention
-			});
-		}
-		function fileCandidate(candidate, preserveQuote, withLocation, t) {
-			const mention = formatFileMention(candidate, preserveQuote);
-			if (mention === void 0) return [];
-			const slash = candidate.path.lastIndexOf("/");
-			const name = candidate.path.slice(slash + 1);
-			const parent = slash < 0 ? "" : candidate.path.slice(0, slash);
-			const directory = candidate.kind === "directory";
-			const value = {
-				kind: "file",
-				fileKind: candidate.kind,
-				label: name,
-				mention
-			};
-			return [{
-				name: `${name}${directory ? "/" : ""}`,
-				...withLocation && parent !== "" ? { description: parent } : {},
-				icon: directory ? "folder" : "file",
-				section: t("section.files"),
-				value: JSON.stringify(value),
-				...directory ? { drill: true } : {}
-			}];
-		}
-		function sessionCandidate(candidate, label, updatedAt, now, home, section, t) {
-			const { unit, n } = (0, _deepseek_ai_dsh_client_ui_primitives.relativeTime)(updatedAt, now);
-			const age = unit === "now" ? t("time.now") : t(`time.${unit}`, { n });
-			const location = candidate.sameWorkspace ? void 0 : candidate.cwd === void 0 ? t("candidate.noCwd") : abbreviateHomePath(candidate.cwd, home);
-			const value = {
-				kind: "session",
-				label,
-				mention: candidate.mention
-			};
-			return {
-				name: label,
-				description: location === void 0 ? age : `${location} · ${age}`,
-				icon: "session",
-				section,
-				value: JSON.stringify(value)
-			};
-		}
-		function parseCandidate(value) {
-			if (value === void 0) return void 0;
-			return JSON.parse(value);
+			ctx.slots.inject("conversation.input.dock", () => ctx.slots.register({
+				name: "conversation.input.dock",
+				id: "goal",
+				order: 10,
+				locale: NS,
+				inject: (sessionId) => {
+					const binding = sessions.binding(sessionId);
+					if (binding === void 0) throw new Error(`ui-goal: session "${sessionId}" is unavailable`);
+					return {
+						hooks: { goalActivation: createGoalActivationSource({
+							projection: binding.session.projections.faceOf("goal"),
+							session: binding.session,
+							getGoal: async () => {
+								if (sessions.binding(sessionId) !== binding) throw new Error(`ui-goal: session "${sessionId}" is unavailable`);
+								return sessions.using(sessionId, { source: "goalActivation" }, async (reference) => {
+									const state = reference.binding.session.getSnapshot();
+									if (state.openState !== "open") throw state.openError ?? /* @__PURE__ */ new Error(`session "${sessionId}" is not open`);
+									return ctx.remote.goals.get(sessionId);
+								});
+							},
+							subscribeActivation: (listener) => ctx.remote.$on("goal/activation-changed", (event) => {
+								if (event.sessionId === sessionId) listener(event.goal);
+							}),
+							subscribeReset: (listener) => ctx.on("connection/reset", listener)
+						}) },
+						onEdit: async (objective) => {
+							const ref = refOf(sessionId);
+							if (ref === void 0) return noCurrentGoal;
+							return await ctx.remote.goals.edit(sessionId, ref, { objective });
+						},
+						onPause: async () => {
+							const ref = refOf(sessionId);
+							if (ref === void 0) return noCurrentGoal;
+							return await ctx.remote.goals.pause(sessionId, ref);
+						},
+						onResume: async () => {
+							const ref = refOf(sessionId);
+							if (ref === void 0) return noCurrentGoal;
+							return await ctx.remote.goals.resume(sessionId, ref);
+						},
+						onClear: async () => {
+							const ref = refOf(sessionId);
+							if (ref === void 0) return noCurrentGoal;
+							return await ctx.remote.goals.clear(sessionId, ref);
+						}
+					};
+				}
+			}, GoalDock));
 		}
 		//#endregion
+		exports.GoalBar = GoalBar;
+		exports.GoalDock = GoalDock;
 		exports.apply = apply;
 		exports.inject = inject;
 		return module.exports;
 	}
 });
 ;
-//# sourceMappingURL=??@deepseek-ai/dsh-client-ui-reference/client.js.map&rev=c18d2d995ffa
+//# sourceMappingURL=??@deepseek-ai/dsh-client-ui-goal/client.js.map&rev=5d9e9718991f

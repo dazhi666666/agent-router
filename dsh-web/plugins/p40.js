@@ -1,1299 +1,989 @@
 window.__ModuleLoader__.load({
-	id: "@deepseek-ai/dsh-client-ui-input-trigger",
+	id: "@deepseek-ai/dsh-client-ui-subagent",
 	factory: (require) => {
 		var module = { exports: {} };
 		var exports = module.exports;
 		Object.defineProperty(exports, Symbol.toStringTag, { value: "Module" });
-		let _deepseek_ai_cordis = require("@deepseek-ai/cordis");
-		let _deepseek_ai_dsh_client_store = require("@deepseek-ai/dsh-client-store");
 		let react_jsx_runtime = require("react/jsx-runtime");
-		let _deepseek_ai_dsh_client_ui_primitives = require("@deepseek-ai/dsh-client-ui-primitives");
 		let react = require("react");
-		//#region ../../util/values/src/index.ts
-		/**
-		* Weak-key lookup with a strongly retained iterable set of associated values.
-		*
-		* Each value must belong to only one key. The container performs no automatic
-		* cleanup; owners delete associations or clear the container at lifecycle end.
-		*/
-		var WeakMapWithValues = class {
-			keys = /* @__PURE__ */ new WeakMap();
-			valueSet = /* @__PURE__ */ new Set();
-			/** Live strongly retained values in insertion order. */
-			values = this.valueSet;
-			/**
-			* Read the value associated with a key.
-			* @param key - weakly held lookup key.
-			* @returns the associated value, or absence.
-			*/
-			get(key) {
-				return this.keys.get(key);
-			}
-			/**
-			* Test whether a key has an association.
-			* @param key - weakly held lookup key.
-			* @returns whether the key is present.
-			*/
-			has(key) {
-				return this.keys.has(key);
-			}
-			/**
-			* Associate one key with one caller-unique value.
-			* @param key - weakly held lookup key.
-			* @param value - strongly retained value that belongs to no other key.
-			* @returns this container.
-			*/
-			set(key, value) {
-				if (this.keys.has(key)) {
-					const previous = this.keys.get(key);
-					if (previous === value) return this;
-					this.valueSet.delete(previous);
-				}
-				this.keys.set(key, value);
-				this.valueSet.add(value);
-				return this;
-			}
-			/**
-			* Remove one association and its strongly retained value.
-			* @param key - weakly held lookup key.
-			* @returns whether an association was removed.
-			*/
-			delete(key) {
-				if (!this.keys.has(key)) return false;
-				const value = this.keys.get(key);
-				const deleted = this.keys.delete(key);
-				this.valueSet.delete(value);
-				return deleted;
-			}
-			/** Remove every association and strongly retained value. */
-			clear() {
-				this.keys = /* @__PURE__ */ new WeakMap();
-				this.valueSet.clear();
-			}
+		let react_dom = require("react-dom");
+		let _deepseek_ai_dsh_client_ui_primitives = require("@deepseek-ai/dsh-client-ui-primitives");
+		//#region \0dsh-css:D:\deepseek-harness\packages\client\ui-subagent\src\client\SubagentHeaderLineage.module.css.mjs
+		const css$2 = ".zxHPFa_root{align-items:center;gap:10px;min-width:0;display:inline-flex;position:relative}.zxHPFa_switcherRoot{min-width:0;margin-left:6px}.zxHPFa_trigger,.zxHPFa_switcherTrigger{border-radius:var(--dsw-radius-sm);min-height:28px;color:var(--dsw-alias-label-tertiary);cursor:pointer;background:0 0;border:0;align-items:center;padding:3px 2px;font-size:12px;line-height:18px;display:inline-flex}.zxHPFa_trigger{gap:4px}.zxHPFa_switcherTrigger{min-width:0;max-width:244px;color:var(--dsw-alias-label-primary);gap:4px;font-weight:500}.zxHPFa_ancestorSwitcherTrigger{color:var(--dsw-alias-label-tertiary);font-weight:400}.zxHPFa_switcherTitle{text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0;overflow:hidden}.zxHPFa_switcherTrigger svg{flex:none}.zxHPFa_activitySlot{flex:none;justify-content:center;align-items:center;width:14px;height:14px;display:inline-flex}.zxHPFa_trigger:hover,.zxHPFa_trigger:focus-visible,.zxHPFa_switcherTrigger:hover,.zxHPFa_switcherTrigger:focus-visible{color:var(--dsw-alias-label-primary)}.zxHPFa_ancestorSwitcherTrigger:hover,.zxHPFa_ancestorSwitcherTrigger:focus-visible{color:var(--dsw-alias-label-tertiary)}.zxHPFa_trigger svg,.zxHPFa_switcherTrigger svg{transition:transform .12s}.zxHPFa_triggerOpen{transform:rotate(180deg)}.zxHPFa_menu{z-index:100;box-sizing:border-box;border-radius:var(--dsw-radius-lg);--dsh-scrollbar-thumb:var(--dsw-alias-scrollbar-bg-l2);--dsh-scrollbar-thumb-hover:var(--dsw-alias-scrollbar-hover-l2);--dsw-elevation-stroke-color:var(--dsw-alias-border-l1);width:336px;max-width:min(400px,100vw - 32px);max-height:min(560px,100vh - 140px);box-shadow:var(--dsw-elevation-prominent);flex-direction:column;padding:3px;display:flex;position:fixed;overflow:hidden}.zxHPFa_menu:before{content:\"\";z-index:-1;border-radius:inherit;background:var(--dsw-specific-menu);backdrop-filter:var(--dsw-menu-backdrop-filter);position:absolute;inset:0}.zxHPFa_menuBody{flex-direction:column;flex:auto;min-height:0;display:flex;overflow:auto}.zxHPFa_node{min-width:0;position:relative}.zxHPFa_menuBody>.zxHPFa_node{margin-left:-2px}.zxHPFa_row{box-sizing:border-box;border-radius:var(--dsw-radius-lg);width:100%;min-height:44px;color:var(--dsw-alias-label-primary);text-align:left;cursor:pointer;background:0 0;border:0;outline:none;align-items:flex-start;gap:6px;padding:6px 7px 6px 9px;font-size:12px;line-height:17px;display:flex;position:relative}.zxHPFa_row:hover>.zxHPFa_clickarea,.zxHPFa_row:focus-visible>.zxHPFa_clickarea{background:var(--dsw-alias-interactive-bg-hover)}.zxHPFa_clickarea{box-sizing:border-box;border-radius:var(--dsw-radius-lg);flex:1;align-self:stretch;align-items:flex-start;gap:6px;min-width:0;margin:-6px -7px;padding:6px 7px;display:flex}.zxHPFa_rowActivitySlot{flex:none;justify-content:center;align-items:center;width:14px;height:17px;display:inline-flex}.zxHPFa_disclosure,.zxHPFa_disclosureSpace{flex:none;width:14px;height:17px}.zxHPFa_disclosure{color:var(--dsw-alias-label-tertiary);cursor:pointer;background:0 0;border:0;justify-content:center;align-items:center;padding:0;transition:transform .12s;display:inline-flex}.zxHPFa_disclosure svg{width:12px;height:12px}.zxHPFa_disclosure:hover{color:var(--dsw-alias-label-primary)}.zxHPFa_disclosureOpen{transform:rotate(90deg)}.zxHPFa_content{flex-direction:column;flex:1;min-width:0;display:flex}.zxHPFa_label,.zxHPFa_summary{text-overflow:ellipsis;white-space:nowrap;overflow:hidden}.zxHPFa_label{color:inherit;font-weight:400}.zxHPFa_currentLabel{font-weight:600}.zxHPFa_summary,.zxHPFa_metrics{color:var(--dsw-alias-label-tertiary);font-size:10px;line-height:15px}.zxHPFa_metrics{font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap;flex:none;grid-template-rows:17px 15px;display:grid}.zxHPFa_metricToken{grid-row:1;line-height:17px}.zxHPFa_metricDuration{grid-row:2}.zxHPFa_sidebarButton{border-radius:var(--dsw-radius-sm);width:28px;height:28px;color:var(--dsw-alias-label-tertiary);cursor:pointer;background:0 0;border:0;flex:none;justify-content:center;align-items:center;margin:4px 0;padding:6px;display:inline-flex}.zxHPFa_sidebarButton:hover,.zxHPFa_sidebarButton:focus-visible{background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-primary)}.zxHPFa_children{margin-left:16px;padding-left:3px;position:relative}.zxHPFa_children:before,.zxHPFa_children>.zxHPFa_node:before{content:\"\";border-left:.5px solid var(--dsw-alias-border-l2);position:absolute;left:0}.zxHPFa_children:before{height:23px;top:-23px}.zxHPFa_children[aria-busy=true]:before{content:none}.zxHPFa_children>.zxHPFa_node:before{top:0;bottom:0;left:-3px}.zxHPFa_children>.zxHPFa_node:last-child:before{height:15px;bottom:auto}.zxHPFa_children>.zxHPFa_node>.zxHPFa_row:before{content:\"\";border-top:.5px solid var(--dsw-alias-border-l2);width:12px;position:absolute;top:14px;left:-3px}.zxHPFa_notice,.zxHPFa_error{color:var(--dsw-alias-label-tertiary);padding:8px 10px;font-size:11px;line-height:16px}.zxHPFa_error{color:var(--dsw-alias-state-error-primary);justify-content:space-between;align-items:center;gap:10px;display:flex}.zxHPFa_refresh{border-radius:var(--dsw-radius-sm);color:inherit;cursor:pointer;background:0 0;border:0;flex:none;align-items:center;gap:3px;padding:3px 5px;display:inline-flex}.zxHPFa_refresh svg{width:12px;height:12px}.zxHPFa_refresh:hover{background:var(--dsw-alias-interactive-bg-hover)}";
+		const tagId$2 = "@deepseek-ai/dsh-client-ui-subagent/SubagentHeaderLineage.module.css";
+		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId$2) + "]") === null) {
+			const tag = document.createElement("style");
+			tag.dataset.plugin = "@deepseek-ai/dsh-client-ui-subagent";
+			tag.dataset.pluginCss = tagId$2;
+			tag.textContent = css$2;
+			document.head.appendChild(tag);
+		}
+		var SubagentHeaderLineage_module_css_default = {
+			"activitySlot": "zxHPFa_activitySlot",
+			"ancestorSwitcherTrigger": "zxHPFa_ancestorSwitcherTrigger",
+			"children": "zxHPFa_children",
+			"clickarea": "zxHPFa_clickarea",
+			"content": "zxHPFa_content",
+			"currentLabel": "zxHPFa_currentLabel",
+			"disclosure": "zxHPFa_disclosure",
+			"disclosureOpen": "zxHPFa_disclosureOpen",
+			"disclosureSpace": "zxHPFa_disclosureSpace",
+			"error": "zxHPFa_error",
+			"label": "zxHPFa_label",
+			"menu": "zxHPFa_menu",
+			"menuBody": "zxHPFa_menuBody",
+			"metricDuration": "zxHPFa_metricDuration",
+			"metricToken": "zxHPFa_metricToken",
+			"metrics": "zxHPFa_metrics",
+			"node": "zxHPFa_node",
+			"notice": "zxHPFa_notice",
+			"refresh": "zxHPFa_refresh",
+			"root": "zxHPFa_root",
+			"row": "zxHPFa_row",
+			"rowActivitySlot": "zxHPFa_rowActivitySlot",
+			"sidebarButton": "zxHPFa_sidebarButton",
+			"summary": "zxHPFa_summary",
+			"switcherRoot": "zxHPFa_switcherRoot",
+			"switcherTitle": "zxHPFa_switcherTitle",
+			"switcherTrigger": "zxHPFa_switcherTrigger",
+			"trigger": "zxHPFa_trigger",
+			"triggerOpen": "zxHPFa_triggerOpen"
 		};
 		//#endregion
-		//#region ../../context/file-reference/src/grammar.ts
-		/**
-		* Extract an `@path` or `@"path with spaces` token at the cursor. An `@`
-		* inside another token, such as an email address, is not a completion trigger.
-		* @param line - current editor line.
-		* @param cursorCol - cursor column within that line.
-		* @returns the active token, or `undefined` outside an `@` token.
-		*/
-		function activeAtToken(line, cursorCol) {
-			const beforeCursor = line.slice(0, cursorCol);
-			const quoted = /(?:^|\s)(@"([^"]*))$/u.exec(beforeCursor);
-			if (quoted?.[1] !== void 0 && quoted[2] !== void 0) return {
-				prefix: quoted[1],
-				query: quoted[2],
-				quoted: true
-			};
-			const plain = /(?:^|\s)(@([^\s]*))$/u.exec(beforeCursor);
-			if (plain?.[1] === void 0 || plain[2] === void 0) return void 0;
+		//#region lib/types/client/SubagentHeaderLineage.js
+		function treeItems(root) {
+			return root === null ? [] : Array.from(root.querySelectorAll("[role=\"treeitem\"]:not([aria-disabled=\"true\"])"));
+		}
+		/** Compact token count shared in shape with the conversation stats strip. */
+		function formatTokens(value, t) {
+			const scaled = (next) => next >= 100 ? String(Math.round(next)) : String(Math.round(next * 10) / 10);
+			if (value < 1e3) return String(value);
+			if (value < 1e6) return t("tokens.thousand", { value: scaled(value / 1e3) });
+			return t("tokens.million", { value: scaled(value / 1e6) });
+		}
+		/** Sum the four disjoint durable provider-usage buckets. */
+		function tokenTotal(usage) {
+			return usage === void 0 ? void 0 : usage.uncachedInputTokens + usage.outputTokens + usage.cacheReadTokens + usage.cacheWriteTokens;
+		}
+		/** Exact whole-second active-turn duration for one catalog row. */
+		function activityDuration(summary, activity, now) {
+			if (summary === void 0) return void 0;
+			const timing = summary.projectionValues?.subagentTiming;
+			if (timing === void 0) return void 0;
+			if (timing.active === void 0) return timing.settledMs;
+			const end = activity === "running" ? now : timing.active.through;
+			return timing.settledMs + Math.max(0, end - timing.active.since);
+		}
+		function splitDuration(ms) {
+			const totalSeconds = Math.floor(Math.max(0, ms) / 1e3);
+			const totalMinutes = Math.floor(totalSeconds / 60);
+			const totalHours = Math.floor(totalMinutes / 60);
 			return {
-				prefix: plain[1],
-				query: plain[2],
-				quoted: false
+				seconds: totalSeconds % 60,
+				minutes: totalMinutes % 60,
+				hours: totalHours % 24,
+				days: Math.floor(totalHours / 24),
+				totalMinutes,
+				totalHours
 			};
 		}
-		//#endregion
-		//#region lib/types/core/detect.js
-		/**
-		* Trigger detection pure core. Scans backward from
-		* the caret for a live trigger char under the guard tier and applies the
-		* word-boundary rules. Zero React / DOM / cordis.
-		*/
-		const WORD_CHAR = /[\p{L}\p{N}_]/u;
-		const WHITESPACE = /\s/u;
-		/**
-		* Word-boundary rule: a trigger char opens only at start-of-draft, after
-		* whitespace (newlines included), or after punctuation. Two URL carve-outs
-		* keep '/' dead inside URLs (both pinned by tests): '/' after a ':' that
-		* itself follows a non-whitespace char (scheme separator, `https:/…`), and
-		* '/' directly after another '/' (second slash of `//`).
-		*/
-		function boundaryOk(draft, index, char) {
-			if (index === 0) return true;
-			const prev = draft.charAt(index - 1);
-			if (WHITESPACE.test(prev)) return true;
-			if (WORD_CHAR.test(prev)) return false;
-			if (char === "/") {
-				if (prev === "/") return false;
-				if (prev === ":" && index >= 2 && !WHITESPACE.test(draft.charAt(index - 2))) return false;
+		/** Format a duration with decreasing visual precision at larger scales. */
+		function formatDuration(ms, t) {
+			const { seconds, minutes, hours, days, totalMinutes, totalHours } = splitDuration(ms);
+			if (days >= 365) {
+				const years = Math.floor(days / 365);
+				const months = Math.floor(days % 365 / 30);
+				return months === 0 ? t("duration.years", { years }) : t("duration.yearsMonths", {
+					years,
+					months
+				});
 			}
-			return true;
+			if (days >= 30) {
+				const months = Math.floor(days / 30);
+				const remainingDays = days % 30;
+				return remainingDays === 0 ? t("duration.months", { months }) : t("duration.monthsDays", {
+					months,
+					days: remainingDays
+				});
+			}
+			if (days > 0) return hours === 0 ? t("duration.days", { days }) : t("duration.daysHours", {
+				days,
+				hours
+			});
+			if (totalHours > 0) return t("duration.hours", {
+				hours: totalHours,
+				minutes: String(minutes).padStart(2, "0"),
+				seconds: String(seconds).padStart(2, "0")
+			});
+			if (totalMinutes > 0) return t("duration.minutes", {
+				minutes: totalMinutes,
+				seconds: String(seconds).padStart(2, "0")
+			});
+			return t("duration.seconds", { seconds });
 		}
-		/**
-		* Detect a trigger token at the caret. `@` first uses the shared grammar,
-		* including an open quoted token that may span whitespace. Slash detection
-		* scans left to the first whitespace; slashes failing the word boundary are
-		* treated as ordinary token chars and the scan continues (URL slashes).
-		* Guard tiers: plain = both chars live; claimed = '/' fully suppressed,
-		* '@' live; frozen = none.
-		*
-		* @param draft - Full draft text.
-		* @param caret - Caret offset into `draft`.
-		* @param guard - Availability tier derived from the input phase.
-		* @returns The hit with `query` = trigger-to-caret slice and `span` =
-		* `{start: triggerIndex, end: caret}`; `span.draftRev` is a placeholder `0`
-		* — the calling shell stamps the real revision. Null when no trigger is
-		* live at the caret.
-		*/
-		const detectTrigger = (draft, caret, guard) => {
-			if (guard.tier === "frozen") return null;
-			const at = activeAtToken(draft, caret);
-			if (at !== void 0) {
-				const start = caret - at.prefix.length;
-				return {
-					trigger: "@",
-					query: at.query,
-					quoted: at.quoted,
-					position: draft.search(/\S/) === start ? "leading" : "inline",
-					span: {
-						start,
-						end: caret,
-						draftRev: 0
-					}
-				};
-			}
-			for (let i = caret - 1; i >= 0; i--) {
-				const ch = draft.charAt(i);
-				if (WHITESPACE.test(ch)) return null;
-				if (ch !== "/") continue;
-				if (guard.tier === "claimed") continue;
-				if (!boundaryOk(draft, i, ch)) continue;
-				return {
-					trigger: ch,
-					query: draft.slice(i + 1, caret),
-					quoted: false,
-					position: draft.search(/\S/) === i ? "leading" : "inline",
-					span: {
-						start: i,
-						end: caret,
-						draftRev: 0
-					}
-				};
-			}
-			return null;
-		};
-		//#endregion
-		//#region lib/types/core/menu.js
-		/** Closed rest state with generation 0; store initializer and test seed. */
-		const MENU_CLOSED = {
-			open: false,
-			hit: null,
-			generation: 0,
-			groups: [],
-			highlight: null
-		};
-		/**
-		* Replace the group roster with pending groups for `sources`, in order.
-		* Shell-side step before dispatching `hit` on a fresh menu open.
-		*
-		* @param state - Current menu state.
-		* @param sources - Sources registered for the hit trigger, in menu order.
-		* @returns State carrying the new pending roster; highlight cleared.
-		*/
-		function seedGroups(state, sources) {
-			return {
-				...state,
-				groups: sources.map((source) => ({
-					source: source.name,
-					...source.showGroupTitle === false ? { showGroupTitle: false } : {},
-					status: "pending",
-					items: []
-				})),
-				highlight: null
-			};
+		/** Preserve exact whole seconds for hover and accessible naming. */
+		function formatExactDuration(ms, t) {
+			const { seconds, minutes, hours, days } = splitDuration(ms);
+			return days === 0 ? formatDuration(ms, t) : t("duration.exactDays", {
+				days,
+				hours: String(hours).padStart(2, "0"),
+				minutes: String(minutes).padStart(2, "0"),
+				seconds: String(seconds).padStart(2, "0")
+			});
 		}
-		/** Close, preserving the generation so in-flight settlements stay droppable. */
-		const closed = (state) => state.open || state.hit !== null || state.groups.length > 0 || state.highlight !== null ? {
-			open: false,
-			hit: null,
-			generation: state.generation,
-			groups: [],
-			highlight: null
-		} : state;
-		/** First item of the first non-empty ready group, or null. */
-		function firstHighlight(groups) {
-			for (const g of groups) if (g.status === "ready" && g.items.length > 0) return {
-				source: g.source,
-				index: 0
-			};
-			return null;
+		function SubagentSwitcherIcon() {
+			return (0, react_jsx_runtime.jsxs)("svg", {
+				width: "16",
+				height: "16",
+				viewBox: "0 0 20 20",
+				fill: "none",
+				"aria-hidden": "true",
+				children: [(0, react_jsx_runtime.jsx)("path", {
+					d: "M5.99951 12.7L8.95546 14.9478C9.40011 15.2859 9.62244 15.455 9.87526 15.488C9.95774 15.4988 10.0413 15.4988 10.1238 15.488C10.3766 15.455 10.5989 15.2859 11.0436 14.9478L13.9995 12.7",
+					stroke: "currentColor",
+					strokeWidth: "1.5"
+				}), (0, react_jsx_runtime.jsx)("path", {
+					d: "M13.9995 7.7417L11.0436 5.49387C10.5989 5.15574 10.3766 4.98668 10.1238 4.95362C10.0413 4.94283 9.95775 4.94283 9.87527 4.95362C9.62245 4.98668 9.40012 5.15574 8.95547 5.49387L5.99952 7.7417",
+					stroke: "currentColor",
+					strokeWidth: "1.5"
+				})]
+			});
 		}
-		/** The highlight itself when it still points at a ready item, else null. */
-		function validHighlight(highlight, groups) {
-			if (!highlight) return null;
-			const g = groups.find((x) => x.source === highlight.source);
-			return g && g.status === "ready" && highlight.index < g.items.length ? highlight : null;
+		/** Render catalog loading without inventing child membership. */
+		function CatalogLoadingRows({ t }) {
+			return (0, react_jsx_runtime.jsx)("div", {
+				className: SubagentHeaderLineage_module_css_default.notice,
+				children: t("loading.label")
+			});
 		}
-		/** Flatten ready items into (source, index) positions in group order. */
-		function positions(groups) {
-			const out = [];
-			for (const g of groups) {
-				if (g.status !== "ready") continue;
-				for (let i = 0; i < g.items.length; i++) out.push({
-					source: g.source,
-					index: i
-				});
-			}
-			return out;
+		/** A child becomes a known leaf only after its own authoritative catalog loads empty. */
+		function isKnownLeaf(catalog) {
+			return catalog?.state === "ready" && catalog.entries.length === 0;
 		}
-		/** True when every group is ready with zero items (the auto-close condition). */
-		const allReadyEmpty = (groups) => groups.every((g) => g.status === "ready" && g.items.length === 0);
-		/**
-		* Pure menu reducer. `hit` opens a new generation over the seeded roster
-		* (null hit closes); `source-settled` outside the current generation, the
-		* open menu, or the roster is dropped; a settlement or failure leaving every
-		* group ready-and-empty (or no groups) auto-closes; `source-failed` silently
-		* removes the group (the shell logs); `move` cycles the highlight across
-		* ready items; `hover` parks it on one ready item (pointer and keyboard
-		* share the single highlight — last input wins).
-		*
-		* @param state - Current menu state.
-		* @param ev - Menu event.
-		* @returns Next state; the same reference when stale or a no-op.
-		*/
-		const menuReduce = (state, ev) => {
-			switch (ev.type) {
-				case "hit":
-					if (ev.hit === null) return closed(state);
-					return {
-						open: true,
-						hit: ev.hit,
-						generation: state.generation + 1,
-						groups: state.groups.map((g) => ({
-							...g,
-							status: "pending"
-						})),
-						highlight: state.highlight
-					};
-				case "source-settled": {
-					if (!state.open || ev.generation !== state.generation) return state;
-					const idx = state.groups.findIndex((g) => g.source === ev.source);
-					if (idx < 0) return state;
-					const items = ev.items ?? [];
-					const groups = state.groups.map((g, i) => i === idx ? {
-						...g,
-						status: "ready",
-						items
-					} : g);
-					if (allReadyEmpty(groups)) return closed(state);
-					const highlight = validHighlight(state.highlight, groups) ?? firstHighlight(groups);
-					return {
-						...state,
-						groups,
-						highlight
-					};
-				}
-				case "source-failed": {
-					if (!state.open || ev.generation !== state.generation) return state;
-					if (!state.groups.some((g) => g.source === ev.source)) return state;
-					const groups = state.groups.filter((g) => g.source !== ev.source);
-					if (groups.length === 0 || allReadyEmpty(groups)) return closed(state);
-					const highlight = validHighlight(state.highlight, groups) ?? firstHighlight(groups);
-					return {
-						...state,
-						groups,
-						highlight
-					};
-				}
-				case "move": {
-					if (!state.open) return state;
-					const pos = positions(state.groups);
-					if (pos.length === 0) return state;
-					const hl = state.highlight;
-					const at = hl ? pos.findIndex((p) => p.source === hl.source && p.index === hl.index) : -1;
-					const next = pos[at < 0 ? ev.dir === 1 ? 0 : pos.length - 1 : (at + ev.dir + pos.length) % pos.length];
-					if (next === void 0) return state;
-					if (hl && next.source === hl.source && next.index === hl.index) return state;
-					return {
-						...state,
-						highlight: next
-					};
-				}
-				case "hover": {
-					if (!state.open) return state;
-					const target = validHighlight({
-						source: ev.source,
-						index: ev.index
-					}, state.groups);
-					if (target === null) return state;
-					const hl = state.highlight;
-					if (hl && hl.source === target.source && hl.index === target.index) return state;
-					return {
-						...state,
-						highlight: target
-					};
-				}
-				case "close": return closed(state);
-			}
-		};
-		//#endregion
-		//#region lib/types/client/controller.js
-		/** Whether a tracked hit is the one the user just dismissed (same token, same query). */
-		function dismissedHit(dismissed, hit) {
-			return dismissed.trigger === hit.trigger && dismissed.query === hit.query && dismissed.quoted === hit.quoted && dismissed.start === hit.span.start && dismissed.end === hit.span.end;
-		}
-		/**
-		* Per-session trigger pipeline state and orchestration. All mutation stays
-		* inside; MenuView renders from {@link InputTriggerController.menu} and routes
-		* pointer picks back through {@link InputTriggerController.pick}.
-		*/
-		var InputTriggerController = class {
-			deps;
-			/** Menu state store (per-session; survives session switches, dies with the scope). */
-			menu = (0, _deepseek_ai_dsh_client_store.createSnapshotStore)(MENU_CLOSED);
-			/**
-			* Name of the source opened through the programmatic launcher, or null for
-			* trigger-detected/closed menus. Composer chrome subscribes to this store
-			* for the launcher's expanded state without owning a second menu model.
-			*/
-			launcher = (0, _deepseek_ai_dsh_client_store.createSnapshotStore)(null);
-			/**
-			* Crumbs published by each header-bearing source for the open menu, keyed
-			* by source name. A snapshot store like {@link InputTriggerController.launcher}:
-			* the answer changes with every hit, and render-side consumers subscribe
-			* instead of re-polling sources during a render.
-			*/
-			headers = (0, _deepseek_ai_dsh_client_store.createSnapshotStore)(/* @__PURE__ */ new Map());
-			/**
-			* Aggregated hot reference lexicon, grouped by trigger (plain-text-reference decision;
-			* see .agents/notes/archived/architecture/2026-07-25-web-input-machine-and-slash-pipeline.md):
-			* sources implementing the lexicon hook are polled with the session
-			* projection; undefined answers (roll not hot yet) are skipped; multiple
-			* sources on one trigger concatenate in registration order. A snapshot
-			* store because rolls change asynchronously (catalog settles, children
-			* spawn/exit) — render-side consumers subscribe instead of re-reading a
-			* mutable answer.
-			*/
-			lexicon = (0, _deepseek_ai_dsh_client_store.createSnapshotStore)(/* @__PURE__ */ new Map());
-			/** The authoritative hit: single truth for span CAS material (menu snapshot never carries it alone). */
-			hit = null;
-			/**
-			* Identity of the hit whose menu the user dismissed. A dismissal means "not
-			* this one, not now": the same token with the same query keeps its menu
-			* closed, so restoring the caret after a dismissal cannot reopen it. Typing
-			* (a new query) or moving to another token clears it.
-			*/
-			dismissed = null;
-			/** Whether the open menu was reached by a drill pick; cleared with the menu. */
-			drilled = false;
-			fetch = null;
-			disposed = false;
-			/** Per-source lexicon unsubscribers (sources without the hook never enter). */
-			lexiconOffs = /* @__PURE__ */ new Map();
-			constructor(deps) {
-				this.deps = deps;
-				const projection = this.project();
-				for (const src of deps.roster.all()) {
-					src.warm?.(projection);
-					this.watchLexicon(src, projection);
-				}
-				this.refreshLexicon();
-			}
-			/**
-			* Feed a draft/caret change through trigger detection and drive the menu.
-			* @param draft - full draft text.
-			* @param caret - caret offset into `draft`.
-			* @param guard - availability tier derived from the input phase.
-			* @param draftRev - the input machine's current draft revision, stamped
-			* into the hit span for pick-time CAS.
-			*/
-			track(draft, caret, guard, draftRev) {
-				if (this.disposed) return;
-				const launched = this.launcher.getSnapshot() !== null;
-				this.clearLauncher();
-				const raw = detectTrigger(draft, caret, guard);
-				if (raw === null) {
-					if (launched) return;
-					this.hit = null;
-					if (guard.tier !== "frozen") this.dismissed = null;
-					this.stopFetch();
-					this.reduce({ type: "close" });
-					return;
-				}
-				const hit = {
-					...raw,
-					span: {
-						...raw.span,
-						draftRev
-					}
-				};
-				if (launched) this.dismissed = null;
-				if (this.dismissed !== null) if (!dismissedHit(this.dismissed, hit)) this.dismissed = null;
-				else {
-					this.hit = hit;
-					return;
-				}
-				const prev = this.menu.getSnapshot();
-				const same = !launched && prev.open && prev.hit !== null && prev.hit.trigger === hit.trigger && prev.hit.query === hit.query && prev.hit.quoted === hit.quoted && prev.hit.span.start === hit.span.start && prev.hit.span.end === hit.span.end;
-				this.hit = hit;
-				if (same) return;
-				const roster = this.deps.roster.sources(hit.trigger);
-				if (roster.length === 0) {
-					this.stopFetch();
-					this.reduce({ type: "close" });
-					return;
-				}
-				if (launched || !prev.open || prev.hit === null || prev.hit.trigger !== hit.trigger) this.menu.set(seedGroups(this.menu.getSnapshot(), roster));
-				this.reduce({
-					type: "hit",
-					hit
-				});
-				this.refreshHeaders(hit, roster);
-				this.fetchCandidates(hit, roster);
-			}
-			/**
-			* Toggle a menu containing exactly one registered source. The supplied hit
-			* is a synthetic selection span rather than a typed trigger token, but
-			* picks deliberately reuse the ordinary source callback and scoped input
-			* mutation pipeline.
-			* @param source - registered source name under `hit.trigger`.
-			* @param hit - synthetic hit carrying position and pick-time draft CAS.
-			*/
-			toggleSource(source, hit) {
-				if (this.disposed) return;
-				if (this.launcher.getSnapshot() === source && this.menu.getSnapshot().open) {
-					this.dismiss();
-					return;
-				}
-				const match = this.deps.roster.sources(hit.trigger).find((item) => item.name === source);
-				if (match === void 0) {
-					this.dismiss();
-					return;
-				}
-				this.stopFetch();
-				this.hit = hit;
-				this.launcher.set(source);
-				this.menu.set(seedGroups(this.menu.getSnapshot(), [match]));
-				this.reduce({
-					type: "hit",
-					hit
-				});
-				this.refreshHeaders(hit, [match]);
-				this.fetchCandidates(hit, [match]);
-			}
-			/**
-			* Pointer pick from MenuView: route the clicked candidate through onPick
-			* and execute claim/insert outcomes via the scoped input events.
-			* @param source - source (group) name.
-			* @param index - candidate index within the group.
-			* @param action - settling pick (default) or the candidate's drill action.
-			*/
-			pick(source, index, action = "pick") {
-				const state = this.menu.getSnapshot();
-				const hit = this.hit;
-				if (this.disposed || !state.open || hit === null) return;
-				const group = state.groups.find((g) => g.source === source);
-				const candidate = group !== void 0 && group.status === "ready" ? group.items[index] : void 0;
-				if (candidate === void 0) return;
-				const src = this.deps.roster.sources(hit.trigger).find((s) => s.name === source);
-				if (src === void 0) return;
-				this.settle(src, candidate, hit, action);
-			}
-			/**
-			* Pointer pick on one crumb of a source's menu header: route it through the
-			* same drill path a folder row takes, so returning to a step and descending
-			* into one share one outcome.
-			* @param source - source (group) name.
-			* @param index - crumb index within that source's published header.
-			*/
-			pickCrumb(source, index) {
-				const hit = this.hit;
-				if (this.disposed || !this.menu.getSnapshot().open || hit === null) return;
-				const crumb = this.headers.getSnapshot().get(source)?.[index];
-				if (crumb === void 0 || crumb.current === true) return;
-				const src = this.deps.roster.sources(hit.trigger).find((s) => s.name === source);
-				if (src === void 0) return;
-				this.settle(src, {
-					name: crumb.label,
-					value: crumb.value
-				}, hit, "drill");
-			}
-			/**
-			* Pointer hover from MenuView: park the shared highlight on the hovered
-			* candidate (keyboard `move` and pointer hover drive one highlight —
-			* last input wins).
-			* @param source - source (group) name.
-			* @param index - candidate index within the group.
-			*/
-			hover(source, index) {
-				if (this.disposed) return;
-				this.reduce({
-					type: "hover",
-					source,
-					index
-				});
-			}
-			/**
-			* Keyboard arbitration while the menu is open.
-			* @param key - intercepted key.
-			* @param composing - inside IME composition: everything passes.
-			* @returns `pass` when the browser keeps the key (closed menu, no
-			* highlight, or a vanished candidate), `consumed` when the menu handled
-			* the key without a settling pick (move, close, drill descent, or a
-			* pending-refinement no-op), or `pick-highlighted` when the highlighted
-			* candidate settled and the menu closed.
-			*/
-			arbitrate(key, composing) {
-				if (composing || this.disposed) return "pass";
-				const state = this.menu.getSnapshot();
-				if (!state.open) return "pass";
-				switch (key) {
-					case "up":
-						this.reduce({
-							type: "move",
-							dir: -1
-						});
-						return "consumed";
-					case "down":
-						this.reduce({
-							type: "move",
-							dir: 1
-						});
-						return "consumed";
-					case "escape":
-					case "tabBack":
-						this.rememberDismissed();
-						this.stopFetch();
-						this.reduce({ type: "close" });
-						return "consumed";
-					case "enter": {
-						if (state.highlight === null) return "pass";
-						const group = state.groups.find((g) => g.source === state.highlight?.source);
-						if (group === void 0 || group.status !== "ready") return "consumed";
-						this.pick(state.highlight.source, state.highlight.index);
-						return "pick-highlighted";
-					}
-					case "tab": {
-						if (state.highlight === null) return "pass";
-						const group = state.groups.find((g) => g.source === state.highlight?.source);
-						if (group === void 0 || group.status !== "ready") return "consumed";
-						const item = group.items[state.highlight.index];
-						if (item === void 0) return "pass";
-						if (item.drill === true) {
-							this.pick(state.highlight.source, state.highlight.index, "drill");
-							return "consumed";
-						}
-						this.pick(state.highlight.source, state.highlight.index);
-						return "pick-highlighted";
-					}
-				}
-			}
-			/**
-			* Space adjudication over the just-completed leading token: polls sources'
-			* matchSpace (hot state, synchronous) and dispatches the outcome itself.
-			* @returns true when a claim/insert was actually applied by the input —
-			* the caller preventDefaults exactly then.
-			*/
-			onSpace() {
-				const hit = this.hit;
-				if (this.disposed || hit === null || hit.position !== "leading") return false;
-				const token = hit.trigger + hit.query;
-				const projection = this.project();
-				for (const src of this.deps.roster.sources(hit.trigger)) {
-					if (src.matchSpace === void 0) continue;
-					const outcome = src.matchSpace(projection, token);
-					if (outcome === void 0) continue;
-					if (outcome === "handled") return true;
-					return this.execute(outcome, hit.span);
-				}
-				return false;
-			}
-			/**
-			* Serialize one reference occurrence to its model form via the owning
-			* source's codec (prompt serialization: registry → explicit
-			* call → await). Owner missing or codec-less rejects — the submit attempt
-			* blocks instead of silently downgrading to the clipboard text.
-			* @param source - owning source name.
-			* @param ref - owner-scoped reference id.
-			* @param signal - the submit attempt's abort signal.
-			* @returns the model representation (e.g. `<skill>name</skill>`).
-			*/
-			serializeReference(source, ref, signal) {
-				const owner = this.deps.roster.all().find((s) => s.name === source);
-				if (owner?.codec === void 0) return Promise.reject(/* @__PURE__ */ new Error(`slash: no serializer for reference source "${source}"`));
-				return owner.codec.serialize(ref, signal);
-			}
-			/**
-			* Route a chip to its owner or an editable token to its current lexicon owner.
-			* @param source - chip source name; undefined for editable text.
-			* @param reference - source-owned id and optional chip glyph.
-			* @returns whether an owner accepted the preview, possibly awaiting its catalog.
-			*/
-			openReference(source, reference) {
-				if (this.disposed) return false;
-				const session = this.project();
-				for (const owner of this.deps.roster.all()) if ((source === void 0 ? reference.ref.startsWith(owner.trigger) && owner.lexicon?.(session)?.includes(reference.ref.slice(1)) : owner.name === source) && owner.openReference?.(session, reference)) {
-					this.dismiss();
-					return true;
-				}
-				return false;
-			}
-			/**
-			* Enter last adjudication: polls sources' matchEnter in registration
-			* order, first non-undefined wins. The outcome returns to the caller (the
-			* input machine applies it inside the same submit attempt — no event).
-			* @param line - trimmed draft; the leading char selects the trigger roster.
-			* @param signal - attempt-scoped abort from the input machine.
-			* @param envelope - non-text submission state accompanying the draft.
-			* @returns the winning outcome or undefined (default sink). Rejects when a
-			* polled source's warmup fails or the winning source refuses the envelope —
-			* the caller must not silently downgrade.
-			*/
-			async adjudicate(line, signal, envelope) {
-				const projection = this.project();
-				for (const src of this.deps.roster.all()) {
-					if (signal.aborted) throw signal.reason instanceof Error ? signal.reason : /* @__PURE__ */ new Error("slash adjudication aborted");
-					if (src.matchEnter === void 0 || !line.startsWith(src.trigger)) continue;
-					const outcome = await src.matchEnter(projection, line, signal, envelope);
-					if (outcome !== void 0) return outcome;
-				}
-			}
-			/**
-			* Drop the menu group of a disposed source (root registry change notification).
-			* @param source - the source whose registration was disposed.
-			*/
-			sourceRemoved(source) {
-				const state = this.menu.getSnapshot();
-				if (state.open && state.hit !== null && state.hit.trigger === source.trigger) this.reduce({
-					type: "source-failed",
-					generation: state.generation,
-					source: source.name
-				});
-				this.lexiconOffs.get(source)?.();
-				this.lexiconOffs.delete(source);
-				this.refreshLexicon();
-			}
-			/**
-			* Admit a source registered after this controller's birth (root registry
-			* change notification): warm it and fold its roll into the live lexicon —
-			* the constructor-time prewarm covers only the roster present at scope
-			* birth.
-			* @param source - the newly registered source.
-			*/
-			sourceAdded(source) {
-				const projection = this.project();
-				source.warm?.(projection);
-				this.watchLexicon(source, projection);
-				this.refreshLexicon();
-			}
-			/** External dismiss (e.g. pointer outside the composer area). */
-			dismiss() {
-				if (this.disposed) return;
-				this.rememberDismissed();
-				this.stopFetch();
-				this.reduce({ type: "close" });
-			}
-			/** Re-fetch the currently open menu without changing its hit or visible rows. */
-			refreshOpenMenu() {
-				if (this.disposed || !this.menu.getSnapshot().open || this.hit === null) return;
-				const launched = this.launcher.getSnapshot();
-				const roster = this.deps.roster.sources(this.hit.trigger).filter((source) => launched === null || source.name === launched);
-				if (roster.length === 0) return;
-				this.fetchCandidates(this.hit, roster);
-			}
-			/** Scope teardown: close and abort (the service deletes the map entry). */
-			dispose() {
-				this.disposed = true;
-				this.stopFetch();
-				this.reduce({ type: "close" });
-				this.hit = null;
-				for (const off of this.lexiconOffs.values()) off();
-				this.lexiconOffs.clear();
-			}
-			/** The session projection handed to sources (agent-backed identity; constant per scope). */
-			project() {
-				return { sessionId: this.deps.sessionId };
-			}
-			/** Execute a claim/insert/text outcome via the scoped input events (actx as dispatch subject); true = the input applied it. */
-			execute(outcome, span) {
-				const { actx } = this.deps;
-				if (outcome === void 0 || outcome === "handled") return false;
-				if ("claim" in outcome) return actx.bail(actx, "slash/input-begin-command", {
-					claim: outcome.claim,
-					span
-				}) === true;
-				if ("text" in outcome) return actx.bail(actx, "slash/input-insert-text", {
-					text: outcome.text,
-					span,
-					...outcome.continue === true ? { continue: true } : {}
-				}) === true;
-				return actx.bail(actx, "slash/input-insert-reference", {
-					reference: outcome.insert,
-					span
-				}) === true;
-			}
-			/** Re-poll every lexicon-bearing source and publish the aggregated rolls (see the store doc). */
-			refreshLexicon() {
-				const projection = this.project();
-				const rolls = /* @__PURE__ */ new Map();
-				for (const src of this.deps.roster.all()) {
-					if (src.lexicon === void 0) continue;
-					let names;
-					try {
-						names = src.lexicon(projection);
-					} catch (error) {
-						console.error(`[ui-input-trigger] source "${src.name}" lexicon failed:`, error);
-						continue;
-					}
-					if (names === void 0) continue;
-					const prev = rolls.get(src.trigger);
-					rolls.set(src.trigger, prev === void 0 ? names : [...prev, ...names]);
-				}
-				this.lexicon.set(rolls);
-			}
-			/** Wire one source's lexicon invalidation channel into refresh (hookless or roll-less sources never notify). */
-			watchLexicon(source, projection) {
-				if (source.lexicon === void 0 || source.subscribeLexicon === void 0) return;
-				this.lexiconOffs.set(source, source.subscribeLexicon(projection, () => {
-					this.refreshLexicon();
-					const hit = this.hit;
-					if (hit === null || !this.menu.getSnapshot().open || hit.trigger !== source.trigger) return;
-					Promise.resolve().then(() => {
-						if (this.disposed || this.hit !== hit || !this.menu.getSnapshot().open) return;
-						this.fetchCandidates(hit, this.deps.roster.sources(hit.trigger));
-					});
-				}));
-			}
-			/** Launch the candidate fetch for one hit generation, superseding the previous one. */
-			fetchCandidates(hit, roster) {
-				this.stopFetch();
-				const controller = new AbortController();
-				this.fetch = controller;
-				const generation = this.menu.getSnapshot().generation;
-				const projection = this.project();
-				for (const source of roster) source.candidates(projection, {
-					query: hit.query,
-					quoted: hit.quoted,
-					position: hit.position,
-					drilled: this.drilled,
-					signal: controller.signal
-				}).then((items) => {
-					if (controller.signal.aborted) return;
-					this.reduce({
-						type: "source-settled",
-						generation,
-						source: source.name,
-						items
-					});
-				}, (error) => {
-					if (controller.signal.aborted) return;
-					console.error(`[ui-input-trigger] source "${source.name}" candidates failed:`, error);
-					this.reduce({
-						type: "source-failed",
-						generation,
-						source: source.name
-					});
-				});
-			}
-			stopFetch() {
-				this.fetch?.abort();
-				this.fetch = null;
-			}
-			/**
-			* Run one candidate (or crumb) through its source and apply the outcome.
-			*
-			* A drill is the one pick that leaves the menu open, so it is also the one
-			* that records how the next query was reached; every other pick closes the
-			* menu, which clears that record.
-			* @param src - the owning source.
-			* @param candidate - the picked candidate, or a crumb projected as one.
-			* @param hit - the authoritative hit supplying position and span CAS.
-			* @param action - settling pick or drill.
-			*/
-			settle(src, candidate, hit, action) {
-				const outcome = src.onPick({
-					candidate,
-					session: this.project(),
-					position: hit.position,
-					via: "menu",
-					action,
-					span: hit.span
-				});
-				this.stopFetch();
-				if (action === "pick") this.rememberDismissed();
-				this.reduce({ type: "close" });
-				this.drilled = action === "drill";
-				if (!this.execute(outcome, hit.span)) this.drilled = false;
-			}
-			/** Re-poll every header-bearing source in the hit roster and publish their crumbs. */
-			refreshHeaders(hit, roster) {
-				const projection = this.project();
-				const crumbs = /* @__PURE__ */ new Map();
-				for (const src of roster) {
-					if (src.header === void 0) continue;
-					let published;
-					try {
-						published = src.header(projection, {
-							query: hit.query,
-							quoted: hit.quoted,
-							drilled: this.drilled
-						});
-					} catch (error) {
-						console.error(`[ui-input-trigger] source "${src.name}" header failed:`, error);
-						continue;
-					}
-					if (published === void 0 || published.length === 0) continue;
-					crumbs.set(src.name, published);
-				}
-				this.setHeaders(crumbs);
-			}
-			setHeaders(next) {
-				if (this.headers.getSnapshot().size === 0 && next.size === 0) return;
-				this.headers.set(next);
-			}
-			/** Record the open menu's identity as dismissed, so a bare re-track cannot revive it. */
-			rememberDismissed() {
-				const hit = this.hit;
-				this.dismissed = hit === null ? null : {
-					trigger: hit.trigger,
-					query: hit.query,
-					quoted: hit.quoted,
-					start: hit.span.start,
-					end: hit.span.end
-				};
-			}
-			clearLauncher() {
-				if (this.launcher.getSnapshot() !== null) this.launcher.set(null);
-			}
-			reduce(ev) {
-				const cur = this.menu.getSnapshot();
-				const next = menuReduce(cur, ev);
-				if (next !== cur) this.menu.set(next);
-				if (next.open) return;
-				this.clearLauncher();
-				this.drilled = false;
-				this.setHeaders(/* @__PURE__ */ new Map());
-			}
-		};
-		//#endregion
-		//#region lib/types/client/service.js
-		/**
-		* InputTriggerService (`ctx.inputTriggers`): the root half of the trigger pipeline — the
-		* stateless source registry plus the per-session controller map. Every piece
-		* of mutable interaction state (hit, menu, fetch) lives on the
-		* {@link InputTriggerController}; the service only registers sources, resolves
-		* controllers by session scope, and relays roster changes.
-		*/
-		/** The `ctx.inputTriggers` trigger pipeline service (root registry + controller resolution). */
-		var InputTriggerService = class extends _deepseek_ai_cordis.Service {
-			static inject = ["sessions"];
-			live = {
-				sources: [],
-				controllers: new WeakMapWithValues()
-			};
-			/**
-			* @param ctx - owning root context (the service registers itself as `slash`).
-			*/
-			constructor(ctx) {
-				super(ctx, "inputTriggers");
-				ctx.on("locale/change", () => {
-					for (const controller of this.live.controllers.values) controller.refreshOpenMenu();
-				});
-			}
-			/**
-			* Register one trigger source. Live session controllers are notified so a
-			* source arriving after scope birth still warms and joins the lexicon.
-			* @param src - the source; (trigger, name) must be unique — duplicates throw.
-			* @returns the disposer (callers wrap registration in ctx.effect). Disposal
-			* while a controller shows the source's menu group drops that group.
-			*/
-			registerSource(src) {
-				const { live } = this;
-				if (live.sources.some((s) => s.trigger === src.trigger && s.name === src.name)) throw new Error(`slash source "${src.trigger}${src.name}" is already registered`);
-				live.sources.push(src);
-				for (const controller of live.controllers.values) try {
-					controller.sourceAdded(src);
-				} catch (error) {
-					console.error(`[ui-input-trigger] source "${src.trigger}${src.name}" late-registration setup failed:`, error);
-				}
+		/** Render one catalog level and recurse only through explicitly expanded rows. */
+		function CatalogRows({ parentSessionId, currentSessionId, catalog, catalogs, summaries, expanded, level, openChild, openChildAside, refreshProjection, toggleBranch, closeCatalog, t }) {
+			const [now, setNow] = (0, react.useState)(() => Date.now());
+			const running = catalog.entries.some((entry) => entry.activity === "running");
+			(0, react.useEffect)(() => {
+				if (!running) return;
+				const timer = setInterval(() => {
+					setNow(Date.now());
+				}, 1e3);
 				return () => {
-					const at = live.sources.indexOf(src);
-					if (at < 0) return;
-					live.sources.splice(at, 1);
-					for (const controller of live.controllers.values) controller.sourceRemoved(src);
+					clearInterval(timer);
 				};
-			}
-			/**
-			* Resolve the per-session controller for one session scope (lazy; the
-			* scope disposer removes and disposes it). Construction warms the source
-			* roster once — sessions are always agent-backed, so scope birth is the
-			* single prewarm moment.
-			* @param actx - session-scope ctx.
-			* @returns the resident controller.
-			* @throws when the Context no longer belongs to a retained Session generation.
-			*/
-			sessionOf(actx) {
-				const sessions = this.sessions();
-				const session = sessions.sessionOf(actx);
-				const binding = session === void 0 ? void 0 : sessions.binding(session.sessionId);
-				if (binding === void 0 || binding.session !== session) throw new Error("slash.sessionOf requires a retained Session scope");
-				const id = binding.sessionId;
-				const { live } = this;
-				const existing = live.controllers.get(binding);
-				if (existing !== void 0) return existing;
-				const controller = new InputTriggerController({
-					actx: binding.ctx,
-					sessionId: id,
-					roster: {
-						sources: (trigger) => live.sources.filter((s) => s.trigger === trigger).sort((a, b) => (a.order ?? 0) - (b.order ?? 0)),
-						all: () => live.sources
-					}
+			}, [running]);
+			const emptyLoading = catalog.state === "loading" && catalog.entries.length === 0;
+			const reserveDisclosure = catalog.entries.some((entry) => !isKnownLeaf(catalogs[entry.id]));
+			return (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [
+				emptyLoading && (0, react_jsx_runtime.jsx)(CatalogLoadingRows, { t }),
+				catalog.state === "error" && (0, react_jsx_runtime.jsxs)("div", {
+					className: SubagentHeaderLineage_module_css_default.error,
+					children: [(0, react_jsx_runtime.jsx)("span", { children: catalog.error?.message ?? t("load.error") }), (0, react_jsx_runtime.jsxs)("button", {
+						type: "button",
+						className: SubagentHeaderLineage_module_css_default.refresh,
+						onClick: () => {
+							refreshProjection(parentSessionId);
+						},
+						children: [(0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconRefreshOutlineRegular, { size: 14 }), t("retry")]
+					})]
+				}),
+				catalog.entries.map((entry) => {
+					const childCatalog = catalogs[entry.id];
+					const isCurrent = entry.id === currentSessionId;
+					const isExpanded = expanded.has(entry.id);
+					const knownLeaf = isKnownLeaf(childCatalog);
+					const childLoading = childCatalog === void 0 || childCatalog.state === "loading" && childCatalog.entries.length === 0;
+					const summary = summaries[entry.id];
+					const label = entry.label ?? entry.id;
+					const mode = entry.mode === "unknown" ? t("mode.unknown") : entry.mode === "one-shot" ? t("mode.oneShot") : t("mode.continuable");
+					const completed = entry.activity === "inactive" && summary?.projectionValues?.subagentTiming?.lastTurnCompleted === true;
+					const activity = entry.activity === "running" ? t("activity.running") : completed ? t("activity.completed") : t("activity.inactive");
+					const secondary = [
+						summary?.title,
+						mode,
+						activity
+					].filter((value) => value !== void 0).join(" · ");
+					const totalTokens = tokenTotal(summary?.projectionValues?.tokenUsage);
+					const durationMs = activityDuration(summary, entry.activity, now);
+					const tokenMetric = totalTokens === void 0 ? void 0 : t("tokens.total", { value: formatTokens(totalTokens, t) });
+					const durationMetric = durationMs === void 0 ? void 0 : {
+						compact: formatDuration(durationMs, t),
+						exact: formatExactDuration(durationMs, t)
+					};
+					const metrics = [tokenMetric, durationMetric?.exact].filter((value) => value !== void 0).join(" · ");
+					const open = () => {
+						openChild({
+							parentSessionId,
+							childSessionId: entry.id,
+							mode: entry.mode
+						});
+						closeCatalog();
+					};
+					const openAside = (event) => {
+						event.preventDefault();
+						event.stopPropagation();
+						openChildAside({
+							parentSessionId,
+							childSessionId: entry.id,
+							mode: entry.mode
+						});
+						closeCatalog();
+					};
+					const handleKey = (event) => {
+						if (event.key === "Enter" || event.key === " ") {
+							event.preventDefault();
+							event.stopPropagation();
+							open();
+						} else if (event.key === "ArrowRight" && !knownLeaf && !isExpanded || event.key === "ArrowLeft" && isExpanded) {
+							event.preventDefault();
+							event.stopPropagation();
+							toggleBranch(entry.id);
+						}
+					};
+					const toggle = (event) => {
+						event.preventDefault();
+						event.stopPropagation();
+						toggleBranch(entry.id);
+					};
+					return (0, react_jsx_runtime.jsxs)("div", {
+						className: SubagentHeaderLineage_module_css_default.node,
+						children: [(0, react_jsx_runtime.jsxs)("div", {
+							role: "treeitem",
+							tabIndex: 0,
+							"aria-level": level,
+							"aria-current": isCurrent || void 0,
+							"aria-label": [
+								label,
+								secondary,
+								metrics
+							].filter((value) => value !== "").join(" "),
+							...knownLeaf ? {} : { "aria-expanded": isExpanded },
+							className: SubagentHeaderLineage_module_css_default.row,
+							onClick: open,
+							onKeyDown: handleKey,
+							children: [knownLeaf ? reserveDisclosure && (0, react_jsx_runtime.jsx)("span", { className: SubagentHeaderLineage_module_css_default.disclosureSpace }) : (0, react_jsx_runtime.jsx)("button", {
+								type: "button",
+								tabIndex: -1,
+								className: `${SubagentHeaderLineage_module_css_default.disclosure} ${isExpanded ? SubagentHeaderLineage_module_css_default.disclosureOpen : ""}`,
+								"aria-label": t(isExpanded ? "branch.collapse" : "branch.expand", { label }),
+								onClick: toggle,
+								children: (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconChevronRightOutlineRegular, {})
+							}), (0, react_jsx_runtime.jsxs)("div", {
+								className: SubagentHeaderLineage_module_css_default.clickarea,
+								children: [
+									(0, react_jsx_runtime.jsx)("span", {
+										className: SubagentHeaderLineage_module_css_default.rowActivitySlot,
+										children: (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.StateDot, { state: entry.activity === "running" ? "ongoing" : completed ? "done" : "idle" })
+									}),
+									(0, react_jsx_runtime.jsxs)("span", {
+										className: SubagentHeaderLineage_module_css_default.content,
+										children: [(0, react_jsx_runtime.jsx)("span", {
+											className: `${SubagentHeaderLineage_module_css_default.label} ${isCurrent ? SubagentHeaderLineage_module_css_default.currentLabel : ""}`,
+											children: label
+										}), (0, react_jsx_runtime.jsx)("span", {
+											className: SubagentHeaderLineage_module_css_default.summary,
+											children: secondary
+										})]
+									}),
+									metrics !== "" && (0, react_jsx_runtime.jsxs)("span", {
+										className: SubagentHeaderLineage_module_css_default.metrics,
+										children: [tokenMetric !== void 0 && (0, react_jsx_runtime.jsx)("span", {
+											className: SubagentHeaderLineage_module_css_default.metricToken,
+											children: tokenMetric
+										}), durationMetric !== void 0 && (0, react_jsx_runtime.jsx)("span", {
+											className: SubagentHeaderLineage_module_css_default.metricDuration,
+											title: t("duration.exactTitle", { duration: durationMetric.exact }),
+											children: durationMetric.compact
+										})]
+									}),
+									!isCurrent && (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Tooltip, {
+										label: t("open.sidebar"),
+										side: "bottom",
+										align: "end",
+										children: (0, react_jsx_runtime.jsx)("button", {
+											type: "button",
+											className: SubagentHeaderLineage_module_css_default.sidebarButton,
+											"aria-label": t("open.sidebar.aria", { label }),
+											onClick: openAside,
+											onKeyDown: (event) => {
+												event.stopPropagation();
+											},
+											children: (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconChevronRightOutlineRegular, {})
+										})
+									})
+								]
+							})]
+						}), isExpanded && !knownLeaf && (0, react_jsx_runtime.jsx)("div", {
+							role: "group",
+							className: SubagentHeaderLineage_module_css_default.children,
+							"aria-busy": childLoading || void 0,
+							children: childCatalog === void 0 ? (0, react_jsx_runtime.jsx)(CatalogLoadingRows, { t }) : (0, react_jsx_runtime.jsx)(CatalogRows, {
+								parentSessionId: entry.id,
+								currentSessionId,
+								catalog: childCatalog,
+								catalogs,
+								summaries,
+								expanded,
+								level: level + 1,
+								openChild,
+								openChildAside,
+								refreshProjection,
+								toggleBranch,
+								closeCatalog,
+								t
+							})
+						})]
+					}, entry.id);
+				})
+			] });
+		}
+		const MENU_VIEWPORT_MARGIN = 16;
+		/** Place a portaled catalog below its trigger without crossing the viewport edge. */
+		function catalogMenuPosition(trigger) {
+			const rect = trigger.getBoundingClientRect();
+			const width = Math.min(336, window.innerWidth - MENU_VIEWPORT_MARGIN * 2);
+			return {
+				top: rect.bottom + 5,
+				left: Math.min(Math.max(MENU_VIEWPORT_MARGIN, rect.left), window.innerWidth - width - MENU_VIEWPORT_MARGIN)
+			};
+		}
+		/** One trigger-plus-tree dropdown over the catalog rooted at `rootSessionId`. */
+		function CatalogDropdown({ rootSessionId, currentSessionId, displayTitle, openTitle, variant, useSessions, useSessionStatus, openChild, openChildAside, refreshProjection, t }) {
+			const ancestorSwitcher = variant === "switcher" && openTitle !== void 0;
+			const projections = useSessions((state) => state.projectionsBySession);
+			const summaries = useSessions((state) => state.byId);
+			const statuses = useSessionStatus((value) => value);
+			const catalogs = (0, react.useMemo)(() => Object.fromEntries(Object.entries(projections).map(([id, snapshot]) => [id, {
+				state: snapshot.state === "idle" ? snapshot.values.subagentCatalog === void 0 ? "loading" : "ready" : snapshot.state,
+				error: snapshot.error,
+				entries: (snapshot.values.subagentCatalog ?? []).map((entry) => ({
+					...entry,
+					activity: (statuses.get(entry.id)?.running ?? summaries[entry.id]?.running) === true ? "running" : "inactive"
+				}))
+			}])), [
+				projections,
+				summaries,
+				statuses
+			]);
+			const catalog = catalogs[rootSessionId];
+			const [open, setOpen] = (0, react.useState)(false);
+			const [menuPosition, setMenuPosition] = (0, react.useState)();
+			const [expanded, setExpanded] = (0, react.useState)(() => /* @__PURE__ */ new Set());
+			const rootRef = (0, react.useRef)(null);
+			const triggerRef = (0, react.useRef)(null);
+			const menuRef = (0, react.useRef)(null);
+			const hoverOpenTimer = (0, react.useRef)(void 0);
+			const hoverCloseTimer = (0, react.useRef)(void 0);
+			const pinnedRef = (0, react.useRef)(false);
+			const currentEntry = currentSessionId === void 0 ? void 0 : catalog?.entries.find((entry) => entry.id === currentSessionId);
+			const switcherDisplayTitle = currentEntry !== void 0 ? currentEntry.label ?? currentEntry.id : displayTitle;
+			const directChildren = catalog?.entries ?? [];
+			const directCount = directChildren.length;
+			const runningCount = directChildren.filter((entry) => entry.activity === "running").length;
+			const totalCountKey = directCount === 1 ? "count.total.one" : "count.total.other";
+			const runningCountKey = runningCount === 1 ? "count.running.one" : "count.running.other";
+			const presentedCatalog = catalog ?? (variant === "switcher" ? {
+				entries: [],
+				state: "loading",
+				error: null
+			} : void 0);
+			const cancelHoverClose = () => {
+				if (hoverCloseTimer.current === void 0) return;
+				clearTimeout(hoverCloseTimer.current);
+				hoverCloseTimer.current = void 0;
+			};
+			const cancelHoverOpen = () => {
+				if (hoverOpenTimer.current === void 0) return;
+				clearTimeout(hoverOpenTimer.current);
+				hoverOpenTimer.current = void 0;
+			};
+			const changeOpen = (next, restoreFocus = false) => {
+				cancelHoverOpen();
+				cancelHoverClose();
+				if (next) {
+					const trigger = triggerRef.current;
+					/* v8 ignore next -- a queued callback can outlive the trigger */
+					if (trigger === null) return;
+					setOpen(true);
+					setMenuPosition(catalogMenuPosition(trigger));
+				} else {
+					pinnedRef.current = false;
+					setOpen(false);
+					setMenuPosition(void 0);
+					setExpanded(/* @__PURE__ */ new Set());
+				}
+				if (restoreFocus) queueMicrotask(() => {
+					triggerRef.current?.focus();
 				});
-				live.controllers.set(binding, controller);
-				binding.ctx.effect(() => () => {
-					controller.dispose();
-					live.controllers.delete(binding);
-				}, "slash: session controller");
-				return controller;
-			}
-			sessions() {
-				const sessions = this.ctx.get("sessions");
-				if (sessions === void 0) throw new Error("ui-input-trigger: sessions service unavailable");
-				return sessions;
-			}
-		};
-		//#endregion
-		//#region ../../../node_modules/.pnpm/clsx@2.1.1/node_modules/clsx/dist/clsx.mjs
-		function r(e) {
-			var t, f, n = "";
-			if ("string" == typeof e || "number" == typeof e) n += e;
-			else if ("object" == typeof e) if (Array.isArray(e)) {
-				var o = e.length;
-				for (t = 0; t < o; t++) e[t] && (f = r(e[t])) && (n && (n += " "), n += f);
-			} else for (f in e) e[f] && (n && (n += " "), n += f);
-			return n;
+			};
+			const scheduleHoverOpen = () => {
+				cancelHoverOpen();
+				cancelHoverClose();
+				if (open) return;
+				hoverOpenTimer.current = setTimeout(() => {
+					hoverOpenTimer.current = void 0;
+					changeOpen(true);
+				}, 150);
+			};
+			const scheduleHoverClose = () => {
+				cancelHoverOpen();
+				cancelHoverClose();
+				if (pinnedRef.current) return;
+				hoverCloseTimer.current = setTimeout(() => {
+					hoverCloseTimer.current = void 0;
+					changeOpen(false);
+				}, 120);
+			};
+			const closeBranch = (root) => {
+				const closing = /* @__PURE__ */ new Set();
+				const visit = (parentSessionId) => {
+					if (closing.has(parentSessionId) || !expanded.has(parentSessionId)) return;
+					closing.add(parentSessionId);
+					const branch = catalogs[parentSessionId];
+					for (const entry of branch?.entries ?? []) visit(entry.id);
+				};
+				visit(root);
+				setExpanded((current) => new Set([...current].filter((id) => !closing.has(id))));
+			};
+			const toggleBranch = (childSessionId) => {
+				if (expanded.has(childSessionId)) {
+					closeBranch(childSessionId);
+					return;
+				}
+				setExpanded((current) => new Set(current).add(childSessionId));
+				refreshProjection(childSessionId);
+			};
+			(0, react.useEffect)(() => {
+				if (!open) return;
+				const closeOutside = (event) => {
+					if (event.target instanceof Node && !rootRef.current?.contains(event.target) && !menuRef.current?.contains(event.target)) changeOpen(false);
+				};
+				document.addEventListener("pointerdown", closeOutside);
+				return () => {
+					document.removeEventListener("pointerdown", closeOutside);
+				};
+			}, [open]);
+			(0, react.useEffect)(() => {
+				if (!open) return;
+				const placeMenu = () => {
+					const trigger = triggerRef.current;
+					/* v8 ignore next -- native resize or scroll can outlive the trigger */
+					if (trigger === null) return;
+					setMenuPosition(catalogMenuPosition(trigger));
+				};
+				window.addEventListener("resize", placeMenu);
+				document.addEventListener("scroll", placeMenu, true);
+				return () => {
+					window.removeEventListener("resize", placeMenu);
+					document.removeEventListener("scroll", placeMenu, true);
+				};
+			}, [open]);
+			(0, react.useEffect)(() => () => {
+				cancelHoverOpen();
+				cancelHoverClose();
+			}, []);
+			const visible = presentedCatalog !== void 0 && (variant === "switcher" || presentedCatalog.state === "error" || presentedCatalog.entries.length > 0);
+			(0, react.useEffect)(() => {
+				if (visible) return;
+				cancelHoverOpen();
+				cancelHoverClose();
+				if (!open) return;
+				pinnedRef.current = false;
+				setOpen(false);
+				setExpanded(/* @__PURE__ */ new Set());
+			}, [visible, open]);
+			if (!visible) return null;
+			const focusAt = (index) => {
+				const items = treeItems(menuRef.current);
+				if (items.length === 0) return;
+				items[(index + items.length) % items.length]?.focus();
+			};
+			const navigate = (event) => {
+				const items = treeItems(menuRef.current);
+				const index = items.indexOf(document.activeElement);
+				if (event.key === "Escape") {
+					event.preventDefault();
+					changeOpen(false, true);
+				} else if (event.key === "Home") {
+					event.preventDefault();
+					focusAt(0);
+				} else if (event.key === "End") {
+					event.preventDefault();
+					focusAt(items.length - 1);
+				} else if (event.key === "ArrowDown") {
+					event.preventDefault();
+					focusAt(index + 1);
+				} else if (event.key === "ArrowUp") {
+					event.preventDefault();
+					focusAt(index < 0 ? items.length - 1 : index - 1);
+				}
+			};
+			return (0, react_jsx_runtime.jsxs)("div", {
+				className: `${SubagentHeaderLineage_module_css_default.root} ${variant === "switcher" ? SubagentHeaderLineage_module_css_default.switcherRoot : ""}`,
+				ref: rootRef,
+				onKeyDown: navigate,
+				onMouseLeave: scheduleHoverClose,
+				children: [(0, react_jsx_runtime.jsxs)("button", {
+					ref: triggerRef,
+					onMouseEnter: scheduleHoverOpen,
+					type: "button",
+					className: variant === "switcher" ? `${SubagentHeaderLineage_module_css_default.switcherTrigger} ${ancestorSwitcher ? SubagentHeaderLineage_module_css_default.ancestorSwitcherTrigger : ""}` : SubagentHeaderLineage_module_css_default.trigger,
+					"aria-haspopup": "tree",
+					"aria-expanded": open,
+					"aria-label": variant === "switcher" ? t("switcher.aria", { title: switcherDisplayTitle }) : t(runningCount > 0 ? runningCountKey : totalCountKey, { count: runningCount > 0 ? runningCount : directCount }),
+					onClick: openTitle === void 0 ? () => {
+						cancelHoverOpen();
+						cancelHoverClose();
+						pinnedRef.current = true;
+						if (!open) changeOpen(true);
+					} : () => {
+						cancelHoverOpen();
+						if (open) changeOpen(false);
+						openTitle();
+					},
+					onKeyDown: (event) => {
+						if (event.key !== "ArrowDown") return;
+						event.preventDefault();
+						if (!open) changeOpen(true);
+						queueMicrotask(() => {
+							focusAt(0);
+						});
+					},
+					children: [variant === "switcher" ? (0, react_jsx_runtime.jsx)("span", {
+						className: SubagentHeaderLineage_module_css_default.switcherTitle,
+						children: switcherDisplayTitle
+					}) : (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [runningCount > 0 && (0, react_jsx_runtime.jsx)("span", {
+						className: SubagentHeaderLineage_module_css_default.activitySlot,
+						children: (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.StateDot, { state: "ongoing" })
+					}), (0, react_jsx_runtime.jsx)("span", {
+						className: SubagentHeaderLineage_module_css_default.count,
+						children: t(totalCountKey, { count: directCount })
+					})] }), variant === "switcher" ? (0, react_jsx_runtime.jsx)(SubagentSwitcherIcon, {}) : (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconChevronDownOutlineRegular, { className: open ? SubagentHeaderLineage_module_css_default.triggerOpen : void 0 })]
+				}), open && (0, react_dom.createPortal)((0, react_jsx_runtime.jsx)("div", {
+					ref: menuRef,
+					className: SubagentHeaderLineage_module_css_default.menu,
+					style: menuPosition,
+					onMouseEnter: cancelHoverClose,
+					onMouseLeave: scheduleHoverClose,
+					children: (0, react_jsx_runtime.jsx)("div", {
+						className: SubagentHeaderLineage_module_css_default.menuBody,
+						role: "tree",
+						"aria-label": t("tree.aria"),
+						children: (0, react_jsx_runtime.jsx)(CatalogRows, {
+							parentSessionId: rootSessionId,
+							currentSessionId,
+							catalog: presentedCatalog,
+							catalogs,
+							summaries,
+							expanded,
+							level: 1,
+							openChild,
+							openChildAside,
+							refreshProjection,
+							toggleBranch,
+							closeCatalog: () => {
+								changeOpen(false);
+							},
+							t
+						})
+					})
+				}), document.body)]
+			});
 		}
-		function clsx() {
-			for (var e, t, f = 0, n = "", o = arguments.length; f < o; f++) (e = arguments[f]) && (t = r(e)) && (n && (n += " "), n += t);
-			return n;
+		/**
+		* Session-header catalog action for root sessions: the descendant count and
+		* its dropdown at the start of the header actions band. Child sessions render nothing
+		* here — their breadcrumb switcher in the lineage slot owns the same
+		* navigation.
+		* @param props - Session standard props plus the catalog actions and translator.
+		* @returns The count dropdown, or null on a child session.
+		*/
+		function SubagentCatalogAction({ sessionId, useSessions, useSessionStatus, openChild, openChildAside, refreshProjection, t }) {
+			if (useSessions((state) => state.byId[sessionId]?.origin === "subagent")) return null;
+			return (0, react_jsx_runtime.jsx)(CatalogDropdown, {
+				rootSessionId: sessionId,
+				variant: "count",
+				useSessions,
+				useSessionStatus,
+				openChild,
+				openChildAside,
+				refreshProjection,
+				t
+			}, sessionId);
+		}
+		/**
+		* Render one breadcrumb title together with its subagent navigation.
+		* @param props - Breadcrumb title, session standard props, and catalog actions.
+		* @returns A title-and-chevron sibling switcher, or nothing on a root session.
+		*/
+		function SubagentHeaderLineage({ lineageSessionId, displayTitle, openTitle, useSessions, useSession, useSessionStatus, openChild, openChildAside, refreshProjection, t }) {
+			const address = useSession((session) => session.subagent?.address);
+			const parentId = useSessions((state) => {
+				if (address?.childSessionId === lineageSessionId) return address.parentSessionId;
+				for (const [parentId, snapshot] of Object.entries(state.projectionsBySession)) if (snapshot.values.subagentCatalog?.some((entry) => entry.id === lineageSessionId)) return parentId;
+			});
+			const shared = {
+				useSessions,
+				useSessionStatus,
+				openChild,
+				openChildAside,
+				refreshProjection,
+				t
+			};
+			if (parentId === void 0) return null;
+			return (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [(0, react_jsx_runtime.jsx)(CatalogDropdown, {
+				rootSessionId: parentId,
+				currentSessionId: lineageSessionId,
+				variant: "switcher",
+				displayTitle,
+				...openTitle === void 0 ? {} : { openTitle },
+				...shared
+			}, lineageSessionId), openTitle === void 0 && (0, react_jsx_runtime.jsx)(CatalogDropdown, {
+				rootSessionId: lineageSessionId,
+				variant: "count",
+				...shared
+			}, lineageSessionId)] });
 		}
 		//#endregion
-		//#region \0dsh-css:D:\deepseek-harness\packages\client\ui-input-trigger\src\client\MenuView.module.css.mjs
-		const css = ".W00CzG_menu{z-index:100;box-sizing:border-box;--dsh-scrollbar-thumb:var(--dsw-alias-scrollbar-bg-l2);--dsh-scrollbar-thumb-hover:var(--dsw-alias-scrollbar-hover-l2);--dsh-scrollbar-width:6px;--dsh-scrollbar-thumb-border:2px;--dsh-scrollbar-track-margin:12px;--dsw-elevation-stroke-color:var(--dsw-alias-border-l1);max-height:400px;box-shadow:var(--dsw-elevation-prominent);border:0;flex-direction:column;padding:4px;display:flex;position:absolute;bottom:calc(100% + 4px);left:0;right:0;overflow:hidden}.W00CzG_menu[data-overflow-below]:after{content:\"\";background:linear-gradient(to bottom, transparent, var(--dsw-specific-menu));pointer-events:none;height:16px;position:absolute;bottom:4px;left:4px;right:14px}.W00CzG_viewport{flex-direction:column;min-height:0;display:flex;overflow-y:auto}.W00CzG_item{border-radius:var(--dsw-radius-md);cursor:pointer;width:100%;min-height:34px;color:var(--dsw-alias-label-primary);text-align:left;background:0 0;border:none;align-items:center;gap:6px;padding:6px 8px;font-size:13px;line-height:20px;display:flex}.W00CzG_item.W00CzG_active{background:var(--dsw-alias-interactive-bg-hover)}.W00CzG_sectionTitle{min-height:23px;color:var(--dsw-alias-label-tertiary);flex:none;padding:5px 8px 2px;font-size:11px;font-weight:500;line-height:16px}.W00CzG_sectionTitle:not(:first-child){margin-top:3px}.W00CzG_itemIcon{width:14px;height:14px;color:var(--dsw-alias-menu-icon);flex:none;justify-content:center;align-items:center;display:inline-flex}.W00CzG_itemIcon svg{width:14px;height:14px}.W00CzG_itemName{text-overflow:ellipsis;white-space:nowrap;flex:none;max-width:40%;overflow:hidden}.W00CzG_itemAlias{text-overflow:ellipsis;white-space:nowrap;max-width:20%;color:var(--dsw-alias-label-tertiary);flex:none;font-size:12px;line-height:18px;overflow:hidden}.W00CzG_itemDescription{text-overflow:ellipsis;white-space:nowrap;text-align:right;min-width:0;color:var(--dsw-alias-label-tertiary);flex:1;font-size:12px;line-height:18px;overflow:hidden}.W00CzG_trailing{flex:none;align-items:center;gap:3px;margin-left:auto;display:inline-flex}.W00CzG_drillHintText{color:var(--dsw-alias-label-caption);white-space:nowrap;font-size:10px;line-height:16px;display:none}.W00CzG_drillHint{border-radius:var(--dsw-radius-xs);background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-caption);padding:0 4px;font-family:inherit;font-size:10px;line-height:16px;display:none}.W00CzG_item.W00CzG_active .W00CzG_drillHintText,.W00CzG_item.W00CzG_active .W00CzG_drillHint{display:inline-flex}.W00CzG_drill{border-radius:var(--dsw-radius-xs);width:18px;height:18px;color:var(--dsw-alias-menu-icon);flex:none;place-items:center;display:inline-grid}.W00CzG_drill:hover{background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-primary)}.W00CzG_groupTitle{color:var(--dsw-alias-label-tertiary);padding:6px 8px;font-size:11px;line-height:15px}.W00CzG_skeletonRow{box-sizing:border-box;align-items:center;min-height:34px;padding:6px 8px;display:flex}.W00CzG_skeletonBar{border-radius:var(--dsw-radius-xs);background:var(--dsw-alias-bg-skeleton);height:18px;animation:2s cubic-bezier(.36,0,.64,1) infinite W00CzG_dsh-menu-skeleton}@keyframes W00CzG_dsh-menu-skeleton{0%{opacity:1}40%{opacity:.6}80%,to{opacity:1}}.W00CzG_crumbs{border-bottom:.5px solid var(--dsw-alias-border-l1);flex-wrap:wrap;flex:none;align-items:center;gap:2px;margin-bottom:2px;padding:3px 3px 5px;display:flex}.W00CzG_crumb{border-radius:var(--dsw-radius-sm);max-width:40%;color:var(--dsw-alias-label-tertiary);cursor:pointer;text-overflow:ellipsis;white-space:nowrap;background:0 0;border:none;flex:0 auto;padding:2px 5px;font-family:inherit;font-size:11px;line-height:16px;overflow:hidden}.W00CzG_crumb:hover{background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-primary)}.W00CzG_crumbCurrent,.W00CzG_crumbCurrent:hover{color:var(--dsw-alias-label-primary);cursor:default;background:0 0}.W00CzG_crumbSeparator{color:var(--dsw-alias-menu-icon);flex:none;display:inline-flex}";
-		const tagId = "@deepseek-ai/dsh-client-ui-input-trigger/MenuView.module.css";
+		//#region \0dsh-css:D:\deepseek-harness\packages\client\ui-subagent\src\client\SubagentReadOnlyComposer.module.css.mjs
+		const css$1 = ".RMkwFG_frame{border:.5px solid var(--dsw-alias-border-l4);border-radius:var(--dsw-radius-lg);background:var(--dsw-alias-bg-layer-1);min-height:54px;color:var(--dsw-alias-label-tertiary);justify-content:center;align-items:center;gap:8px;margin:0 24px 20px;padding:10px 16px;font-size:13px;line-height:20px;display:flex}.RMkwFG_frame strong{color:var(--dsw-alias-label-primary);font-weight:510}";
+		const tagId$1 = "@deepseek-ai/dsh-client-ui-subagent/SubagentReadOnlyComposer.module.css";
+		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId$1) + "]") === null) {
+			const tag = document.createElement("style");
+			tag.dataset.plugin = "@deepseek-ai/dsh-client-ui-subagent";
+			tag.dataset.pluginCss = tagId$1;
+			tag.textContent = css$1;
+			document.head.appendChild(tag);
+		}
+		var SubagentReadOnlyComposer_module_css_default = { "frame": "RMkwFG_frame" };
+		//#endregion
+		//#region lib/types/client/SubagentReadOnlyComposer.js
+		/**
+		* Explain why the normal composer is unavailable for an addressed child.
+		* @param props - selector-owned read-only reason plus standard slot props.
+		* @returns A read-only composer replacement.
+		*/
+		function SubagentReadOnlyComposer({ matched, t }) {
+			const oneShot = matched.reason === "one-shot";
+			return (0, react_jsx_runtime.jsxs)("div", {
+				className: SubagentReadOnlyComposer_module_css_default.frame,
+				role: "status",
+				children: [(0, react_jsx_runtime.jsx)("strong", { children: t(oneShot ? "readonly.oneShot.title" : "readonly.title") }), (0, react_jsx_runtime.jsx)("span", { children: t(matched.reason === "unknown" ? "readonly.unknown.body" : oneShot ? "readonly.oneShot.body" : "readonly.body") })]
+			});
+		}
+		//#endregion
+		//#region \0dsh-css:D:\deepseek-harness\packages\client\ui-subagent\src\client\sidebar-chat\SidebarChat.module.css.mjs
+		const css = ".L1XR9q_root{width:100%;min-width:0;height:100%;min-height:0;display:flex}";
+		const tagId = "@deepseek-ai/dsh-client-ui-subagent/SidebarChat.module.css";
 		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId) + "]") === null) {
 			const tag = document.createElement("style");
-			tag.dataset.plugin = "@deepseek-ai/dsh-client-ui-input-trigger";
+			tag.dataset.plugin = "@deepseek-ai/dsh-client-ui-subagent";
 			tag.dataset.pluginCss = tagId;
 			tag.textContent = css;
 			document.head.appendChild(tag);
 		}
-		var MenuView_module_css_default = {
-			"active": "W00CzG_active",
-			"crumb": "W00CzG_crumb",
-			"crumbCurrent": "W00CzG_crumbCurrent",
-			"crumbSeparator": "W00CzG_crumbSeparator",
-			"crumbs": "W00CzG_crumbs",
-			"drill": "W00CzG_drill",
-			"drillHint": "W00CzG_drillHint",
-			"drillHintText": "W00CzG_drillHintText",
-			"dsh-menu-skeleton": "W00CzG_dsh-menu-skeleton",
-			"groupTitle": "W00CzG_groupTitle",
-			"item": "W00CzG_item",
-			"itemAlias": "W00CzG_itemAlias",
-			"itemDescription": "W00CzG_itemDescription",
-			"itemIcon": "W00CzG_itemIcon",
-			"itemName": "W00CzG_itemName",
-			"menu": "W00CzG_menu",
-			"sectionTitle": "W00CzG_sectionTitle",
-			"skeletonBar": "W00CzG_skeletonBar",
-			"skeletonRow": "W00CzG_skeletonRow",
-			"trailing": "W00CzG_trailing",
-			"viewport": "W00CzG_viewport"
-		};
+		var SidebarChat_module_css_default = { "root": "L1XR9q_root" };
 		//#endregion
-		//#region lib/types/client/MenuView.js
+		//#region lib/types/client/sidebar-chat/index.js
+		/** Stable implementation identity for the Sidebar tab body. */
+		const SUBAGENT_CHAT_ID = "@deepseek-ai/dsh-client-ui-subagent";
+		/** Resource-address prefix for an embedded Session chat. */
+		const SUBAGENT_CHAT_ADDRESS = "dsh-resource://subagentchat/session/";
 		/**
-		* Trigger candidate menu: renders the InputTriggerService menu store into the
-		* conversation.input.overlay anchor. Closed state renders null (the overlay
-		* slot stays mounted); groups render in roster order under localized title
-		* rows. A pending group keeps showing the items it already had (the reducer
-		* retains them across a query refinement) and falls back to two skeleton
-		* rows only while it has none; pointer picks route back through
-		* the service (combobox pattern — focus never leaves the textarea, so rows
-		* are mousedown-handled and the highlight is exposed via
-		* aria-activedescendant on the listbox). A row reads title, then the
-		* command-name alias when the title is not the name in another letter case
-		* (a localized title), then the description right-aligned. A source publishing crumbs gets a breadcrumb
-		* header pinned above the scrolling list.
+		* Address one subagent Session together with the routing facts needed to restore it.
+		* @param address - durable direct-parent subagent address.
+		* @returns canonical Sidebar resource address.
 		*/
-		/** Height cap that fits the two headings and eight built-in command rows. */
-		const MAX_HEIGHT = 400;
-		/**
-		* Viewport top margin: the conversation header's 76px block (title row plus
-		* view tabs, ui-conversation) plus 8px of air, so a tall list stops below the
-		* header instead of sliding under it.
-		*/
-		const TOP_MARGIN = 84;
-		/** DOM id of one option row (the aria-activedescendant target). */
-		function optionId(source, index) {
-			return `dsh-slash-option-${source}-${index}`;
+		function subagentChatAddress(address) {
+			const query = new URLSearchParams({
+				parent: address.parentSessionId,
+				mode: address.mode
+			});
+			return `${SUBAGENT_CHAT_ADDRESS}${encodeURIComponent(address.childSessionId)}?${query}`;
 		}
 		/**
-		* Render the candidate menu overlay entry.
-		* @param props - injected face (the menu store and the pick route); `t` rides the standard locale seat.
-		* @returns the dropdown while open; null while closed.
+		* Parse one canonical Sidebar chat resource address.
+		* @param value - possible chat resource address.
+		* @returns the encoded direct-parent address, or undefined for another or malformed resource.
 		*/
-		function MenuView({ menu, headers, onPick, onCrumb, onHover, onDismiss, t }) {
-			const state = (0, react.useSyncExternalStore)((fn) => menu.subscribe(fn), () => menu.getSnapshot());
-			const crumbs = (0, react.useSyncExternalStore)((fn) => headers.subscribe(fn), () => headers.getSnapshot());
-			const listRef = (0, react.useRef)(null);
-			const viewportRef = (0, react.useRef)(null);
-			const [hasOverflowBelow, setHasOverflowBelow] = (0, react.useState)(false);
-			const maxHeight = (0, _deepseek_ai_dsh_client_ui_primitives.useAnchoredMaxHeight)(listRef, MAX_HEIGHT, state, TOP_MARGIN);
-			const updateOverflowHint = (0, react.useCallback)(() => {
-				const viewport = viewportRef.current;
-				setHasOverflowBelow(viewport !== null && viewport.scrollTop + viewport.clientHeight < viewport.scrollHeight - 1);
-			}, []);
-			(0, react.useLayoutEffect)(() => {
-				updateOverflowHint();
-			}, [
-				state,
-				maxHeight,
-				updateOverflowHint
-			]);
-			const highlight = state.open ? state.highlight : null;
-			(0, react.useEffect)(() => {
-				if (highlight === null) return;
-				document.getElementById(optionId(highlight.source, highlight.index))?.scrollIntoView({ block: "nearest" });
-			}, [highlight]);
-			(0, react.useEffect)(() => {
-				if (!state.open) return;
-				const onPointerDown = (ev) => {
-					if (!(ev.target instanceof Node)) return;
-					if (listRef.current?.contains(ev.target)) return;
-					if ((listRef.current?.closest("[data-composer-card]"))?.contains(ev.target)) return;
-					onDismiss();
+		function parseSubagentChatAddress(value) {
+			let url;
+			try {
+				url = new URL(value);
+			} catch (_invalidUrl) {
+				return;
+			}
+			if (url.protocol !== "dsh-resource:" || url.hostname.toLowerCase() !== "subagentchat") return void 0;
+			const parts = url.pathname.split("/").filter(Boolean);
+			if (parts.length !== 2 || parts[0] !== "session") return void 0;
+			const parentSessionId = url.searchParams.get("parent");
+			const mode = url.searchParams.get("mode");
+			if (parentSessionId === null || parentSessionId === "" || mode !== "one-shot" && mode !== "continuable" && mode !== "unknown") return;
+			try {
+				return {
+					parentSessionId,
+					childSessionId: decodeURIComponent(parts[1]),
+					mode
 				};
-				document.addEventListener("pointerdown", onPointerDown, true);
-				return () => {
-					document.removeEventListener("pointerdown", onPointerDown, true);
-				};
-			}, [state.open, onDismiss]);
-			if (!state.open) return null;
-			return (0, react_jsx_runtime.jsxs)(_deepseek_ai_dsh_client_ui_primitives.MenuSurface, {
-				ref: listRef,
-				className: MenuView_module_css_default.menu,
-				style: { maxHeight },
-				"data-trigger-menu": "",
-				"data-overflow-below": hasOverflowBelow || void 0,
-				children: [state.groups.map((group) => {
-					const trail = crumbs.get(group.source);
-					return trail === void 0 ? null : (0, react_jsx_runtime.jsx)("nav", {
-						className: MenuView_module_css_default.crumbs,
-						"aria-label": t("crumbs.aria"),
-						children: trail.map((crumb, index) => (0, react_jsx_runtime.jsxs)(react.Fragment, { children: [index > 0 && (0, react_jsx_runtime.jsx)("span", {
-							className: MenuView_module_css_default.crumbSeparator,
-							"aria-hidden": true,
-							children: (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconChevronRightOutlineRegular, {})
-						}), (0, react_jsx_runtime.jsx)("button", {
-							type: "button",
-							className: clsx(MenuView_module_css_default.crumb, crumb.current === true && MenuView_module_css_default.crumbCurrent),
-							"aria-current": crumb.current === true ? "location" : void 0,
-							disabled: crumb.current === true,
-							onMouseDown: (ev) => {
-								ev.preventDefault();
-								onCrumb(group.source, index);
-							},
-							children: crumb.label
-						})] }, `${String(index)}-${crumb.value}`))
-					}, group.source);
-				}), (0, react_jsx_runtime.jsx)("div", {
-					ref: viewportRef,
-					className: MenuView_module_css_default.viewport,
-					role: "listbox",
-					"aria-label": t("suggestions.aria"),
-					"aria-activedescendant": highlight !== null ? optionId(highlight.source, highlight.index) : void 0,
-					onScroll: updateOverflowHint,
-					children: state.groups.map((group) => group.status === "ready" && group.items.length === 0 ? null : (0, react_jsx_runtime.jsxs)(react.Fragment, { children: [group.showGroupTitle === false || group.items.some((item) => item.section !== void 0) ? null : (0, react_jsx_runtime.jsx)("div", {
-						className: MenuView_module_css_default.groupTitle,
-						role: "presentation",
-						"data-source": group.source,
-						children: t(group.source)
-					}), group.status === "pending" && group.items.length === 0 ? (0, react_jsx_runtime.jsxs)("div", {
-						role: "status",
-						"aria-label": t("loading"),
-						"data-source": group.source,
-						children: [(0, react_jsx_runtime.jsx)("div", {
-							className: MenuView_module_css_default.skeletonRow,
-							children: (0, react_jsx_runtime.jsx)("span", {
-								className: MenuView_module_css_default.skeletonBar,
-								style: { width: "32%" }
-							})
-						}), (0, react_jsx_runtime.jsx)("div", {
-							className: MenuView_module_css_default.skeletonRow,
-							children: (0, react_jsx_runtime.jsx)("span", {
-								className: MenuView_module_css_default.skeletonBar,
-								style: { width: "48%" }
-							})
-						})]
-					}) : group.items.map((item, index) => {
-						const active = highlight !== null && highlight.source === group.source && highlight.index === index;
-						return (0, react_jsx_runtime.jsxs)(react.Fragment, { children: [item.section !== void 0 && item.section !== group.items[index - 1]?.section ? (0, react_jsx_runtime.jsx)("div", {
-							className: MenuView_module_css_default.sectionTitle,
-							role: "presentation",
-							children: item.section
-						}) : null, (0, react_jsx_runtime.jsxs)("button", {
-							id: optionId(group.source, index),
-							type: "button",
-							role: "option",
-							"aria-selected": active,
-							className: clsx(MenuView_module_css_default.item, active && MenuView_module_css_default.active),
-							onMouseDown: (ev) => {
-								ev.preventDefault();
-								onPick(group.source, index);
-							},
-							onMouseMove: active ? void 0 : () => {
-								onHover(group.source, index);
-							},
-							children: [
-								item.icon !== void 0 && (0, react_jsx_runtime.jsx)("span", {
-									className: MenuView_module_css_default.itemIcon,
-									"aria-hidden": true,
-									children: typeof item.icon === "string" ? (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.ReferenceIconRegular, {
-										kind: item.icon,
-										size: 14
-									}) : (0, react_jsx_runtime.jsx)(item.icon, { size: 14 })
-								}),
-								(0, react_jsx_runtime.jsx)("span", {
-									className: MenuView_module_css_default.itemName,
-									children: item.label ?? item.name
-								}),
-								item.label !== void 0 && item.label.toLowerCase() !== item.name.toLowerCase() && (0, react_jsx_runtime.jsx)("span", {
-									className: MenuView_module_css_default.itemAlias,
-									children: item.name
-								}),
-								item.description !== void 0 && (0, react_jsx_runtime.jsx)("span", {
-									className: MenuView_module_css_default.itemDescription,
-									children: item.description
-								}),
-								item.drill === true && (0, react_jsx_runtime.jsxs)("span", {
-									className: MenuView_module_css_default.trailing,
-									children: [
-										(0, react_jsx_runtime.jsx)("span", {
-											className: MenuView_module_css_default.drillHintText,
-											"aria-hidden": true,
-											children: t("drill.hint")
-										}),
-										(0, react_jsx_runtime.jsx)("kbd", {
-											className: MenuView_module_css_default.drillHint,
-											"aria-hidden": true,
-											children: t("drill.key")
-										}),
-										(0, react_jsx_runtime.jsx)("span", {
-											role: "button",
-											"aria-label": t("drill.aria"),
-											className: MenuView_module_css_default.drill,
-											onMouseDown: (ev) => {
-												ev.preventDefault();
-												ev.stopPropagation();
-												onPick(group.source, index, "drill");
-											},
-											children: (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconChevronRightOutlineRegular, { size: 12 })
-										})
-									]
-								})
-							]
-						})] }, optionId(group.source, index));
-					})] }, group.source))
-				})]
+			} catch (_invalidEncoding) {
+				return;
+			}
+		}
+		function waitForAbort(signal) {
+			if (signal.aborted) return Promise.resolve();
+			return new Promise((resolve) => {
+				signal.addEventListener("abort", () => {
+					resolve();
+				}, { once: true });
 			});
+		}
+		function isAbortRequested(signal) {
+			return signal.aborted;
+		}
+		function subagentChatResourceProvider(sessions) {
+			return {
+				protocol: "subagentchat",
+				async *open(resourceAddress, { signal }) {
+					const address = parseSubagentChatAddress(resourceAddress);
+					if (address === void 0) throw new Error(`ui-subagent: invalid chat resource address "${resourceAddress}"`);
+					if (isAbortRequested(signal)) return;
+					const reference = sessions.retain(address, {
+						source: "sidebarChat",
+						signal
+					});
+					try {
+						yield {
+							ok: true,
+							value: {
+								address,
+								reference
+							}
+						};
+						await waitForAbort(signal);
+					} finally {
+						reference.release();
+					}
+				}
+			};
+		}
+		/** Fixed Chat selection used by an embedded Conversation occurrence. */
+		function FixedChatConversationView(props) {
+			return (0, react_jsx_runtime.jsx)(react_jsx_runtime.Fragment, { children: props.renderSlot("conversation.session", { view: "chat" }) });
+		}
+		/** Render the shared Conversation content for one explicitly provided child Session. */
+		function ConversationSlotPanel({ sessionId, useSession, useConversation, useSessions, renderFactorySlot }) {
+			const session = useSession((value) => value);
+			const shellPhase = useConversation((value) => value).activeTargets.size > 0 || !session.blank && !session.awaitingFirstTurn || session.running ? "active" : session.promptAttempted ? "engaging" : "blank";
+			const summaryBlank = useSessions((state) => state.byId[sessionId]?.blank);
+			const parentAvailabilityPending = session.subagent?.address.mode === "continuable" && session.subagent.parentAvailable === void 0;
+			const settling = shellPhase === "blank" && session.openState === "loading" && summaryBlank !== true || parentAvailabilityPending;
+			const hero = shellPhase === "blank" && (session.openState === "open" || summaryBlank === true);
+			return renderFactorySlot("conversation.content", {
+				variant: "embedded",
+				phase: settling ? "settling" : hero ? "hero" : "active",
+				hero
+			}, { slots: { views: FixedChatConversationView } });
+		}
+		/** Bind a chat resource's child reference around its Conversation slot. */
+		function SidebarChatTab({ useResource, useTabInfo, SessionProvider, renderSlot }) {
+			const { tab } = useTabInfo();
+			const resource = useResource(tab.contentId);
+			return (0, react_jsx_runtime.jsx)("div", {
+				className: SidebarChat_module_css_default.root,
+				"data-sidebar-chat": "",
+				children: resource.value === void 0 ? null : (0, react_jsx_runtime.jsx)(SessionProvider, {
+					session: resource.value.reference,
+					children: renderSlot("sidebar.chat.conversation", {})
+				})
+			});
+		}
+		/**
+		* Register the chat resource owner and its right-Sidebar presentation.
+		* @param ctx - Client root carrying Sessions, resources, Slots, and Sidebar registries.
+		* @param t - Chat namespace translator used for fallback tab titles.
+		*/
+		function registerSidebarChat(ctx, t) {
+			ctx.effect(() => ctx.resources.register(subagentChatResourceProvider(ctx.sessions)), "ui-subagent: Sidebar chat resources");
+			ctx.effect(() => ctx.sidebarRightTabs.register({
+				id: SUBAGENT_CHAT_ID,
+				kind: "subagentchat",
+				patterns: [`${SUBAGENT_CHAT_ADDRESS}**`],
+				priority: "builtin",
+				canOpen: (address) => parseSubagentChatAddress(address) !== void 0,
+				title: (address) => {
+					const child = parseSubagentChatAddress(address)?.childSessionId;
+					return child === void 0 ? t("sidebar.chat") : ctx.sessions.list.getSnapshot().byId[child]?.projectionValues?.subagent?.label ?? child;
+				}
+			}), "ui-subagent: Sidebar chat type");
+			ctx.effect(() => ctx.slots.inject("sidebar.right.pane.tab", () => ctx.slots.register({
+				name: "sidebar.right.pane.tab",
+				key: SUBAGENT_CHAT_ID,
+				children: { "sidebar.chat.conversation": {
+					kind: "single",
+					scope: "session"
+				} }
+			}, SidebarChatTab)), "ui-subagent: Sidebar chat body");
+			ctx.effect(() => ctx.slots.inject("sidebar.chat.conversation", () => ctx.slots.register({ name: "sidebar.chat.conversation" }, ConversationSlotPanel)), "ui-subagent: Sidebar Conversation");
 		}
 		//#endregion
 		//#region lib/types/client/locales.js
-		/**
-		* `slash.menu` namespace dictionaries: group titles keyed by source name
-		* (the lookup chain returns the key itself, so an unknown source shows its
-		* raw name), the pending row, and the listbox and header aria labels.
-		*/
+		/** `subagent` namespace dictionaries. */
+		/** Dictionary namespace owned by this plugin. */
+		const NS = "subagent";
 		/** Simplified Chinese dictionary (the key-set source of truth). */
 		const zh = {
-			"command": "指令",
-			"skill": "技能",
-			"subagent": "子智能体",
-			"loading": "正在加载…",
-			"drill.aria": "进入目录",
-			"drill.hint": "进入目录",
-			"drill.key": "Tab",
-			"crumbs.aria": "目录导航",
-			"suggestions.aria": "触发候选建议"
+			"duration.seconds": "{seconds}秒",
+			"duration.minutes": "{minutes}分{seconds}秒",
+			"duration.hours": "{hours}小时{minutes}分{seconds}秒",
+			"duration.days": "{days}天",
+			"duration.daysHours": "{days}天{hours}小时",
+			"duration.months": "约{months}个月",
+			"duration.monthsDays": "约{months}个月{days}天",
+			"duration.years": "约{years}年",
+			"duration.yearsMonths": "约{years}年{months}个月",
+			"duration.exactDays": "{days}天{hours}小时{minutes}分{seconds}秒",
+			"duration.exactTitle": "总活跃耗时：{duration}",
+			"tokens.thousand": "{value}K",
+			"tokens.million": "{value}M",
+			"tokens.total": "{value} tok",
+			"loading.label": "正在加载子智能体…",
+			"load.error": "无法加载子智能体",
+			"retry": "重试",
+			"mode.oneShot": "一次性",
+			"mode.continuable": "可继续",
+			"mode.unknown": "模式未知",
+			"readonly.unknown.body": "读取子会话后才能确定是否可继续。",
+			"activity.running": "正在运行",
+			"activity.completed": "已完成",
+			"activity.inactive": "当前未运行",
+			"branch.collapse": "收起 {label} 的下级子智能体",
+			"branch.expand": "展开 {label} 的下级子智能体",
+			"count.total.one": "{count} 个子智能体",
+			"count.total.other": "{count} 个子智能体",
+			"count.running.one": "{count} 个子智能体，正在运行",
+			"count.running.other": "{count} 个子智能体，正在运行",
+			"switcher.aria": "切换子智能体：{title}",
+			"tree.aria": "子智能体会话",
+			"open.sidebar": "在侧边栏打开",
+			"open.sidebar.aria": "在侧边栏打开 {label}",
+			"sidebar.chat": "聊天",
+			"readonly.oneShot.title": "一次性子智能体记录",
+			"readonly.title": "此子智能体暂时只读",
+			"readonly.oneShot.body": "一次性任务不支持后续消息，可在这里查看完整执行记录。",
+			"readonly.body": "父会话当前不在线，重新打开父会话后即可继续发送消息。"
 		};
-		/** English dictionary, checked complete against the zh key set. */
+		/** English dictionary, key-identical to the Chinese source of truth. */
 		const en = {
-			"command": "Commands",
-			"skill": "Skills",
-			"subagent": "Subagents",
-			"loading": "Loading…",
-			"drill.aria": "Browse folder",
-			"drill.hint": "Browse folder",
-			"drill.key": "Tab",
-			"crumbs.aria": "Folder navigation",
-			"suggestions.aria": "Trigger suggestions"
+			"duration.seconds": "{seconds}s",
+			"duration.minutes": "{minutes}m {seconds}s",
+			"duration.hours": "{hours}h {minutes}m {seconds}s",
+			"duration.days": "{days}d",
+			"duration.daysHours": "{days}d {hours}h",
+			"duration.months": "~{months}mo",
+			"duration.monthsDays": "~{months}mo {days}d",
+			"duration.years": "~{years}y",
+			"duration.yearsMonths": "~{years}y {months}mo",
+			"duration.exactDays": "{days}d {hours}h {minutes}m {seconds}s",
+			"duration.exactTitle": "Total active duration: {duration}",
+			"tokens.thousand": "{value}K",
+			"tokens.million": "{value}M",
+			"tokens.total": "{value} tok",
+			"loading.label": "Loading subagents…",
+			"load.error": "Unable to load subagents",
+			"retry": "Retry",
+			"mode.oneShot": "one-shot",
+			"mode.continuable": "continuable",
+			"mode.unknown": "unknown mode",
+			"readonly.unknown.body": "Read the child session to determine whether it can be continued.",
+			"activity.running": "running",
+			"activity.completed": "completed",
+			"activity.inactive": "not running",
+			"branch.collapse": "Collapse {label} descendants",
+			"branch.expand": "Expand {label} descendants",
+			"count.total.one": "{count} subagent",
+			"count.total.other": "{count} subagents",
+			"count.running.one": "{count} subagent running",
+			"count.running.other": "{count} subagents running",
+			"switcher.aria": "Switch subagent: {title}",
+			"tree.aria": "Subagent sessions",
+			"open.sidebar": "Open in sidebar",
+			"open.sidebar.aria": "Open {label} in sidebar",
+			"sidebar.chat": "Chat",
+			"readonly.oneShot.title": "One-shot subagent record",
+			"readonly.title": "This subagent is read-only for now",
+			"readonly.oneShot.body": "One-shot tasks do not accept follow-ups; review the full execution record here.",
+			"readonly.body": "The parent session is offline; reopen it to continue sending messages."
 		};
 		//#endregion
 		//#region lib/types/client/index.js
-		/** Namespace owning the candidate-menu copy. */
-		const MENU_NS = "slash.menu";
-		/** Required services: controller resolution reads the session scope tree; the menu copy is localized. */
-		const inject = ["sessions", "locale"];
+		/** Required services for subagent presentation and navigation. */
+		const inject = [
+			"sessions",
+			"uiWorkspace",
+			"slots",
+			"locale",
+			"sidebarRight"
+		];
+		/** Claim the composer for one-shot history or an unavailable continuation owner. */
+		function selectReadOnlySubagent(owner) {
+			const subagent = owner.session?.subagent;
+			if (subagent === void 0 || subagent === null) return null;
+			if (subagent.address.mode === "unknown") return { reason: "unknown" };
+			if (subagent.address.mode === "one-shot") return { reason: "one-shot" };
+			if (subagent.parentAvailable !== false) return null;
+			return owner.session?.running === true ? null : { reason: "parent-unavailable" };
+		}
 		/**
-		* Client plugin body: mount the service, then register MenuView into the
-		* input overlay once its declarer is up.
+		* Client plugin body: register the subagent catalog and read-only composer seats.
 		* @param ctx - client root context.
 		*/
 		function apply(ctx) {
-			ctx.plugin(InputTriggerService);
-			ctx.effect(() => ctx.locale.register(MENU_NS, {
+			ctx.effect(() => ctx.locale.register(NS, {
 				zh,
 				en
-			}), "ui-input-trigger: menu dictionaries");
-			ctx.inject([
-				"slots",
-				"inputTriggers",
-				"sessions"
-			], (scope) => {
-				const inputTriggers = scope.inputTriggers;
-				const sessions = scope.sessions;
-				scope.slots.inject("conversation.input.overlay", () => scope.slots.register({
-					name: "conversation.input.overlay",
-					id: "slash-menu",
-					order: 0,
-					locale: MENU_NS,
-					inject: (sessionId) => {
-						const actx = sessions.scope(sessionId);
-						if (actx === void 0) throw new Error(`ui-input-trigger: session "${String(sessionId)}" resolved no scope`);
-						const controller = inputTriggers.sessionOf(actx);
-						return {
-							menu: controller.menu,
-							headers: controller.headers,
-							onPick: (source, index, action) => {
-								controller.pick(source, index, action);
-							},
-							onCrumb: (source, index) => {
-								controller.pickCrumb(source, index);
-							},
-							onHover: (source, index) => {
-								controller.hover(source, index);
-							},
-							onDismiss: () => {
-								controller.dismiss();
-							}
-						};
-					}
-				}, MenuView));
+			}), "ui-subagent: dictionaries");
+			ctx.inject(["resources", "sidebarRightTabs"], (scope) => {
+				registerSidebarChat(scope, ctx.locale.bind(NS));
 			});
+			const catalogActions = (_parentSessionId) => ({
+				openChild(address) {
+					ctx.uiWorkspace.openSession(address);
+				},
+				openChildAside(address) {
+					ctx.sidebarRight.openResource(subagentChatAddress(address), {
+						kind: "subagentchat",
+						preferNewPane: true
+					});
+				},
+				refreshProjection(parentSessionId) {
+					ctx.sessions.refreshProjections(parentSessionId);
+				}
+			});
+			ctx.slots.inject("conversation.session.header.lineage", () => ctx.slots.register({
+				name: "conversation.session.header.lineage",
+				locale: NS,
+				inject: catalogActions
+			}, SubagentHeaderLineage));
+			ctx.slots.inject("conversation.session.header.actions", () => ctx.slots.register({
+				name: "conversation.session.header.actions",
+				id: "subagent-catalog",
+				order: -30,
+				locale: NS,
+				inject: catalogActions
+			}, SubagentCatalogAction));
+			ctx.slots.inject("conversation.composer", () => ctx.slots.register({
+				name: "conversation.composer",
+				priority: -10,
+				locale: NS,
+				select: selectReadOnlySubagent
+			}, SubagentReadOnlyComposer));
 		}
 		//#endregion
-		exports.InputTriggerController = InputTriggerController;
-		exports.InputTriggerService = InputTriggerService;
 		exports.apply = apply;
 		exports.inject = inject;
 		return module.exports;
 	}
 });
 ;
-//# sourceMappingURL=??@deepseek-ai/dsh-client-ui-input-trigger/client.js.map&rev=4c2d1cf580d3
+//# sourceMappingURL=??@deepseek-ai/dsh-client-ui-subagent/client.js.map&rev=12f9f7c2cd09

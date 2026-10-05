@@ -1,1496 +1,1933 @@
 window.__ModuleLoader__.load({
-	id: "@deepseek-ai/dsh-client-ui-cordis",
+	id: "@deepseek-ai/dsh-client-ui-input-trigger",
 	factory: (require) => {
 		var module = { exports: {} };
 		var exports = module.exports;
 		Object.defineProperty(exports, Symbol.toStringTag, { value: "Module" });
+		let _deepseek_ai_cordis = require("@deepseek-ai/cordis");
+		let _deepseek_ai_dsh_client_store = require("@deepseek-ai/dsh-client-store");
 		let react_jsx_runtime = require("react/jsx-runtime");
 		let _deepseek_ai_dsh_client_ui_primitives = require("@deepseek-ai/dsh-client-ui-primitives");
 		let react = require("react");
-		//#region lib/types/client/card-model.js
-		/** Replay-stable view models for Cordis lifecycle Tool calls. */
-		function firstLine(text) {
-			const newline = text.indexOf("\n");
-			return newline === -1 ? text : text.slice(0, newline);
-		}
-		function stringAt(source, key) {
-			const value = source[key];
-			return typeof value === "string" && value !== "" ? value : null;
-		}
-		function objectAt(source, key) {
-			const value = source[key];
-			return typeof value === "object" && value !== null ? value : null;
-		}
-		function parseArgs(argsRaw) {
-			try {
-				const parsed = JSON.parse(argsRaw);
-				return typeof parsed === "object" && parsed !== null ? parsed : null;
-			} catch {
-				return null;
-			}
-		}
-		function resultText(block) {
-			const text = block.content.map((item) => item.type === "text" ? item.text : JSON.stringify(item, null, 2)).join("\n");
-			if (text !== "") return text;
-			return block.error === void 0 ? null : `${block.error.name}: ${block.error.code}`;
-		}
-		function stateOf(block) {
-			if (!("kind" in block)) return "running";
-			if (block.error?.code === "interrupted") return "stopped";
-			return block.isError ? "error" : "ok";
-		}
-		function metaObject(block) {
-			if (!("kind" in block) || block.isError || typeof block.meta !== "object" || block.meta === null) return null;
-			return block.meta;
-		}
+		//#region ../../util/values/src/partial-json.ts
 		/**
-		* Derive one Define card from its frozen call/result slice.
-		* @param block - active or settled tool-call block.
-		* @returns normalized Define card fields.
+		* Lazily scanned view of one JSON object's top-level fields, built from text
+		* that may still be streaming or from an already parsed object. Nothing is
+		* scanned until a reader asks; the view remembers every question it answered
+		* and reports changed answers when the owner refreshes for publication.
+		* Used for model tool-call arguments: a row reads the fields it
+		* cares about at whatever granularity it displays, at every stage of the call.
+		* @module @deepseek-ai/dsh-util-values/src/partial-json
 		*/
-		function cordisDefineCard(block) {
-			const settled = "kind" in block;
-			const argsRaw = (settled ? block.call?.argsRaw : block.argsRaw) ?? "";
-			const args = parseArgs(argsRaw);
-			const code = args === null ? null : objectAt(args, "code");
-			const state = stateOf(block);
-			const output = settled ? resultText(block) : null;
-			const meta = metaObject(block);
-			const rawName = argsRaw === "" ? null : firstLine(argsRaw);
-			return {
-				pluginId: meta === null ? null : stringAt(meta, "pluginId"),
-				packageId: meta === null ? null : stringAt(meta, "packageId"),
-				name: args === null ? rawName : stringAt(args, "name") ?? rawName,
-				purpose: args === null ? null : stringAt(args, "purpose"),
-				hostCode: code === null ? null : stringAt(code, "host"),
-				clientCode: code === null ? null : stringAt(code, "client"),
-				output,
-				errorSummary: state === "error" && output !== null ? firstLine(output) : null,
-				state
-			};
-		}
-		/**
-		* Derive one Run card and its successful activation metadata.
-		* @param block - active or settled tool-call block.
-		* @returns normalized Run card fields.
-		*/
-		function cordisRunCard(block) {
-			const settled = "kind" in block;
-			const args = parseArgs((settled ? block.call?.argsRaw : block.argsRaw) ?? "");
-			const meta = metaObject(block);
-			const state = stateOf(block);
-			const output = settled ? resultText(block) : null;
-			const rawMode = args === null ? null : stringAt(args, "mode");
-			const argsPluginId = args === null ? null : stringAt(args, "pluginId");
-			const argsPackageId = args === null ? null : stringAt(args, "packageId");
-			return {
-				pluginId: meta === null ? argsPluginId : stringAt(meta, "pluginId") ?? argsPluginId,
-				packageId: meta === null ? argsPackageId : stringAt(meta, "packageId") ?? argsPackageId,
-				pluginRunId: meta === null ? null : stringAt(meta, "pluginRunId"),
-				mode: rawMode === "run" || rawMode === "update" ? rawMode : null,
-				seq: settled ? block.seq : null,
-				output,
-				errorSummary: state === "error" && output !== null ? firstLine(output) : null,
-				state
-			};
-		}
-		/**
-		* Derive one Stop or Remove card from its frozen call/result slice.
-		* @param block - active or settled tool-call block.
-		* @returns normalized lifecycle-action card fields.
-		*/
-		function cordisActionCard(block) {
-			const settled = "kind" in block;
-			const args = parseArgs((settled ? block.call?.argsRaw : block.argsRaw) ?? "");
-			const state = stateOf(block);
-			const output = settled ? resultText(block) : null;
-			return {
-				pluginId: args === null ? null : stringAt(args, "pluginId") ?? stringAt(args, "id"),
-				output,
-				errorSummary: state === "error" && output !== null ? firstLine(output) : null,
-				state
-			};
-		}
-		//#endregion
-		//#region \0dsh-css:D:\deepseek-harness\packages\extensions\ui-cordis\src\client\CordisRunRow.module.css.mjs
-		const css$2 = ".YHZKvW_card{flex-direction:column;gap:8px;display:flex}.YHZKvW_row{align-items:center;min-height:32px;display:flex}.YHZKvW_icon{color:var(--dsw-alias-state-business-primary);flex:none;margin-right:8px;display:inline-flex}.YHZKvW_title{color:var(--dsw-alias-state-business-primary);flex:none;font-size:14px;font-weight:500;line-height:24px}.YHZKvW_separator{corner-shape:round;background:var(--dsw-alias-state-business-primary);border-radius:50%;flex:none;width:2px;height:2px;margin:0 8px}.YHZKvW_summary,.YHZKvW_error{min-width:0;color:var(--dsw-alias-label-secondary);text-overflow:ellipsis;white-space:nowrap;flex:1;font-size:13px;line-height:24px;overflow:hidden}.YHZKvW_error{color:var(--dsw-alias-state-error-primary)}.YHZKvW_status{color:var(--dsw-alias-label-caption);flex:none;margin-left:8px;font-size:12px;line-height:24px}.YHZKvW_card[data-cordis-status=awaiting-approval] .YHZKvW_status,.YHZKvW_card[data-cordis-status=client-pending] .YHZKvW_status{color:var(--dsw-alias-state-warn-label)}.YHZKvW_card[data-cordis-status=running] .YHZKvW_status{color:var(--dsw-alias-state-success-primary)}.YHZKvW_card[data-cordis-status=failed] .YHZKvW_status{color:var(--dsw-alias-state-error-primary)}.YHZKvW_inspect{corner-shape:round;width:24px;height:24px;color:var(--dsw-alias-label-tertiary);cursor:pointer;opacity:0;background:0 0;border:none;border-radius:999px;justify-content:center;align-items:center;margin-left:4px;padding:0;display:inline-flex}.YHZKvW_card:hover .YHZKvW_inspect,.YHZKvW_inspect:focus-visible{opacity:1}.YHZKvW_inspect:hover{background:var(--dsw-alias-interactive-bg-hover)}.YHZKvW_message{background:var(--dsw-alias-button-ghost-active-fill);color:var(--dsw-alias-label-tertiary);border-radius:8px;padding:8px 12px;font-size:12px;line-height:18px}.YHZKvW_business{border:.5px solid var(--dsw-alias-border-l4);background:var(--dsw-alias-bg-base);border-radius:12px;min-width:0;overflow:hidden}.YHZKvW_output{border:.5px solid var(--dsw-alias-border-l4);background:var(--dsw-alias-markdown-code-block);color:var(--dsw-alias-label-secondary);font:var(--dsw-font-markdown-code-block-small);white-space:pre-wrap;overflow-wrap:anywhere;border-radius:8px;margin:0;padding:10px 12px;overflow:auto}.YHZKvW_business .YHZKvW_output{border:none;border-radius:0}";
-		const tagId$2 = "@deepseek-ai/dsh-client-ui-cordis/CordisRunRow.module.css";
-		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId$2) + "]") === null) {
-			const tag = document.createElement("style");
-			tag.dataset.plugin = "@deepseek-ai/dsh-client-ui-cordis";
-			tag.dataset.pluginCss = tagId$2;
-			tag.textContent = css$2;
-			document.head.appendChild(tag);
-		}
-		var CordisRunRow_module_css_default = {
-			"business": "YHZKvW_business",
-			"card": "YHZKvW_card",
-			"error": "YHZKvW_error",
-			"icon": "YHZKvW_icon",
-			"inspect": "YHZKvW_inspect",
-			"message": "YHZKvW_message",
-			"output": "YHZKvW_output",
-			"row": "YHZKvW_row",
-			"separator": "YHZKvW_separator",
-			"status": "YHZKvW_status",
-			"summary": "YHZKvW_summary",
-			"title": "YHZKvW_title"
+		const SIMPLE_ESCAPES = {
+			"\"": "\"",
+			"\\": "\\",
+			"/": "/",
+			b: "\b",
+			f: "\f",
+			n: "\n",
+			r: "\r",
+			t: "	"
 		};
-		//#endregion
-		//#region lib/types/client/CordisPreparingRow.js
-		/* v8 ignore next -- Non-expandable rows never invoke DisclosureRow's required toggle callback. */
-		const noop = () => void 0;
-		/**
-		* Render a Cordis-owned prefix without disclosure.
-		* @param props - Cordis prefix, styling, and locale.
-		* @returns the preparation row.
-		*/
-		function CordisPreparingRow({ toolName, t, icon, title, className, rowClassName, titleClassName }) {
-			return (0, react_jsx_runtime.jsx)("div", {
-				"data-tool": toolName,
-				"data-state": "preparing",
-				"aria-label": t("a11y.preparing"),
-				children: (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.DisclosureRow, {
-					icon,
-					title,
-					className,
-					rowClassName,
-					titleClassName,
-					open: false,
-					expandable: false,
-					onToggle: noop,
-					running: true
-				})
-			});
+		const CONTENT_ESCAPE = /[\\\u0000-\u001f]/u;
+		function isWhitespace(c) {
+			return c === " " || c === "\n" || c === "\r" || c === "	";
 		}
-		//#endregion
-		//#region lib/types/client/CordisActionRow.js
-		/** Localized cards for `cordis_stop` and `cordis_undefine`. */
-		/** Render one Stop or Remove call with Cordis-owned localized copy. */
-		function CordisActionRow(props) {
-			if (props.phase === "preparing") {
-				const remove = props.toolName === "cordis_undefine";
-				return (0, react_jsx_runtime.jsx)(CordisPreparingRow, {
-					...props,
-					icon: remove ? (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconTrashOutlineRegular, { size: 14 }) : (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconStopFillRegular, { size: 14 }),
-					title: props.t(remove ? "row.removeTitle" : "row.stopTitle"),
-					className: CordisRunRow_module_css_default.card,
-					rowClassName: CordisRunRow_module_css_default.row,
-					titleClassName: CordisRunRow_module_css_default.title
-				});
-			}
-			return (0, react_jsx_runtime.jsx)(StartedCordisActionRow, { ...props });
+		function isHex(c) {
+			return c >= "0" && c <= "9" || c >= "a" && c <= "f" || c >= "A" && c <= "F";
 		}
-		function StartedCordisActionRow({ callId, toolName, block, inspect, t }) {
-			const card = cordisActionCard(block);
-			const remove = toolName === "cordis_undefine";
-			const summary = card.errorSummary ?? card.pluginId ?? callId;
-			return (0, react_jsx_runtime.jsxs)("div", {
-				className: CordisRunRow_module_css_default.card,
-				"data-tool": toolName,
-				"data-state": card.state,
-				children: [(0, react_jsx_runtime.jsxs)("div", {
-					className: CordisRunRow_module_css_default.row,
-					children: [
-						(0, react_jsx_runtime.jsx)("span", {
-							className: CordisRunRow_module_css_default.icon,
-							children: remove ? (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconTrashOutlineRegular, { size: 14 }) : (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconStopFillRegular, { size: 14 })
-						}),
-						(0, react_jsx_runtime.jsx)("span", {
-							className: CordisRunRow_module_css_default.title,
-							children: t(remove ? "row.removeTitle" : "row.stopTitle")
-						}),
-						(0, react_jsx_runtime.jsx)("span", {
-							className: CordisRunRow_module_css_default.separator,
-							"aria-hidden": true
-						}),
-						(0, react_jsx_runtime.jsx)("span", {
-							className: card.errorSummary === null ? CordisRunRow_module_css_default.summary : CordisRunRow_module_css_default.error,
-							children: summary
-						}),
-						inspect !== void 0 && (0, react_jsx_runtime.jsx)("button", {
-							type: "button",
-							className: CordisRunRow_module_css_default.inspect,
-							"aria-label": t("action.inspect"),
-							onClick: inspect,
-							children: (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconInspectOutlineRegular, {})
-						})
-					]
-				}), card.output !== null && (0, react_jsx_runtime.jsx)("pre", {
-					className: CordisRunRow_module_css_default.output,
-					children: card.output
-				})]
-			});
-		}
-		//#endregion
-		//#region lib/types/client/status.js
-		/** Shared status derivation over Host inventory and this page's Client live set. */
-		/**
-		* Locate one immutable Package inside a Plugin row.
-		* @param row - owning Plugin inventory row.
-		* @param packageId - immutable Package identity to locate.
-		* @returns the matching Package metadata, or `undefined` when absent.
-		*/
-		function packageOf(row, packageId) {
-			return row.packages.find((pkg) => pkg.packageId === packageId);
-		}
-		/**
-		* Derive the visible state of one Package.
-		* @param row - owning Plugin inventory row.
-		* @param packageId - Package being described.
-		* @param loaded - Client activations loaded in this page.
-		* @returns idle, Host-running/Client-pending, or fully running.
-		*/
-		function cordisVisibleStatus(row, packageId, loaded) {
-			const run = row.activeRun;
-			if (run === void 0 || run.packageId !== packageId) return "idle";
-			if (packageOf(row, packageId)?.hasClientHalf !== true) return "running";
-			return loaded.some((live) => live.pluginId === row.pluginId && live.packageId === packageId && live.pluginRunId === run.pluginRunId) ? "running" : "client-pending";
-		}
-		//#endregion
-		//#region \0dsh-css:D:\deepseek-harness\packages\extensions\ui-cordis\src\client\CordisDefineRow.module.css.mjs
-		const css$1 = ".bznblG_card{flex-direction:column;display:flex}.bznblG_card .bznblG_title,.bznblG_card .bznblG_chevron{color:var(--dsw-alias-state-business-primary)}.bznblG_title{flex:none;font-size:14px;font-weight:500;line-height:24px}.bznblG_row{gap:0}.bznblG_separator{background:var(--dsw-alias-state-business-primary);border-radius:1px;flex:none;width:2px;height:2px;margin:0 8px}.bznblG_name{text-overflow:ellipsis;white-space:nowrap;max-width:40%;color:var(--dsw-alias-label-secondary);flex:none;font-size:14px;line-height:24px;overflow:hidden}.bznblG_purpose{text-overflow:ellipsis;white-space:nowrap;min-width:0;color:var(--dsw-alias-label-tertiary);flex:auto;margin-left:8px;font-size:13px;line-height:24px;overflow:hidden}.bznblG_errorSummary{text-overflow:ellipsis;white-space:nowrap;min-width:0;color:var(--dsw-alias-state-error-primary);flex:auto;font-size:14px;line-height:24px;overflow:hidden}.bznblG_requestError{text-overflow:ellipsis;white-space:nowrap;max-width:40%;color:var(--dsw-alias-state-error-primary);flex:none;margin-left:8px;font-size:12px;line-height:24px;overflow:hidden}.bznblG_readout{flex:none;align-items:center;margin-left:8px;display:inline-flex}.bznblG_panelHint{color:var(--dsw-alias-label-caption);margin:4px 0 2px 4px;font-size:11px;line-height:16px}.bznblG_statusLabel{color:var(--dsw-alias-label-caption);font-size:12px;line-height:24px}.bznblG_approvalPrompt{text-overflow:ellipsis;white-space:nowrap;max-width:40%;color:var(--dsw-alias-label-secondary);flex:none;margin-left:8px;font-size:12px;line-height:24px;overflow:hidden}.bznblG_notice{text-overflow:ellipsis;white-space:nowrap;max-width:40%;color:var(--dsw-alias-label-caption);flex:none;margin-left:8px;font-size:12px;line-height:24px;overflow:hidden}.bznblG_switch{height:22px;padding:0 8px;font-size:12px}.bznblG_card[data-terminal] .bznblG_title,.bznblG_card[data-terminal] .bznblG_name,.bznblG_card[data-terminal] .bznblG_purpose,.bznblG_card[data-terminal] .bznblG_statusLabel{color:var(--dsw-alias-label-caption)}.bznblG_card[data-terminal] .bznblG_separator{background:var(--dsw-alias-label-caption)}.bznblG_bodyWrap{flex-direction:column;display:flex}.bznblG_sourceCard{flex-direction:column;margin:4px 0 4px 4px;display:flex}.bznblG_sourceTabs{border-bottom:.5px solid var(--dsw-alias-border-l2);height:32px;display:flex}.bznblG_sourceTab{color:var(--dsw-alias-label-tertiary);cursor:pointer;font:var(--dsw-font-xs-13);background:0 0;border:0;padding:0 10px;position:relative}.bznblG_sourceTab:hover:not(:disabled){background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-primary)}.bznblG_sourceTab:disabled{cursor:default;opacity:.4}.bznblG_sourceTabActive{color:var(--dsw-alias-state-business-primary)}.bznblG_sourceTabActive:after{background:var(--dsw-alias-state-business-primary);content:\"\";border-radius:1px 1px 0 0;height:2px;position:absolute;bottom:0;left:10px;right:10px}.bznblG_sourceTab:focus-visible{outline:1px solid var(--dsw-alias-state-business-primary);outline-offset:-1px}.bznblG_sourcePanel{max-height:260px;overflow:auto}.bznblG_sourceCode{margin:0}.bznblG_codeSection{flex-direction:column;max-height:260px;margin:4px 0 4px 4px;display:flex;overflow:auto}.bznblG_sectionLabel{color:var(--dsw-alias-label-caption);text-transform:uppercase;letter-spacing:.04em;flex:none;padding:2px 0;font-size:11px;font-weight:500;line-height:16px}.bznblG_output{border:.5px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-markdown-code-block);white-space:pre-wrap;overflow-wrap:anywhere;font:var(--dsw-font-markdown-code-block-small);color:var(--dsw-alias-label-secondary);border-radius:8px;margin:0;padding:8px 10px}.bznblG_output[data-error]{color:var(--dsw-alias-state-error-primary)}.bznblG_inspectButton{border:.5px solid var(--dsw-alias-border-l4);corner-shape:round;background:var(--dsw-alias-bg-base);color:var(--dsw-alias-label-secondary);cursor:pointer;opacity:0;border-radius:999px;align-self:flex-start;align-items:center;gap:4px;margin:4px 0 2px 4px;padding:2px 8px;font-size:11px;line-height:16px;transition:opacity .1s;display:inline-flex}.bznblG_card:hover .bznblG_inspectButton,.bznblG_inspectButton:focus-visible{opacity:1}.bznblG_inspectButton:hover{background:var(--dsw-alias-interactive-bg-hover-solid);color:var(--dsw-alias-label-primary)}.bznblG_visuallyHidden{clip:rect(0 0 0 0);white-space:nowrap;width:1px;height:1px;position:absolute;overflow:hidden}@media (prefers-reduced-motion:reduce){.bznblG_inspectButton{transition:none}}";
-		const tagId$1 = "@deepseek-ai/dsh-client-ui-cordis/CordisDefineRow.module.css";
-		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId$1) + "]") === null) {
-			const tag = document.createElement("style");
-			tag.dataset.plugin = "@deepseek-ai/dsh-client-ui-cordis";
-			tag.dataset.pluginCss = tagId$1;
-			tag.textContent = css$1;
-			document.head.appendChild(tag);
-		}
-		var CordisDefineRow_module_css_default = {
-			"approvalPrompt": "bznblG_approvalPrompt",
-			"bodyWrap": "bznblG_bodyWrap",
-			"card": "bznblG_card",
-			"chevron": "bznblG_chevron",
-			"codeSection": "bznblG_codeSection",
-			"errorSummary": "bznblG_errorSummary",
-			"inspectButton": "bznblG_inspectButton",
-			"name": "bznblG_name",
-			"notice": "bznblG_notice",
-			"output": "bznblG_output",
-			"panelHint": "bznblG_panelHint",
-			"purpose": "bznblG_purpose",
-			"readout": "bznblG_readout",
-			"requestError": "bznblG_requestError",
-			"row": "bznblG_row",
-			"sectionLabel": "bznblG_sectionLabel",
-			"separator": "bznblG_separator",
-			"sourceCard": "bznblG_sourceCard",
-			"sourceCode": "bznblG_sourceCode",
-			"sourcePanel": "bznblG_sourcePanel",
-			"sourceTab": "bznblG_sourceTab",
-			"sourceTabActive": "bznblG_sourceTabActive",
-			"sourceTabs": "bznblG_sourceTabs",
-			"statusLabel": "bznblG_statusLabel",
-			"switch": "bznblG_switch",
-			"title": "bznblG_title",
-			"visuallyHidden": "bznblG_visuallyHidden"
-		};
-		//#endregion
-		//#region lib/types/client/CordisDefineRow.js
-		/** Read-only `cordis_define` card with Host and Client source tabs. */
-		const READING_LABELS$1 = {
-			idle: "status.idle",
-			"client-pending": "status.clientPending",
-			running: "status.running",
-			removed: "status.removed"
-		};
-		function stateStatus(state) {
-			switch (state) {
-				case "running": return "a11y.defining";
-				case "error": return "a11y.failed";
-				case "stopped": return "a11y.stopped";
-				default: return null;
-			}
-		}
-		/** Render one immutable Package definition. */
-		function CordisDefineRow(props) {
-			if (props.phase === "preparing") return (0, react_jsx_runtime.jsx)(CordisPreparingRow, {
-				...props,
-				icon: (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconCodeOutlineRegular, { size: 14 }),
-				title: props.t("row.defineTitle"),
-				className: CordisDefineRow_module_css_default.card,
-				rowClassName: CordisDefineRow_module_css_default.row,
-				titleClassName: CordisDefineRow_module_css_default.title
-			});
-			return (0, react_jsx_runtime.jsx)(StartedCordisDefineRow, { ...props });
-		}
-		function StartedCordisDefineRow({ callId, block, inspect, useInventory, useLoaded, t }) {
-			const card = cordisDefineCard(block);
-			const inventory = useInventory((snapshot) => snapshot);
-			const loaded = useLoaded((snapshot) => snapshot);
-			const [expanded, setExpanded] = (0, react.useState)(false);
-			const [selectedSource, setSelectedSource] = (0, react.useState)(card.clientCode !== null ? "client" : "host");
-			const sourcePanelId = (0, react.useId)();
-			const row = card.pluginId === null ? void 0 : inventory.rows.find((candidate) => candidate.pluginId === card.pluginId);
-			const reading = card.pluginId !== null && inventory.removed.has(card.pluginId) ? "removed" : row !== void 0 && card.packageId !== null ? cordisVisibleStatus(row, card.packageId, loaded) : "idle";
-			const name = card.name ?? callId;
-			const expandable = card.hostCode !== null || card.clientCode !== null || card.output !== null;
-			const open = expanded && expandable;
-			const a11yState = stateStatus(card.state);
-			const hasSource = card.clientCode !== null || card.hostCode !== null;
-			const activeSource = selectedSource === "client" && card.clientCode !== null ? "client" : selectedSource === "host" && card.hostCode !== null ? "host" : card.clientCode !== null ? "client" : "host";
-			const activeCode = activeSource === "client" ? card.clientCode : card.hostCode;
-			return (0, react_jsx_runtime.jsxs)("div", {
-				className: CordisDefineRow_module_css_default.card,
-				"data-tool": "cordis_define",
-				"data-state": card.state,
-				"data-terminal": reading === "removed" || void 0,
-				"data-cordis-plugin-id": card.pluginId ?? void 0,
-				"data-cordis-package-id": card.packageId ?? void 0,
-				"data-cordis-status": reading,
-				children: [a11yState !== null && (0, react_jsx_runtime.jsx)("span", {
-					className: CordisDefineRow_module_css_default.visuallyHidden,
-					children: t(a11yState)
-				}), (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.DisclosureRow, {
-					rowClassName: CordisDefineRow_module_css_default.row,
-					titleClassName: CordisDefineRow_module_css_default.title,
-					chevronClassName: CordisDefineRow_module_css_default.chevron,
-					icon: (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconCodeOutlineRegular, { size: 14 }),
-					title: t("row.defineTitle"),
-					open,
-					expandable,
-					expandOnRowClick: true,
-					keepContentWhenOpen: true,
-					onToggle: () => {
-						setExpanded((value) => !value);
-					},
-					collapsedContent: (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [
-						(0, react_jsx_runtime.jsx)("span", {
-							className: CordisDefineRow_module_css_default.separator,
-							"aria-hidden": true
-						}),
-						(0, react_jsx_runtime.jsx)("span", {
-							className: card.errorSummary === null ? CordisDefineRow_module_css_default.name : CordisDefineRow_module_css_default.errorSummary,
-							children: card.errorSummary ?? name
-						}),
-						card.errorSummary === null && (0, react_jsx_runtime.jsx)("span", {
-							className: CordisDefineRow_module_css_default.purpose,
-							children: card.purpose ?? t("purpose.missing")
-						}),
-						card.pluginId !== null && (0, react_jsx_runtime.jsx)("span", {
-							className: CordisDefineRow_module_css_default.readout,
-							children: (0, react_jsx_runtime.jsx)("span", {
-								className: CordisDefineRow_module_css_default.statusLabel,
-								children: t(READING_LABELS$1[reading])
-							})
-						})
-					] }),
-					children: (0, react_jsx_runtime.jsxs)("div", {
-						className: CordisDefineRow_module_css_default.bodyWrap,
-						children: [
-							hasSource && activeCode !== null && (0, react_jsx_runtime.jsxs)("section", {
-								className: CordisDefineRow_module_css_default.sourceCard,
-								children: [(0, react_jsx_runtime.jsx)("div", {
-									className: CordisDefineRow_module_css_default.sourceTabs,
-									role: "tablist",
-									"aria-label": t("body.source"),
-									children: ["client", "host"].map((source) => {
-										const available = source === "client" ? card.clientCode !== null : card.hostCode !== null;
-										return (0, react_jsx_runtime.jsx)("button", {
-											id: `${sourcePanelId}-${source}`,
-											type: "button",
-											role: "tab",
-											"aria-controls": sourcePanelId,
-											"aria-selected": activeSource === source,
-											className: activeSource === source ? `${CordisDefineRow_module_css_default.sourceTab} ${CordisDefineRow_module_css_default.sourceTabActive}` : CordisDefineRow_module_css_default.sourceTab,
-											disabled: !available,
-											onClick: () => {
-												setSelectedSource(source);
-											},
-											children: t(source === "client" ? "body.clientCode" : "body.hostCode")
-										}, source);
-									})
-								}), (0, react_jsx_runtime.jsx)("div", {
-									id: sourcePanelId,
-									className: CordisDefineRow_module_css_default.sourcePanel,
-									role: "tabpanel",
-									"aria-labelledby": `${sourcePanelId}-${activeSource}`,
-									children: (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.CodeBlock, {
-										toolbarLabels: {
-											codeLabel: t("codeBlock.title"),
-											wrapLabel: t("codeBlock.wrap"),
-											unwrapLabel: t("codeBlock.unwrap")
-										},
-										code: activeCode,
-										lang: "javascript",
-										copyLabel: t("body.copy"),
-										copiedLabel: t("body.copied"),
-										className: CordisDefineRow_module_css_default.sourceCode
-									})
-								})]
-							}),
-							card.output !== null && (0, react_jsx_runtime.jsxs)("section", {
-								className: CordisDefineRow_module_css_default.codeSection,
-								children: [(0, react_jsx_runtime.jsx)("div", {
-									className: CordisDefineRow_module_css_default.sectionLabel,
-									children: t("body.output")
-								}), (0, react_jsx_runtime.jsx)("pre", {
-									className: CordisDefineRow_module_css_default.output,
-									"data-error": card.state === "error" || void 0,
-									children: card.output
-								})]
-							}),
-							card.pluginId !== null && (0, react_jsx_runtime.jsx)("div", {
-								className: CordisDefineRow_module_css_default.panelHint,
-								children: t("panel.hint")
-							}),
-							inspect !== void 0 && (0, react_jsx_runtime.jsxs)("button", {
-								type: "button",
-								className: CordisDefineRow_module_css_default.inspectButton,
-								onClick: inspect,
-								children: [(0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconInspectOutlineRegular, {}), t("action.inspect")]
-							})
-						]
-					})
-				})]
-			});
-		}
-		//#endregion
-		//#region lib/types/client/run-card-index.js
-		/** Session-local ownership index for Package business views on `cordis_run` cards. */
-		function createStore() {
-			const pointers = /* @__PURE__ */ new Map();
-			const listeners = /* @__PURE__ */ new Set();
-			let cache;
-			return {
-				getSnapshot: () => cache ??= new Map(pointers),
-				subscribe: (listener) => {
-					listeners.add(listener);
-					return () => {
-						listeners.delete(listener);
-					};
-				},
-				observe: (pointer) => {
-					const current = pointers.get(pointer.key);
-					if (current !== void 0 && current.seq >= pointer.seq) return;
-					pointers.set(pointer.key, pointer);
-					cache = void 0;
-					for (const listener of [...listeners]) listener();
-				}
-			};
-		}
-		/** Page-lifetime registry that gives all cards of one session the same Store. */
-		var CordisRunCardRegistry = class {
-			sessions = /* @__PURE__ */ new Map();
+		(class PartialArguments {
+			/** The view of a call with no arguments available. */
+			static EMPTY = PartialArguments.fromObject({});
 			/**
-			* Return the persistent page-local Store for a session.
-			* @param sessionId - session whose cards share supersession state.
-			* @returns the page-local Store retained for that session.
+			* View finished argument text without scanning it until a reader asks.
+			* @param text - the complete argument JSON text.
+			* @returns a sealed view.
 			*/
-			forSession(sessionId) {
-				let store = this.sessions.get(sessionId);
-				if (store === void 0) {
-					store = createStore();
-					this.sessions.set(sessionId, store);
+			static fromText(text) {
+				const view = new PartialArguments();
+				view.append(text);
+				view.sealed = true;
+				return view;
+			}
+			/**
+			* View an already parsed argument payload, such as a PTC dispatch object.
+			* @param value - the parsed argument value.
+			* @returns a sealed view; a non-object payload has no fields.
+			*/
+			static fromObject(value) {
+				const view = new PartialArguments();
+				view.object = typeof value === "object" && value !== null && !Array.isArray(value) ? value : {};
+				view.sealed = true;
+				return view;
+			}
+			/**
+			* The source: text so far or a parsed object, plus whether it can still grow.
+			* These are the only enumerable fields, so two views over the same source
+			* compare equal structurally however far each has been read.
+			*/
+			chunks = [];
+			object;
+			sealed = false;
+			#ends = [];
+			#size = 0;
+			#consumed = 0;
+			#mode = "root";
+			#escape = false;
+			#keyStart = 0;
+			#keyEscaped = false;
+			#key = "";
+			#current = null;
+			#nestedEnds = [];
+			#nestedInString = false;
+			#invalidAt;
+			#invalidValue = false;
+			#entries = /* @__PURE__ */ new Map();
+			#order = [];
+			#reads = /* @__PURE__ */ new Map();
+			/** Whether this view rejects further appends; does not scan text or register reads. */
+			get isSealed() {
+				return this.sealed;
+			}
+			/** Whether indexing or a content read found invalid JSON; unread value contents are not validated. */
+			get invalid() {
+				this.scan();
+				return this.#mode === "invalid" || this.#invalidValue;
+			}
+			/**
+			* Retain streamed argument text without scanning or comparing observed answers.
+			* @param fragment - the text following every fragment appended before.
+			*/
+			append(fragment) {
+				if (this.sealed) throw new Error("PartialArguments: cannot append to a sealed view");
+				if (fragment.length === 0) return;
+				this.chunks.push(fragment);
+				this.#size += fragment.length;
+				this.#ends.push(this.#size);
+			}
+			/**
+			* Reconcile a streamed prefix with authoritative complete text without joining the fragments.
+			* @param text - the final argument text, which replaces missing or conflicting deltas.
+			* @returns this view sealed with its caches retained when every character matches; otherwise a new sealed view.
+			*/
+			settle(text) {
+				if (this.object !== void 0 || text.length !== this.#size) return PartialArguments.fromText(text);
+				let offset = 0;
+				for (const chunk of this.chunks) {
+					if (!text.startsWith(chunk, offset)) return PartialArguments.fromText(text);
+					offset += chunk.length;
 				}
-				return store;
+				this.chunks = text.length === 0 ? [] : [text];
+				this.#ends = text.length === 0 ? [] : [text.length];
+				this.sealed = true;
+				return this;
+			}
+			/**
+			* Compare observed answers and advance their publication baseline. Unread views remain unscanned.
+			* @returns whether any observed answer changed since its first read or the preceding refresh.
+			*/
+			refresh() {
+				if (this.#reads.size === 0) return false;
+				this.scan();
+				let changed = false;
+				let completions = false;
+				for (const read of this.#reads.values()) {
+					if (read.completion) {
+						completions = true;
+						continue;
+					}
+					changed = this.refreshRead(read) || changed;
+				}
+				if (completions) {
+					for (const read of this.#reads.values()) if (read.completion) changed = this.refreshRead(read) || changed;
+				}
+				if (this.sealed) this.#reads.clear();
+				return changed;
+			}
+			refreshRead(read) {
+				const now = read.answer();
+				if (Object.is(now, read.last)) return false;
+				read.last = now;
+				return true;
+			}
+			/**
+			* Check whether no further fields can arrive.
+			* @returns whether the outer object closed, indexing failed, or the view is sealed; unread values are not validated.
+			*/
+			closed() {
+				return this.remember("closed", "", () => this.closedNow());
+			}
+			/**
+			* List discovered fields in first-appearance order.
+			* @returns top-level keys seen so far, in first-appearance order.
+			*/
+			keys() {
+				return this.remember("keys", "", () => this.keysNow(), (keys) => keys.length);
+			}
+			/**
+			* Check whether a top-level field has appeared.
+			* @param key - argument name.
+			* @returns whether the field has appeared (a string opened or another value began).
+			*/
+			has(key) {
+				return this.remember("has", key, () => this.hasNow(key));
+			}
+			/**
+			* Check whether a field's closing delimiter has arrived, without validating its contents.
+			* @param key - argument name.
+			* @returns whether its delimiter arrived and no content reader has reported an error for this value.
+			*/
+			complete(key) {
+				return this.remember("complete", key, () => this.completeNow(key));
+			}
+			/**
+			* Read string length without materializing its text.
+			* @param key - argument name.
+			* @param options - change granularity for a streaming string.
+			* @returns decoded UTF-16 length of the string field so far; undefined when absent or not a string.
+			*/
+			stringLength(key, options) {
+				const step = Math.max(1, Math.floor(options?.step ?? 1));
+				const offset = options?.offset ?? 0;
+				return this.remember(`length:${step}:${offset}`, key, () => this.lengthNow(key), (length) => length === void 0 ? void 0 : Math.ceil((length + offset) / step));
+			}
+			/**
+			* Check a string against a decoded UTF-16 length limit without materializing it.
+			* @param key - argument name.
+			* @param maxLength - decoded UTF-16 limit, floored to at least zero.
+			* @returns whether the string is longer than the limit; false when absent or not a string.
+			*/
+			stringExceeds(key, maxLength) {
+				const limit = Math.max(0, Math.floor(maxLength));
+				return this.remember(`exceeds:${limit}`, key, () => (this.lengthNow(key, limit + 1) ?? 0) > limit);
+			}
+			/**
+			* Read a decoded string, including a streaming prefix.
+			* @param key - argument name.
+			* @returns the string field's decoded text so far; undefined when absent or not a string.
+			*/
+			text(key) {
+				return this.remember("text", key, () => this.textNow(key));
+			}
+			/**
+			* Read at most the first decoded UTF-16 units of a string.
+			* @param key - argument name.
+			* @param maxLength - maximum decoded UTF-16 length, floored to at least one.
+			* @returns the bounded string prefix; undefined when absent or not a string.
+			*/
+			textPrefix(key, maxLength) {
+				const limit = Math.max(1, Math.floor(maxLength));
+				return this.remember(`prefix:${limit}`, key, () => this.textPrefixNow(key, limit));
+			}
+			/**
+			* Read a completed non-string argument.
+			* @param key - argument name.
+			* @returns the parsed non-string value once it closed; undefined while open, absent, or a string.
+			*/
+			value(key) {
+				return this.remember("value", key, () => this.valueNow(key));
+			}
+			/** Answer a question and, on a streaming view, remember it for change detection. */
+			remember(kind, key, read, comparison) {
+				this.scan();
+				const result = read();
+				if (!this.sealed) {
+					const id = `${kind}/${key}`;
+					if (!this.#reads.has(id)) this.#reads.set(id, {
+						completion: kind === "complete",
+						answer: comparison === void 0 ? read : () => comparison(read()),
+						last: comparison === void 0 ? result : comparison(result)
+					});
+				}
+				return result;
+			}
+			closedNow() {
+				return this.sealed || this.#mode === "closed" || this.#mode === "invalid";
+			}
+			keysNow() {
+				return this.object === void 0 ? this.#order : Object.keys(this.object);
+			}
+			hasNow(key) {
+				return this.object === void 0 ? this.#entries.has(key) : Object.hasOwn(this.object, key);
+			}
+			completeNow(key) {
+				if (this.object !== void 0) return Object.hasOwn(this.object, key);
+				const entry = this.#entries.get(key);
+				return entry !== void 0 && entry.end >= 0 && (entry.kind === "string" ? entry.invalidAt === void 0 : !entry.invalid);
+			}
+			lengthNow(key, limit = Number.POSITIVE_INFINITY) {
+				if (this.object !== void 0) {
+					const field = Object.hasOwn(this.object, key) ? this.object[key] : void 0;
+					return typeof field === "string" ? field.length : void 0;
+				}
+				const entry = this.#entries.get(key);
+				if (entry?.kind !== "string") return void 0;
+				if (entry.text !== void 0 && entry.text.at === entry.end) return entry.text.length;
+				const read = entry.length ??= {
+					at: entry.start,
+					length: 0,
+					text: ""
+				};
+				this.readString(entry, read, limit, false);
+				return read.length;
+			}
+			textNow(key) {
+				if (this.object !== void 0) {
+					const field = Object.hasOwn(this.object, key) ? this.object[key] : void 0;
+					return typeof field === "string" ? field : void 0;
+				}
+				const entry = this.#entries.get(key);
+				if (entry?.kind !== "string") return void 0;
+				if (entry.text === void 0 && entry.end >= 0 && entry.needsDecoding && entry.invalidAt === void 0) {
+					let text;
+					try {
+						text = JSON.parse(`"${this.slice(entry.start, entry.end)}"`);
+					} catch (_error) {}
+					if (text !== void 0) entry.text = {
+						at: entry.end,
+						length: text.length,
+						text
+					};
+				}
+				const read = entry.text ??= {
+					at: entry.start,
+					length: 0,
+					text: ""
+				};
+				this.readString(entry, read, Number.POSITIVE_INFINITY, true);
+				return read.text;
+			}
+			textPrefixNow(key, maxLength) {
+				if (this.object !== void 0) {
+					const field = Object.hasOwn(this.object, key) ? this.object[key] : void 0;
+					return typeof field === "string" ? field.slice(0, maxLength) : void 0;
+				}
+				const entry = this.#entries.get(key);
+				if (entry?.kind !== "string") return void 0;
+				const prefixes = entry.prefixes ??= /* @__PURE__ */ new Map();
+				let read = prefixes.get(maxLength);
+				if (read === void 0) {
+					read = {
+						at: entry.start,
+						length: 0,
+						text: ""
+					};
+					prefixes.set(maxLength, read);
+				}
+				this.readString(entry, read, maxLength, true);
+				return read.text;
+			}
+			valueNow(key) {
+				if (this.object !== void 0) {
+					if (!Object.hasOwn(this.object, key)) return void 0;
+					const field = this.object[key];
+					return typeof field === "string" ? void 0 : field;
+				}
+				const entry = this.#entries.get(key);
+				if (entry?.kind !== "value" || entry.end < 0 || entry.invalid) return void 0;
+				if (entry.parsed === void 0) try {
+					entry.parsed = JSON.parse(this.slice(entry.start, entry.end));
+				} catch (_error) {
+					entry.invalid = true;
+					this.#invalidValue = true;
+				}
+				return entry.parsed;
+			}
+			chunkAt(at) {
+				let low = 0;
+				let high = this.#ends.length;
+				while (low < high) {
+					const mid = low + high >>> 1;
+					if (this.#ends[mid] <= at) low = mid + 1;
+					else high = mid;
+				}
+				return low;
+			}
+			/** Materialize only a requested range, never the cumulative source. */
+			slice(start, end) {
+				if (start >= end) return "";
+				const first = this.chunkAt(start);
+				const last = this.chunkAt(end - 1);
+				const base = first === 0 ? 0 : this.#ends[first - 1];
+				if (first === last) return this.chunks[first].slice(start - base, end - base);
+				const parts = [this.chunks[first].slice(start - base)];
+				for (let i = first + 1; i < last; i++) parts.push(this.chunks[i]);
+				parts.push(this.chunks[last].slice(0, end - this.#ends[last - 1]));
+				return parts.join("");
+			}
+			readString(entry, read, limit, materialize) {
+				const end = Math.min(entry.end < 0 ? this.#consumed : entry.end, entry.invalidAt ?? Number.POSITIVE_INFINITY, this.#invalidAt ?? Number.POSITIVE_INFINITY);
+				if (!entry.needsDecoding) {
+					const length = Math.min(end - read.at, limit - read.length);
+					if (length <= 0) return;
+					if (materialize) read.text += this.slice(read.at, read.at + length);
+					read.at += length;
+					read.length += length;
+					return;
+				}
+				let chunkIndex = this.chunkAt(read.at);
+				while (read.at < end && read.length < limit) {
+					const base = chunkIndex === 0 ? 0 : this.#ends[chunkIndex - 1];
+					const chunk = this.chunks[chunkIndex];
+					const remaining = chunk.slice(read.at - base, Math.min(chunk.length, end - base));
+					const boundary = remaining.search(CONTENT_ESCAPE);
+					const length = Math.min(boundary < 0 ? remaining.length : boundary, limit - read.length);
+					if (length > 0) {
+						if (materialize) read.text += remaining.slice(0, length);
+						read.at += length;
+						read.length += length;
+						if (read.at === base + chunk.length) chunkIndex++;
+						continue;
+					}
+					const type = remaining.length > 1 ? remaining[1] : read.at + 1 < end ? this.chunks[chunkIndex + 1][0] : void 0;
+					let decoded;
+					let width = 2;
+					if (remaining[0] === "\\" && type === void 0 && entry.end < 0) return;
+					if (remaining[0] === "\\" && type === "u") {
+						const hex = this.slice(read.at + 2, Math.min(end, read.at + 6));
+						let valid = true;
+						for (let i = 0; i < hex.length; i++) if (!isHex(hex[i])) valid = false;
+						if (valid) {
+							if (hex.length < 4 && entry.end < 0) return;
+							if (hex.length === 4) decoded = String.fromCharCode(Number.parseInt(hex, 16));
+						}
+						width = 6;
+					} else if (remaining[0] === "\\" && type !== void 0) decoded = SIMPLE_ESCAPES[type];
+					if (decoded === void 0) {
+						entry.invalidAt = read.at;
+						this.#invalidValue = true;
+						return;
+					}
+					if (materialize) read.text += decoded;
+					read.length++;
+					read.at += width;
+					while (chunkIndex < this.chunks.length && read.at >= this.#ends[chunkIndex]) chunkIndex++;
+				}
+			}
+			/** Locate new field ranges without decoding or parsing their contents. */
+			scan() {
+				if (this.object !== void 0 || this.#consumed === this.#size) return;
+				for (let i = this.chunkAt(this.#consumed); i < this.chunks.length && this.#invalidAt === void 0; i++) {
+					const pending = this.chunks[i];
+					const base = i === 0 ? 0 : this.#ends[i - 1];
+					for (let index = this.#consumed - base; index < pending.length && this.#mode !== "invalid"; index++) {
+						if (this.#mode === "string" || this.#mode === "nested" && this.#nestedInString) {
+							const end = this.stringBoundary(pending, index);
+							this.#consumed += end - index;
+							index = end;
+							if (index === pending.length) break;
+						}
+						this.step(pending[index], this.#consumed);
+						this.#consumed++;
+					}
+				}
+			}
+			/** Only raw quotes and their preceding backslash runs can terminate a string. */
+			stringBoundary(fragment, start) {
+				let at = start;
+				while (true) {
+					const quote = fragment.indexOf("\"", at);
+					const end = quote < 0 ? fragment.length : quote;
+					if (this.#mode === "string") {
+						const entry = this.#current;
+						if (!entry.needsDecoding && CONTENT_ESCAPE.test(fragment.slice(at, end))) entry.needsDecoding = true;
+					}
+					let slashStart = end;
+					while (slashStart > at && fragment[slashStart - 1] === "\\") slashStart--;
+					const escaped = (end - slashStart) % 2 === 1 !== (slashStart === at && this.#escape);
+					this.#escape = quote < 0 && escaped;
+					if (quote < 0 || !escaped) return end;
+					at = quote + 1;
+				}
+			}
+			step(c, at) {
+				switch (this.#mode) {
+					case "root":
+						if (isWhitespace(c)) return;
+						if (c === "{") {
+							this.#mode = "key-or-end";
+							return;
+						}
+						this.fail();
+						return;
+					case "key-or-end":
+						if (isWhitespace(c)) return;
+						if (c === "}") {
+							this.#mode = "closed";
+							return;
+						}
+						if (c === "\"") {
+							this.beginKey(at);
+							return;
+						}
+						this.fail();
+						return;
+					case "key-only":
+						if (isWhitespace(c)) return;
+						if (c === "\"") {
+							this.beginKey(at);
+							return;
+						}
+						this.fail();
+						return;
+					case "key":
+						this.stepKey(c, at);
+						return;
+					case "colon":
+						if (isWhitespace(c)) return;
+						if (c === ":") {
+							this.#mode = "value";
+							return;
+						}
+						this.fail();
+						return;
+					case "value":
+						this.beginValue(c, at);
+						return;
+					case "string": {
+						const entry = this.#current;
+						entry.end = at;
+						this.#current = null;
+						this.#mode = "comma-or-end";
+						return;
+					}
+					case "scalar":
+						this.stepScalar(c, at);
+						return;
+					case "nested":
+						this.stepNested(c, at);
+						return;
+					case "comma-or-end":
+						if (isWhitespace(c)) return;
+						if (c === ",") {
+							this.#mode = "key-only";
+							return;
+						}
+						if (c === "}") {
+							this.#mode = "closed";
+							return;
+						}
+						this.fail();
+						return;
+					case "closed":
+						if (isWhitespace(c)) return;
+						this.fail();
+						return;
+					/* v8 ignore next 2 -- scan() stops stepping once the view is invalid. */
+					case "invalid": return;
+					/* v8 ignore next 2 -- Every scanner mode has a handler above. */
+					default: assertNever(this.#mode);
+				}
+			}
+			fail() {
+				this.#invalidAt = this.#consumed;
+				this.#mode = "invalid";
+				this.#current = null;
+			}
+			beginKey(at) {
+				this.#mode = "key";
+				this.#keyStart = at + 1;
+				this.#keyEscaped = false;
+				this.#escape = false;
+			}
+			stepKey(c, at) {
+				if (c < " ") {
+					this.fail();
+					return;
+				}
+				if (this.#escape) {
+					this.#escape = false;
+					return;
+				}
+				if (c === "\\") {
+					this.#escape = true;
+					this.#keyEscaped = true;
+					return;
+				}
+				if (c !== "\"") return;
+				const raw = this.slice(this.#keyStart, at);
+				if (this.#keyEscaped) try {
+					this.#key = JSON.parse(`"${raw}"`);
+				} catch (_error) {
+					this.fail();
+					return;
+				}
+				else this.#key = raw;
+				this.#mode = "colon";
+			}
+			open(entry) {
+				if (!this.#entries.has(this.#key)) this.#order.push(this.#key);
+				this.#entries.set(this.#key, entry);
+				this.#current = entry;
+			}
+			beginValue(c, at) {
+				if (isWhitespace(c)) return;
+				if (c === "\"") {
+					this.open({
+						kind: "string",
+						start: at + 1,
+						end: -1,
+						needsDecoding: false,
+						invalidAt: void 0,
+						length: void 0,
+						text: void 0,
+						prefixes: void 0
+					});
+					this.#escape = false;
+					this.#mode = "string";
+					return;
+				}
+				if (c === "}" || c === "," || c === ":" || c === "]") {
+					this.fail();
+					return;
+				}
+				this.open({
+					kind: "value",
+					start: at,
+					end: -1,
+					parsed: void 0,
+					invalid: false
+				});
+				if (c === "{" || c === "[") {
+					this.#mode = "nested";
+					this.#nestedEnds = [c === "{" ? "}" : "]"];
+					this.#nestedInString = false;
+					this.#escape = false;
+					return;
+				}
+				this.#mode = "scalar";
+			}
+			stepScalar(c, at) {
+				if (c !== "," && c !== "}" && !isWhitespace(c)) return;
+				this.closeValue(at);
+				this.#mode = c === "," ? "key-only" : c === "}" ? "closed" : "comma-or-end";
+			}
+			stepNested(c, at) {
+				if (this.#nestedInString) {
+					this.#nestedInString = false;
+					return;
+				}
+				if (c === "\"") {
+					this.#nestedInString = true;
+					return;
+				}
+				if (c === "{" || c === "[") {
+					this.#nestedEnds.push(c === "{" ? "}" : "]");
+					return;
+				}
+				if (c === "}" || c === "]") {
+					if (this.#nestedEnds.pop() !== c) {
+						this.fail();
+						return;
+					}
+					if (this.#nestedEnds.length === 0) {
+						this.closeValue(at + 1);
+						this.#mode = "comma-or-end";
+					}
+				}
+			}
+			closeValue(end) {
+				const entry = this.#current;
+				entry.end = end;
+				this.#current = null;
+			}
+		});
+		//#endregion
+		//#region ../../util/values/src/index.ts
+		/**
+		* Mark an unreachable closed-union branch.
+		* @param value - impossible value; an unhandled typed variant fails at the call site.
+		* @param context - optional switch-site label included in the failure message.
+		* @returns never; a runtime value that escaped its type always throws.
+		*/
+		function assertNever(value, context) {
+			const rendered = JSON.stringify(value) ?? String(value);
+			throw new Error(`unreachable variant${context ? ` in ${context}` : ""}: ${rendered}`);
+		}
+		/**
+		* Weak-key lookup with a strongly retained iterable set of associated values.
+		*
+		* Each value must belong to only one key. The container performs no automatic
+		* cleanup; owners delete associations or clear the container at lifecycle end.
+		*/
+		var WeakMapWithValues = class {
+			keys = /* @__PURE__ */ new WeakMap();
+			valueSet = /* @__PURE__ */ new Set();
+			/** Live strongly retained values in insertion order. */
+			values = this.valueSet;
+			/**
+			* Read the value associated with a key.
+			* @param key - weakly held lookup key.
+			* @returns the associated value, or absence.
+			*/
+			get(key) {
+				return this.keys.get(key);
+			}
+			/**
+			* Test whether a key has an association.
+			* @param key - weakly held lookup key.
+			* @returns whether the key is present.
+			*/
+			has(key) {
+				return this.keys.has(key);
+			}
+			/**
+			* Associate one key with one caller-unique value.
+			* @param key - weakly held lookup key.
+			* @param value - strongly retained value that belongs to no other key.
+			* @returns this container.
+			*/
+			set(key, value) {
+				if (this.keys.has(key)) {
+					const previous = this.keys.get(key);
+					if (previous === value) return this;
+					this.valueSet.delete(previous);
+				}
+				this.keys.set(key, value);
+				this.valueSet.add(value);
+				return this;
+			}
+			/**
+			* Remove one association and its strongly retained value.
+			* @param key - weakly held lookup key.
+			* @returns whether an association was removed.
+			*/
+			delete(key) {
+				if (!this.keys.has(key)) return false;
+				const value = this.keys.get(key);
+				const deleted = this.keys.delete(key);
+				this.valueSet.delete(value);
+				return deleted;
+			}
+			/** Remove every association and strongly retained value. */
+			clear() {
+				this.keys = /* @__PURE__ */ new WeakMap();
+				this.valueSet.clear();
 			}
 		};
+		//#endregion
+		//#region ../../context/file-reference/src/grammar.ts
 		/**
-		* Build the Package business-view key shared by registrations and Run cards.
-		* @param pluginId - stable Plugin identity.
-		* @param packageId - immutable Package identity.
-		* @returns the shared business-view key.
+		* Extract an `@path` or `@"path with spaces` token at the cursor. An `@`
+		* inside another token, such as an email address, is not a completion trigger.
+		* @param line - current editor line.
+		* @param cursorCol - cursor column within that line.
+		* @returns the active token, or `undefined` outside an `@` token.
 		*/
-		function cordisToolViewKey(pluginId, packageId) {
-			return `${pluginId}.${packageId}`;
+		function activeAtToken(line, cursorCol) {
+			const beforeCursor = line.slice(0, cursorCol);
+			const quoted = /(?:^|\s)(@"([^"]*))$/u.exec(beforeCursor);
+			if (quoted?.[1] !== void 0 && quoted[2] !== void 0) return {
+				prefix: quoted[1],
+				query: quoted[2],
+				quoted: true
+			};
+			const plain = /(?:^|\s)(@([^\s]*))$/u.exec(beforeCursor);
+			if (plain?.[1] === void 0 || plain[2] === void 0) return void 0;
+			return {
+				prefix: plain[1],
+				query: plain[2],
+				quoted: false
+			};
 		}
 		//#endregion
-		//#region lib/types/client/CordisRunRow.js
-		/** `cordis_run` card and the host seat for Package-owned interactive UI. */
-		const READING_LABELS = {
-			idle: "status.idle",
-			"awaiting-approval": "status.awaitingApproval",
-			failed: "status.failed",
-			"client-pending": "status.clientPending",
-			running: "status.running",
-			removed: "status.removed",
-			superseded: "status.superseded"
+		//#region lib/types/core/detect.js
+		/**
+		* Trigger detection pure core. Scans backward from
+		* the caret for a live trigger char under the guard tier and applies the
+		* word-boundary rules. Zero React / DOM / cordis.
+		*/
+		const WORD_CHAR = /[\p{L}\p{N}_]/u;
+		const WHITESPACE = /\s/u;
+		/**
+		* Word-boundary rule: a trigger char opens only at start-of-draft, after
+		* whitespace (newlines included), or after punctuation. Two URL carve-outs
+		* keep '/' dead inside URLs (both pinned by tests): '/' after a ':' that
+		* itself follows a non-whitespace char (scheme separator, `https:/…`), and
+		* '/' directly after another '/' (second slash of `//`).
+		*/
+		function boundaryOk(draft, index, char) {
+			if (index === 0) return true;
+			const prev = draft.charAt(index - 1);
+			if (WHITESPACE.test(prev)) return true;
+			if (WORD_CHAR.test(prev)) return false;
+			if (char === "/") {
+				if (prev === "/") return false;
+				if (prev === ":" && index >= 2 && !WHITESPACE.test(draft.charAt(index - 2))) return false;
+			}
+			return true;
+		}
+		/**
+		* Detect a trigger token at the caret. `@` first uses the shared grammar,
+		* including an open quoted token that may span whitespace. Slash detection
+		* scans left to the first whitespace; slashes failing the word boundary are
+		* treated as ordinary token chars and the scan continues (URL slashes).
+		* Guard tiers: plain = both chars live; claimed = '/' fully suppressed,
+		* '@' live; frozen = none.
+		*
+		* @param draft - Full draft text.
+		* @param caret - Caret offset into `draft`.
+		* @param guard - Availability tier derived from the input phase.
+		* @returns The hit with `query` = trigger-to-caret slice and `span` =
+		* `{start: triggerIndex, end: caret}`; `span.draftRev` is a placeholder `0`
+		* — the calling shell stamps the real revision. Null when no trigger is
+		* live at the caret.
+		*/
+		const detectTrigger = (draft, caret, guard) => {
+			if (guard.tier === "frozen") return null;
+			const at = activeAtToken(draft, caret);
+			if (at !== void 0) {
+				const start = caret - at.prefix.length;
+				return {
+					trigger: "@",
+					query: at.query,
+					quoted: at.quoted,
+					position: draft.search(/\S/) === start ? "leading" : "inline",
+					span: {
+						start,
+						end: caret,
+						draftRev: 0
+					}
+				};
+			}
+			for (let i = caret - 1; i >= 0; i--) {
+				const ch = draft.charAt(i);
+				if (WHITESPACE.test(ch)) return null;
+				if (ch !== "/") continue;
+				if (guard.tier === "claimed") continue;
+				if (!boundaryOk(draft, i, ch)) continue;
+				return {
+					trigger: ch,
+					query: draft.slice(i + 1, caret),
+					quoted: false,
+					position: draft.search(/\S/) === i ? "leading" : "inline",
+					span: {
+						start: i,
+						end: caret,
+						draftRev: 0
+					}
+				};
+			}
+			return null;
 		};
-		/** Render one activation result and, when eligible, its Package-owned view. */
-		function CordisRunRow(props) {
-			if (props.phase === "preparing") return (0, react_jsx_runtime.jsx)(CordisPreparingRow, {
-				...props,
-				icon: (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconCodeOutlineRegular, { size: 14 }),
-				title: props.t("row.runTitle"),
-				className: CordisRunRow_module_css_default.card,
-				rowClassName: CordisRunRow_module_css_default.row,
-				titleClassName: CordisRunRow_module_css_default.title
-			});
-			return (0, react_jsx_runtime.jsx)(StartedCordisRunRow, { ...props });
+		//#endregion
+		//#region lib/types/core/menu.js
+		/** Closed rest state with generation 0; store initializer and test seed. */
+		const MENU_CLOSED = {
+			open: false,
+			hit: null,
+			generation: 0,
+			groups: [],
+			highlight: null
+		};
+		/**
+		* Replace the group roster with pending groups for `sources`, in order.
+		* Shell-side step before dispatching `hit` on a fresh menu open.
+		*
+		* @param state - Current menu state.
+		* @param sources - Sources registered for the hit trigger, in menu order.
+		* @returns State carrying the new pending roster; highlight cleared.
+		*/
+		function seedGroups(state, sources) {
+			return {
+				...state,
+				groups: sources.map((source) => ({
+					source: source.name,
+					...source.showGroupTitle === false ? { showGroupTitle: false } : {},
+					status: "pending",
+					items: []
+				})),
+				highlight: null
+			};
 		}
-		function StartedCordisRunRow({ callId, block, inspect, renderSlot, useInventory, useLoaded, useRunCards, useActiveRuns, onObserveRunCard, t }) {
-			const card = cordisRunCard(block);
-			const inventory = useInventory((snapshot) => snapshot);
-			const loaded = useLoaded((snapshot) => snapshot);
-			const latest = useRunCards((snapshot) => snapshot);
-			const activeRuns = useActiveRuns((snapshot) => snapshot);
-			const key = card.state === "ok" && card.pluginId !== null && card.packageId !== null && card.pluginRunId !== null && card.seq !== null ? cordisToolViewKey(card.pluginId, card.packageId) : null;
-			(0, react.useEffect)(() => {
-				if (key === null || card.seq === null || card.pluginRunId === null) return;
-				onObserveRunCard({
-					key,
-					callId,
-					seq: card.seq,
-					pluginRunId: card.pluginRunId
+		/** Close, preserving the generation so in-flight settlements stay droppable. */
+		const closed = (state) => state.open || state.hit !== null || state.groups.length > 0 || state.highlight !== null ? {
+			open: false,
+			hit: null,
+			generation: state.generation,
+			groups: [],
+			highlight: null
+		} : state;
+		/** First item of the first non-empty ready group, or null. */
+		function firstHighlight(groups) {
+			for (const g of groups) if (g.status === "ready" && g.items.length > 0) return {
+				source: g.source,
+				index: 0
+			};
+			return null;
+		}
+		/** The highlight itself when it still points at a ready item, else null. */
+		function validHighlight(highlight, groups) {
+			if (!highlight) return null;
+			const g = groups.find((x) => x.source === highlight.source);
+			return g && g.status === "ready" && highlight.index < g.items.length ? highlight : null;
+		}
+		/** Flatten ready items into (source, index) positions in group order. */
+		function positions(groups) {
+			const out = [];
+			for (const g of groups) {
+				if (g.status !== "ready") continue;
+				for (let i = 0; i < g.items.length; i++) out.push({
+					source: g.source,
+					index: i
 				});
-			}, [
-				callId,
-				card.pluginRunId,
-				card.seq,
-				key,
-				onObserveRunCard
-			]);
-			const row = card.pluginId === null ? void 0 : inventory.rows.find((candidate) => candidate.pluginId === card.pluginId);
-			const pointer = key === null ? void 0 : latest.get(key);
-			const superseded = pointer !== void 0 && pointer.callId !== callId && pointer.seq >= (card.seq ?? -1);
-			const activity = card.pluginId === null ? void 0 : activeRuns.get(card.pluginId);
-			const attempt = card.pluginRunId !== null && row?.latestRun?.pluginRunId === card.pluginRunId ? row.latestRun : void 0;
-			const awaitingApproval = attempt?.status === "awaiting-approval" || card.packageId !== null && activity?.phase === "awaiting-approval" && activity.packageId === card.packageId && (card.mode === null || activity.mode === card.mode);
-			const reading = card.pluginId !== null && inventory.removed.has(card.pluginId) ? "removed" : superseded ? "superseded" : awaitingApproval ? "awaiting-approval" : attempt?.status === "failed" ? "failed" : row !== void 0 && card.packageId !== null ? cordisVisibleStatus(row, card.packageId, loaded) : "idle";
-			const status = t(READING_LABELS[reading]);
-			const summary = card.errorSummary ?? (card.pluginId === null ? callId : `${card.pluginId}${card.packageId === null ? "" : ` · ${card.packageId}`}`);
-			const showBusiness = reading === "running" && key !== null;
-			return (0, react_jsx_runtime.jsxs)("div", {
-				className: CordisRunRow_module_css_default.card,
-				"data-tool": "cordis_run",
-				"data-state": card.state,
-				"data-cordis-plugin-id": card.pluginId ?? void 0,
-				"data-cordis-package-id": card.packageId ?? void 0,
-				"data-cordis-run-id": card.pluginRunId ?? void 0,
-				"data-cordis-status": reading,
-				children: [
-					(0, react_jsx_runtime.jsxs)("div", {
-						className: CordisRunRow_module_css_default.row,
-						children: [
-							(0, react_jsx_runtime.jsx)("span", {
-								className: CordisRunRow_module_css_default.icon,
-								children: (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconCodeOutlineRegular, { size: 14 })
-							}),
-							(0, react_jsx_runtime.jsx)("span", {
-								className: CordisRunRow_module_css_default.title,
-								children: t(card.mode === "update" ? "row.updateTitle" : "row.runTitle")
-							}),
-							(0, react_jsx_runtime.jsx)("span", {
-								className: CordisRunRow_module_css_default.separator,
-								"aria-hidden": true
-							}),
-							(0, react_jsx_runtime.jsx)("span", {
-								className: card.errorSummary === null ? CordisRunRow_module_css_default.summary : CordisRunRow_module_css_default.error,
-								children: summary
-							}),
-							(0, react_jsx_runtime.jsx)("span", {
-								className: CordisRunRow_module_css_default.status,
-								children: status
-							}),
-							inspect !== void 0 && (0, react_jsx_runtime.jsx)("button", {
-								type: "button",
-								className: CordisRunRow_module_css_default.inspect,
-								"aria-label": t("action.inspect"),
-								onClick: inspect,
-								children: (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconInspectOutlineRegular, {})
-							})
-						]
-					}),
-					reading === "removed" && (0, react_jsx_runtime.jsx)("div", {
-						className: CordisRunRow_module_css_default.message,
-						children: t("run.removed")
-					}),
-					reading === "superseded" && (0, react_jsx_runtime.jsx)("div", {
-						className: CordisRunRow_module_css_default.message,
-						children: t("run.superseded")
-					}),
-					reading === "failed" && attempt?.error !== void 0 && (0, react_jsx_runtime.jsx)("div", {
-						className: CordisRunRow_module_css_default.message,
-						children: attempt.error.message
-					}),
-					showBusiness && card.pluginId !== null && card.packageId !== null && card.pluginRunId !== null && (0, react_jsx_runtime.jsx)("div", {
-						className: CordisRunRow_module_css_default.business,
-						"data-cordis-business-view": key,
-						children: renderSlot("tool.view.cordis", {
-							pluginId: card.pluginId,
-							packageId: card.packageId,
-							pluginRunId: card.pluginRunId
-						}, {
-							entryKey: key,
-							fallback: card.output === null ? null : (0, react_jsx_runtime.jsx)("pre", {
-								className: CordisRunRow_module_css_default.output,
-								children: card.output
-							})
-						})
-					}),
-					!showBusiness && reading !== "removed" && reading !== "superseded" && card.output !== null && (0, react_jsx_runtime.jsx)("pre", {
-						className: CordisRunRow_module_css_default.output,
-						children: card.output
-					})
-				]
-			});
+			}
+			return out;
+		}
+		/** True when every group is ready with zero items (the auto-close condition). */
+		const allReadyEmpty = (groups) => groups.every((g) => g.status === "ready" && g.items.length === 0);
+		/**
+		* Pure menu reducer. `hit` opens a new generation over the seeded roster
+		* (null hit closes); `source-settled` outside the current generation, the
+		* open menu, or the roster is dropped; a settlement or failure leaving every
+		* group ready-and-empty (or no groups) auto-closes; `source-failed` silently
+		* removes the group (the shell logs); `move` cycles the highlight across
+		* ready items; `hover` parks it on one ready item (pointer and keyboard
+		* share the single highlight — last input wins).
+		*
+		* @param state - Current menu state.
+		* @param ev - Menu event.
+		* @returns Next state; the same reference when stale or a no-op.
+		*/
+		const menuReduce = (state, ev) => {
+			switch (ev.type) {
+				case "hit":
+					if (ev.hit === null) return closed(state);
+					return {
+						open: true,
+						hit: ev.hit,
+						generation: state.generation + 1,
+						groups: state.groups.map((g) => ({
+							...g,
+							status: "pending"
+						})),
+						highlight: state.highlight
+					};
+				case "source-settled": {
+					if (!state.open || ev.generation !== state.generation) return state;
+					const idx = state.groups.findIndex((g) => g.source === ev.source);
+					if (idx < 0) return state;
+					const items = ev.items ?? [];
+					const groups = state.groups.map((g, i) => i === idx ? {
+						...g,
+						status: "ready",
+						items
+					} : g);
+					if (allReadyEmpty(groups)) return closed(state);
+					const highlight = validHighlight(state.highlight, groups) ?? firstHighlight(groups);
+					return {
+						...state,
+						groups,
+						highlight
+					};
+				}
+				case "source-failed": {
+					if (!state.open || ev.generation !== state.generation) return state;
+					if (!state.groups.some((g) => g.source === ev.source)) return state;
+					const groups = state.groups.filter((g) => g.source !== ev.source);
+					if (groups.length === 0 || allReadyEmpty(groups)) return closed(state);
+					const highlight = validHighlight(state.highlight, groups) ?? firstHighlight(groups);
+					return {
+						...state,
+						groups,
+						highlight
+					};
+				}
+				case "move": {
+					if (!state.open) return state;
+					const pos = positions(state.groups);
+					if (pos.length === 0) return state;
+					const hl = state.highlight;
+					const at = hl ? pos.findIndex((p) => p.source === hl.source && p.index === hl.index) : -1;
+					const next = pos[at < 0 ? ev.dir === 1 ? 0 : pos.length - 1 : (at + ev.dir + pos.length) % pos.length];
+					if (next === void 0) return state;
+					if (hl && next.source === hl.source && next.index === hl.index) return state;
+					return {
+						...state,
+						highlight: next
+					};
+				}
+				case "hover": {
+					if (!state.open) return state;
+					const target = validHighlight({
+						source: ev.source,
+						index: ev.index
+					}, state.groups);
+					if (target === null) return state;
+					const hl = state.highlight;
+					if (hl && hl.source === target.source && hl.index === target.index) return state;
+					return {
+						...state,
+						highlight: target
+					};
+				}
+				case "close": return closed(state);
+			}
+		};
+		//#endregion
+		//#region lib/types/client/controller.js
+		/** Whether a tracked hit is the one the user just dismissed (same token, same query). */
+		function dismissedHit(dismissed, hit) {
+			return dismissed.trigger === hit.trigger && dismissed.query === hit.query && dismissed.quoted === hit.quoted && dismissed.start === hit.span.start && dismissed.end === hit.span.end;
+		}
+		/**
+		* Per-session trigger pipeline state and orchestration. All mutation stays
+		* inside; MenuView renders from {@link InputTriggerController.menu} and routes
+		* pointer picks back through {@link InputTriggerController.pick}.
+		*/
+		var InputTriggerController = class {
+			deps;
+			/** Menu state store (per-session; survives session switches, dies with the scope). */
+			menu = (0, _deepseek_ai_dsh_client_store.createSnapshotStore)(MENU_CLOSED);
+			/**
+			* Name of the source opened through the programmatic launcher, or null for
+			* trigger-detected/closed menus. Composer chrome subscribes to this store
+			* for the launcher's expanded state without owning a second menu model.
+			*/
+			launcher = (0, _deepseek_ai_dsh_client_store.createSnapshotStore)(null);
+			/**
+			* Crumbs published by each header-bearing source for the open menu, keyed
+			* by source name. A snapshot store like {@link InputTriggerController.launcher}:
+			* the answer changes with every hit, and render-side consumers subscribe
+			* instead of re-polling sources during a render.
+			*/
+			headers = (0, _deepseek_ai_dsh_client_store.createSnapshotStore)(/* @__PURE__ */ new Map());
+			/**
+			* Aggregated hot reference lexicon, grouped by trigger (plain-text-reference decision;
+			* see .agents/notes/archived/architecture/2026-07-25-web-input-machine-and-slash-pipeline.md):
+			* sources implementing the lexicon hook are polled with the session
+			* projection; undefined answers (roll not hot yet) are skipped; multiple
+			* sources on one trigger concatenate in registration order. A snapshot
+			* store because rolls change asynchronously (catalog settles, children
+			* spawn/exit) — render-side consumers subscribe instead of re-reading a
+			* mutable answer.
+			*/
+			lexicon = (0, _deepseek_ai_dsh_client_store.createSnapshotStore)(/* @__PURE__ */ new Map());
+			/** The authoritative hit: single truth for span CAS material (menu snapshot never carries it alone). */
+			hit = null;
+			/**
+			* Identity of the hit whose menu the user dismissed. A dismissal means "not
+			* this one, not now": the same token with the same query keeps its menu
+			* closed, so restoring the caret after a dismissal cannot reopen it. Typing
+			* (a new query) or moving to another token clears it.
+			*/
+			dismissed = null;
+			/** Whether the open menu was reached by a drill pick; cleared with the menu. */
+			drilled = false;
+			fetch = null;
+			disposed = false;
+			/** Per-source lexicon unsubscribers (sources without the hook never enter). */
+			lexiconOffs = /* @__PURE__ */ new Map();
+			constructor(deps) {
+				this.deps = deps;
+				const projection = this.project();
+				for (const src of deps.roster.all()) {
+					src.warm?.(projection);
+					this.watchLexicon(src, projection);
+				}
+				this.refreshLexicon();
+			}
+			/**
+			* Feed a draft/caret change through trigger detection and drive the menu.
+			* @param draft - full draft text.
+			* @param caret - caret offset into `draft`.
+			* @param guard - availability tier derived from the input phase.
+			* @param draftRev - the input machine's current draft revision, stamped
+			* into the hit span for pick-time CAS.
+			*/
+			track(draft, caret, guard, draftRev) {
+				if (this.disposed) return;
+				const launched = this.launcher.getSnapshot() !== null;
+				this.clearLauncher();
+				const raw = detectTrigger(draft, caret, guard);
+				if (raw === null) {
+					if (launched) return;
+					this.hit = null;
+					if (guard.tier !== "frozen") this.dismissed = null;
+					this.stopFetch();
+					this.reduce({ type: "close" });
+					return;
+				}
+				const hit = {
+					...raw,
+					span: {
+						...raw.span,
+						draftRev
+					}
+				};
+				if (launched) this.dismissed = null;
+				if (this.dismissed !== null) if (!dismissedHit(this.dismissed, hit)) this.dismissed = null;
+				else {
+					this.hit = hit;
+					return;
+				}
+				const prev = this.menu.getSnapshot();
+				const same = !launched && prev.open && prev.hit !== null && prev.hit.trigger === hit.trigger && prev.hit.query === hit.query && prev.hit.quoted === hit.quoted && prev.hit.span.start === hit.span.start && prev.hit.span.end === hit.span.end;
+				this.hit = hit;
+				if (same) return;
+				const roster = this.deps.roster.sources(hit.trigger);
+				if (roster.length === 0) {
+					this.stopFetch();
+					this.reduce({ type: "close" });
+					return;
+				}
+				if (launched || !prev.open || prev.hit === null || prev.hit.trigger !== hit.trigger) this.menu.set(seedGroups(this.menu.getSnapshot(), roster));
+				this.reduce({
+					type: "hit",
+					hit
+				});
+				this.refreshHeaders(hit, roster);
+				this.fetchCandidates(hit, roster);
+			}
+			/**
+			* Toggle a menu containing exactly one registered source. The supplied hit
+			* is a synthetic selection span rather than a typed trigger token, but
+			* picks deliberately reuse the ordinary source callback and scoped input
+			* mutation pipeline.
+			* @param source - registered source name under `hit.trigger`.
+			* @param hit - synthetic hit carrying position and pick-time draft CAS.
+			*/
+			toggleSource(source, hit) {
+				if (this.disposed) return;
+				if (this.launcher.getSnapshot() === source && this.menu.getSnapshot().open) {
+					this.dismiss();
+					return;
+				}
+				const match = this.deps.roster.sources(hit.trigger).find((item) => item.name === source);
+				if (match === void 0) {
+					this.dismiss();
+					return;
+				}
+				this.stopFetch();
+				this.hit = hit;
+				this.launcher.set(source);
+				this.menu.set(seedGroups(this.menu.getSnapshot(), [match]));
+				this.reduce({
+					type: "hit",
+					hit
+				});
+				this.refreshHeaders(hit, [match]);
+				this.fetchCandidates(hit, [match]);
+			}
+			/**
+			* Pointer pick from MenuView: route the clicked candidate through onPick
+			* and execute claim/insert outcomes via the scoped input events.
+			* @param source - source (group) name.
+			* @param index - candidate index within the group.
+			* @param action - settling pick (default) or the candidate's drill action.
+			*/
+			pick(source, index, action = "pick") {
+				const state = this.menu.getSnapshot();
+				const hit = this.hit;
+				if (this.disposed || !state.open || hit === null) return;
+				const group = state.groups.find((g) => g.source === source);
+				const candidate = group !== void 0 && group.status === "ready" ? group.items[index] : void 0;
+				if (candidate === void 0) return;
+				const src = this.deps.roster.sources(hit.trigger).find((s) => s.name === source);
+				if (src === void 0) return;
+				this.settle(src, candidate, hit, action);
+			}
+			/**
+			* Pointer pick on one crumb of a source's menu header: route it through the
+			* same drill path a folder row takes, so returning to a step and descending
+			* into one share one outcome.
+			* @param source - source (group) name.
+			* @param index - crumb index within that source's published header.
+			*/
+			pickCrumb(source, index) {
+				const hit = this.hit;
+				if (this.disposed || !this.menu.getSnapshot().open || hit === null) return;
+				const crumb = this.headers.getSnapshot().get(source)?.[index];
+				if (crumb === void 0 || crumb.current === true) return;
+				const src = this.deps.roster.sources(hit.trigger).find((s) => s.name === source);
+				if (src === void 0) return;
+				this.settle(src, {
+					name: crumb.label,
+					value: crumb.value
+				}, hit, "drill");
+			}
+			/**
+			* Pointer hover from MenuView: park the shared highlight on the hovered
+			* candidate (keyboard `move` and pointer hover drive one highlight —
+			* last input wins).
+			* @param source - source (group) name.
+			* @param index - candidate index within the group.
+			*/
+			hover(source, index) {
+				if (this.disposed) return;
+				this.reduce({
+					type: "hover",
+					source,
+					index
+				});
+			}
+			/**
+			* Keyboard arbitration while the menu is open.
+			* @param key - intercepted key.
+			* @param composing - inside IME composition: everything passes.
+			* @returns `pass` when the browser keeps the key (closed menu, no
+			* highlight, or a vanished candidate), `consumed` when the menu handled
+			* the key without a settling pick (move, close, drill descent, or a
+			* pending-refinement no-op), or `pick-highlighted` when the highlighted
+			* candidate settled and the menu closed.
+			*/
+			arbitrate(key, composing) {
+				if (composing || this.disposed) return "pass";
+				const state = this.menu.getSnapshot();
+				if (!state.open) return "pass";
+				switch (key) {
+					case "up":
+						this.reduce({
+							type: "move",
+							dir: -1
+						});
+						return "consumed";
+					case "down":
+						this.reduce({
+							type: "move",
+							dir: 1
+						});
+						return "consumed";
+					case "escape":
+					case "tabBack":
+						this.rememberDismissed();
+						this.stopFetch();
+						this.reduce({ type: "close" });
+						return "consumed";
+					case "enter": {
+						if (state.highlight === null) return "pass";
+						const group = state.groups.find((g) => g.source === state.highlight?.source);
+						if (group === void 0 || group.status !== "ready") return "consumed";
+						this.pick(state.highlight.source, state.highlight.index);
+						return "pick-highlighted";
+					}
+					case "tab": {
+						if (state.highlight === null) return "pass";
+						const group = state.groups.find((g) => g.source === state.highlight?.source);
+						if (group === void 0 || group.status !== "ready") return "consumed";
+						const item = group.items[state.highlight.index];
+						if (item === void 0) return "pass";
+						if (item.drill === true) {
+							this.pick(state.highlight.source, state.highlight.index, "drill");
+							return "consumed";
+						}
+						this.pick(state.highlight.source, state.highlight.index);
+						return "pick-highlighted";
+					}
+				}
+			}
+			/**
+			* Space adjudication over the just-completed leading token: polls sources'
+			* matchSpace (hot state, synchronous) and dispatches the outcome itself.
+			* @returns true when a claim/insert was actually applied by the input —
+			* the caller preventDefaults exactly then.
+			*/
+			onSpace() {
+				const hit = this.hit;
+				if (this.disposed || hit === null || hit.position !== "leading") return false;
+				const token = hit.trigger + hit.query;
+				const projection = this.project();
+				for (const src of this.deps.roster.sources(hit.trigger)) {
+					if (src.matchSpace === void 0) continue;
+					const outcome = src.matchSpace(projection, token);
+					if (outcome === void 0) continue;
+					if (outcome === "handled") return true;
+					return this.execute(outcome, hit.span);
+				}
+				return false;
+			}
+			/**
+			* Serialize one reference occurrence to its model form via the owning
+			* source's codec (prompt serialization: registry → explicit
+			* call → await). Owner missing or codec-less rejects — the submit attempt
+			* blocks instead of silently downgrading to the clipboard text.
+			* @param source - owning source name.
+			* @param ref - owner-scoped reference id.
+			* @param signal - the submit attempt's abort signal.
+			* @returns the model representation (e.g. `<skill>name</skill>`).
+			*/
+			serializeReference(source, ref, signal) {
+				const owner = this.deps.roster.all().find((s) => s.name === source);
+				if (owner?.codec === void 0) return Promise.reject(/* @__PURE__ */ new Error(`slash: no serializer for reference source "${source}"`));
+				return owner.codec.serialize(ref, signal);
+			}
+			/**
+			* Route a chip to its owner or an editable token to its current lexicon owner.
+			* @param source - chip source name; undefined for editable text.
+			* @param reference - source-owned id and optional chip glyph.
+			* @returns whether an owner accepted the preview, possibly awaiting its catalog.
+			*/
+			openReference(source, reference) {
+				if (this.disposed) return false;
+				const session = this.project();
+				for (const owner of this.deps.roster.all()) if ((source === void 0 ? reference.ref.startsWith(owner.trigger) && owner.lexicon?.(session)?.includes(reference.ref.slice(1)) : owner.name === source) && owner.openReference?.(session, reference)) {
+					this.dismiss();
+					return true;
+				}
+				return false;
+			}
+			/**
+			* Enter last adjudication: polls sources' matchEnter in registration
+			* order, first non-undefined wins. The outcome returns to the caller (the
+			* input machine applies it inside the same submit attempt — no event).
+			* @param line - trimmed draft; the leading char selects the trigger roster.
+			* @param signal - attempt-scoped abort from the input machine.
+			* @param envelope - non-text submission state accompanying the draft.
+			* @returns the winning outcome or undefined (default sink). Rejects when a
+			* polled source's warmup fails or the winning source refuses the envelope —
+			* the caller must not silently downgrade.
+			*/
+			async adjudicate(line, signal, envelope) {
+				const projection = this.project();
+				for (const src of this.deps.roster.all()) {
+					if (signal.aborted) throw signal.reason instanceof Error ? signal.reason : /* @__PURE__ */ new Error("slash adjudication aborted");
+					if (src.matchEnter === void 0 || !line.startsWith(src.trigger)) continue;
+					const outcome = await src.matchEnter(projection, line, signal, envelope);
+					if (outcome !== void 0) return outcome;
+				}
+			}
+			/**
+			* Drop the menu group of a disposed source (root registry change notification).
+			* @param source - the source whose registration was disposed.
+			*/
+			sourceRemoved(source) {
+				const state = this.menu.getSnapshot();
+				if (state.open && state.hit !== null && state.hit.trigger === source.trigger) this.reduce({
+					type: "source-failed",
+					generation: state.generation,
+					source: source.name
+				});
+				this.lexiconOffs.get(source)?.();
+				this.lexiconOffs.delete(source);
+				this.refreshLexicon();
+			}
+			/**
+			* Admit a source registered after this controller's birth (root registry
+			* change notification): warm it and fold its roll into the live lexicon —
+			* the constructor-time prewarm covers only the roster present at scope
+			* birth.
+			* @param source - the newly registered source.
+			*/
+			sourceAdded(source) {
+				const projection = this.project();
+				source.warm?.(projection);
+				this.watchLexicon(source, projection);
+				this.refreshLexicon();
+			}
+			/** External dismiss (e.g. pointer outside the composer area). */
+			dismiss() {
+				if (this.disposed) return;
+				this.rememberDismissed();
+				this.stopFetch();
+				this.reduce({ type: "close" });
+			}
+			/** Re-fetch the currently open menu without changing its hit or visible rows. */
+			refreshOpenMenu() {
+				if (this.disposed || !this.menu.getSnapshot().open || this.hit === null) return;
+				const launched = this.launcher.getSnapshot();
+				const roster = this.deps.roster.sources(this.hit.trigger).filter((source) => launched === null || source.name === launched);
+				if (roster.length === 0) return;
+				this.fetchCandidates(this.hit, roster);
+			}
+			/** Scope teardown: close and abort (the service deletes the map entry). */
+			dispose() {
+				this.disposed = true;
+				this.stopFetch();
+				this.reduce({ type: "close" });
+				this.hit = null;
+				for (const off of this.lexiconOffs.values()) off();
+				this.lexiconOffs.clear();
+			}
+			/** The session projection handed to sources (agent-backed identity; constant per scope). */
+			project() {
+				return { sessionId: this.deps.sessionId };
+			}
+			/** Execute a claim/insert/text outcome via the scoped input events (actx as dispatch subject); true = the input applied it. */
+			execute(outcome, span) {
+				const { actx } = this.deps;
+				if (outcome === void 0 || outcome === "handled") return false;
+				if ("claim" in outcome) return actx.bail(actx, "slash/input-begin-command", {
+					claim: outcome.claim,
+					span
+				}) === true;
+				if ("text" in outcome) return actx.bail(actx, "slash/input-insert-text", {
+					text: outcome.text,
+					span,
+					...outcome.continue === true ? { continue: true } : {}
+				}) === true;
+				return actx.bail(actx, "slash/input-insert-reference", {
+					reference: outcome.insert,
+					span
+				}) === true;
+			}
+			/** Re-poll every lexicon-bearing source and publish the aggregated rolls (see the store doc). */
+			refreshLexicon() {
+				const projection = this.project();
+				const rolls = /* @__PURE__ */ new Map();
+				for (const src of this.deps.roster.all()) {
+					if (src.lexicon === void 0) continue;
+					let names;
+					try {
+						names = src.lexicon(projection);
+					} catch (error) {
+						console.error(`[ui-input-trigger] source "${src.name}" lexicon failed:`, error);
+						continue;
+					}
+					if (names === void 0) continue;
+					const prev = rolls.get(src.trigger);
+					rolls.set(src.trigger, prev === void 0 ? names : [...prev, ...names]);
+				}
+				this.lexicon.set(rolls);
+			}
+			/** Wire one source's lexicon invalidation channel into refresh (hookless or roll-less sources never notify). */
+			watchLexicon(source, projection) {
+				if (source.lexicon === void 0 || source.subscribeLexicon === void 0) return;
+				this.lexiconOffs.set(source, source.subscribeLexicon(projection, () => {
+					this.refreshLexicon();
+					const hit = this.hit;
+					if (hit === null || !this.menu.getSnapshot().open || hit.trigger !== source.trigger) return;
+					Promise.resolve().then(() => {
+						if (this.disposed || this.hit !== hit || !this.menu.getSnapshot().open) return;
+						this.fetchCandidates(hit, this.deps.roster.sources(hit.trigger));
+					});
+				}));
+			}
+			/** Launch the candidate fetch for one hit generation, superseding the previous one. */
+			fetchCandidates(hit, roster) {
+				this.stopFetch();
+				const controller = new AbortController();
+				this.fetch = controller;
+				const generation = this.menu.getSnapshot().generation;
+				const projection = this.project();
+				for (const source of roster) source.candidates(projection, {
+					query: hit.query,
+					quoted: hit.quoted,
+					position: hit.position,
+					drilled: this.drilled,
+					signal: controller.signal
+				}).then((items) => {
+					if (controller.signal.aborted) return;
+					this.reduce({
+						type: "source-settled",
+						generation,
+						source: source.name,
+						items
+					});
+				}, (error) => {
+					if (controller.signal.aborted) return;
+					console.error(`[ui-input-trigger] source "${source.name}" candidates failed:`, error);
+					this.reduce({
+						type: "source-failed",
+						generation,
+						source: source.name
+					});
+				});
+			}
+			stopFetch() {
+				this.fetch?.abort();
+				this.fetch = null;
+			}
+			/**
+			* Run one candidate (or crumb) through its source and apply the outcome.
+			*
+			* A drill is the one pick that leaves the menu open, so it is also the one
+			* that records how the next query was reached; every other pick closes the
+			* menu, which clears that record.
+			* @param src - the owning source.
+			* @param candidate - the picked candidate, or a crumb projected as one.
+			* @param hit - the authoritative hit supplying position and span CAS.
+			* @param action - settling pick or drill.
+			*/
+			settle(src, candidate, hit, action) {
+				const outcome = src.onPick({
+					candidate,
+					session: this.project(),
+					position: hit.position,
+					via: "menu",
+					action,
+					span: hit.span
+				});
+				this.stopFetch();
+				if (action === "pick") this.rememberDismissed();
+				this.reduce({ type: "close" });
+				this.drilled = action === "drill";
+				if (!this.execute(outcome, hit.span)) this.drilled = false;
+			}
+			/** Re-poll every header-bearing source in the hit roster and publish their crumbs. */
+			refreshHeaders(hit, roster) {
+				const projection = this.project();
+				const crumbs = /* @__PURE__ */ new Map();
+				for (const src of roster) {
+					if (src.header === void 0) continue;
+					let published;
+					try {
+						published = src.header(projection, {
+							query: hit.query,
+							quoted: hit.quoted,
+							drilled: this.drilled
+						});
+					} catch (error) {
+						console.error(`[ui-input-trigger] source "${src.name}" header failed:`, error);
+						continue;
+					}
+					if (published === void 0 || published.length === 0) continue;
+					crumbs.set(src.name, published);
+				}
+				this.setHeaders(crumbs);
+			}
+			setHeaders(next) {
+				if (this.headers.getSnapshot().size === 0 && next.size === 0) return;
+				this.headers.set(next);
+			}
+			/** Record the open menu's identity as dismissed, so a bare re-track cannot revive it. */
+			rememberDismissed() {
+				const hit = this.hit;
+				this.dismissed = hit === null ? null : {
+					trigger: hit.trigger,
+					query: hit.query,
+					quoted: hit.quoted,
+					start: hit.span.start,
+					end: hit.span.end
+				};
+			}
+			clearLauncher() {
+				if (this.launcher.getSnapshot() !== null) this.launcher.set(null);
+			}
+			reduce(ev) {
+				const cur = this.menu.getSnapshot();
+				const next = menuReduce(cur, ev);
+				if (next !== cur) this.menu.set(next);
+				if (next.open) return;
+				this.clearLauncher();
+				this.drilled = false;
+				this.setHeaders(/* @__PURE__ */ new Map());
+			}
+		};
+		//#endregion
+		//#region lib/types/client/service.js
+		/**
+		* InputTriggerService (`ctx.inputTriggers`): the root half of the trigger pipeline — the
+		* stateless source registry plus the per-session controller map. Every piece
+		* of mutable interaction state (hit, menu, fetch) lives on the
+		* {@link InputTriggerController}; the service only registers sources, resolves
+		* controllers by session scope, and relays roster changes.
+		*/
+		/** The `ctx.inputTriggers` trigger pipeline service (root registry + controller resolution). */
+		var InputTriggerService = class extends _deepseek_ai_cordis.Service {
+			static inject = ["sessions"];
+			live = {
+				sources: [],
+				controllers: new WeakMapWithValues()
+			};
+			/**
+			* @param ctx - owning root context (the service registers itself as `slash`).
+			*/
+			constructor(ctx) {
+				super(ctx, "inputTriggers");
+				ctx.on("locale/change", () => {
+					for (const controller of this.live.controllers.values) controller.refreshOpenMenu();
+				});
+			}
+			/**
+			* Register one trigger source. Live session controllers are notified so a
+			* source arriving after scope birth still warms and joins the lexicon.
+			* @param src - the source; (trigger, name) must be unique — duplicates throw.
+			* @returns the disposer (callers wrap registration in ctx.effect). Disposal
+			* while a controller shows the source's menu group drops that group.
+			*/
+			registerSource(src) {
+				const { live } = this;
+				if (live.sources.some((s) => s.trigger === src.trigger && s.name === src.name)) throw new Error(`slash source "${src.trigger}${src.name}" is already registered`);
+				live.sources.push(src);
+				for (const controller of live.controllers.values) try {
+					controller.sourceAdded(src);
+				} catch (error) {
+					console.error(`[ui-input-trigger] source "${src.trigger}${src.name}" late-registration setup failed:`, error);
+				}
+				return () => {
+					const at = live.sources.indexOf(src);
+					if (at < 0) return;
+					live.sources.splice(at, 1);
+					for (const controller of live.controllers.values) controller.sourceRemoved(src);
+				};
+			}
+			/**
+			* Resolve the per-session controller for one session scope (lazy; the
+			* scope disposer removes and disposes it). Construction warms the source
+			* roster once — sessions are always agent-backed, so scope birth is the
+			* single prewarm moment.
+			* @param actx - session-scope ctx.
+			* @returns the resident controller.
+			* @throws when the Context no longer belongs to a retained Session generation.
+			*/
+			sessionOf(actx) {
+				const sessions = this.sessions();
+				const session = sessions.sessionOf(actx);
+				const binding = session === void 0 ? void 0 : sessions.binding(session.sessionId);
+				if (binding === void 0 || binding.session !== session) throw new Error("slash.sessionOf requires a retained Session scope");
+				const id = binding.sessionId;
+				const { live } = this;
+				const existing = live.controllers.get(binding);
+				if (existing !== void 0) return existing;
+				const controller = new InputTriggerController({
+					actx: binding.ctx,
+					sessionId: id,
+					roster: {
+						sources: (trigger) => live.sources.filter((s) => s.trigger === trigger).sort((a, b) => (a.order ?? 0) - (b.order ?? 0)),
+						all: () => live.sources
+					}
+				});
+				live.controllers.set(binding, controller);
+				binding.ctx.effect(() => () => {
+					controller.dispose();
+					live.controllers.delete(binding);
+				}, "slash: session controller");
+				return controller;
+			}
+			sessions() {
+				const sessions = this.ctx.get("sessions");
+				if (sessions === void 0) throw new Error("ui-input-trigger: sessions service unavailable");
+				return sessions;
+			}
+		};
+		//#endregion
+		//#region ../../../node_modules/.pnpm/clsx@2.1.1/node_modules/clsx/dist/clsx.mjs
+		function r(e) {
+			var t, f, n = "";
+			if ("string" == typeof e || "number" == typeof e) n += e;
+			else if ("object" == typeof e) if (Array.isArray(e)) {
+				var o = e.length;
+				for (t = 0; t < o; t++) e[t] && (f = r(e[t])) && (n && (n += " "), n += f);
+			} else for (f in e) e[f] && (n && (n += " "), n += f);
+			return n;
+		}
+		function clsx() {
+			for (var e, t, f = 0, n = "", o = arguments.length; f < o; f++) (e = arguments[f]) && (t = r(e)) && (n && (n += " "), n += t);
+			return n;
 		}
 		//#endregion
-		//#region \0dsh-css:D:\deepseek-harness\packages\extensions\ui-cordis\src\client\CordisPanel.module.css.mjs
-		const css = "._9tq6Kq_layer{flex:none;align-items:center;width:100%;height:42px;margin:8px 0 0;display:flex;position:relative}._9tq6Kq_footerButtons{align-items:center;width:100%;display:flex}._9tq6Kq_badge{width:calc(100% + 4px);height:42px;color:var(--dsw-alias-label-primary);cursor:pointer;background:0 0;border:none;border-radius:12px;align-items:center;gap:8px;margin:0 -2px;padding:0 10px 0 8px;font-family:inherit;font-size:14px;display:inline-flex;overflow:hidden}._9tq6Kq_badge:hover,._9tq6Kq_badge[data-active]{background:var(--dsw-alias-interactive-bg-hover)}._9tq6Kq_badgeLabel{text-overflow:ellipsis;white-space:nowrap;min-width:0;overflow:hidden}._9tq6Kq_badgeCount{color:var(--dsw-alias-label-tertiary);font-variant-numeric:tabular-nums;flex:none;margin-left:auto;font-size:12px;line-height:16px}._9tq6Kq_layer._9tq6Kq_rail{width:36px;height:36px;margin:0}._9tq6Kq_rail ._9tq6Kq_badge{corner-shape:round;border-radius:50%;justify-content:center;gap:0;width:36px;height:36px;padding:0}._9tq6Kq_rail ._9tq6Kq_footerButtons{flex-direction:column;gap:2px}._9tq6Kq_panel{isolation:isolate;z-index:30;--dsw-elevation-stroke-color:var(--dsw-alias-border-l1);width:420px;max-width:calc(100vw - 24px);max-height:60vh;box-shadow:var(--dsw-elevation-prominent);--dsh-scrollbar-thumb:var(--dsw-alias-scrollbar-bg-l2);--dsh-scrollbar-thumb-hover:var(--dsw-alias-scrollbar-hover-l2);border:0;border-radius:12px;flex-direction:column;display:flex;position:fixed;overflow:hidden}._9tq6Kq_panel:before{z-index:-1;border-radius:inherit;background:var(--dsw-specific-menu);backdrop-filter:var(--dsw-menu-backdrop-filter);content:\"\";pointer-events:none;position:absolute;inset:0}._9tq6Kq_header{box-sizing:border-box;flex:none;justify-content:space-between;align-items:center;min-height:44px;padding:10px 12px;display:flex}._9tq6Kq_body{flex:1;min-height:0;padding:0 12px 12px;overflow-y:auto}._9tq6Kq_title{color:var(--dsw-alias-label-primary);font-size:14px;font-weight:500;line-height:20px}._9tq6Kq_note,._9tq6Kq_readError{color:var(--dsw-alias-label-tertiary);margin:4px 0;font-size:12px;line-height:18px}._9tq6Kq_readError{color:var(--dsw-alias-state-error-primary)}._9tq6Kq_group{color:var(--dsw-alias-label-caption);text-transform:uppercase;letter-spacing:.04em;margin:8px 0;font-size:11px;font-weight:500;line-height:16px}._9tq6Kq_rows{flex-direction:column;gap:8px;margin:0;padding:0;list-style:none;display:flex}._9tq6Kq_row{border:.5px solid var(--dsw-alias-border-l4);border-radius:12px;flex-direction:column;gap:8px;padding:14px 12px 10px;display:flex}._9tq6Kq_row[data-cordis-awaiting]{border-color:var(--dsw-alias-state-business-primary)}._9tq6Kq_rowHead{align-items:center;gap:8px;display:flex}._9tq6Kq_rowId{color:var(--dsw-alias-label-tertiary);font-family:var(--dsh-font-mono,monospace);flex:none;font-size:11px;line-height:20px}._9tq6Kq_rowName{min-width:0;color:var(--dsw-alias-label-primary);text-overflow:ellipsis;white-space:nowrap;flex:1;font-size:13px;font-weight:500;line-height:20px;overflow:hidden}._9tq6Kq_rowStatus{height:20px;color:var(--dsw-alias-label-caption);flex:none;align-items:center;gap:4px;font-size:11px;line-height:20px;display:inline-flex}._9tq6Kq_rowDetail{align-items:center;gap:8px;min-height:28px;display:flex}._9tq6Kq_versionPicker{color:var(--dsw-alias-label-caption);align-items:center;gap:8px;font-size:11px;line-height:18px;display:flex}._9tq6Kq_versionPicker select{border:.5px solid var(--dsw-alias-border-l3);min-width:0;height:26px;color:var(--dsw-alias-label-secondary);font:inherit;background:0 0;border-radius:7px;flex:1;padding:0 8px}._9tq6Kq_rowPurpose{min-width:0;color:var(--dsw-alias-label-tertiary);text-overflow:ellipsis;white-space:nowrap;flex:1;font-size:12px;line-height:18px;overflow:hidden}._9tq6Kq_rowError{color:var(--dsw-alias-state-error-primary);font-size:12px;line-height:18px}._9tq6Kq_rowActions{flex:none;align-items:center;gap:10px;display:flex}._9tq6Kq_transition{min-width:0;color:var(--dsw-alias-label-caption);align-items:center;gap:8px;font-size:11px;line-height:18px;display:flex}._9tq6Kq_transitionActions{gap:6px;margin-left:auto;display:flex}._9tq6Kq_transitionActions button{border:.5px solid var(--dsw-alias-border-l3);corner-shape:round;color:var(--dsw-alias-label-secondary);font:inherit;cursor:pointer;background:0 0;border-radius:999px;padding:2px 8px}._9tq6Kq_transitionActions button:hover:not(:disabled){background:var(--dsw-alias-interactive-bg-hover)}._9tq6Kq_transitionActions button:disabled{opacity:.4;cursor:default}._9tq6Kq_activeVersion{color:var(--dsw-alias-label-caption);font-size:11px;line-height:16px}._9tq6Kq_actionButton{corner-shape:round;width:28px;height:28px;color:var(--dsw-alias-label-tertiary);cursor:pointer;background:0 0;border:none;border-radius:999px;justify-content:center;align-items:center;padding:0;display:inline-flex}._9tq6Kq_actionButton:hover:not(:disabled){background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-secondary)}._9tq6Kq_actionButton:disabled{opacity:.4;cursor:default}._9tq6Kq_doubleCheck{width:17px;height:14px;display:inline-block;position:relative}._9tq6Kq_doubleCheck svg{position:absolute;top:1px}._9tq6Kq_doubleCheck svg:first-child{opacity:.7;left:0}._9tq6Kq_doubleCheck svg:last-child{left:5px}";
-		const tagId = "@deepseek-ai/dsh-client-ui-cordis/CordisPanel.module.css";
+		//#region \0dsh-css:D:\deepseek-harness\packages\client\ui-input-trigger\src\client\MenuView.module.css.mjs
+		const css = ".W00CzG_menu{z-index:100;box-sizing:border-box;--dsh-scrollbar-thumb:var(--dsw-alias-scrollbar-bg-l2);--dsh-scrollbar-thumb-hover:var(--dsw-alias-scrollbar-hover-l2);--dsh-scrollbar-width:6px;--dsh-scrollbar-thumb-border:2px;--dsh-scrollbar-track-margin:12px;--dsw-elevation-stroke-color:var(--dsw-alias-border-l1);max-height:400px;box-shadow:var(--dsw-elevation-prominent);border:0;flex-direction:column;padding:4px;display:flex;position:absolute;bottom:calc(100% + 4px);left:0;right:0;overflow:hidden}.W00CzG_menu[data-overflow-below]:after{content:\"\";background:linear-gradient(to bottom, transparent, var(--dsw-specific-menu));pointer-events:none;height:16px;position:absolute;bottom:4px;left:4px;right:14px}.W00CzG_viewport{flex-direction:column;min-height:0;display:flex;overflow-y:auto}.W00CzG_item{border-radius:var(--dsw-radius-md);cursor:pointer;width:100%;min-height:34px;color:var(--dsw-alias-label-primary);text-align:left;background:0 0;border:none;align-items:center;gap:6px;padding:6px 8px;font-size:13px;line-height:20px;display:flex}.W00CzG_item.W00CzG_active{background:var(--dsw-alias-interactive-bg-hover)}.W00CzG_sectionTitle{min-height:23px;color:var(--dsw-alias-label-tertiary);flex:none;padding:5px 8px 2px;font-size:11px;font-weight:500;line-height:16px}.W00CzG_sectionTitle:not(:first-child){margin-top:3px}.W00CzG_itemIcon{width:14px;height:14px;color:var(--dsw-alias-menu-icon);flex:none;justify-content:center;align-items:center;display:inline-flex}.W00CzG_itemIcon svg{width:14px;height:14px}.W00CzG_itemName{text-overflow:ellipsis;white-space:nowrap;flex:none;max-width:40%;overflow:hidden}.W00CzG_itemAlias{text-overflow:ellipsis;white-space:nowrap;max-width:20%;color:var(--dsw-alias-label-tertiary);flex:none;font-size:12px;line-height:18px;overflow:hidden}.W00CzG_itemDescription{text-overflow:ellipsis;white-space:nowrap;text-align:right;min-width:0;color:var(--dsw-alias-label-tertiary);flex:1;font-size:12px;line-height:18px;overflow:hidden}.W00CzG_trailing{flex:none;align-items:center;gap:3px;margin-left:auto;display:inline-flex}.W00CzG_drillHintText{color:var(--dsw-alias-label-caption);white-space:nowrap;font-size:10px;line-height:16px;display:none}.W00CzG_drillHint{border-radius:var(--dsw-radius-xs);background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-caption);padding:0 4px;font-family:inherit;font-size:10px;line-height:16px;display:none}.W00CzG_item.W00CzG_active .W00CzG_drillHintText,.W00CzG_item.W00CzG_active .W00CzG_drillHint{display:inline-flex}.W00CzG_drill{border-radius:var(--dsw-radius-xs);width:18px;height:18px;color:var(--dsw-alias-menu-icon);flex:none;place-items:center;display:inline-grid}.W00CzG_drill:hover{background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-primary)}.W00CzG_groupTitle{color:var(--dsw-alias-label-tertiary);padding:6px 8px;font-size:11px;line-height:15px}.W00CzG_skeletonRow{box-sizing:border-box;align-items:center;min-height:34px;padding:6px 8px;display:flex}.W00CzG_skeletonBar{border-radius:var(--dsw-radius-xs);background:var(--dsw-alias-bg-skeleton);height:18px;animation:2s cubic-bezier(.36,0,.64,1) infinite W00CzG_dsh-menu-skeleton}@keyframes W00CzG_dsh-menu-skeleton{0%{opacity:1}40%{opacity:.6}80%,to{opacity:1}}.W00CzG_crumbs{border-bottom:.5px solid var(--dsw-alias-border-l1);flex-wrap:wrap;flex:none;align-items:center;gap:2px;margin-bottom:2px;padding:3px 3px 5px;display:flex}.W00CzG_crumb{border-radius:var(--dsw-radius-sm);max-width:40%;color:var(--dsw-alias-label-tertiary);cursor:pointer;text-overflow:ellipsis;white-space:nowrap;background:0 0;border:none;flex:0 auto;padding:2px 5px;font-family:inherit;font-size:11px;line-height:16px;overflow:hidden}.W00CzG_crumb:hover{background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-primary)}.W00CzG_crumbCurrent,.W00CzG_crumbCurrent:hover{color:var(--dsw-alias-label-primary);cursor:default;background:0 0}.W00CzG_crumbSeparator{color:var(--dsw-alias-menu-icon);flex:none;display:inline-flex}";
+		const tagId = "@deepseek-ai/dsh-client-ui-input-trigger/MenuView.module.css";
 		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId) + "]") === null) {
 			const tag = document.createElement("style");
-			tag.dataset.plugin = "@deepseek-ai/dsh-client-ui-cordis";
+			tag.dataset.plugin = "@deepseek-ai/dsh-client-ui-input-trigger";
 			tag.dataset.pluginCss = tagId;
 			tag.textContent = css;
 			document.head.appendChild(tag);
 		}
-		var CordisPanel_module_css_default = {
-			"actionButton": "_9tq6Kq_actionButton",
-			"activeVersion": "_9tq6Kq_activeVersion",
-			"badge": "_9tq6Kq_badge",
-			"badgeCount": "_9tq6Kq_badgeCount",
-			"badgeLabel": "_9tq6Kq_badgeLabel",
-			"body": "_9tq6Kq_body",
-			"doubleCheck": "_9tq6Kq_doubleCheck",
-			"footerButtons": "_9tq6Kq_footerButtons",
-			"group": "_9tq6Kq_group",
-			"header": "_9tq6Kq_header",
-			"layer": "_9tq6Kq_layer",
-			"note": "_9tq6Kq_note",
-			"panel": "_9tq6Kq_panel",
-			"rail": "_9tq6Kq_rail",
-			"readError": "_9tq6Kq_readError",
-			"row": "_9tq6Kq_row",
-			"rowActions": "_9tq6Kq_rowActions",
-			"rowDetail": "_9tq6Kq_rowDetail",
-			"rowError": "_9tq6Kq_rowError",
-			"rowHead": "_9tq6Kq_rowHead",
-			"rowId": "_9tq6Kq_rowId",
-			"rowName": "_9tq6Kq_rowName",
-			"rowPurpose": "_9tq6Kq_rowPurpose",
-			"rowStatus": "_9tq6Kq_rowStatus",
-			"rows": "_9tq6Kq_rows",
-			"title": "_9tq6Kq_title",
-			"transition": "_9tq6Kq_transition",
-			"transitionActions": "_9tq6Kq_transitionActions",
-			"versionPicker": "_9tq6Kq_versionPicker"
+		var MenuView_module_css_default = {
+			"active": "W00CzG_active",
+			"crumb": "W00CzG_crumb",
+			"crumbCurrent": "W00CzG_crumbCurrent",
+			"crumbSeparator": "W00CzG_crumbSeparator",
+			"crumbs": "W00CzG_crumbs",
+			"drill": "W00CzG_drill",
+			"drillHint": "W00CzG_drillHint",
+			"drillHintText": "W00CzG_drillHintText",
+			"dsh-menu-skeleton": "W00CzG_dsh-menu-skeleton",
+			"groupTitle": "W00CzG_groupTitle",
+			"item": "W00CzG_item",
+			"itemAlias": "W00CzG_itemAlias",
+			"itemDescription": "W00CzG_itemDescription",
+			"itemIcon": "W00CzG_itemIcon",
+			"itemName": "W00CzG_itemName",
+			"menu": "W00CzG_menu",
+			"sectionTitle": "W00CzG_sectionTitle",
+			"skeletonBar": "W00CzG_skeletonBar",
+			"skeletonRow": "W00CzG_skeletonRow",
+			"trailing": "W00CzG_trailing",
+			"viewport": "W00CzG_viewport"
 		};
 		//#endregion
-		//#region lib/types/client/CordisPanel.js
-		/** Frame-wide dynamic Plugin inventory, approvals, versions, and lifecycle actions. */
-		const STATUS_LABELS = {
-			idle: "status.idle",
-			"awaiting-approval": "status.awaitingApproval",
-			"client-pending": "status.clientPending",
-			running: "status.running",
-			failed: "status.failed"
-		};
-		const RENDER_FAILURE_LABELS = {
-			abdicated: "render.failedAbdicated",
-			held: "render.failedHeld"
-		};
-		function selectedPackageIdOf({ pluginId, listed, activity }, selected) {
-			const selectedPackageId = selected[pluginId];
-			if (selectedPackageId !== void 0 && listed?.packages.some((pkg) => pkg.packageId === selectedPackageId)) return selectedPackageId;
-			return listed?.nextPackageId ?? listed?.currentPackageId ?? listed?.packages.at(-1)?.packageId ?? activity?.packageId;
+		//#region lib/types/client/MenuView.js
+		/**
+		* Trigger candidate menu: renders the InputTriggerService menu store into the
+		* conversation.input.overlay anchor. Closed state renders null (the overlay
+		* slot stays mounted); groups render in roster order under localized title
+		* rows. A pending group keeps showing the items it already had (the reducer
+		* retains them across a query refinement) and falls back to two skeleton
+		* rows only while it has none; pointer picks route back through
+		* the service (combobox pattern — focus never leaves the textarea, so rows
+		* are mousedown-handled and the highlight is exposed via
+		* aria-activedescendant on the listbox). A row reads title, then the
+		* command-name alias when the title is not the name in another letter case
+		* (a localized title), then the description right-aligned. A source publishing crumbs gets a breadcrumb
+		* header pinned above the scrolling list.
+		*/
+		/** Height cap that fits the two headings and eight built-in command rows. */
+		const MAX_HEIGHT = 400;
+		/**
+		* Viewport top margin: the conversation header's 76px block (title row plus
+		* view tabs, ui-conversation) plus 8px of air, so a tall list stops below the
+		* header instead of sliding under it.
+		*/
+		const TOP_MARGIN = 84;
+		/** DOM id of one option row (the aria-activedescendant target). */
+		function optionId(source, index) {
+			return `dsh-slash-option-${source}-${index}`;
 		}
-		function visiblePanelStatus(view, selectedPackageId, loaded) {
-			const { listed, activity } = view;
-			const latest = listed?.latestRun;
-			if (activity?.phase === "awaiting-approval" || latest?.status === "awaiting-approval") return "awaiting-approval";
-			if (latest?.status === "failed" && latest.packageId === selectedPackageId) return "failed";
-			if (listed?.activeRun === void 0) return "idle";
-			return cordisVisibleStatus(listed, listed.activeRun.packageId, loaded);
-		}
-		function panelDotState(status, busy) {
-			if (busy) return "ongoing";
-			switch (status) {
-				case "idle": return "idle";
-				case "client-pending": return "ongoing";
-				case "running": return "done";
-				case "awaiting-approval": return "warning";
-				case "failed": return "error";
-			}
-		}
-		function blockingFirst(rows) {
-			return [...rows.filter((row) => row.activity?.phase === "awaiting-approval"), ...rows.filter((row) => row.activity?.phase !== "awaiting-approval")];
-		}
-		function RowAction({ label, children, ...props }) {
-			return (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Tooltip, {
-				label,
-				side: "bottom",
-				delayMs: 500,
-				children: (0, react_jsx_runtime.jsx)("button", {
-					type: "button",
-					className: CordisPanel_module_css_default.actionButton,
-					"aria-label": label,
-					...props,
-					children
-				})
-			});
-		}
-		function DoubleCheckIcon() {
-			return (0, react_jsx_runtime.jsxs)("span", {
-				className: CordisPanel_module_css_default.doubleCheck,
-				"aria-hidden": true,
-				children: [(0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconCheckOutlineRegular, { size: 12 }), (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconCheckOutlineRegular, { size: 12 })]
-			});
-		}
-		/** Render the inventory panel and its unified footer action. */
-		function CordisPanel({ wide, useSessions, useInventory, useActiveRuns, useRunErrors, useLoaded, useRenderFailures, onApprove, onDecline, onRun, onStop, onRemove, onRefresh, t }) {
-			const inventory = useInventory((snapshot) => snapshot);
-			const activeRuns = useActiveRuns((snapshot) => snapshot);
-			const errors = useRunErrors((snapshot) => snapshot);
-			const loaded = useLoaded((snapshot) => snapshot);
-			const renderFailures = useRenderFailures((snapshot) => snapshot);
-			const current = useSessions((state) => Object.values(state.byId).find((session) => (session.retainedBy.mainView ?? 0) > 0)?.id);
-			const [open, setOpen] = (0, react.useState)(false);
-			const [selected, setSelected] = (0, react.useState)({});
-			const [pending, setPending] = (0, react.useState)(/* @__PURE__ */ new Set());
-			const [actionErrors, setActionErrors] = (0, react.useState)(/* @__PURE__ */ new Map());
-			const visibleRequests = (0, react.useRef)(/* @__PURE__ */ new Set());
-			const rootRef = (0, react.useRef)(null);
-			const [anchor, setAnchor] = (0, react.useState)();
+		/**
+		* Render the candidate menu overlay entry.
+		* @param props - injected face (the menu store and the pick route); `t` rides the standard locale seat.
+		* @returns the dropdown while open; null while closed.
+		*/
+		function MenuView({ menu, headers, onPick, onCrumb, onHover, onDismiss, t }) {
+			const state = (0, react.useSyncExternalStore)((fn) => menu.subscribe(fn), () => menu.getSnapshot());
+			const crumbs = (0, react.useSyncExternalStore)((fn) => headers.subscribe(fn), () => headers.getSnapshot());
+			const listRef = (0, react.useRef)(null);
+			const viewportRef = (0, react.useRef)(null);
+			const [hasOverflowBelow, setHasOverflowBelow] = (0, react.useState)(false);
+			const maxHeight = (0, _deepseek_ai_dsh_client_ui_primitives.useAnchoredMaxHeight)(listRef, MAX_HEIGHT, state, TOP_MARGIN);
+			const updateOverflowHint = (0, react.useCallback)(() => {
+				const viewport = viewportRef.current;
+				setHasOverflowBelow(viewport !== null && viewport.scrollTop + viewport.clientHeight < viewport.scrollHeight - 1);
+			}, []);
 			(0, react.useLayoutEffect)(() => {
-				if (!open) return;
-				const place = () => {
-					const rect = rootRef.current?.getBoundingClientRect();
-					if (rect !== void 0) setAnchor({
-						left: rect.left,
-						bottom: window.innerHeight - rect.top + 8
-					});
+				updateOverflowHint();
+			}, [
+				state,
+				maxHeight,
+				updateOverflowHint
+			]);
+			const highlight = state.open ? state.highlight : null;
+			(0, react.useEffect)(() => {
+				if (highlight === null) return;
+				document.getElementById(optionId(highlight.source, highlight.index))?.scrollIntoView({ block: "nearest" });
+			}, [highlight]);
+			(0, react.useEffect)(() => {
+				if (!state.open) return;
+				const onPointerDown = (ev) => {
+					if (!(ev.target instanceof Node)) return;
+					if (listRef.current?.contains(ev.target)) return;
+					if ((listRef.current?.closest("[data-composer-card]"))?.contains(ev.target)) return;
+					onDismiss();
 				};
-				place();
-				window.addEventListener("resize", place);
+				document.addEventListener("pointerdown", onPointerDown, true);
 				return () => {
-					window.removeEventListener("resize", place);
+					document.removeEventListener("pointerdown", onPointerDown, true);
 				};
-			}, [open]);
-			(0, _deepseek_ai_dsh_client_ui_primitives.useDismissOnOutsidePointer)(rootRef, open, setOpen);
-			(0, react.useEffect)(() => {
-				const now = /* @__PURE__ */ new Set();
-				for (const activity of activeRuns.values()) if (activity.phase === "awaiting-approval") now.add(activity.requestId);
-				const discovered = [...now].some((requestId) => !visibleRequests.current.has(requestId));
-				visibleRequests.current = now;
-				if (discovered) setOpen(true);
-			}, [activeRuns]);
-			(0, react.useEffect)(() => {
-				onRefresh();
-			}, [onRefresh]);
-			(0, react.useEffect)(() => {
-				if (open) onRefresh();
-			}, [onRefresh, open]);
-			const byPlugin = /* @__PURE__ */ new Map();
-			for (const listed of inventory.rows) {
-				const activity = activeRuns.get(listed.pluginId);
-				byPlugin.set(listed.pluginId, {
-					pluginId: listed.pluginId,
-					agentId: activity?.agentId ?? listed.agentId,
-					listed,
-					...activity === void 0 ? {} : { activity }
-				});
-			}
-			for (const [pluginId, activity] of activeRuns) {
-				if (byPlugin.has(pluginId)) continue;
-				byPlugin.set(pluginId, {
-					pluginId,
-					agentId: activity.agentId,
-					activity
-				});
-			}
-			const all = [...byPlugin.values()];
-			const mine = blockingFirst(all.filter((row) => current !== void 0 && row.agentId === current));
-			const theirs = blockingFirst(all.filter((row) => current === void 0 || row.agentId !== current));
-			const approvals = [...activeRuns.values()].filter((activity) => activity.phase === "awaiting-approval").length;
-			const running = all.filter((view) => visiblePanelStatus(view, selectedPackageIdOf(view, selected), loaded) === "running").length;
-			if (all.length === 0) return null;
-			const runAction = async (pluginId, action) => {
-				if (pending.has(pluginId)) return;
-				setPending((currentPending) => new Set(currentPending).add(pluginId));
-				setActionErrors((currentErrors) => {
-					const next = new Map(currentErrors);
-					next.delete(pluginId);
-					return next;
-				});
-				try {
-					const result = await action();
-					if (result !== void 0 && !result.ok) setActionErrors((currentErrors) => new Map(currentErrors).set(pluginId, result.message ?? "operation failed"));
-				} catch (error) {
-					setActionErrors((currentErrors) => new Map(currentErrors).set(pluginId, error instanceof Error ? error.message : String(error)));
-				} finally {
-					setPending((currentPending) => {
-						const next = new Set(currentPending);
-						next.delete(pluginId);
-						return next;
-					});
-					onRefresh();
-				}
-			};
-			const renderRow = (view) => {
-				const { pluginId, listed, activity } = view;
-				const selectedPackageId = selectedPackageIdOf(view, selected);
-				const selectedPackage = listed !== void 0 && selectedPackageId !== void 0 ? packageOf(listed, selectedPackageId) : void 0;
-				const activePackage = listed?.activeRun === void 0 ? void 0 : packageOf(listed, listed.activeRun.packageId);
-				const name = selectedPackage?.name ?? (activity?.phase === "awaiting-approval" ? activity.name : pluginId);
-				const purpose = selectedPackage?.purpose ?? (activity?.phase === "awaiting-approval" ? activity.purpose : "");
-				const latest = listed?.latestRun;
-				const awaiting = activity?.phase === "awaiting-approval" ? activity.requestId : latest?.status === "awaiting-approval" ? latest.approvalRequestId : void 0;
-				const status = visiblePanelStatus(view, selectedPackageId, loaded);
-				const busy = pending.has(pluginId) || activity?.phase === "orchestrating";
-				const failure = errors.get(pluginId);
-				const hostFailure = latest?.status === "failed" ? latest.error : void 0;
-				const renderFailure = renderFailures.get(pluginId);
-				const actionError = actionErrors.get(pluginId);
-				const nextPackageId = listed?.nextPackageId !== void 0 && listed.nextPackageId !== listed.currentPackageId ? listed.nextPackageId : void 0;
-				const currentPackageId = listed?.currentPackageId;
-				const runMode = listed?.currentPackageId !== void 0 && selectedPackageId !== listed.currentPackageId ? "update" : "run";
-				return (0, react_jsx_runtime.jsxs)("li", {
-					className: CordisPanel_module_css_default.row,
-					"data-cordis-row": pluginId,
-					"data-cordis-status": status,
-					"data-cordis-awaiting": awaiting !== void 0 || void 0,
-					children: [
-						(0, react_jsx_runtime.jsxs)("div", {
-							className: CordisPanel_module_css_default.rowHead,
-							children: [
-								(0, react_jsx_runtime.jsx)("span", {
-									className: CordisPanel_module_css_default.rowId,
-									children: pluginId
-								}),
-								(0, react_jsx_runtime.jsx)("span", {
-									className: CordisPanel_module_css_default.rowName,
-									children: name
-								}),
-								(0, react_jsx_runtime.jsxs)("span", {
-									className: CordisPanel_module_css_default.rowStatus,
-									children: [(0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.StateDot, { state: panelDotState(status, busy) }), (0, react_jsx_runtime.jsx)("span", { children: t(STATUS_LABELS[status]) })]
-								})
-							]
-						}),
-						listed !== void 0 && listed.packages.length > 1 && selectedPackageId !== void 0 && (0, react_jsx_runtime.jsxs)("label", {
-							className: CordisPanel_module_css_default.versionPicker,
-							children: [(0, react_jsx_runtime.jsx)("span", { children: t("panel.version") }), (0, react_jsx_runtime.jsx)("select", {
-								value: selectedPackageId,
-								disabled: busy,
-								onChange: (event) => {
-									setSelected((currentSelected) => ({
-										...currentSelected,
-										[pluginId]: event.target.value
-									}));
-								},
-								children: listed.packages.map((pkg) => (0, react_jsx_runtime.jsx)("option", {
-									value: pkg.packageId,
-									children: `${pkg.name} · ${pkg.packageId}`
-								}, pkg.packageId))
-							})]
-						}),
-						(0, react_jsx_runtime.jsxs)("div", {
-							className: CordisPanel_module_css_default.rowDetail,
-							children: [(0, react_jsx_runtime.jsx)("span", {
-								className: CordisPanel_module_css_default.rowPurpose,
-								children: purpose
-							}), (0, react_jsx_runtime.jsxs)("div", {
-								className: CordisPanel_module_css_default.rowActions,
-								children: [
-									awaiting !== void 0 && (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [
-										(0, react_jsx_runtime.jsx)(RowAction, {
-											label: t("action.approveOnce"),
-											"data-cordis-approve": awaiting,
-											disabled: busy,
-											onClick: () => {
-												runAction(pluginId, async () => {
-													await onApprove(awaiting, false);
-													setOpen(false);
-												});
-											},
-											children: (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconCheckOutlineRegular, { size: 14 })
-										}),
-										(0, react_jsx_runtime.jsx)(RowAction, {
-											label: t("action.approvePlugin"),
-											"data-cordis-approve-plugin": awaiting,
-											disabled: busy,
-											onClick: () => {
-												runAction(pluginId, async () => {
-													await onApprove(awaiting, true);
-													setOpen(false);
-												});
-											},
-											children: (0, react_jsx_runtime.jsx)(DoubleCheckIcon, {})
-										}),
-										(0, react_jsx_runtime.jsx)(RowAction, {
-											label: t("action.decline"),
-											"data-cordis-decline": awaiting,
-											disabled: busy,
-											onClick: () => {
-												runAction(pluginId, async () => {
-													await onDecline(awaiting);
-													setOpen(false);
-												});
-											},
-											children: (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconCloseOutlineRegular, { size: 14 })
-										})
-									] }),
-									awaiting === void 0 && listed !== void 0 && selectedPackageId !== void 0 && listed.activeRun === void 0 && (0, react_jsx_runtime.jsx)(RowAction, {
-										label: t("action.run"),
-										"data-cordis-switch": "run",
-										disabled: busy,
-										onClick: () => {
-											runAction(pluginId, () => onRun({
-												agentId: listed.agentId,
-												pluginId,
-												packageId: selectedPackageId,
-												mode: runMode,
-												hasClientHalf: selectedPackage?.hasClientHalf === true
-											}));
-										},
-										children: (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconPlayOutlineRegular, { size: 14 })
-									}),
-									awaiting === void 0 && listed !== void 0 && listed.activeRun !== void 0 && selectedPackageId !== listed.activeRun.packageId && selectedPackage !== void 0 && (0, react_jsx_runtime.jsx)(RowAction, {
-										label: t("action.run"),
-										"data-cordis-switch": "run",
-										disabled: busy,
-										onClick: () => {
-											runAction(pluginId, () => onRun({
-												agentId: listed.agentId,
-												pluginId,
-												packageId: selectedPackage.packageId,
-												mode: runMode,
-												hasClientHalf: selectedPackage.hasClientHalf
-											}));
-										},
-										children: (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconPlayOutlineRegular, { size: 14 })
-									}),
-									awaiting === void 0 && listed !== void 0 && listed.activeRun !== void 0 && status === "client-pending" && activePackage !== void 0 && selectedPackageId === listed.activeRun.packageId && (0, react_jsx_runtime.jsx)(RowAction, {
-										label: t("action.run"),
-										"data-cordis-switch": "run",
-										disabled: busy,
-										onClick: () => {
-											runAction(pluginId, () => onRun({
-												agentId: listed.agentId,
-												pluginId,
-												packageId: activePackage.packageId,
-												mode: "run",
-												hasClientHalf: true
-											}));
-										},
-										children: (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconPlayOutlineRegular, { size: 14 })
-									}),
-									awaiting === void 0 && listed !== void 0 && listed.activeRun !== void 0 && (0, react_jsx_runtime.jsx)(RowAction, {
-										label: t("action.stop"),
-										"data-cordis-switch": "stop",
-										disabled: busy,
-										onClick: () => {
-											runAction(pluginId, () => onStop(listed.agentId, pluginId));
-										},
-										children: (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconStopFillRegular, { size: 14 })
-									}),
-									awaiting === void 0 && listed !== void 0 && (0, react_jsx_runtime.jsx)(RowAction, {
-										label: t("action.remove"),
-										"data-cordis-remove": pluginId,
-										disabled: busy,
-										onClick: () => {
-											runAction(pluginId, () => onRemove(listed.agentId, pluginId));
-										},
-										children: (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconTrashOutlineRegular, { size: 14 })
-									})
-								]
-							})]
-						}),
-						awaiting === void 0 && nextPackageId !== void 0 && listed !== void 0 && (0, react_jsx_runtime.jsxs)("div", {
-							className: CordisPanel_module_css_default.transition,
-							children: [
-								(0, react_jsx_runtime.jsx)("span", { children: currentPackageId === void 0 ? "" : t("panel.current", { packageId: currentPackageId }) }),
-								(0, react_jsx_runtime.jsx)("span", { children: t("panel.next", { packageId: nextPackageId }) }),
-								(0, react_jsx_runtime.jsxs)("div", {
-									className: CordisPanel_module_css_default.transitionActions,
-									children: [(0, react_jsx_runtime.jsx)("button", {
-										type: "button",
-										disabled: busy,
-										onClick: () => {
-											runAction(pluginId, () => onRun({
-												agentId: listed.agentId,
-												pluginId,
-												packageId: nextPackageId,
-												mode: currentPackageId === void 0 ? "run" : "update",
-												hasClientHalf: packageOf(listed, nextPackageId)?.hasClientHalf === true
-											}));
-										},
-										children: t("action.retry")
-									}), currentPackageId !== void 0 && (0, react_jsx_runtime.jsx)("button", {
-										type: "button",
-										disabled: busy,
-										onClick: () => {
-											runAction(pluginId, () => onRun({
-												agentId: listed.agentId,
-												pluginId,
-												packageId: currentPackageId,
-												mode: "run",
-												hasClientHalf: packageOf(listed, currentPackageId)?.hasClientHalf === true
-											}));
-										},
-										children: t("action.rollback")
-									})]
-								})
-							]
-						}),
-						failure !== void 0 && (0, react_jsx_runtime.jsx)("div", {
-							className: CordisPanel_module_css_default.rowError,
-							role: "alert",
-							children: `${failure.message} (${failure.reason})`
-						}),
-						failure === void 0 && hostFailure !== void 0 && (0, react_jsx_runtime.jsx)("div", {
-							className: CordisPanel_module_css_default.rowError,
-							role: "alert",
-							children: `${hostFailure.message} (${hostFailure.phase})`
-						}),
-						actionError !== void 0 && (0, react_jsx_runtime.jsx)("div", {
-							className: CordisPanel_module_css_default.rowError,
-							role: "alert",
-							children: actionError
-						}),
-						renderFailure !== void 0 && (0, react_jsx_runtime.jsx)("div", {
-							className: CordisPanel_module_css_default.rowError,
-							role: "alert",
-							"data-cordis-render-failure": renderFailure.slot,
-							"data-cordis-render-abdicated": renderFailure.abdicated || void 0,
-							children: `${t(RENDER_FAILURE_LABELS[renderFailure.abdicated ? "abdicated" : "held"], { slot: renderFailure.slot })} ${renderFailure.message}`
-						}),
-						activePackage !== void 0 && activePackage.packageId !== selectedPackageId && (0, react_jsx_runtime.jsx)("span", {
-							className: CordisPanel_module_css_default.activeVersion,
-							children: `${t("status.running")}: ${activePackage.name} · ${activePackage.packageId}`
-						})
-					]
-				}, pluginId);
-			};
-			return (0, react_jsx_runtime.jsxs)("div", {
-				ref: rootRef,
-				className: wide ? CordisPanel_module_css_default.layer : `${CordisPanel_module_css_default.layer} ${CordisPanel_module_css_default.rail}`,
-				children: [open && anchor !== void 0 && (0, react_jsx_runtime.jsxs)("section", {
-					className: CordisPanel_module_css_default.panel,
-					style: anchor,
-					"data-cordis-panel": true,
-					"aria-label": t("panel.title"),
-					children: [(0, react_jsx_runtime.jsx)("header", {
-						className: CordisPanel_module_css_default.header,
-						children: (0, react_jsx_runtime.jsx)("span", {
-							className: CordisPanel_module_css_default.title,
-							children: t("panel.title")
-						})
-					}), (0, react_jsx_runtime.jsxs)("div", {
-						className: CordisPanel_module_css_default.body,
-						children: [
-							inventory.error !== void 0 && (0, react_jsx_runtime.jsx)("p", {
-								className: CordisPanel_module_css_default.readError,
-								role: "alert",
-								children: t("panel.readFailed", { message: inventory.error })
-							}),
-							!inventory.read && inventory.error === void 0 && (0, react_jsx_runtime.jsx)("p", {
-								className: CordisPanel_module_css_default.note,
-								children: t("panel.loading")
-							}),
-							inventory.read && all.length === 0 && (0, react_jsx_runtime.jsx)("p", {
-								className: CordisPanel_module_css_default.note,
-								children: t("panel.empty")
-							}),
-							mine.length > 0 && (0, react_jsx_runtime.jsxs)("section", { children: [(0, react_jsx_runtime.jsx)("h3", {
-								className: CordisPanel_module_css_default.group,
-								children: t("panel.group.current")
-							}), (0, react_jsx_runtime.jsx)("ul", {
-								className: CordisPanel_module_css_default.rows,
-								children: mine.map(renderRow)
-							})] }),
-							theirs.length > 0 && (0, react_jsx_runtime.jsxs)("section", { children: [(0, react_jsx_runtime.jsx)("h3", {
-								className: CordisPanel_module_css_default.group,
-								children: t("panel.group.others")
-							}), (0, react_jsx_runtime.jsx)("ul", {
-								className: CordisPanel_module_css_default.rows,
-								children: theirs.map(renderRow)
-							})] })
-						]
-					})]
+			}, [state.open, onDismiss]);
+			if (!state.open) return null;
+			return (0, react_jsx_runtime.jsxs)(_deepseek_ai_dsh_client_ui_primitives.MenuSurface, {
+				ref: listRef,
+				className: MenuView_module_css_default.menu,
+				style: { maxHeight },
+				"data-trigger-menu": "",
+				"data-overflow-below": hasOverflowBelow || void 0,
+				children: [state.groups.map((group) => {
+					const trail = crumbs.get(group.source);
+					return trail === void 0 ? null : (0, react_jsx_runtime.jsx)("nav", {
+						className: MenuView_module_css_default.crumbs,
+						"aria-label": t("crumbs.aria"),
+						children: trail.map((crumb, index) => (0, react_jsx_runtime.jsxs)(react.Fragment, { children: [index > 0 && (0, react_jsx_runtime.jsx)("span", {
+							className: MenuView_module_css_default.crumbSeparator,
+							"aria-hidden": true,
+							children: (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconChevronRightOutlineRegular, {})
+						}), (0, react_jsx_runtime.jsx)("button", {
+							type: "button",
+							className: clsx(MenuView_module_css_default.crumb, crumb.current === true && MenuView_module_css_default.crumbCurrent),
+							"aria-current": crumb.current === true ? "location" : void 0,
+							disabled: crumb.current === true,
+							onMouseDown: (ev) => {
+								ev.preventDefault();
+								onCrumb(group.source, index);
+							},
+							children: crumb.label
+						})] }, `${String(index)}-${crumb.value}`))
+					}, group.source);
 				}), (0, react_jsx_runtime.jsx)("div", {
-					className: CordisPanel_module_css_default.footerButtons,
-					children: (0, react_jsx_runtime.jsxs)("button", {
-						type: "button",
-						className: CordisPanel_module_css_default.badge,
-						"data-cordis-badge": all.length,
-						"data-cordis-approval-badge": approvals,
-						"data-active": approvals > 0 || void 0,
-						"aria-label": t("panel.plugins.aria"),
-						"aria-expanded": open,
-						onClick: () => {
-							setOpen((value) => !value);
-						},
-						children: [(0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconCordisPluginOutlineRegular, { size: wide ? 16 : 18 }), wide && (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [(0, react_jsx_runtime.jsx)("span", {
-							className: CordisPanel_module_css_default.badgeLabel,
-							children: t("panel.trigger")
-						}), (0, react_jsx_runtime.jsx)("span", {
-							className: CordisPanel_module_css_default.badgeCount,
-							children: t("panel.runningCount", { count: running })
-						})] })]
-					})
+					ref: viewportRef,
+					className: MenuView_module_css_default.viewport,
+					role: "listbox",
+					"aria-label": t("suggestions.aria"),
+					"aria-activedescendant": highlight !== null ? optionId(highlight.source, highlight.index) : void 0,
+					onScroll: updateOverflowHint,
+					children: state.groups.map((group) => group.status === "ready" && group.items.length === 0 ? null : (0, react_jsx_runtime.jsxs)(react.Fragment, { children: [group.showGroupTitle === false || group.items.some((item) => item.section !== void 0) ? null : (0, react_jsx_runtime.jsx)("div", {
+						className: MenuView_module_css_default.groupTitle,
+						role: "presentation",
+						"data-source": group.source,
+						children: t(group.source)
+					}), group.status === "pending" && group.items.length === 0 ? (0, react_jsx_runtime.jsxs)("div", {
+						role: "status",
+						"aria-label": t("loading"),
+						"data-source": group.source,
+						children: [(0, react_jsx_runtime.jsx)("div", {
+							className: MenuView_module_css_default.skeletonRow,
+							children: (0, react_jsx_runtime.jsx)("span", {
+								className: MenuView_module_css_default.skeletonBar,
+								style: { width: "32%" }
+							})
+						}), (0, react_jsx_runtime.jsx)("div", {
+							className: MenuView_module_css_default.skeletonRow,
+							children: (0, react_jsx_runtime.jsx)("span", {
+								className: MenuView_module_css_default.skeletonBar,
+								style: { width: "48%" }
+							})
+						})]
+					}) : group.items.map((item, index) => {
+						const active = highlight !== null && highlight.source === group.source && highlight.index === index;
+						return (0, react_jsx_runtime.jsxs)(react.Fragment, { children: [item.section !== void 0 && item.section !== group.items[index - 1]?.section ? (0, react_jsx_runtime.jsx)("div", {
+							className: MenuView_module_css_default.sectionTitle,
+							role: "presentation",
+							children: item.section
+						}) : null, (0, react_jsx_runtime.jsxs)("button", {
+							id: optionId(group.source, index),
+							type: "button",
+							role: "option",
+							"aria-selected": active,
+							className: clsx(MenuView_module_css_default.item, active && MenuView_module_css_default.active),
+							onMouseDown: (ev) => {
+								ev.preventDefault();
+								onPick(group.source, index);
+							},
+							onMouseMove: active ? void 0 : () => {
+								onHover(group.source, index);
+							},
+							children: [
+								item.icon !== void 0 && (0, react_jsx_runtime.jsx)("span", {
+									className: MenuView_module_css_default.itemIcon,
+									"aria-hidden": true,
+									children: typeof item.icon === "string" ? (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.ReferenceIconRegular, {
+										kind: item.icon,
+										size: 14
+									}) : (0, react_jsx_runtime.jsx)(item.icon, { size: 14 })
+								}),
+								(0, react_jsx_runtime.jsx)("span", {
+									className: MenuView_module_css_default.itemName,
+									children: item.label ?? item.name
+								}),
+								item.label !== void 0 && item.label.toLowerCase() !== item.name.toLowerCase() && (0, react_jsx_runtime.jsx)("span", {
+									className: MenuView_module_css_default.itemAlias,
+									children: item.name
+								}),
+								item.description !== void 0 && (0, react_jsx_runtime.jsx)("span", {
+									className: MenuView_module_css_default.itemDescription,
+									children: item.description
+								}),
+								item.drill === true && (0, react_jsx_runtime.jsxs)("span", {
+									className: MenuView_module_css_default.trailing,
+									children: [
+										(0, react_jsx_runtime.jsx)("span", {
+											className: MenuView_module_css_default.drillHintText,
+											"aria-hidden": true,
+											children: t("drill.hint")
+										}),
+										(0, react_jsx_runtime.jsx)("kbd", {
+											className: MenuView_module_css_default.drillHint,
+											"aria-hidden": true,
+											children: t("drill.key")
+										}),
+										(0, react_jsx_runtime.jsx)("span", {
+											role: "button",
+											"aria-label": t("drill.aria"),
+											className: MenuView_module_css_default.drill,
+											onMouseDown: (ev) => {
+												ev.preventDefault();
+												ev.stopPropagation();
+												onPick(group.source, index, "drill");
+											},
+											children: (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconChevronRightOutlineRegular, { size: 12 })
+										})
+									]
+								})
+							]
+						})] }, optionId(group.source, index));
+					})] }, group.source))
 				})]
 			});
 		}
 		//#endregion
-		//#region lib/types/client/inventory.js
-		/**
-		* The host's definition registry as this page last read it, owned by the
-		* plugin's apply closure.
-		*
-		* The panel is a frame-wide surface, so it cannot derive this from any session:
-		* the registry is global and the read is a single global call. The rows are
-		* re-read rather than patched, because the wire announcements
-		* (`cordis/dynamic-package` / `/retract`) carry no labels and a definition
-		* can appear or disappear between them — a patch-in-place cache would drift into
-		* showing definitions the host no longer holds.
-		*
-		* Reads are single-flight: several announcements settling at once, or a badge
-		* opening while a reconnect re-reads, must not multiply the call. Single-flight
-		* alone would be wrong across a reconnect, though — the in-flight read belongs to
-		* the previous connection, so a reset both discards its answer and frees the slot
-		* for a fresh one. Without that, a reconnect either loses its re-read to the old
-		* call or has the old host's rows published on top of it.
-		*/
-		/**
-		* Create the inventory source.
-		* @param port - the RPC seam the read goes through.
-		* @param onError - reporter for a failed read (console in production, captured in specs).
-		* @returns the inventory observable and its read trigger.
-		*/
-		function createCordisInventory(port, onError) {
-			const listeners = /* @__PURE__ */ new Set();
-			let snapshot = {
-				rows: [],
-				removed: /* @__PURE__ */ new Set(),
-				read: false
-			};
-			let inFlight;
-			let generation = 0;
-			const publish = (next) => {
-				snapshot = next;
-				for (const listener of [...listeners]) listener();
-			};
-			return {
-				getSnapshot: () => snapshot,
-				subscribe: (fn) => {
-					listeners.add(fn);
-					return () => {
-						listeners.delete(fn);
-					};
-				},
-				refresh: () => {
-					if (inFlight !== void 0) return;
-					const issued = generation;
-					inFlight = port.inventory().then((rows) => {
-						if (issued !== generation) return;
-						const removed = new Set(snapshot.removed);
-						const live = new Set(rows.map((row) => row.pluginId));
-						for (const previous of snapshot.rows) if (!live.has(previous.pluginId)) removed.add(previous.pluginId);
-						publish({
-							rows,
-							removed,
-							read: true
-						});
-					}, (error) => {
-						if (issued !== generation) return;
-						onError(error);
-						publish({
-							rows: snapshot.rows,
-							removed: snapshot.removed,
-							read: snapshot.read,
-							error: error instanceof Error ? error.message : "reading the cordis inventory failed"
-						});
-					}).then(() => {
-						if (issued === generation) inFlight = void 0;
-					});
-				},
-				retire: (pluginId) => {
-					const removed = new Set(snapshot.removed);
-					removed.add(pluginId);
-					publish({
-						...snapshot,
-						rows: snapshot.rows.filter((row) => row.pluginId !== pluginId),
-						removed
-					});
-				},
-				reset: () => {
-					generation += 1;
-					inFlight = void 0;
-					publish({
-						rows: [],
-						removed: snapshot.removed,
-						read: false
-					});
-				}
-			};
-		}
-		//#endregion
 		//#region lib/types/client/locales.js
-		/** Cordis dynamic-plugin UI dictionaries. */
-		const NS = "cordis";
-		/** Simplified Chinese Cordis UI messages. */
+		/**
+		* `slash.menu` namespace dictionaries: group titles keyed by source name
+		* (the lookup chain returns the key itself, so an unknown source shows its
+		* raw name), the pending row, and the listbox and header aria labels.
+		*/
+		/** Simplified Chinese dictionary (the key-set source of truth). */
 		const zh = {
-			"row.defineTitle": "注册 Cordis 插件",
-			"a11y.preparing": "准备调用 Cordis 工具",
-			"row.runTitle": "运行 Cordis 插件",
-			"row.updateTitle": "更新 Cordis 插件",
-			"row.stopTitle": "停止 Cordis 插件",
-			"row.removeTitle": "移除 Cordis 插件",
-			"purpose.missing": "(未填写用途)",
-			"status.idle": "待激活",
-			"status.awaitingApproval": "待审批",
-			"status.failed": "运行失败",
-			"status.clientPending": "Client 待激活",
-			"status.running": "运行中",
-			"status.removed": "已移除",
-			"status.superseded": "已有更新",
-			"run.removed": "包已不存在",
-			"run.superseded": "已有更新的运行卡片，请查看下方",
-			"panel.hint": "运行控制在左下角设置上方的 Cordis 面板",
-			"panel.plugins.aria": "Cordis 插件",
-			"panel.approvals.aria": "Cordis 审批",
-			"panel.trigger": "Cordis Plugin",
-			"panel.runningCount": "{count} running",
-			"panel.title": "Cordis 插件",
-			"panel.empty": "还没有定义任何插件",
-			"panel.loading": "读取中…",
-			"panel.readFailed": "读取插件清单失败：{message}",
-			"panel.group.current": "当前会话",
-			"panel.group.others": "其他会话",
-			"panel.version": "版本",
-			"panel.current": "当前：{packageId}",
-			"panel.next": "待切换：{packageId}",
-			"action.approve": "允许",
-			"action.approveOnce": "仅允许此版本",
-			"action.approvePlugin": "允许此插件的后续版本",
-			"action.decline": "拒绝",
-			"action.run": "运行",
-			"action.stop": "停止",
-			"action.remove": "移除",
-			"action.retry": "重试",
-			"action.rollback": "回退",
-			"action.inspect": "查看",
-			"render.failedAbdicated": "{slot} 渲染失败，已恢复默认界面：",
-			"render.failedHeld": "{slot} 渲染失败：",
-			"a11y.defining": "正在定义插件",
-			"a11y.failed": "定义失败",
-			"a11y.stopped": "定义已中断",
-			"body.source": "插件代码",
-			"body.hostCode": "Host",
-			"body.clientCode": "Client",
-			"body.output": "结果",
-			"body.copy": "复制",
-			"body.copied": "已复制"
+			"command": "指令",
+			"skill": "技能",
+			"subagent": "子智能体",
+			"loading": "正在加载…",
+			"drill.aria": "进入目录",
+			"drill.hint": "进入目录",
+			"drill.key": "Tab",
+			"crumbs.aria": "目录导航",
+			"suggestions.aria": "触发候选建议"
 		};
-		/** English Cordis UI messages. */
+		/** English dictionary, checked complete against the zh key set. */
 		const en = {
-			"row.defineTitle": "Register Cordis Plugin",
-			"a11y.preparing": "Preparing a Cordis tool call",
-			"row.runTitle": "Run Cordis Plugin",
-			"row.updateTitle": "Update Cordis Plugin",
-			"row.stopTitle": "Stop Cordis Plugin",
-			"row.removeTitle": "Remove Cordis Plugin",
-			"purpose.missing": "(no purpose given)",
-			"status.idle": "Ready",
-			"status.awaitingApproval": "Awaiting approval",
-			"status.failed": "Run failed",
-			"status.clientPending": "Client ready to activate",
-			"status.running": "Running",
-			"status.removed": "Removed",
-			"status.superseded": "Newer run available",
-			"run.removed": "This package no longer exists",
-			"run.superseded": "A newer run card is available below",
-			"panel.hint": "Run controls live in the Cordis panel above Settings",
-			"panel.plugins.aria": "Cordis plugins",
-			"panel.approvals.aria": "Cordis approvals",
-			"panel.trigger": "Cordis Plugin",
-			"panel.runningCount": "{count} running",
-			"panel.title": "Cordis plugins",
-			"panel.empty": "No plugins defined yet",
-			"panel.loading": "Reading…",
-			"panel.readFailed": "Reading the plugin inventory failed: {message}",
-			"panel.group.current": "This session",
-			"panel.group.others": "Other sessions",
-			"panel.version": "Version",
-			"panel.current": "Current: {packageId}",
-			"panel.next": "Next: {packageId}",
-			"action.approve": "Allow",
-			"action.approveOnce": "Allow this version only",
-			"action.approvePlugin": "Allow future versions of this plugin",
-			"action.decline": "Decline",
-			"action.run": "Run",
-			"action.stop": "Stop",
-			"action.remove": "Remove",
-			"action.retry": "Retry",
-			"action.rollback": "Roll back",
-			"action.inspect": "Inspect",
-			"render.failedAbdicated": "Rendering failed in {slot}; the default UI was restored:",
-			"render.failedHeld": "Rendering failed in {slot}:",
-			"a11y.defining": "Defining the plugin",
-			"a11y.failed": "Definition failed",
-			"a11y.stopped": "Definition interrupted",
-			"body.source": "Plugin source",
-			"body.hostCode": "Host",
-			"body.clientCode": "Client",
-			"body.output": "Result",
-			"body.copy": "Copy",
-			"body.copied": "Copied"
+			"command": "Commands",
+			"skill": "Skills",
+			"subagent": "Subagents",
+			"loading": "Loading…",
+			"drill.aria": "Browse folder",
+			"drill.hint": "Browse folder",
+			"drill.key": "Tab",
+			"crumbs.aria": "Folder navigation",
+			"suggestions.aria": "Trigger suggestions"
 		};
 		//#endregion
 		//#region lib/types/client/index.js
-		/** Cordis dynamic-plugin cards, inventory panel, business-view host. */
-		/** Required services for historical cards, the panel, and Remote lifecycle actions. */
-		const inject = [
-			"slots",
-			"locale",
-			"remote",
-			"remote.dynamicCordisRunner",
-			"dynamicCordisRunner"
-		];
-		/** Mount every Cordis browser surface over the shared Host inventory. */
+		/** Namespace owning the candidate-menu copy. */
+		const MENU_NS = "slash.menu";
+		/** Required services: controller resolution reads the session scope tree; the menu copy is localized. */
+		const inject = ["sessions", "locale"];
+		/**
+		* Client plugin body: mount the service, then register MenuView into the
+		* input overlay once its declarer is up.
+		* @param ctx - client root context.
+		*/
 		function apply(ctx) {
-			ctx.effect(() => ctx.locale.register(NS, {
+			ctx.plugin(InputTriggerService);
+			ctx.effect(() => ctx.locale.register(MENU_NS, {
 				zh,
 				en
-			}), "ui-cordis: dictionaries");
-			const port = {
-				stop: async (sessionId, pluginId) => {
-					const answered = await ctx.remote.dynamicCordisRunner.stopFromPanel(sessionId, pluginId);
-					if (!answered.ok) return {
-						ok: false,
-						message: `${answered.error.code}: ${answered.error.message}`
-					};
-					if (answered.value.ok || answered.value.reason === "not-running") return { ok: true };
-					return {
-						ok: false,
-						message: answered.value.message
-					};
-				},
-				remove: async (sessionId, pluginId) => {
-					const answered = await ctx.remote.dynamicCordisRunner.undefineFromPanel(sessionId, pluginId);
-					if (!answered.ok) return {
-						ok: false,
-						message: `${answered.error.code}: ${answered.error.message}`
-					};
-					return answered.value.ok ? { ok: true } : {
-						ok: false,
-						message: answered.value.message
-					};
-				},
-				inventory: async () => {
-					const answered = await ctx.remote.dynamicCordisRunner.inventory();
-					if (!answered.ok) throw new Error(`${answered.error.code}: ${answered.error.message}`);
-					return answered.value;
-				}
-			};
-			const inventory = createCordisInventory(port, (error) => {
-				console.error("[ui-cordis] reading the Cordis inventory failed:", error);
-			});
-			const runner = ctx.dynamicCordisRunner;
-			const loaded = {
-				getSnapshot: () => runner.getSnapshot(),
-				subscribe: (fn) => runner.subscribe(fn)
-			};
-			const runCards = new CordisRunCardRegistry();
-			ctx.effect(() => inventory.subscribe(() => {
-				const snapshot = inventory.getSnapshot();
-				if (snapshot.read) runner.reconcileApprovals(snapshot.rows);
-			}), "ui-cordis: reconcile pending approvals");
-			ctx.remote.$on("cordis/dynamic-package", () => {
-				inventory.refresh();
-			});
-			ctx.remote.$on("cordis/dynamic-retract", () => {
-				inventory.refresh();
-			});
-			ctx.remote.$on("cordis/request-run", (request) => {
-				if (!inventory.getSnapshot().rows.some((row) => row.pluginId === request.pluginId)) inventory.refresh();
-			});
-			ctx.remote.$on("cordis/request-run-resolved", () => {
-				inventory.refresh();
-			});
-			ctx.on("connection/reset", () => {
-				inventory.reset();
-				inventory.refresh();
-			});
-			ctx.slots.inject("sidebar.footer.action", () => ctx.slots.register({
-				name: "sidebar.footer.action",
-				id: "cordis-panel",
-				locale: NS,
-				inject: () => ({
-					hooks: {
-						inventory,
-						activeRuns: runner.activeRuns,
-						runErrors: runner.lastRunError,
-						loaded,
-						renderFailures: runner.renderFailures
-					},
-					onApprove: (requestId, approveFutureVersions) => runner.approve(requestId, approveFutureVersions),
-					onDecline: (requestId) => runner.decline(requestId),
-					onRun: (request) => runner.startUserRun(request),
-					onStop: async (sessionId, pluginId) => {
-						const result = await port.stop(sessionId, pluginId);
-						inventory.refresh();
-						return result;
-					},
-					onRemove: async (sessionId, pluginId) => {
-						const result = await port.remove(sessionId, pluginId);
-						if (result.ok) inventory.retire(pluginId);
-						inventory.refresh();
-						return result;
-					},
-					onRefresh: () => {
-						inventory.refresh();
+			}), "ui-input-trigger: menu dictionaries");
+			ctx.inject([
+				"slots",
+				"inputTriggers",
+				"sessions"
+			], (scope) => {
+				const inputTriggers = scope.inputTriggers;
+				const sessions = scope.sessions;
+				scope.slots.inject("conversation.input.overlay", () => scope.slots.register({
+					name: "conversation.input.overlay",
+					id: "slash-menu",
+					order: 0,
+					locale: MENU_NS,
+					inject: (sessionId) => {
+						const actx = sessions.scope(sessionId);
+						if (actx === void 0) throw new Error(`ui-input-trigger: session "${String(sessionId)}" resolved no scope`);
+						const controller = inputTriggers.sessionOf(actx);
+						return {
+							menu: controller.menu,
+							headers: controller.headers,
+							onPick: (source, index, action) => {
+								controller.pick(source, index, action);
+							},
+							onCrumb: (source, index) => {
+								controller.pickCrumb(source, index);
+							},
+							onHover: (source, index) => {
+								controller.hover(source, index);
+							},
+							onDismiss: () => {
+								controller.dismiss();
+							}
+						};
 					}
-				})
-			}, CordisPanel));
-			const cardFace = () => ({ hooks: {
-				inventory,
-				loaded
-			} });
-			ctx.slots.inject("tool.call.toolview", () => ctx.slots.register({
-				name: "tool.call.toolview",
-				key: "cordis_define",
-				locale: NS,
-				inject: cardFace
-			}, CordisDefineRow));
-			ctx.slots.inject("tool.call.toolview", () => ctx.slots.register({
-				name: "tool.call.toolview",
-				key: "cordis_run",
-				locale: NS,
-				children: { "tool.view.cordis": {
-					kind: "keyed",
-					scope: "session"
-				} },
-				inject: (sessionId) => {
-					const store = runCards.forSession(sessionId);
-					return {
-						hooks: {
-							inventory,
-							loaded,
-							runCards: store,
-							activeRuns: runner.activeRuns
-						},
-						onObserveRunCard: (pointer) => {
-							store.observe(pointer);
-						}
-					};
-				}
-			}, CordisRunRow));
-			ctx.slots.inject("tool.call.toolview", function* () {
-				yield ctx.slots.register({
-					name: "tool.call.toolview",
-					key: "cordis_stop",
-					locale: NS
-				}, CordisActionRow);
-				yield ctx.slots.register({
-					name: "tool.call.toolview",
-					key: "cordis_undefine",
-					locale: NS
-				}, CordisActionRow);
+				}, MenuView));
 			});
-			inventory.refresh();
 		}
 		//#endregion
+		exports.InputTriggerController = InputTriggerController;
+		exports.InputTriggerService = InputTriggerService;
 		exports.apply = apply;
 		exports.inject = inject;
 		return module.exports;
 	}
 });
 ;
-//# sourceMappingURL=??@deepseek-ai/dsh-client-ui-cordis/client.js.map&rev=6d16bc2c7f73
+//# sourceMappingURL=??@deepseek-ai/dsh-client-ui-input-trigger/client.js.map&rev=5db4757ee478

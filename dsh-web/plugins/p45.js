@@ -1,5 +1,5 @@
 window.__ModuleLoader__.load({
-	id: "@deepseek-ai/dsh-client-ui-jobs",
+	id: "@deepseek-ai/dsh-client-ui-message-feedback",
 	factory: (require) => {
 		var module = { exports: {} };
 		var exports = module.exports;
@@ -7,618 +7,870 @@ window.__ModuleLoader__.load({
 		let react_jsx_runtime = require("react/jsx-runtime");
 		let react = require("react");
 		let _deepseek_ai_dsh_client_ui_primitives = require("@deepseek-ai/dsh-client-ui-primitives");
-		//#region \0dsh-css:D:\deepseek-harness\packages\client\ui-jobs\src\client\JobListAction.module.css.mjs
-		const css = "._4j2ROG_root{position:relative}._4j2ROG_trigger{border-radius:var(--dsw-radius-sm);min-height:28px;color:var(--dsw-alias-label-tertiary);cursor:pointer;background:0 0;border:0;align-items:center;gap:3px;padding:3px 2px;font-size:12px;line-height:18px;display:inline-flex}._4j2ROG_trigger:hover,._4j2ROG_trigger:focus-visible{color:var(--dsw-alias-label-secondary)}._4j2ROG_trigger svg{transition:transform .12s}._4j2ROG_triggerOpen{transform:rotate(180deg)}._4j2ROG_triggerDot{flex:none}._4j2ROG_count{margin:0 5px}._4j2ROG_menu{z-index:100;box-sizing:border-box;border-radius:var(--dsw-radius-lg);background:var(--dsw-specific-menu);width:500px;max-width:min(560px,100vw - 32px);max-height:min(480px,100vh - 140px);backdrop-filter:var(--dsw-menu-backdrop-filter);--dsh-scrollbar-thumb:var(--dsw-alias-scrollbar-bg-l2);--dsh-scrollbar-thumb-hover:var(--dsw-alias-scrollbar-hover-l2);--dsw-elevation-stroke-color:var(--dsw-alias-border-l1);box-shadow:var(--dsw-elevation-prominent);border:0;flex-direction:column;gap:1px;margin:0;padding:3px;list-style:none;display:flex;position:absolute;top:calc(100% + 5px);left:0;overflow:auto}._4j2ROG_sectionHeader{border-top:.5px solid var(--dsw-alias-border-l1);color:var(--dsw-alias-label-tertiary);justify-content:space-between;align-items:center;margin:4px 4px 1px;padding:4px 0 3px;font-size:11px;line-height:16px;display:flex}._4j2ROG_sectionHeader:first-child{border-top:0;margin-top:0}._4j2ROG_sectionToggle,._4j2ROG_sectionClear{border-radius:var(--dsw-radius-sm);color:var(--dsw-alias-label-tertiary);cursor:pointer;background:0 0;border:0;align-items:center;gap:3px;padding:2px 4px;font-size:11px;line-height:16px;display:inline-flex}._4j2ROG_sectionToggle:hover,._4j2ROG_sectionToggle:focus-visible,._4j2ROG_sectionClear:hover,._4j2ROG_sectionClear:focus-visible{background:var(--dsw-alias-fill-l1);color:var(--dsw-alias-label-secondary)}._4j2ROG_sectionChevron{transition:transform .12s;transform:rotate(-90deg)}._4j2ROG_sectionChevronOpen{transform:none}._4j2ROG_item{flex-direction:column;display:flex}._4j2ROG_rowLine{align-items:stretch;gap:6px;display:flex}._4j2ROG_rowLineLive{border-radius:var(--dsw-radius-md);background:var(--dsw-alias-fill-l2);padding:4px 8px 4px 2px}._4j2ROG_rowLineLive:hover{background:color-mix(in srgb, var(--dsw-alias-label-primary) 9%, transparent)}._4j2ROG_rowLineLive ._4j2ROG_kind{background:var(--dsw-specific-menu)}._4j2ROG_rowLine ._4j2ROG_row{flex:1;min-width:0}._4j2ROG_rowLineLive ._4j2ROG_row:hover{background:0 0}._4j2ROG_rowLineLive ._4j2ROG_row:focus-visible{background:color-mix(in srgb, var(--dsw-alias-label-primary) 6%, transparent)}._4j2ROG_chevronBox{border:.5px solid var(--dsw-alias-border-l2);border-radius:var(--dsw-radius-sm);background:var(--dsw-specific-menu);flex:none;justify-content:center;align-self:center;align-items:center;width:20px;height:20px;display:inline-flex}._4j2ROG_stop{border:.5px solid var(--dsw-alias-border-l2);border-radius:var(--dsw-radius-sm);background:var(--dsw-specific-menu);width:20px;height:20px;color:var(--dsw-alias-label-secondary);cursor:pointer;flex:none;justify-content:center;align-self:center;align-items:center;padding:0;display:inline-flex}._4j2ROG_stop:hover,._4j2ROG_stop:focus-visible{border-color:color-mix(in srgb, var(--dsw-alias-state-error-primary) 45%, transparent);color:var(--dsw-alias-state-error-primary)}._4j2ROG_stopArmed,._4j2ROG_stopArmed:hover,._4j2ROG_stopArmed:focus-visible{border-color:color-mix(in srgb, var(--dsw-alias-state-error-primary) 45%, transparent);background:color-mix(in srgb, var(--dsw-alias-state-error-primary) 12%, transparent);width:auto;color:var(--dsw-alias-state-error-primary);gap:4px;padding:0 7px}._4j2ROG_stopLabel{white-space:nowrap;font-size:11px;line-height:18px}._4j2ROG_stopFailed{color:var(--dsw-alias-state-error-primary)}._4j2ROG_row{box-sizing:border-box;border-radius:var(--dsw-radius-sm);width:100%;min-height:28px;color:var(--dsw-alias-label-primary);text-align:left;cursor:pointer;background:0 0;border:0;align-items:center;gap:6px;padding:4px 7px;font-size:12px;line-height:17px;display:flex}._4j2ROG_row:hover,._4j2ROG_row:focus-visible{background:var(--dsw-alias-fill-l1)}._4j2ROG_rowStatic{cursor:default}._4j2ROG_rowStatic:hover{background:0 0}._4j2ROG_rowSettled{color:var(--dsw-alias-label-tertiary)}._4j2ROG_row ._4j2ROG_rowDot{flex:none}._4j2ROG_main{flex-direction:column;flex:1;gap:2px;min-width:0;display:flex}._4j2ROG_primary{align-items:baseline;gap:8px;min-width:0;display:flex}._4j2ROG_secondary{align-items:center;gap:6px;min-width:0;display:flex}._4j2ROG_kind{border-radius:var(--dsw-radius-xs);background:var(--dsw-alias-fill-l2);color:var(--dsw-alias-label-secondary);flex:none;padding:0 5px;font-size:10px;line-height:16px}._4j2ROG_label{min-width:0;font-family:var(--dsw-font-mono);white-space:nowrap;text-overflow:ellipsis;flex:1;overflow:hidden}._4j2ROG_status{max-width:60%;color:var(--dsw-alias-label-tertiary);white-space:nowrap;text-overflow:ellipsis;flex:none;font-size:10px;line-height:16px;overflow:hidden}._4j2ROG_duration{color:var(--dsw-alias-label-tertiary);font-variant-numeric:tabular-nums;flex:none;font-size:11px;line-height:18px}._4j2ROG_chevron{color:var(--dsw-alias-label-tertiary);flex:none}._4j2ROG_chevronOpen{transform:rotate(180deg)}._4j2ROG_panel{--dsl-terminal-command-whitespace:pre-wrap;--dsl-terminal-line-whitespace:pre-wrap;--dsl-terminal-output-max-height:288px;margin:0 8px 8px}._4j2ROG_panel [data-terminal]{--dsl-terminal-gutter:12px}._4j2ROG_notice{color:var(--dsw-alias-label-tertiary);margin:0 8px 6px;font-size:11px;line-height:16px}._4j2ROG_noticeError{color:var(--dsw-alias-state-error-primary)}";
-		const tagId = "@deepseek-ai/dsh-client-ui-jobs/JobListAction.module.css";
+		let _deepseek_ai_dsh_client_store = require("@deepseek-ai/dsh-client-store");
+		//#region \0dsh-css:D:\deepseek-harness\packages\client\ui-message-feedback\src\client\FeedbackDialog.module.css.mjs
+		const css$1 = ".TEgbpq_dialog.TEgbpq_dialog{border-radius:var(--dsw-radius-panel);gap:38px;width:min(488px,100%)}.TEgbpq_categories{flex-wrap:wrap;gap:8px;margin-top:-14px;display:flex}.TEgbpq_chip{border:.5px solid var(--dsw-alias-border-l4);border-radius:var(--dsw-radius-sm);height:28px;color:var(--dsw-alias-label-primary);font:inherit;cursor:pointer;background:0 0;padding:0 12px;font-size:13px;line-height:18px;transition:background-color .12s,border-color .12s,color .12s}.TEgbpq_chip:hover:not(:disabled){background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-primary)}.TEgbpq_chip:disabled{cursor:default;opacity:.4}.TEgbpq_chip:focus-visible{outline:var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color,var(--dsw-alias-state-business-primary));outline-offset:2px}.TEgbpq_chipActive,.TEgbpq_chipActive:hover:not(:disabled){border-color:var(--dsw-alias-button-primary-fill);background:var(--dsw-alias-button-primary-fill);color:var(--dsw-alias-label-primary-foreground)}.TEgbpq_detail{box-sizing:border-box;border:.5px solid var(--dsw-alias-border-l4);border-radius:var(--dsw-radius-lg);background:var(--dsw-alias-bg-layer-1);width:100%;min-height:116px;max-height:280px;color:var(--dsw-alias-label-primary);font:inherit;field-sizing:content;resize:none;margin-top:18px;padding:12px 14px;font-size:14px;line-height:22px;transition:border-color .12s,box-shadow .12s;display:block}.TEgbpq_detail::placeholder{color:var(--dsw-alias-label-caption)}.TEgbpq_detail:focus{border-color:var(--dsw-alias-border-l3);box-shadow:0 0 0 1px var(--dsw-alias-state-business-primary);outline:none}.TEgbpq_submit{border-radius:var(--dsw-radius-lg);width:100%;height:44px;font-size:14px;font-weight:500}@media (prefers-reduced-motion:reduce){.TEgbpq_chip,.TEgbpq_detail{transition:none}}";
+		const tagId$1 = "@deepseek-ai/dsh-client-ui-message-feedback/FeedbackDialog.module.css";
+		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId$1) + "]") === null) {
+			const tag = document.createElement("style");
+			tag.dataset.plugin = "@deepseek-ai/dsh-client-ui-message-feedback";
+			tag.dataset.pluginCss = tagId$1;
+			tag.textContent = css$1;
+			document.head.appendChild(tag);
+		}
+		var FeedbackDialog_module_css_default = {
+			"categories": "TEgbpq_categories",
+			"chip": "TEgbpq_chip",
+			"chipActive": "TEgbpq_chipActive",
+			"detail": "TEgbpq_detail",
+			"dialog": "TEgbpq_dialog",
+			"submit": "TEgbpq_submit"
+		};
+		//#endregion
+		//#region lib/types/client/FeedbackDialog.js
+		/**
+		* The feedback dialog and its acknowledgement and failure toasts, rendered as one entry
+		* of `conversation.input.overlay` so each Session owns exactly one of each.
+		* The Modal and the Toast both portal to `document.body`; the overlay slot
+		* only supplies the per-session controller and the composer card the toast
+		* centers over.
+		* @module @deepseek-ai/dsh-client-ui-message-feedback/client/FeedbackDialog
+		*/
+		const CATEGORIES = Object.keys({
+			"task-result": true,
+			"instruction-following": true,
+			"product-interaction": true,
+			"service-stability": true,
+			"resource-cost": true,
+			"security-privacy-permission": true,
+			"other": true
+		});
+		/** Failure codes with their own copy; every other code reads the generic line. */
+		const FAILURE_COPY = {
+			"version-conflict": "error.conflict",
+			"note-too-large": "error.noteTooLarge"
+		};
+		/**
+		* Render one Session's feedback dialog and toast.
+		* @param props - the dialog hook, the draft verbs, and the locale seat.
+		* @returns the modal while a target is open and either toast while it is showing.
+		*/
+		function FeedbackDialog({ useDialog, edit, submit, dismiss, dismissFailure, dismissToast, t }) {
+			const state = useDialog((s) => s);
+			const probeRef = (0, react.useRef)(null);
+			const [card, setCard] = (0, react.useState)(null);
+			(0, react.useLayoutEffect)(() => {
+				setCard(probeRef.current?.closest("[data-composer-card]") ?? null);
+			}, []);
+			const toast = state.toast;
+			const onToastDone = (0, react.useCallback)(() => {
+				dismissToast(toast);
+			}, [dismissToast, toast]);
+			(0, react.useEffect)(() => () => {
+				dismissToast(toast);
+			}, [dismissToast, toast]);
+			const failureCode = state.failure;
+			const failure = failureCode === null ? null : t(FAILURE_COPY[failureCode] ?? "error.generic");
+			const onFailureDone = (0, react.useCallback)(() => {
+				dismissFailure();
+			}, [dismissFailure]);
+			return (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [
+				(0, react_jsx_runtime.jsx)("span", {
+					ref: probeRef,
+					hidden: true
+				}),
+				toast > 0 && failure === null && (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Toast, {
+					text: t("toast.recorded"),
+					tone: "success",
+					anchor: card,
+					onDone: onToastDone
+				}, toast),
+				failure !== null && (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Toast, {
+					text: failure,
+					icon: (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconWarningOutlineRegular, {}),
+					anchor: card,
+					holdMs: 6e3,
+					onDone: onFailureDone
+				}, `failure-${failureCode}`),
+				(0, react_jsx_runtime.jsxs)(_deepseek_ai_dsh_client_ui_primitives.Modal, {
+					open: state.target !== null,
+					title: t("dialog.title"),
+					closeLabel: t("close"),
+					onClose: dismiss,
+					className: FeedbackDialog_module_css_default.dialog,
+					footer: (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
+						variant: "primary",
+						className: FeedbackDialog_module_css_default.submit,
+						disabled: state.submitting,
+						onClick: () => {
+							submit();
+						},
+						children: state.submitting ? t("submitting") : t("submit")
+					}),
+					children: [(0, react_jsx_runtime.jsx)("div", {
+						className: FeedbackDialog_module_css_default.categories,
+						role: "group",
+						"aria-label": t("dialog.categories"),
+						children: CATEGORIES.map((category) => (0, react_jsx_runtime.jsx)("button", {
+							type: "button",
+							className: state.category === category ? `${FeedbackDialog_module_css_default.chip} ${FeedbackDialog_module_css_default.chipActive}` : FeedbackDialog_module_css_default.chip,
+							"aria-pressed": state.category === category,
+							disabled: state.submitting,
+							onClick: () => {
+								edit({ category: state.category === category ? null : category });
+							},
+							children: t(`category.${category}`)
+						}, category))
+					}), (0, react_jsx_runtime.jsx)("textarea", {
+						className: FeedbackDialog_module_css_default.detail,
+						"aria-label": t("dialog.detail"),
+						placeholder: t("dialog.hint"),
+						value: state.text,
+						readOnly: state.submitting,
+						onChange: (event) => {
+							edit({ text: event.target.value });
+						}
+					})]
+				})
+			] });
+		}
+		//#endregion
+		//#region \0dsh-css:D:\deepseek-harness\packages\client\ui-message-feedback\src\client\MessageFeedbackActions.module.css.mjs
+		const css = ".a8U9Ja_action{width:calc(28px + var(--dsh-content-font-delta,0px));height:calc(28px + var(--dsh-content-font-delta,0px));border-radius:var(--dsw-radius-sm);color:var(--dsw-alias-label-tertiary);cursor:pointer;background:0 0;border:none;justify-content:center;align-items:center;padding:6px;display:inline-flex}.a8U9Ja_action svg{width:calc(15px + var(--dsh-content-font-delta,0px));height:calc(15px + var(--dsh-content-font-delta,0px))}.a8U9Ja_action:hover{background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-secondary)}.a8U9Ja_action:disabled{cursor:default;opacity:.4}.a8U9Ja_action[data-active]{color:var(--dsw-alias-label-tertiary)}.a8U9Ja_failure{color:var(--dsw-alias-label-tertiary);padding-left:4px;font-size:13px;line-height:20px}";
+		const tagId = "@deepseek-ai/dsh-client-ui-message-feedback/MessageFeedbackActions.module.css";
 		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId) + "]") === null) {
 			const tag = document.createElement("style");
-			tag.dataset.plugin = "@deepseek-ai/dsh-client-ui-jobs";
+			tag.dataset.plugin = "@deepseek-ai/dsh-client-ui-message-feedback";
 			tag.dataset.pluginCss = tagId;
 			tag.textContent = css;
 			document.head.appendChild(tag);
 		}
-		var JobListAction_module_css_default = {
-			"chevron": "_4j2ROG_chevron",
-			"chevronBox": "_4j2ROG_chevronBox",
-			"chevronOpen": "_4j2ROG_chevronOpen",
-			"count": "_4j2ROG_count",
-			"duration": "_4j2ROG_duration",
-			"item": "_4j2ROG_item",
-			"kind": "_4j2ROG_kind",
-			"label": "_4j2ROG_label",
-			"main": "_4j2ROG_main",
-			"menu": "_4j2ROG_menu",
-			"notice": "_4j2ROG_notice",
-			"noticeError": "_4j2ROG_noticeError",
-			"panel": "_4j2ROG_panel",
-			"primary": "_4j2ROG_primary",
-			"root": "_4j2ROG_root",
-			"row": "_4j2ROG_row",
-			"rowDot": "_4j2ROG_rowDot",
-			"rowLine": "_4j2ROG_rowLine",
-			"rowLineLive": "_4j2ROG_rowLineLive",
-			"rowSettled": "_4j2ROG_rowSettled",
-			"rowStatic": "_4j2ROG_rowStatic",
-			"secondary": "_4j2ROG_secondary",
-			"sectionChevron": "_4j2ROG_sectionChevron",
-			"sectionChevronOpen": "_4j2ROG_sectionChevronOpen",
-			"sectionClear": "_4j2ROG_sectionClear",
-			"sectionHeader": "_4j2ROG_sectionHeader",
-			"sectionToggle": "_4j2ROG_sectionToggle",
-			"status": "_4j2ROG_status",
-			"stop": "_4j2ROG_stop",
-			"stopArmed": "_4j2ROG_stopArmed",
-			"stopFailed": "_4j2ROG_stopFailed",
-			"stopLabel": "_4j2ROG_stopLabel",
-			"trigger": "_4j2ROG_trigger",
-			"triggerDot": "_4j2ROG_triggerDot",
-			"triggerOpen": "_4j2ROG_triggerOpen"
+		var MessageFeedbackActions_module_css_default = {
+			"action": "a8U9Ja_action",
+			"failure": "a8U9Ja_failure"
 		};
 		//#endregion
-		//#region lib/types/client/JobListAction.js
-		/** Stable empty list so a session with no jobs keeps one array identity. */
-		const NO_JOBS = [];
-		/** Minimum gap kept between the popover and the viewport edges (the Menu primitive's portal margin). */
-		const VIEWPORT_MARGIN = 12;
-		/** How long an armed kill waits for its confirming press before disarming. */
-		const KILL_ARM_MS = 3e3;
-		/** How long a failed kill keeps its hint before the button resets. */
-		const KILL_FAILED_MS = 4e3;
-		function isLive(job) {
-			return job.status === "running" || job.status === "stopping";
-		}
+		//#region lib/types/client/MessageFeedbackActions.js
 		/**
-		* Whether the row offers an output panel: every live job (its output may
-		* still arrive) and a settled one that left retained output behind.
+		* Per-message feedback controls: the Like/Dislike pair inside the assistant
+		* message's IconActions row, between copy and branch. Either rating opens the
+		* Session's feedback dialog, whose submission records that judgment with its
+		* category and text. Clicking the recorded rating retracts it. A recorded rating
+		* shows the filled glyph so the signal survives a pointer leaving the row.
+		* @module @deepseek-ai/dsh-client-ui-message-feedback/client/MessageFeedbackActions
 		*/
-		function isObservable(job) {
-			return isLive(job) || job.output.total > 0;
-		}
-		/** The one-line qualifier beside the status: live progress while running, the terminal reason once settled. */
-		function jobDetail(job) {
-			return job.progress ?? job.detail;
-		}
-		/** Closed-union exhaustiveness fence for the wire status set. */
-		/* v8 ignore next 3 -- closed-union backstop; only reached if a status is forged */
-		function assertNever(value) {
-			throw new Error(`unhandled job status: ${JSON.stringify(value)}`);
-		}
 		/**
-		* Status marker semantics. `stopping` and `killed` share the attention color:
-		* both mean the work ended (or is ending) on request rather than on its own.
+		* One message's feedback controls.
+		* @param props - the owner's message identity, the injected verbs, and the
+		* shared feedback hook.
+		* @returns the rating buttons with any failure notice beside them.
 		*/
-		function dotState(status) {
-			switch (status) {
-				case "running": return "ongoing";
-				case "stopping": return "warning";
-				case "completed": return "done";
-				case "killed": return "warning";
-				case "failed": return "error";
-				/* v8 ignore next -- closed wire status union */
-				default: return assertNever(status);
-			}
-		}
-		function statusLabel(status, t) {
-			switch (status) {
-				case "running": return t("status.running");
-				case "stopping": return t("status.stopping");
-				case "completed": return t("status.completed");
-				case "killed": return t("status.killed");
-				case "failed": return t("status.failed");
-				/* v8 ignore next -- closed wire status union */
-				default: return assertNever(status);
-			}
-		}
-		/**
-		* Elapsed time in at most two adjacent units. A job that outlives an hour is
-		* already exceptional, so hours is the widest unit — beyond that the figure
-		* stays in hours rather than growing a day/month vocabulary no producer
-		* currently reaches.
-		*/
-		function formatDuration(elapsedMs, t) {
-			const total = Math.max(0, Math.floor(elapsedMs / 1e3));
-			const seconds = total % 60;
-			const minutes = Math.floor(total / 60) % 60;
-			const hours = Math.floor(total / 3600);
-			if (hours > 0) return t("duration.hours", {
-				hours,
-				minutes
-			});
-			if (minutes > 0) return t("duration.minutes", {
-				minutes,
-				seconds
-			});
-			return t("duration.seconds", { seconds });
-		}
-		/** Localized display copy for the embedded terminal panel. */
-		function terminalLabels(t) {
-			return {
-				/* v8 ignore next */
-				signal: (signal) => t("terminal.signal", { signal }),
-				/* v8 ignore next */
-				exitCode: (code) => t("terminal.exitCode", { code }),
-				noExitCode: t("terminal.noExitCode"),
-				running: t("terminal.running"),
-				failed: t("terminal.failed"),
-				done: t("terminal.done"),
-				copy: t("terminal.copy"),
-				copied: t("terminal.copied"),
-				noOutput: t("terminal.noOutput"),
-				collapseAria: t("terminal.collapseAria"),
-				collapse: t("terminal.collapse"),
-				/* v8 ignore next */
-				expandAria: (hidden) => t("terminal.expandAria", { n: hidden }),
-				/* v8 ignore next */
-				expand: (hidden) => t("terminal.expand", { n: hidden })
-			};
-		}
-		/**
-		* Live rows first in start order, then settled rows newest-first. Two rows
-		* that settled in the same millisecond fall back to start order, so the sort
-		* never depends on the host's map iteration.
-		*/
-		function ordered(jobs) {
-			return [...jobs].sort((left, right) => {
-				const liveLeft = isLive(left);
-				if (liveLeft !== isLive(right)) return liveLeft ? -1 : 1;
-				if (liveLeft) return left.startedAt - right.startedAt;
-				const finished = (right.finishedAt ?? right.startedAt) - (left.finishedAt ?? left.startedAt);
-				return finished !== 0 ? finished : left.startedAt - right.startedAt;
-			});
-		}
-		/** One job row plus, when observable and expanded, its live output panel. */
-		function JobItem({ job, view, expanded, now, onToggle, kill, t }) {
-			const live = isLive(job);
-			const status = statusLabel(job.status, t);
-			const detail = jobDetail(job);
-			const observable = isObservable(job);
-			const labels = (0, react.useMemo)(() => terminalLabels(t), [t]);
-			const duration = formatDuration(live ? now - job.startedAt : (job.finishedAt ?? job.startedAt) - job.startedAt, t);
-			const durationCell = (0, react_jsx_runtime.jsx)("span", {
-				className: JobListAction_module_css_default.duration,
-				title: t(live ? "duration.title.live" : "duration.title.done", { duration }),
-				children: duration
-			});
-			const body = live ? (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [
-				(0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.StateDot, {
-					state: dotState(job.status),
-					className: JobListAction_module_css_default.rowDot
-				}),
-				(0, react_jsx_runtime.jsxs)("span", {
-					className: JobListAction_module_css_default.main,
-					children: [(0, react_jsx_runtime.jsx)("span", {
-						className: JobListAction_module_css_default.primary,
-						children: (0, react_jsx_runtime.jsx)("span", {
-							className: JobListAction_module_css_default.label,
-							title: job.label,
-							children: job.label
-						})
-					}), (0, react_jsx_runtime.jsxs)("span", {
-						className: JobListAction_module_css_default.secondary,
-						title: detail ?? status,
-						children: [
-							(0, react_jsx_runtime.jsx)("span", {
-								className: JobListAction_module_css_default.kind,
-								children: job.kind
-							}),
-							detail !== void 0 ? (0, react_jsx_runtime.jsx)("span", {
-								className: JobListAction_module_css_default.status,
-								children: detail
-							}) : null,
-							durationCell
-						]
-					})]
-				}),
-				(0, react_jsx_runtime.jsx)("span", {
-					className: JobListAction_module_css_default.chevronBox,
-					children: (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconChevronDownOutlineRegular, {
-						size: 12,
-						className: expanded ? `${JobListAction_module_css_default.chevron} ${JobListAction_module_css_default.chevronOpen}` : JobListAction_module_css_default.chevron
-					})
-				})
-			] }) : (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [
-				(0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.StateDot, {
-					state: dotState(job.status),
-					className: JobListAction_module_css_default.rowDot
-				}),
-				(0, react_jsx_runtime.jsx)("span", {
-					className: JobListAction_module_css_default.kind,
-					children: job.kind
-				}),
-				(0, react_jsx_runtime.jsx)("span", {
-					className: JobListAction_module_css_default.label,
-					title: job.label,
-					children: job.label
-				}),
-				(0, react_jsx_runtime.jsx)("span", {
-					className: JobListAction_module_css_default.status,
-					title: detail ?? status,
-					children: detail ?? status
-				}),
-				durationCell,
-				observable ? (0, react_jsx_runtime.jsx)("span", {
-					className: JobListAction_module_css_default.chevronBox,
-					children: (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconChevronDownOutlineRegular, {
-						size: 12,
-						className: expanded ? `${JobListAction_module_css_default.chevron} ${JobListAction_module_css_default.chevronOpen}` : JobListAction_module_css_default.chevron
-					})
-				}) : null
-			] });
-			const killTitle = kill === void 0 ? void 0 : kill.state === "armed" ? t("kill.confirm") : kill.state === "failed" ? t("kill.failed") : t("kill.stop", { label: job.label });
-			return (0, react_jsx_runtime.jsxs)("li", {
-				className: JobListAction_module_css_default.item,
-				children: [(0, react_jsx_runtime.jsxs)("div", {
-					className: live ? `${JobListAction_module_css_default.rowLine} ${JobListAction_module_css_default.rowLineLive}` : JobListAction_module_css_default.rowLine,
-					children: [observable ? (0, react_jsx_runtime.jsx)("button", {
-						type: "button",
-						className: live ? JobListAction_module_css_default.row : `${JobListAction_module_css_default.row} ${JobListAction_module_css_default.rowSettled}`,
-						"aria-expanded": expanded,
-						"aria-label": t(expanded ? "row.collapseAria" : "row.expandAria", { label: job.label }),
-						onClick: onToggle,
-						children: body
-					}) : (0, react_jsx_runtime.jsx)("span", {
-						className: `${JobListAction_module_css_default.row} ${JobListAction_module_css_default.rowSettled} ${JobListAction_module_css_default.rowStatic}`,
-						children: body
-					}), kill !== void 0 ? (0, react_jsx_runtime.jsxs)("button", {
-						type: "button",
-						className: kill.state === "armed" ? `${JobListAction_module_css_default.stop} ${JobListAction_module_css_default.stopArmed}` : kill.state === "failed" ? `${JobListAction_module_css_default.stop} ${JobListAction_module_css_default.stopFailed}` : JobListAction_module_css_default.stop,
-						"data-kill-state": kill.state,
-						disabled: kill.state === "pending",
-						"aria-label": killTitle,
-						title: killTitle,
-						onClick: kill.onPress,
-						children: [(0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconStopFillRegular, { size: 10 }), kill.state === "armed" ? (0, react_jsx_runtime.jsx)("span", {
-							className: JobListAction_module_css_default.stopLabel,
-							children: t("kill.confirmAction")
-						}) : null]
-					}) : null]
-				}), expanded && view !== void 0 ? (0, react_jsx_runtime.jsxs)("div", {
-					className: JobListAction_module_css_default.panel,
-					children: [
-						view.gapBefore ? (0, react_jsx_runtime.jsx)("div", {
-							className: JobListAction_module_css_default.notice,
-							children: t("output.gap")
-						}) : null,
-						view.error !== void 0 ? (0, react_jsx_runtime.jsx)("div", {
-							className: `${JobListAction_module_css_default.notice} ${JobListAction_module_css_default.noticeError}`,
-							children: t("output.error", { error: view.error })
-						}) : null,
-						(0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.TerminalBlock, {
-							command: job.label,
-							output: view.text,
-							running: live,
-							copyText: job.label,
-							runStateDot: false,
-							maxLines: Number.POSITIVE_INFINITY,
-							labels
-						})
-					]
-				}) : null]
-			});
-		}
-		/**
-		* Session-header entry point for this session's background jobs. Mounting it
-		* keeps the session's roster stream open; it renders nothing at all until the
-		* session can see at least one job. Expanding an observable row (a live job,
-		* or a settled one with retained output) starts its observation stream, and
-		* collapsing (or closing the popover) stops it — output only flows while
-		* someone is watching. A running row carries a two-press stop button that
-		* requests a human kill through the job controller.
-		* @param props - runtime slot currency, the jobs snapshot hook, the roster,
-		*   observation, and kill controls, and the namespace translator.
-		* @returns the trigger and its popover list, or null when there is nothing to show.
-		*/
-		function JobListAction({ sessionId, useJobs, watchRows, observe, killJob, t }) {
-			const jobs = useJobs((state) => state.rows[sessionId]) ?? NO_JOBS;
-			const observedViews = useJobs((state) => state.observed);
-			const [open, setOpen] = (0, react.useState)(false);
-			const [expandedKey, setExpandedKey] = (0, react.useState)(void 0);
-			const [now, setNow] = (0, react.useState)(() => Date.now());
-			const [settledOpen, setSettledOpen] = (0, react.useState)(void 0);
-			const [clearedKeys, setClearedKeys] = (0, react.useState)(() => /* @__PURE__ */ new Set());
-			const [killPhase, setKillPhase] = (0, react.useState)(void 0);
-			const rootRef = (0, react.useRef)(null);
-			const triggerRef = (0, react.useRef)(null);
-			const menuRef = (0, react.useRef)(null);
-			const [menuShift, setMenuShift] = (0, react.useState)(0);
-			const rows = (0, react.useMemo)(() => ordered(jobs), [jobs]);
-			const liveRows = (0, react.useMemo)(() => rows.filter(isLive), [rows]);
-			const settledRows = (0, react.useMemo)(() => rows.filter((job) => !isLive(job) && !clearedKeys.has(String(job.id))), [rows, clearedKeys]);
-			const settledExpanded = settledOpen ?? liveRows.length === 0;
-			const visibleCount = liveRows.length + settledRows.length;
-			(0, _deepseek_ai_dsh_client_ui_primitives.useDismissOnOutsidePointer)(rootRef, open, setOpen);
-			(0, react.useEffect)(() => watchRows(sessionId), [sessionId, watchRows]);
-			(0, react.useEffect)(() => {
-				if (!open || liveRows.length === 0) return;
-				setNow(Date.now());
-				const timer = setInterval(() => {
-					setNow(Date.now());
-				}, 1e3);
-				return () => {
-					clearInterval(timer);
-				};
-			}, [open, liveRows.length]);
-			(0, react.useLayoutEffect)(() => {
-				if (!open) {
-					setMenuShift(0);
-					return;
-				}
-				const fit = () => {
-					const root = rootRef.current;
-					const menu = menuRef.current;
-					/* v8 ignore next -- both refs are attached while the open popover renders. */
-					if (root === null || menu === null) return;
-					const width = menu.offsetWidth;
-					if (width === 0) return;
-					const anchorLeft = root.getBoundingClientRect().left;
-					setMenuShift(Math.max(VIEWPORT_MARGIN - anchorLeft, Math.min(0, window.innerWidth - VIEWPORT_MARGIN - width - anchorLeft)));
-				};
-				fit();
-				window.addEventListener("resize", fit);
-				return () => {
-					window.removeEventListener("resize", fit);
-				};
-			}, [open]);
-			const expandedRow = open && expandedKey !== void 0 ? rows.find((job) => String(job.id) === expandedKey) : void 0;
-			const activeJob = expandedRow !== void 0 && isObservable(expandedRow) ? expandedRow.id : void 0;
-			(0, react.useEffect)(() => {
-				if (activeJob === void 0) return;
-				return observe(sessionId, activeJob);
-			}, [
-				sessionId,
-				activeJob,
-				observe
-			]);
-			(0, react.useEffect)(() => {
-				if (visibleCount === 0 && open) setOpen(false);
-			}, [visibleCount, open]);
-			(0, react.useEffect)(() => {
-				if (expandedKey !== void 0 && !rows.some((job) => String(job.id) === expandedKey)) setExpandedKey(void 0);
-			}, [rows, expandedKey]);
-			(0, react.useEffect)(() => {
-				if (killPhase === void 0 || killPhase.state === "pending") return;
-				const timer = setTimeout(() => {
-					setKillPhase(void 0);
-				}, killPhase.state === "armed" ? KILL_ARM_MS : KILL_FAILED_MS);
-				return () => {
-					clearTimeout(timer);
-				};
-			}, [killPhase]);
-			(0, react.useEffect)(() => {
-				if (killPhase !== void 0 && !rows.some((job) => String(job.id) === killPhase.key && job.status === "running")) setKillPhase(void 0);
-			}, [rows, killPhase]);
-			const pressKill = (job) => {
-				const key = String(job.id);
-				if (killPhase?.key !== key || killPhase.state !== "armed") {
-					setKillPhase({
-						key,
-						state: "armed"
-					});
-					return;
-				}
-				setKillPhase({
-					key,
-					state: "pending"
-				});
-				killJob(sessionId, key).then((ok) => {
-					setKillPhase((current) => current?.key === key && !ok ? {
-						key,
-						state: "failed"
-					} : current);
-				});
-			};
-			if (visibleCount === 0) return null;
-			const countLabel = t(liveRows.length > 0 ? liveRows.length === 1 ? "count.live.one" : "count.live.other" : visibleCount === 1 ? "count.idle.one" : "count.idle.other", { count: liveRows.length > 0 ? liveRows.length : visibleCount });
-			const clearSettled = () => {
-				setClearedKeys((current) => {
-					const next = new Set(current);
-					for (const job of settledRows) next.add(String(job.id));
-					return next;
-				});
-				if (expandedKey !== void 0 && settledRows.some((job) => String(job.id) === expandedKey)) setExpandedKey(void 0);
-			};
-			const onKeyDown = (event) => {
-				if (event.key !== "Escape" || !open) return;
-				event.preventDefault();
-				setOpen(false);
-				triggerRef.current?.focus();
-			};
-			const item = (job) => (0, react_jsx_runtime.jsx)(JobItem, {
-				job,
-				view: isObservable(job) ? observedViews[String(job.id)] : void 0,
-				expanded: expandedKey === String(job.id),
-				now,
-				onToggle: () => {
-					setExpandedKey((current) => current === String(job.id) ? void 0 : String(job.id));
-				},
-				...job.status === "running" ? { kill: {
-					state: killPhase?.key === String(job.id) ? killPhase.state : "idle",
-					onPress: () => {
-						pressKill(job);
+		function MessageFeedbackActions({ messageId, ensure, current, retract, openDialog, useFeedback, t }) {
+			const item = useFeedback((view) => view.items.get(messageId));
+			const loadFailed = useFeedback((view) => view.status === "error");
+			const rating = item?.rating;
+			const [pending, setPending] = (0, react.useState)(false);
+			const [failure, setFailure] = (0, react.useState)(null);
+			const seeded = (0, react.useRef)(false);
+			const seed = (0, react.useCallback)(() => {
+				if (seeded.current) return;
+				seeded.current = true;
+				ensure();
+			}, [ensure]);
+			const alive = (0, react.useRef)(true);
+			(0, react.useEffect)(() => () => {
+				alive.current = false;
+			}, []);
+			const errorCopy = (0, react.useCallback)((result) => {
+				return result.error.code === "version-conflict" ? t("error.conflict") : t("error.generic");
+			}, [t]);
+			const choose = (0, react.useCallback)((nextRating) => {
+				setPending(true);
+				setFailure(null);
+				ensure().then((loaded) => {
+					if (!alive.current) return;
+					if (!loaded.ok || current(messageId)?.rating !== nextRating) {
+						setPending(false);
+						openDialog(messageId, nextRating);
+						return;
 					}
-				} } : {},
-				t
-			}, String(job.id));
-			return (0, react_jsx_runtime.jsxs)("div", {
-				ref: rootRef,
-				className: JobListAction_module_css_default.root,
-				onKeyDown,
-				children: [(0, react_jsx_runtime.jsxs)("button", {
-					ref: triggerRef,
-					type: "button",
-					className: JobListAction_module_css_default.trigger,
-					"aria-expanded": open,
-					"aria-label": countLabel,
-					onClick: () => {
-						setNow(Date.now());
-						setOpen((current) => !current);
-					},
-					children: [
-						liveRows.length > 0 ? (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.StateDot, {
-							state: "ongoing",
-							className: JobListAction_module_css_default.triggerDot
-						}) : null,
-						(0, react_jsx_runtime.jsx)("span", {
-							className: JobListAction_module_css_default.count,
-							children: countLabel
-						}),
-						(0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconChevronDownOutlineRegular, {
-							size: 12,
-							className: open ? JobListAction_module_css_default.triggerOpen : void 0
-						})
-					]
-				}), open ? (0, react_jsx_runtime.jsxs)("ul", {
-					ref: menuRef,
-					className: JobListAction_module_css_default.menu,
-					style: { left: menuShift },
-					"aria-label": t("list.aria"),
-					children: [
-						liveRows.length > 0 ? (0, react_jsx_runtime.jsx)("li", {
-							className: JobListAction_module_css_default.sectionHeader,
-							"aria-hidden": "true",
-							children: t("section.live")
-						}) : null,
-						liveRows.map(item),
-						settledRows.length > 0 ? (0, react_jsx_runtime.jsxs)("li", {
-							className: JobListAction_module_css_default.sectionHeader,
-							children: [(0, react_jsx_runtime.jsxs)("button", {
-								type: "button",
-								className: JobListAction_module_css_default.sectionToggle,
-								"aria-expanded": settledExpanded,
-								onClick: () => {
-									setSettledOpen(!settledExpanded);
-								},
-								children: [(0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconChevronDownOutlineRegular, {
-									size: 12,
-									className: settledExpanded ? `${JobListAction_module_css_default.sectionChevron} ${JobListAction_module_css_default.sectionChevronOpen}` : JobListAction_module_css_default.sectionChevron
-								}), t("section.settledCount", { count: settledRows.length })]
-							}), (0, react_jsx_runtime.jsx)("button", {
-								type: "button",
-								className: JobListAction_module_css_default.sectionClear,
-								onClick: clearSettled,
-								children: t("section.clear")
-							})]
-						}) : null,
-						settledExpanded ? settledRows.map(item) : null
-					]
-				}) : null]
-			});
+					retract(messageId, nextRating).then((result) => {
+						if (!alive.current) return;
+						setPending(false);
+						if (!result.ok) setFailure(errorCopy(result));
+					});
+				});
+			}, [
+				current,
+				ensure,
+				errorCopy,
+				messageId,
+				openDialog,
+				retract
+			]);
+			const onLike = (0, react.useCallback)(() => {
+				choose("positive");
+			}, [choose]);
+			const onDislike = (0, react.useCallback)(() => {
+				choose("negative");
+			}, [choose]);
+			const likeLabel = rating === "positive" ? t("action.likeActive") : t("action.like");
+			const dislikeLabel = rating === "negative" ? t("action.dislikeActive") : t("action.dislike");
+			return (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [
+				(0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Tooltip, {
+					label: likeLabel,
+					side: "bottom",
+					children: (0, react_jsx_runtime.jsx)("button", {
+						type: "button",
+						className: MessageFeedbackActions_module_css_default.action,
+						"aria-label": likeLabel,
+						"aria-pressed": rating === "positive",
+						"data-active": rating === "positive" || void 0,
+						disabled: pending,
+						onFocus: seed,
+						onPointerEnter: seed,
+						onClick: onLike,
+						children: rating === "positive" ? (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconLikeFillRegular, {}) : (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconLikeOutlineRegular, {})
+					})
+				}),
+				(0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Tooltip, {
+					label: dislikeLabel,
+					side: "bottom",
+					children: (0, react_jsx_runtime.jsx)("button", {
+						type: "button",
+						className: MessageFeedbackActions_module_css_default.action,
+						"aria-label": dislikeLabel,
+						"aria-pressed": rating === "negative",
+						"data-active": rating === "negative" || void 0,
+						disabled: pending,
+						onFocus: seed,
+						onPointerEnter: seed,
+						onClick: onDislike,
+						children: rating === "negative" ? (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconDislikeFillRegular, {}) : (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconDislikeOutlineRegular, {})
+					})
+				}),
+				failure === null && loadFailed && (0, react_jsx_runtime.jsx)("span", {
+					className: MessageFeedbackActions_module_css_default.failure,
+					role: "status",
+					children: t("error.load")
+				}),
+				failure !== null && (0, react_jsx_runtime.jsx)("span", {
+					className: MessageFeedbackActions_module_css_default.failure,
+					role: "status",
+					children: failure
+				})
+			] });
 		}
+		//#endregion
+		//#region lib/types/client/controller.js
+		const INITIAL_VIEW = Object.freeze({
+			status: "cold",
+			items: /* @__PURE__ */ new Map(),
+			error: null
+		});
+		const OK = Object.freeze({ ok: true });
+		const DISPOSED = Object.freeze({
+			ok: false,
+			error: Object.freeze({
+				code: "disposed",
+				message: "feedback controller is disposed"
+			})
+		});
+		/**
+		* Human-readable text for one business failure code.
+		* @param code - the Host's business failure code.
+		* @returns the developer-facing description carried in the failure branch.
+		*/
+		function describe(code) {
+			switch (code) {
+				case "session-not-found": return "this session is no longer persisted";
+				case "target-not-found": return "this message is not a persisted assistant message";
+				case "version-conflict": return "feedback changed elsewhere";
+				case "note-blank": return "a note must contain a non-whitespace character";
+				case "note-too-large": return "the note is too long";
+				default: return code;
+			}
+		}
+		/** Build the rejected branch for one business failure code. */
+		function fail(code) {
+			return {
+				ok: false,
+				error: {
+					code,
+					message: describe(code)
+				}
+			};
+		}
+		/** Carrier failure rendered with the Host-supplied code and message. */
+		function carrierFailure(error) {
+			return {
+				ok: false,
+				error: {
+					code: error.code,
+					message: error.message
+				}
+			};
+		}
+		/**
+		* Per-session feedback object layer. One instance backs every per-message
+		* control in that Session, so a single list read seeds them all.
+		*/
+		var MessageFeedbackController = class {
+			remote;
+			sessionId;
+			view = INITIAL_VIEW;
+			listeners = /* @__PURE__ */ new Set();
+			loadPromise = null;
+			operationTail = Promise.resolve();
+			disposed = false;
+			/**
+			* @param remote - the messageFeedback Remote namespace.
+			* @param sessionId - Session owning every addressed assistant message.
+			*/
+			constructor(remote, sessionId) {
+				this.remote = remote;
+				this.sessionId = sessionId;
+			}
+			/** Return the cached immutable view. */
+			getSnapshot = () => this.view;
+			/** Subscribe to view replacement. */
+			subscribe = (listener) => {
+				this.listeners.add(listener);
+				return () => {
+					this.listeners.delete(listener);
+				};
+			};
+			/**
+			* Load once; a failed load stays retryable.
+			* @returns the settled load result, shared by concurrent callers.
+			*/
+			ensure() {
+				if (this.view.status === "ready") return Promise.resolve(OK);
+				return this.refresh();
+			}
+			/**
+			* Re-read the authoritative list, collapsing concurrent callers onto one
+			* in-flight read.
+			*
+			* This is the unserialized read used to seed a cold controller, where no
+			* mutation can be in flight yet. A reconnect must use {@link resync} instead:
+			* an unserialized list response can otherwise arrive after a newer mutation's
+			* reply and overwrite the version that mutation just committed.
+			* @returns the settled reload result.
+			*/
+			refresh() {
+				if (this.loadPromise !== null) return this.loadPromise;
+				this.publish({
+					status: "loading",
+					items: this.view.items,
+					error: null
+				});
+				const pending = this.load();
+				this.loadPromise = pending;
+				return pending.finally(() => {
+					this.loadPromise = null;
+				});
+			}
+			/**
+			* Re-read the list behind this Session's queued mutations, so a reconnect
+			* cannot resurrect a version an in-flight mutation already replaced.
+			* @returns the settled reload result.
+			*/
+			resync() {
+				return this.mutate(() => this.refresh(), { seed: false });
+			}
+			/**
+			* Create or replace feedback for one message, comparing against the version
+			* this controller last observed. The item stores exactly `entry`: an entry
+			* without a note or category replaces whatever the stored item carried.
+			* @param messageId - target assistant message.
+			* @param rating - desired judgment.
+			* @param entry - explanation and category to store with the judgment.
+			* @returns the settled mutation result.
+			*/
+			rate(messageId, rating, entry = {}) {
+				return this.mutate(async () => {
+					const observed = this.view.items.get(messageId);
+					return await this.putCommitted(messageId, rating, entry, observed);
+				});
+			}
+			/**
+			* Retract one message's matching committed rating. The serialized operation
+			* rechecks the current item and becomes a no-op if another operation already
+			* changed or removed it, so a stale retraction can never record a bare rating.
+			* @param messageId - target assistant message.
+			* @param rating - judgment the human asked to retract.
+			* @returns the settled mutation result.
+			*/
+			retract(messageId, rating) {
+				return this.mutate(async () => {
+					const observed = this.view.items.get(messageId);
+					return observed?.rating === rating ? await this.deleteCommitted(messageId, observed) : OK;
+				});
+			}
+			/** Commit one put against the observed version and reconcile a conflict. */
+			async putCommitted(messageId, rating, entry, observed) {
+				const carried = await this.remote.put({
+					sessionId: this.sessionId,
+					messageId,
+					rating,
+					...entry.text === void 0 ? {} : { note: entry.text },
+					...entry.category === void 0 ? {} : { category: entry.category },
+					ifVersion: observed?.version ?? null
+				});
+				if (!carried.ok) return carrierFailure(carried.error);
+				const result = carried.value;
+				if (result.ok) {
+					this.commit(messageId, result.value);
+					return OK;
+				}
+				if (result.error.code === "version-conflict") this.commit(messageId, result.error.current);
+				return fail(result.error.code);
+			}
+			/** Commit one delete against the observed version and reconcile a conflict. */
+			async deleteCommitted(messageId, observed) {
+				const carried = await this.remote.delete({
+					sessionId: this.sessionId,
+					messageId,
+					ifVersion: observed.version
+				});
+				if (!carried.ok) return carrierFailure(carried.error);
+				const result = carried.value;
+				if (result.ok) {
+					this.commit(messageId, null);
+					return OK;
+				}
+				if (result.error.code === "version-conflict") this.commit(messageId, result.error.current);
+				return fail(result.error.code);
+			}
+			/** Drop subscribers and refuse further work when the owning fiber unloads. */
+			dispose() {
+				this.disposed = true;
+				this.listeners.clear();
+			}
+			/** Fetch the whole sidecar and publish it as the seeded view. */
+			async load() {
+				const carried = await this.remote.list({ sessionId: this.sessionId });
+				if (this.disposed) return OK;
+				if (!carried.ok) {
+					this.publish({
+						status: "error",
+						items: this.view.items,
+						error: carried.error.message
+					});
+					return carrierFailure(carried.error);
+				}
+				const result = carried.value;
+				if (!result.ok) {
+					this.publish({
+						status: "error",
+						items: this.view.items,
+						error: describe(result.error.code)
+					});
+					return fail(result.error.code);
+				}
+				const items = /* @__PURE__ */ new Map();
+				for (const item of result.value.items) items.set(item.messageId, item);
+				this.publish({
+					status: "ready",
+					items,
+					error: null
+				});
+				return OK;
+			}
+			/**
+			* Serialize one mutation behind this Session's prior mutation so queued
+			* operations always compare against the committed version.
+			*/
+			mutate(operation, options = {}) {
+				const guarded = async () => {
+					if (this.disposed) return DISPOSED;
+					if (options.seed !== false) {
+						const loaded = await this.ensure();
+						if (!loaded.ok) return loaded;
+						if (this.disposed) return DISPOSED;
+					}
+					return await operation();
+				};
+				const result = this.operationTail.then(guarded, guarded);
+				this.operationTail = result.then(() => void 0);
+				return result;
+			}
+			/**
+			* Replace one message's entry, keeping every other entry's identity. Only a
+			* `mutate` operation reaches this, and `mutate` refuses admission once the
+			* controller is disposed, so no disposal guard belongs here; `publish` is
+			* the single place that stops notifying after listeners are dropped.
+			*/
+			commit(messageId, item) {
+				const items = new Map(this.view.items);
+				if (item === null) items.delete(messageId);
+				else items.set(messageId, item);
+				this.publish({
+					status: "ready",
+					items,
+					error: null
+				});
+			}
+			/** Replace the view and contain subscriber failures at the observable boundary. */
+			publish(view) {
+				this.view = Object.freeze(view);
+				for (const listener of this.listeners) try {
+					listener();
+				} catch (error) {
+					console.error("[ui-message-feedback] subscriber threw:", error);
+				}
+			}
+		};
+		//#endregion
+		//#region lib/types/client/dialog.js
+		/**
+		* Headless state of one Session's feedback dialog and its acknowledgement and
+		* failure toasts. One form serves two targets: the Session itself (a bare `/feedback`)
+		* and one assistant message (Like or Dislike). The overlay view renders from
+		* the store and raises the acknowledgement after a successful submission.
+		* @module @deepseek-ai/dsh-client-ui-message-feedback/client/dialog
+		*/
+		const CLOSED = {
+			target: null,
+			category: null,
+			text: "",
+			submitting: false,
+			failure: null
+		};
+		/** Per-session dialog controller; one instance backs the overlay entry and every message control. */
+		var FeedbackDialogController = class {
+			submit;
+			/** Dialog state store (the overlay entry subscribes here). */
+			state = (0, _deepseek_ai_dsh_client_store.createSnapshotStore)({
+				...CLOSED,
+				toast: 0
+			});
+			/** Bumped by every open, dismiss, and dispose so a late settlement can tell its draft is gone. */
+			generation = 0;
+			toastSeq = 0;
+			/**
+			* @param submit - records one submission; the owner routes it by target.
+			*/
+			constructor(submit) {
+				this.submit = submit;
+			}
+			/**
+			* Open the dialog with an empty draft, replacing any open draft.
+			* @param target - what the submission records against.
+			*/
+			open(target) {
+				this.generation += 1;
+				this.state.set({
+					...CLOSED,
+					target,
+					toast: this.state.getSnapshot().toast
+				});
+			}
+			/** Close the dialog and discard the draft; a toast on screen stays. */
+			dismiss() {
+				this.generation += 1;
+				this.state.set({
+					...CLOSED,
+					toast: this.state.getSnapshot().toast
+				});
+			}
+			/**
+			* Replace part of the draft while it is editable.
+			* @param draft - the category (null clears it) or the text as typed.
+			*/
+			edit(draft) {
+				const s = this.state.getSnapshot();
+				if (s.target === null || s.submitting) return;
+				this.state.set({
+					...s,
+					...draft
+				});
+			}
+			/**
+			* Submit the draft; an empty draft is a valid submission. Success closes the
+			* dialog and raises the acknowledgement toast; a failure keeps the dialog
+			* open and publishes its code for the failure toast.
+			* @returns after the submission settles.
+			*/
+			async submitDraft() {
+				const s = this.state.getSnapshot();
+				if (s.target === null || s.submitting) return;
+				const generation = this.generation;
+				this.state.set({
+					...s,
+					submitting: true,
+					failure: null
+				});
+				const text = s.text.trim();
+				const result = await this.submit(s.target, {
+					...text.length === 0 ? {} : { text },
+					...s.category === null ? {} : { category: s.category }
+				});
+				if (result.ok) {
+					if (generation === this.generation) this.dismiss();
+					this.acknowledge();
+					return;
+				}
+				if (generation !== this.generation) return;
+				this.state.set({
+					...this.state.getSnapshot(),
+					submitting: false,
+					failure: result.error.code,
+					toast: 0
+				});
+			}
+			/** Clear the current failure toast without closing its draft. */
+			dismissFailure() {
+				const s = this.state.getSnapshot();
+				this.state.set({
+					...s,
+					failure: null
+				});
+			}
+			/** Show the acknowledgement toast; a toast already on screen restarts. */
+			acknowledge() {
+				this.toastSeq += 1;
+				this.state.set({
+					...this.state.getSnapshot(),
+					toast: this.toastSeq
+				});
+			}
+			/**
+			* Retire one toast after its fade; a newer toast is left alone.
+			* @param seq - the toast sequence the view finished showing.
+			*/
+			dismissToast(seq) {
+				const s = this.state.getSnapshot();
+				if (s.toast === seq) this.state.set({
+					...s,
+					toast: 0
+				});
+			}
+			/** Scope-teardown disposer: drop the draft and the toast, orphan in-flight work. */
+			dispose() {
+				this.generation += 1;
+				this.state.set({
+					...CLOSED,
+					toast: 0
+				});
+			}
+		};
+		//#endregion
+		//#region lib/types/client/surface.js
+		/**
+		* One Session's feedback surface: the message-feedback object layer and the
+		* dialog controller, plus the routing between them. A message target puts a
+		* selected judgment through the message controller; the Session target records
+		* through the `sessionFeedback` Remote.
+		* @module @deepseek-ai/dsh-client-ui-message-feedback/client/surface
+		*/
+		/** The per-session pair behind every entry of one Session. */
+		var FeedbackSurface = class {
+			ctx;
+			sessionId;
+			/** The Session's message-feedback object layer, shared by every message control. */
+			feedback;
+			/** The Session's dialog and toast state, shared by the overlay entry and the message controls. */
+			dialog;
+			/**
+			* @param ctx - the browser plugin context carrying both feedback Remotes.
+			* @param sessionId - Session owning the transcript and the remark.
+			*/
+			constructor(ctx, sessionId) {
+				this.ctx = ctx;
+				this.sessionId = sessionId;
+				this.feedback = new MessageFeedbackController(ctx.remote.messageFeedback, sessionId);
+				this.dialog = new FeedbackDialogController((target, entry) => target.kind === "message" ? this.feedback.rate(target.messageId, target.rating, entry) : this.recordSession(entry));
+			}
+			/** Record one Session-level remark through the sessionFeedback Remote. */
+			async recordSession(entry) {
+				const carried = await this.ctx.remote.sessionFeedback.record({
+					sessionId: this.sessionId,
+					...entry
+				});
+				if (!carried.ok) return {
+					ok: false,
+					error: {
+						code: carried.error.code,
+						message: carried.error.message
+					}
+				};
+				if (carried.value.ok) return { ok: true };
+				return {
+					ok: false,
+					error: {
+						code: carried.value.error.code,
+						message: describe(carried.value.error.code)
+					}
+				};
+			}
+			/** Drop both controllers when the owning fiber unloads. */
+			dispose() {
+				this.feedback.dispose();
+				this.dialog.dispose();
+			}
+		};
 		//#endregion
 		//#region lib/types/client/locales.js
+		/** `feedback` namespace dictionaries. */
 		/** Simplified Chinese dictionary (the key-set source of truth). */
 		const zh = {
-			"count.live.one": "{count} 个后台任务运行中",
-			"count.live.other": "{count} 个后台任务运行中",
-			"count.idle.one": "{count} 个后台任务",
-			"count.idle.other": "{count} 个后台任务",
-			"list.aria": "后台任务",
-			"section.live": "进行中",
-			"section.settledCount": "已结束 {count}",
-			"section.clear": "清空",
-			"row.expandAria": "展开 {label} 的实时输出",
-			"row.collapseAria": "收起 {label} 的实时输出",
-			"kill.stop": "停止任务 {label}",
-			"kill.confirm": "再次点击确认停止",
-			"kill.confirmAction": "确认停止",
-			"kill.failed": "停止失败",
-			"status.running": "运行中",
-			"status.stopping": "正在停止",
-			"status.completed": "已完成",
-			"status.killed": "已取消",
-			"status.failed": "已失败",
-			"duration.seconds": "{seconds}秒",
-			"duration.minutes": "{minutes}分{seconds}秒",
-			"duration.hours": "{hours}小时{minutes}分",
-			"duration.title.live": "已运行 {duration}",
-			"duration.title.done": "耗时 {duration}",
-			"output.gap": "……较早的输出已丢弃……",
-			"output.error": "实时输出流中断：{error}",
-			"terminal.signal": "信号 {signal}",
-			"terminal.exitCode": "退出码 {code}",
-			"terminal.noExitCode": "未正常退出",
-			"terminal.running": "运行中",
-			"terminal.failed": "已失败",
-			"terminal.done": "已完成",
-			"terminal.copy": "复制",
-			"terminal.copied": "已复制",
-			"terminal.noOutput": "（无输出）",
-			"terminal.collapse": "收起",
-			"terminal.collapseAria": "收起输出",
-			"terminal.expand": "展开其余 {n} 行",
-			"terminal.expandAria": "展开被折叠的 {n} 行输出"
+			"action.like": "好的回答",
+			"action.likeActive": "取消标记",
+			"action.dislike": "有问题的回答",
+			"action.dislikeActive": "取消标记",
+			"dialog.title": "提交反馈",
+			"dialog.categories": "反馈分类",
+			"dialog.detail": "反馈详情",
+			"dialog.hint": "填写详情以帮助我们改进体验，提交内容会包括当前对话的日志",
+			"category.task-result": "任务结果",
+			"category.instruction-following": "指令理解与遵循",
+			"category.product-interaction": "产品功能与交互",
+			"category.service-stability": "稳定性和速度",
+			"category.resource-cost": "资源使用与费用",
+			"category.security-privacy-permission": "安全隐私与权限",
+			"category.other": "其他",
+			"toast.recorded": "感谢你的反馈",
+			"error.conflict": "这条反馈已在别处改动，已显示最新状态",
+			"error.load": "反馈状态加载失败",
+			"error.generic": "反馈保存失败",
+			"error.noteTooLarge": "描述太长，请缩短后再提交"
 		};
-		/** English dictionary, key-identical to the Chinese source of truth. */
+		/** English dictionary, checked complete against the zh key set. */
 		const en = {
-			"count.live.one": "{count} background job running",
-			"count.live.other": "{count} background jobs running",
-			"count.idle.one": "{count} background job",
-			"count.idle.other": "{count} background jobs",
-			"list.aria": "Background jobs",
-			"section.live": "Running",
-			"section.settledCount": "Finished {count}",
-			"section.clear": "Clear",
-			"row.expandAria": "Show live output of {label}",
-			"row.collapseAria": "Hide live output of {label}",
-			"kill.stop": "Stop task {label}",
-			"kill.confirm": "Click again to confirm",
-			"kill.confirmAction": "Confirm stop",
-			"kill.failed": "Stop failed",
-			"status.running": "running",
-			"status.stopping": "stopping",
-			"status.completed": "completed",
-			"status.killed": "cancelled",
-			"status.failed": "failed",
-			"duration.seconds": "{seconds}s",
-			"duration.minutes": "{minutes}m {seconds}s",
-			"duration.hours": "{hours}h {minutes}m",
-			"duration.title.live": "Running for {duration}",
-			"duration.title.done": "Took {duration}",
-			"output.gap": "… earlier output dropped …",
-			"output.error": "live output stream interrupted: {error}",
-			"terminal.signal": "signal {signal}",
-			"terminal.exitCode": "exit {code}",
-			"terminal.noExitCode": "no exit code",
-			"terminal.running": "running",
-			"terminal.failed": "failed",
-			"terminal.done": "done",
-			"terminal.copy": "Copy",
-			"terminal.copied": "Copied",
-			"terminal.noOutput": "(no output)",
-			"terminal.collapse": "Collapse",
-			"terminal.collapseAria": "Collapse output",
-			"terminal.expand": "Show {n} more lines",
-			"terminal.expandAria": "Expand {n} collapsed output lines"
+			"action.like": "Good response",
+			"action.likeActive": "Remove rating",
+			"action.dislike": "Bad response",
+			"action.dislikeActive": "Remove rating",
+			"dialog.title": "Submit feedback",
+			"dialog.categories": "Feedback category",
+			"dialog.detail": "Feedback details",
+			"dialog.hint": "Add details to help us improve. Your submission will include the current conversation log.",
+			"category.task-result": "Task result",
+			"category.instruction-following": "Instruction understanding and following",
+			"category.product-interaction": "Product features and interaction",
+			"category.service-stability": "Stability and speed",
+			"category.resource-cost": "Resource usage and cost",
+			"category.security-privacy-permission": "Security, privacy, and permissions",
+			"category.other": "Other",
+			"toast.recorded": "Thanks for your feedback",
+			"error.conflict": "This feedback changed elsewhere; the latest state is shown",
+			"error.load": "Could not load feedback",
+			"error.generic": "Could not save feedback",
+			"error.noteTooLarge": "The description is too long; shorten it and submit again"
 		};
 		//#endregion
 		//#region lib/types/client/index.js
-		/** Required services: the jobs rosters, observations, and kill, the slot registry, and dictionaries. */
+		/**
+		* Feedback surface plugin, browser half: the Like/Dislike entry in the
+		* conversation.chat.assistant-actions strip, the feedback dialog and its
+		* acknowledgement and failure toasts in conversation.input.overlay, and the `/feedback`
+		* decoration that opens the dialog from the composer menu or a bare typed
+		* command. The feedbackUi service opens the same dialog for other plugins.
+		* One FeedbackSurface per Session backs every entry in that Session.
+		* @module @deepseek-ai/dsh-client-ui-message-feedback/client
+		*/
+		/** Dictionary namespace owned by this plugin. */
+		const NS = "feedback";
+		/** Required services: the slot registry, the two Remote namespaces, and the copy. */
 		const inject = [
-			"jobs",
 			"slots",
+			"remote",
+			"remote.messageFeedback",
+			"remote.sessionFeedback",
 			"locale"
 		];
 		/**
-		* Client plugin body: register the dictionaries and the header action.
+		* Client plugin body: the per-message feedback entry, the Session's dialog
+		* entry, the `feedbackUi` service, the `/feedback` decoration, and their
+		* per-session surfaces.
 		* @param ctx - client root context.
 		*/
 		function apply(ctx) {
-			ctx.effect(() => ctx.locale.register("job", {
+			ctx.effect(() => ctx.locale.register(NS, {
 				zh,
 				en
-			}), "ui-jobs: dictionaries");
-			ctx.slots.inject("conversation.session.header.actions", () => ctx.slots.register({
-				name: "conversation.session.header.actions",
-				id: "job-list",
-				order: 20,
-				locale: "job",
-				inject: () => ({
-					hooks: { jobs: ctx.jobs.state },
-					watchRows: (sessionId) => ctx.jobs.watchRows(sessionId),
-					observe: (sessionId, id) => ctx.jobs.observe(sessionId, id),
-					killJob: async (sessionId, jobId) => (await ctx.jobs.kill(sessionId, jobId)).ok
-				})
-			}, JobListAction));
+			}), "ui-message-feedback: dictionaries");
+			const surfaces = /* @__PURE__ */ new Map();
+			const surfaceFor = (sessionId) => {
+				let surface = surfaces.get(sessionId);
+				if (surface === void 0) {
+					surface = new FeedbackSurface(ctx, sessionId);
+					surfaces.set(sessionId, surface);
+				}
+				return surface;
+			};
+			ctx.effect(() => () => {
+				for (const surface of surfaces.values()) surface.dispose();
+				surfaces.clear();
+			}, "ui-message-feedback: per-session surfaces");
+			const feedbackUi = { openSession: (sessionId) => {
+				surfaceFor(sessionId).dialog.open({ kind: "session" });
+			} };
+			ctx.provide("feedbackUi", feedbackUi);
+			ctx.on("connection/reset", () => {
+				for (const { feedback } of surfaces.values()) if (feedback.getSnapshot().status !== "cold") feedback.resync();
+			});
+			ctx.slots.inject("conversation.chat.assistant-actions", () => ctx.slots.register({
+				name: "conversation.chat.assistant-actions",
+				id: "feedback",
+				order: 10,
+				locale: NS,
+				inject: (sessionId) => {
+					const { feedback, dialog } = surfaceFor(sessionId);
+					return {
+						hooks: { feedback },
+						ensure: () => feedback.ensure(),
+						current: (messageId) => feedback.getSnapshot().items.get(messageId),
+						retract: (messageId, rating) => feedback.retract(messageId, rating),
+						openDialog: (messageId, rating) => {
+							dialog.open({
+								kind: "message",
+								messageId,
+								rating
+							});
+						}
+					};
+				}
+			}, MessageFeedbackActions));
+			ctx.slots.inject("conversation.input.overlay", () => ctx.slots.register({
+				name: "conversation.input.overlay",
+				id: "feedback-dialog",
+				order: 2,
+				locale: NS,
+				inject: (sessionId) => {
+					const { dialog } = surfaceFor(sessionId);
+					return {
+						hooks: { dialog: dialog.state },
+						edit: (draft) => {
+							dialog.edit(draft);
+						},
+						submit: () => dialog.submitDraft(),
+						dismiss: () => {
+							dialog.dismiss();
+						},
+						dismissFailure: () => {
+							dialog.dismissFailure();
+						},
+						dismissToast: (seq) => {
+							dialog.dismissToast(seq);
+						}
+					};
+				}
+			}, FeedbackDialog));
+			ctx.inject(["commandUi"], (scope) => {
+				scope.effect(() => scope.commandUi.decorate({
+					name: "feedback",
+					available: () => true,
+					ui: {
+						kind: "action",
+						run: (session) => {
+							feedbackUi.openSession(session.sessionId);
+						}
+					}
+				}), "ui-message-feedback: /feedback decoration");
+			});
 		}
 		//#endregion
 		exports.apply = apply;
@@ -627,4 +879,4 @@ window.__ModuleLoader__.load({
 	}
 });
 ;
-//# sourceMappingURL=??@deepseek-ai/dsh-client-ui-jobs/client.js.map&rev=dbba9a05aae0
+//# sourceMappingURL=??@deepseek-ai/dsh-client-ui-message-feedback/client.js.map&rev=9b099d139bc5

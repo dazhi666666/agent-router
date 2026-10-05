@@ -1,2334 +1,1503 @@
 window.__ModuleLoader__.load({
-	id: "@deepseek-ai/dsh-client-ui-deliverables",
+	id: "@deepseek-ai/dsh-client-connection",
 	factory: (require) => {
 		var module = { exports: {} };
 		var exports = module.exports;
 		Object.defineProperty(exports, Symbol.toStringTag, { value: "Module" });
-		let _deepseek_ai_dsh_client_store = require("@deepseek-ai/dsh-client-store");
-		let react_jsx_runtime = require("react/jsx-runtime");
-		let react = require("react");
-		let _deepseek_ai_dsh_client_ui_primitives = require("@deepseek-ai/dsh-client-ui-primitives");
-		//#region lib/types/changes.js
-		/** Authenticated GET route serving one announced change summary while its Session lives. */
-		const CHANGED_FILES_PATH = "/api/changes.summary";
-		/** Authenticated GET route serving one listed file's turn-start and turn-end comparison while its Session lives. */
-		const CHANGES_DIFF_PATH = "/api/changes.diff";
-		/** Authenticated POST route for opening a changed file on the Host desktop. */
-		const CHANGES_OPEN_PATH = "/api/changes.open";
-		/**
-		* Browser-relative form of {@link CHANGED_FILES_PATH}; see
-		* .agents/notes/implemented/architecture/2026-09-14-web-document-relative-app-routes.md.
-		*/
-		const CHANGED_FILES_ROUTE = CHANGED_FILES_PATH.slice(1);
-		/** Browser-relative form of {@link CHANGES_DIFF_PATH}. */
-		const CHANGES_DIFF_ROUTE = CHANGES_DIFF_PATH.slice(1);
-		/** Browser-relative form of {@link CHANGES_OPEN_PATH}. */
-		const CHANGES_OPEN_ROUTE = CHANGES_OPEN_PATH.slice(1);
-		/** Resource-address prefix of a turn's review tab in the right Sidebar. */
-		const CHANGES_REVIEW_ADDRESS = "dsh-resource://changes-review/session/";
-		function isRecord$1(value) {
-			return typeof value === "object" && value !== null && !Array.isArray(value);
+		//#region ../../../vendor/cosmokit/lib/index.js
+		/** Return true when a value is `null` or `undefined`. */
+		function isNullable(value) {
+			return value === null || value === void 0;
 		}
-		/**
-		* Validate one changed-file record read from the summary route.
-		* @param value - decoded JSON.
-		* @returns whether the record carries a path, a display path, and line counts.
-		*/
-		function isChangedFile(value) {
-			if (!isRecord$1(value)) return false;
-			const { path, display, added, deleted, binary, oversized } = value;
-			return typeof path === "string" && path.length > 0 && typeof display === "string" && display.length > 0 && Number.isSafeInteger(added) && Number.isSafeInteger(deleted) && (binary === void 0 || binary === true) && (oversized === void 0 || oversized === true);
+		/** Return true for non-array object values. */
+		function isPlainObject(data) {
+			return data && typeof data === "object" && !Array.isArray(data);
 		}
-		/**
-		* Validate a summary read from the summary route.
-		* @param value - decoded JSON.
-		* @returns whether the value identifies a turn, a complete file list, the total count, and the line totals.
-		*/
-		function isChangesSummary(value) {
-			if (!isRecord$1(value)) return false;
-			const { turn, files, total, added, deleted } = value;
-			return Number.isSafeInteger(turn) && turn >= 1 && Number.isSafeInteger(total) && Number.isSafeInteger(added) && Number.isSafeInteger(deleted) && Array.isArray(files) && files.every(isChangedFile);
+		/** Filter object entries and return a new object. */
+		function filterKeys(object, filter) {
+			return Object.fromEntries(Object.entries(object).filter(([key, value]) => filter(key, value)));
 		}
-		function isHunk(value) {
-			if (!isRecord$1(value)) return false;
-			const { oldStart, oldLines, newStart, newLines, lines } = value;
-			return [
-				oldStart,
-				oldLines,
-				newStart,
-				newLines
-			].every((field) => Number.isSafeInteger(field) && field >= 0) && Array.isArray(lines) && lines.every((line) => typeof line === "string" && /^[+ -]/.test(line));
+		/** Map object values while preserving the original key set. */
+		function mapValues(object, transform) {
+			return Object.fromEntries(Object.entries(object).map(([key, value]) => [key, transform(value, key)]));
 		}
-		/**
-		* Validate a comparison read from the comparison route.
-		* @param value - decoded JSON.
-		* @returns whether the value is a text comparison with well-formed hunks, or a binary or oversized refusal.
-		*/
-		function isChangesDiff(value) {
-			if (!isRecord$1(value)) return false;
-			const { kind, path, display } = value;
-			if (typeof path !== "string" || path.length === 0 || typeof display !== "string" || display.length === 0) return false;
-			if (kind === "binary" || kind === "oversized") return true;
-			if (kind !== "text") return false;
-			const { before, after, hunks, coarse } = value;
-			return typeof before === "boolean" && typeof after === "boolean" && typeof coarse === "boolean" && Array.isArray(hunks) && hunks.every(isHunk);
+		/** Pick selected keys from an object, optionally including `undefined` values. */
+		function pick(source, keys, forced) {
+			if (!keys) return { ...source };
+			const result = {};
+			for (const key of keys) if (forced || source[key] !== void 0) result[key] = source[key];
+			return result;
 		}
-		/**
-		* Validate the `workspace/changes` event data read from a Session log.
-		* @param value - decoded durable event data.
-		* @returns whether the event names a turn.
-		*/
-		function isChangesEvent(value) {
-			return isRecord$1(value) && Number.isSafeInteger(value.turn) && value.turn >= 1;
-		}
-		/**
-		* Build authenticated coordinates for the summary one `workspace/changes` event announced.
-		* @param sessionId - owning Session.
-		* @param seq - event sequence.
-		* @returns document-relative summary route.
-		*/
-		function changesSummaryUrl(sessionId, seq) {
-			return `${CHANGED_FILES_ROUTE}?${new URLSearchParams({
-				sessionId,
-				seq: String(seq)
-			})}`;
-		}
-		/**
-		* Build authenticated coordinates for one listed file's comparison.
-		* @param sessionId - owning Session.
-		* @param seq - workspace/changes event sequence.
-		* @param index - original index in the summary's files array.
-		* @returns document-relative comparison route.
-		*/
-		function changesDiffUrl(sessionId, seq, index) {
-			return `${CHANGES_DIFF_ROUTE}?${new URLSearchParams({
-				sessionId,
-				seq: String(seq),
-				index: String(index)
-			})}`;
-		}
-		/**
-		* Build authenticated coordinates for a changed file's native open.
-		* @param sessionId - owning Session.
-		* @param seq - workspace/changes event sequence.
-		* @param index - original index in the summary's files array.
-		* @returns document-relative action route.
-		*/
-		function changedFileUrl(sessionId, seq, index) {
-			return `${CHANGES_OPEN_ROUTE}?${new URLSearchParams({
-				sessionId,
-				seq: String(seq),
-				index: String(index)
-			})}`;
-		}
-		/**
-		* The right-Sidebar address of one turn's review. The Session and the event
-		* sequence identify the content; the turn rides along for the tab title.
-		* @param coordinates - viewed Session, announcing event, and turn.
-		* @returns a `dsh-resource://changes-review/session/…` address.
-		*/
-		function changesReviewAddress(coordinates) {
-			const { sessionId, seq, turn } = coordinates;
-			return `${CHANGES_REVIEW_ADDRESS}${encodeURIComponent(sessionId)}/${seq}/${turn}`;
-		}
-		/**
-		* Read the coordinates back out of a review address.
-		* @param address - a resource address.
-		* @returns the coordinates, or undefined for any other address.
-		*/
-		function parseChangesReviewAddress(address) {
-			if (!address.startsWith("dsh-resource://changes-review/session/")) return void 0;
-			const parts = address.slice(38).split("/");
-			if (parts.length !== 3) return void 0;
-			const [sessionId, seq, turn] = parts;
-			if (sessionId === "" || !/^\d+$/.test(seq) || !/^[1-9]\d*$/.test(turn)) return void 0;
+		/** Shared config references used by schema validators and plugin runtimes. */
+		const write = Symbol.for("cosmokit.volatile.write");
+		function snapshot(value, ancestors = /* @__PURE__ */ new Set()) {
+			if (typeof value === "function") throw new TypeError("volatile config cannot contain functions");
+			if (value === null || typeof value !== "object") return value;
+			if (ancestors.has(value)) throw new TypeError("volatile config cannot contain cycles");
+			ancestors.add(value);
 			try {
-				return {
-					sessionId: decodeURIComponent(sessionId),
-					seq: Number(seq),
-					turn: Number(turn)
-				};
-			} catch {
-				return;
+				if (Array.isArray(value)) return Object.freeze(value.map((item) => snapshot(item, ancestors)));
+				if (Object.getPrototypeOf(value) !== Object.prototype && Object.getPrototypeOf(value) !== null) throw new TypeError("volatile config objects must be plain objects or arrays");
+				return Object.freeze(Object.fromEntries(Object.entries(value).map(([key, item]) => [key, snapshot(item, ancestors)])));
+			} finally {
+				ancestors.delete(value);
 			}
 		}
-		//#endregion
-		//#region lib/types/client/host-read-store.js
 		/**
-		* Fetch-once cache of Host-served records keyed by their authenticated URL:
-		* one read per URL while a state stands, cleared on connection replacement,
-		* cancelled on disposal. Each store decides what a response means and which
-		* states a later request reads again.
+		* Create a detached reference containing an immutable copy of the supplied data.
+		* @param value - validated config data; class instances and functions are unsupported.
+		* @returns a reference whose value is updated only by its owning runtime.
 		*/
-		/** One browser plugin's reads of one record kind. */
-		var HostReadStore = class {
-			policy;
-			/** Record URLs key the state across Sessions and turns. */
-			state = (0, _deepseek_ai_dsh_client_store.createSnapshotStore)({});
-			lifetime = new AbortController();
-			/** The connection generation the current states belong to; a reset aborts it so no older read publishes. */
-			generation = new AbortController();
-			pending = /* @__PURE__ */ new Set();
-			constructor(policy) {
-				this.policy = policy;
-			}
-			/**
-			* Read one URL unless a state the policy keeps already stands for it.
-			* @param url - the record's authenticated URL.
-			* @returns after the state is published.
-			*/
-			async loadUrl(url) {
-				const current = this.state.getSnapshot()[url];
-				if (this.lifetime.signal.aborted || current !== void 0 && !this.policy.retryable(current)) return;
-				this.state.update((state) => {
-					state[url] = this.policy.loading;
-				});
-				const task = this.read(url, AbortSignal.any([this.lifetime.signal, this.generation.signal]));
-				this.pending.add(task);
-				try {
-					await task;
-				} finally {
-					this.pending.delete(task);
+		function createVolatile(value) {
+			let current = snapshot(value);
+			return Object.freeze({
+				get: () => current,
+				[write]: (value) => {
+					current = value;
 				}
-			}
-			/** Forget every state and abandon in-flight reads; a replaced connection may reach a Host that no longer serves them. */
-			reset() {
-				this.generation.abort();
-				this.generation = new AbortController();
-				this.state.set({});
-			}
-			/** Cancel outstanding reads and wait until none can publish state. */
-			async dispose() {
-				this.lifetime.abort();
-				await Promise.all(this.pending);
-			}
-			async read(url, signal) {
-				let next;
-				try {
-					next = await this.policy.decode(await fetch(url, { signal }));
-				} catch {
-					next = this.policy.failed;
-				}
-				if (!signal.aborted) this.state.update((state) => {
-					state[url] = next;
-				});
-			}
-		};
-		//#endregion
-		//#region lib/types/client/changes-diff.js
-		/** One browser plugin's comparison reads; a failed read is the one state a later request replaces. */
-		var ChangesDiffStore = class extends HostReadStore {
-			constructor() {
-				super({
-					loading: "loading",
-					failed: "error",
-					retryable: (state) => state === "error",
-					decode: async (response) => {
-						if (response.status === 404) return "missing";
-						if (!response.ok) return "error";
-						const value = await response.json();
-						return isChangesDiff(value) ? value : "error";
-					}
-				});
-			}
-			/**
-			* Read one comparison; a cached comparison or a missing one is kept, a failed one is read again.
-			* @param sessionId - viewed Session.
-			* @param seq - the announcing event's sequence.
-			* @param index - the file's index in the summary.
-			* @returns after the state is published.
-			*/
-			load(sessionId, seq, index) {
-				return this.loadUrl(changesDiffUrl(sessionId, seq, index));
-			}
-		};
-		//#endregion
-		//#region lib/types/client/changes-summary.js
-		/** One browser plugin's summary reads; a summary or a missing answer is kept until the connection is replaced. */
-		var ChangesSummaryStore = class extends HostReadStore {
-			constructor() {
-				super({
-					loading: "loading",
-					failed: "missing",
-					retryable: () => false,
-					decode: async (response) => {
-						if (!response.ok) return "missing";
-						const value = await response.json();
-						return isChangesSummary(value) ? value : "missing";
-					}
-				});
-			}
-			/**
-			* Read one summary once; a later read of the same coordinates returns the cached state.
-			* @param sessionId - viewed Session.
-			* @param seq - the announcing event's sequence.
-			* @returns after the state is published.
-			*/
-			load(sessionId, seq) {
-				return this.loadUrl(changesSummaryUrl(sessionId, seq));
-			}
-		};
-		//#endregion
-		//#region lib/types/presented.js
-		/** Authenticated POST route for opening a workspace file on the Host desktop. */
-		const PRESENT_OPEN_PATH = "/api/present.open";
-		/** Authenticated desktop availability and destination metadata. */
-		const PRESENT_HOST_PATH = "/api/present.host";
-		/**
-		* Browser-relative form of {@link PRESENT_OPEN_PATH}; see
-		* .agents/notes/implemented/architecture/2026-09-14-web-document-relative-app-routes.md.
-		*/
-		const PRESENT_OPEN_ROUTE = PRESENT_OPEN_PATH.slice(1);
-		/** Browser-relative form of {@link PRESENT_HOST_PATH}. */
-		const PRESENT_HOST_ROUTE = PRESENT_HOST_PATH.slice(1);
-		/**
-		* Validate desktop metadata received over HTTP.
-		* @param value - decoded response.
-		* @returns whether all displayed and actionable fields are supported.
-		*/
-		function isPresentedHost(value) {
-			if (typeof value !== "object" || value === null) return false;
-			const host = value;
-			return typeof host.name === "string" && typeof host.available === "boolean" && (host.fileManager === null || host.fileManager === "finder" || host.fileManager === "explorer" || host.fileManager === "directory");
-		}
-		/**
-		* Validate a file declaration read from a Session log.
-		* @param value - decoded durable data.
-		* @returns whether the declaration contains a path and optional description.
-		*/
-		function isPresentedFile(value) {
-			if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
-			const { path, description } = value;
-			return typeof path === "string" && path.trim().length > 0 && (description === void 0 || typeof description === "string");
-		}
-		/**
-		* Build authenticated coordinates for a declared file.
-		* @param sessionId - owning Session.
-		* @param seq - deliverables/presented event sequence.
-		* @param index - original index in the event's files array.
-		* @returns document-relative file action route.
-		*/
-		function presentedFileUrl(sessionId, seq, index) {
-			return `${PRESENT_OPEN_ROUTE}?${new URLSearchParams({
-				sessionId,
-				seq: String(seq),
-				index: String(index)
-			})}`;
-		}
-		/**
-		* Validate a delivery event before reading its turn or file declarations.
-		* @param value - decoded durable event data.
-		* @returns whether the event identifies a turn, call, and file list.
-		*/
-		function isPresentedData(value) {
-			if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
-			const { turn, callId, files } = value;
-			return typeof turn === "number" && Number.isSafeInteger(turn) && turn >= 1 && typeof callId === "string" && callId.length > 0 && Array.isArray(files);
-		}
-		/**
-		* Trailing path segment, the part that identifies the file at a glance.
-		* @param path - Slash- or backslash-separated path.
-		* @returns The final segment, or the whole string when separator-free.
-		*/
-		function basename(path) {
-			const at = Math.max(path.lastIndexOf("/"), path.lastIndexOf("\\"));
-			return at === -1 ? path : path.slice(at + 1);
-		}
-		//#endregion
-		//#region lib/types/client/present-open.js
-		/** Shared native-open status for delivery cards, the changed-files card, and closing-message file mentions. */
-		/** Success feedback remains fully visible for five seconds before fading. */
-		const PRESENTED_SUCCESS_HOLD_MS = 5e3;
-		/** One browser plugin's file-open requests, cancelled when that plugin is disposed. */
-		var PresentedOpenController = class {
-			/** File action URLs key the state across Sessions, turns, and both clickable surfaces. */
-			state = (0, _deepseek_ai_dsh_client_store.createSnapshotStore)({});
-			/** Native destination metadata, or a retryable read failure. */
-			host = (0, _deepseek_ai_dsh_client_store.createSnapshotStore)(null);
-			expiry = /* @__PURE__ */ new Map();
-			loading;
-			metadata = new AbortController();
-			lifetime = new AbortController();
-			pending = /* @__PURE__ */ new Set();
-			/**
-			* Open a declared file once while a request for the same coordinates is pending.
-			* Failures remain visible on the card and a later gesture retries them.
-			* @param sessionId - viewed Session, including a fork's own identity.
-			* @param seq - durable delivery event sequence.
-			* @param index - original file index within that event.
-			* @param action - default application open or file-manager reveal.
-			* @param application - registered handler identifier for an explicit application choice.
-			* @returns null after a successful handoff, or the failure to announce after publishing card status.
-			*/
-			open(sessionId, seq, index, action = "open", application) {
-				return this.openUrl(presentedFileUrl(sessionId, seq, index), action, application);
-			}
-			/**
-			* Open one recorded changed file in the Host's default application.
-			* @param sessionId - viewed Session.
-			* @param seq - durable workspace/changes event sequence.
-			* @param index - original file index within that event.
-			* @param action - application open or file-manager reveal.
-			* @param application - registered handler identifier for an explicit application choice.
-			* @returns null after a successful handoff, or the failure to announce after publishing card status.
-			*/
-			openChanged(sessionId, seq, index, action = "open", application) {
-				return this.openUrl(changedFileUrl(sessionId, seq, index), action, application);
-			}
-			async openUrl(url, action, application) {
-				const phase = this.state.getSnapshot()[url];
-				if (this.lifetime.signal.aborted || phase === "opening" || phase === "revealing") return null;
-				this.clearExpiry(url);
-				this.state.update((state) => {
-					state[url] = action === "open" ? "opening" : "revealing";
-				});
-				const task = this.request(url, action, application);
-				this.pending.add(task);
-				try {
-					return await task;
-				} finally {
-					this.pending.delete(task);
-				}
-			}
-			/**
-			* Read the serving desktop metadata, coalescing concurrent reads; a later call retries failure.
-			* @returns after metadata or a retryable error is published.
-			*/
-			async loadHost() {
-				if (this.lifetime.signal.aborted) return;
-				if (this.loading !== void 0) return this.loading;
-				this.host.set(null);
-				const task = this.readHost(AbortSignal.any([this.lifetime.signal, this.metadata.signal]));
-				this.loading = task;
-				this.pending.add(task);
-				try {
-					await task;
-				} finally {
-					if (this.loading === task) this.loading = void 0;
-					this.pending.delete(task);
-				}
-			}
-			/** Invalidate desktop metadata on connection replacement; mounted cards request the new Host. */
-			resetHost() {
-				const wasLoading = this.loading !== void 0;
-				this.metadata.abort();
-				this.metadata = new AbortController();
-				this.loading = void 0;
-				this.host.set(null);
-				if (wasLoading) this.loadHost();
-			}
-			async readHost(signal) {
-				let host = "error";
-				try {
-					const response = await fetch(PRESENT_HOST_ROUTE, { signal });
-					if (response.ok) {
-						const value = await response.json();
-						if (isPresentedHost(value)) host = value;
-					}
-				} catch {
-					host = "error";
-				}
-				if (!signal.aborted) this.host.set(host);
-			}
-			/** Cancel outstanding requests and wait until no request can publish state. */
-			async dispose() {
-				this.lifetime.abort();
-				for (const url of this.expiry.keys()) this.clearExpiry(url);
-				await Promise.all(this.pending);
-			}
-			clearExpiry(url) {
-				clearTimeout(this.expiry.get(url));
-				this.expiry.delete(url);
-			}
-			async request(url, action, application) {
-				const failure = action === "open" ? "error" : "revealError";
-				let phase = action === "open" ? "opened" : "revealed";
-				try {
-					const target = action === "reveal" ? `${url}&action=reveal` : application === void 0 ? url : `${url}&application=${encodeURIComponent(application)}`;
-					const response = await fetch(target, {
-						method: "POST",
-						signal: this.lifetime.signal
-					});
-					if (!response.ok) phase = response.status === 422 ? "nativeUnavailable" : failure;
-				} catch {
-					phase = failure;
-				}
-				if (!this.lifetime.signal.aborted) {
-					if (phase === "opened" || phase === "revealed") this.expiry.set(url, setTimeout(() => {
-						this.expiry.delete(url);
-						this.state.update((state) => {
-							Reflect.deleteProperty(state, url);
-						});
-					}, 5200));
-					this.state.update((state) => {
-						state[url] = phase;
-					});
-				}
-				return phase === "opened" || phase === "revealed" ? null : action === "reveal" ? "revealError" : "openError";
-			}
-		};
-		//#endregion
-		//#region \0dsh-css:D:\deepseek-harness\packages\client\ui-deliverables\src\client\PresentRow.module.css.mjs
-		const css$4 = "._4XM2AG_summary{min-width:0;color:var(--dsw-alias-label-secondary);align-items:center;gap:8px;margin-left:8px;font-size:12px;display:flex}._4XM2AG_summary>:first-child{flex-shrink:0}._4XM2AG_paths{text-overflow:ellipsis;white-space:nowrap;overflow:hidden}._4XM2AG_output{border-radius:var(--dsw-radius-lg);background:var(--dsw-alias-bg-layer-1);color:var(--dsw-alias-label-secondary);white-space:pre-wrap;overflow-wrap:anywhere;margin:8px 0;padding:12px;font-size:12px}._4XM2AG_inspect{color:var(--dsw-alias-link);font:inherit;cursor:pointer;background:0 0;border:none;align-self:flex-start;padding:4px 0;font-size:12px}";
-		const tagId$4 = "@deepseek-ai/dsh-client-ui-deliverables/PresentRow.module.css";
-		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId$4) + "]") === null) {
-			const tag = document.createElement("style");
-			tag.dataset.plugin = "@deepseek-ai/dsh-client-ui-deliverables";
-			tag.dataset.pluginCss = tagId$4;
-			tag.textContent = css$4;
-			document.head.appendChild(tag);
-		}
-		var PresentRow_module_css_default = {
-			"inspect": "_4XM2AG_inspect",
-			"output": "_4XM2AG_output",
-			"paths": "_4XM2AG_paths",
-			"summary": "_4XM2AG_summary"
-		};
-		//#endregion
-		//#region lib/types/client/PresentRow.js
-		/** Present call status and expandable durable result text. */
-		/* v8 ignore next -- Non-expandable rows never invoke DisclosureRow's required toggle callback. */
-		const noop = () => void 0;
-		/** Raw arguments can be partial while a call is streaming. */
-		function fileNames(raw) {
-			let args;
-			try {
-				args = JSON.parse(raw);
-			} catch {
-				return raw;
-			}
-			if (typeof args !== "object" || args === null || !("files" in args) || !Array.isArray(args.files)) return raw;
-			return args.files.flatMap((file) => typeof file === "object" && file !== null && "path" in file && typeof file.path === "string" ? [file.path] : []).join(", ");
-		}
-		/**
-		* Render a present call using its recorded arguments and result.
-		* @param props - tool call and localized status copy.
-		* @returns a status row with a result disclosure.
-		*/
-		function PresentRow(props) {
-			return props.phase === "preparing" ? (0, react_jsx_runtime.jsx)(PreparingPresentRow, { ...props }) : (0, react_jsx_runtime.jsx)(StartedPresentRow, { ...props });
-		}
-		function PreparingPresentRow({ t }) {
-			return (0, react_jsx_runtime.jsx)("div", {
-				"data-tool": "present",
-				"data-state": "preparing",
-				"aria-label": t("row.preparing"),
-				children: (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.DisclosureRow, {
-					title: t("row.title"),
-					icon: (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconDeliverDocRegular, { size: 14 }),
-					open: false,
-					expandable: false,
-					onToggle: noop,
-					running: true
-				})
 			});
 		}
-		function StartedPresentRow({ block, inspect, t }) {
-			const settled = "kind" in block;
-			const state = !settled ? "running" : block.error?.code === "interrupted" ? "stopped" : block.isError ? "error" : "ok";
-			const args = (settled ? block.call?.argsRaw : block.argsRaw) ?? "";
-			const details = (settled ? block.content.map((item) => item.type === "text" ? item.text : JSON.stringify(item)).join("\n") : "") || (settled && block.error ? `${block.error.name}: ${block.error.code}` : "");
-			const [expanded, setExpanded] = (0, react.useState)(false);
-			return (0, react_jsx_runtime.jsx)("div", {
-				"data-tool": "present",
-				"data-state": state,
-				children: (0, react_jsx_runtime.jsxs)(_deepseek_ai_dsh_client_ui_primitives.DisclosureRow, {
-					title: t("row.title"),
-					icon: (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconDeliverDocRegular, { size: 14 }),
-					open: expanded && details !== "",
-					expandable: details !== "",
-					expandOnRowClick: true,
-					keepContentWhenOpen: true,
-					onToggle: () => {
-						setExpanded((value) => !value);
-					},
-					collapsedContent: (0, react_jsx_runtime.jsxs)("span", {
-						className: PresentRow_module_css_default.summary,
-						children: [(0, react_jsx_runtime.jsx)("span", { children: t(`row.${state}`) }), (0, react_jsx_runtime.jsx)("span", {
-							className: PresentRow_module_css_default.paths,
-							children: fileNames(args)
-						})]
-					}),
-					children: [(0, react_jsx_runtime.jsx)("pre", {
-						className: PresentRow_module_css_default.output,
-						children: details
-					}), inspect && (0, react_jsx_runtime.jsx)("button", {
-						type: "button",
-						className: PresentRow_module_css_default.inspect,
-						onClick: inspect,
-						children: t("row.inspect")
-					})]
-				})
-			});
+		/**
+		* Identify references across ESM/CJS copies of the shared library.
+		* @param value - a parsed config value.
+		* @returns whether the value implements the shared reference protocol.
+		*/
+		function isVolatile(value) {
+			return typeof value === "object" && value !== null && write in value;
 		}
+		/** Test values using `instanceof` with a `toStringTag` fallback. */
+		function is(type, value) {
+			if (arguments.length === 1) return (value) => is(type, value);
+			return type in globalThis && value instanceof globalThis[type] || Object.prototype.toString.call(value).slice(8, -1) === type;
+		}
+		function isArrayBufferLike(value) {
+			return is("ArrayBuffer", value) || is("SharedArrayBuffer", value);
+		}
+		function isArrayBufferSource(value) {
+			return isArrayBufferLike(value) || ArrayBuffer.isView(value);
+		}
+		/** Binary source detection and base64/hex conversion helpers. */
+		var Binary;
+		(function(Binary) {
+			Binary.is = isArrayBufferLike;
+			Binary.isSource = isArrayBufferSource;
+			function fromSource(source) {
+				if (ArrayBuffer.isView(source)) return source.buffer.slice(source.byteOffset, source.byteOffset + source.byteLength);
+				else return source;
+			}
+			Binary.fromSource = fromSource;
+			function toBase64(source) {
+				source = fromSource(source);
+				if (typeof Buffer !== "undefined") return Buffer.from(source).toString("base64");
+				let binary = "";
+				const bytes = new Uint8Array(source);
+				for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
+				return btoa(binary);
+			}
+			Binary.toBase64 = toBase64;
+			function fromBase64(source) {
+				if (typeof Buffer !== "undefined") return fromSource(Buffer.from(source, "base64"));
+				return Uint8Array.from(atob(source), (c) => c.charCodeAt(0));
+			}
+			Binary.fromBase64 = fromBase64;
+			function toHex(source) {
+				source = fromSource(source);
+				if (typeof Buffer !== "undefined") return Buffer.from(source).toString("hex");
+				return Array.from(new Uint8Array(source), (byte) => byte.toString(16).padStart(2, "0")).join("");
+			}
+			Binary.toHex = toHex;
+			function fromHex(source) {
+				if (typeof Buffer !== "undefined") return fromSource(Buffer.from(source, "hex"));
+				const hex = source.length % 2 === 0 ? source : source.slice(0, source.length - 1);
+				const buffer = [];
+				for (let i = 0; i < hex.length; i += 2) buffer.push(parseInt(`${hex[i]}${hex[i + 1]}`, 16));
+				return Uint8Array.from(buffer).buffer;
+			}
+			Binary.fromHex = fromHex;
+		})(Binary || (Binary = {}));
+		Binary.fromBase64;
+		Binary.toBase64;
+		Binary.fromHex;
+		Binary.toHex;
+		/** Deep-clone common JavaScript values while preserving prototypes and cycles. */
+		function clone(source, refs = /* @__PURE__ */ new Map()) {
+			if (!source || typeof source !== "object") return source;
+			if (is("Date", source)) return new Date(source.valueOf());
+			if (is("RegExp", source)) return new RegExp(source.source, source.flags);
+			if (isArrayBufferLike(source)) return source.slice(0);
+			if (ArrayBuffer.isView(source)) return source.buffer.slice(source.byteOffset, source.byteOffset + source.byteLength);
+			const cached = refs.get(source);
+			if (cached) return cached;
+			if (Array.isArray(source)) {
+				const result = [];
+				refs.set(source, result);
+				source.forEach((value, index) => {
+					result[index] = Reflect.apply(clone, null, [value, refs]);
+				});
+				return result;
+			}
+			const result = Object.create(Object.getPrototypeOf(source));
+			refs.set(source, result);
+			for (const key of Reflect.ownKeys(source)) {
+				const descriptor = { ...Reflect.getOwnPropertyDescriptor(source, key) };
+				if ("value" in descriptor) descriptor.value = Reflect.apply(clone, null, [descriptor.value, refs]);
+				Reflect.defineProperty(result, key, descriptor);
+			}
+			return result;
+		}
+		/**
+		* Compare values recursively, treating two volatile references as equal regardless of value.
+		* Strict comparison distinguishes null/undefined, treats opaque objects by identity,
+		* compares URLs by normalized href, treats array holes as undefined, and considers distinct cyclic structures unequal.
+		* @param a - first value.
+		* @param b - second value.
+		* @param strict - whether to require strict data equality outside volatile references.
+		* @returns whether the values compare equal.
+		*/
+		function deepEqual(a, b, strict) {
+			const ancestors = /* @__PURE__ */ new Set();
+			function compare(a, b) {
+				if (a === b) return true;
+				if (isVolatile(a) || isVolatile(b)) return isVolatile(a) && isVolatile(b);
+				if (!strict && isNullable(a) && isNullable(b)) return true;
+				if (typeof a !== typeof b || typeof a !== "object" || !a || !b) return false;
+				if (ancestors.has(a)) return false;
+				function check(test, then) {
+					return test(a) ? test(b) ? then(a, b) : false : test(b) ? false : void 0;
+				}
+				ancestors.add(a);
+				try {
+					return check(Array.isArray, (a, b) => {
+						if (a.length !== b.length) return false;
+						for (let index = 0; index < a.length; index++) if (!compare(a[index], b[index])) return false;
+						return true;
+					}) ?? check(is("Date"), (a, b) => a.valueOf() === b.valueOf()) ?? check(is("URL"), (a, b) => a.href === b.href) ?? check(is("RegExp"), (a, b) => a.source === b.source && a.flags === b.flags) ?? check(isArrayBufferLike, (a, b) => {
+						if (a.byteLength !== b.byteLength) return false;
+						const viewA = new Uint8Array(a);
+						const viewB = new Uint8Array(b);
+						for (let i = 0; i < viewA.length; i++) if (viewA[i] !== viewB[i]) return false;
+						return true;
+					}) ?? ((!strict || [a, b].every((value) => Object.getPrototypeOf(value) === Object.prototype || Object.getPrototypeOf(value) === null)) && Object.keys({
+						...a,
+						...b
+					}).every((key) => compare(a[key], b[key])));
+				} finally {
+					ancestors.delete(a);
+				}
+			}
+			return compare(a, b);
+		}
+		/** Time constants plus parsing and formatting helpers. */
+		var Time;
+		(function(Time) {
+			Time.millisecond = 1;
+			Time.second = 1e3;
+			Time.minute = Time.second * 60;
+			Time.hour = Time.minute * 60;
+			Time.day = Time.hour * 24;
+			Time.week = Time.day * 7;
+			let timezoneOffset = (/* @__PURE__ */ new Date()).getTimezoneOffset();
+			function setTimezoneOffset(offset) {
+				timezoneOffset = offset;
+			}
+			Time.setTimezoneOffset = setTimezoneOffset;
+			function getTimezoneOffset() {
+				return timezoneOffset;
+			}
+			Time.getTimezoneOffset = getTimezoneOffset;
+			function getDateNumber(date = /* @__PURE__ */ new Date(), offset) {
+				if (typeof date === "number") date = new Date(date);
+				if (offset === void 0) offset = timezoneOffset;
+				return Math.floor((date.valueOf() / Time.minute - offset) / 1440);
+			}
+			Time.getDateNumber = getDateNumber;
+			function fromDateNumber(value, offset) {
+				const date = new Date(value * Time.day);
+				if (offset === void 0) offset = timezoneOffset;
+				return new Date(+date + offset * Time.minute);
+			}
+			Time.fromDateNumber = fromDateNumber;
+			const numeric = /\d+(?:\.\d+)?/.source;
+			const timeRegExp = new RegExp(`^${[
+				"w(?:eek(?:s)?)?",
+				"d(?:ay(?:s)?)?",
+				"h(?:our(?:s)?)?",
+				"m(?:in(?:ute)?(?:s)?)?",
+				"s(?:ec(?:ond)?(?:s)?)?"
+			].map((unit) => `(${numeric}${unit})?`).join("")}$`);
+			function parseTime(source) {
+				const capture = timeRegExp.exec(source);
+				if (!capture) return 0;
+				return (parseFloat(capture[1]) * Time.week || 0) + (parseFloat(capture[2]) * Time.day || 0) + (parseFloat(capture[3]) * Time.hour || 0) + (parseFloat(capture[4]) * Time.minute || 0) + (parseFloat(capture[5]) * Time.second || 0);
+			}
+			Time.parseTime = parseTime;
+			function parseDate(date) {
+				const parsed = parseTime(date);
+				if (parsed) date = Date.now() + parsed;
+				else if (/^\d{1,2}(:\d{1,2}){1,2}$/.test(date)) date = `${(/* @__PURE__ */ new Date()).toLocaleDateString()}-${date}`;
+				else if (/^\d{1,2}-\d{1,2}-\d{1,2}(:\d{1,2}){1,2}$/.test(date)) date = `${(/* @__PURE__ */ new Date()).getFullYear()}-${date}`;
+				return date ? new Date(date) : /* @__PURE__ */ new Date();
+			}
+			Time.parseDate = parseDate;
+			function format(ms) {
+				const abs = Math.abs(ms);
+				if (abs >= Time.day - Time.hour / 2) return Math.round(ms / Time.day) + "d";
+				else if (abs >= Time.hour - Time.minute / 2) return Math.round(ms / Time.hour) + "h";
+				else if (abs >= Time.minute - Time.second / 2) return Math.round(ms / Time.minute) + "m";
+				else if (abs >= Time.second) return Math.round(ms / Time.second) + "s";
+				return ms + "ms";
+			}
+			Time.format = format;
+			function toDigits(source, length = 2) {
+				return source.toString().padStart(length, "0");
+			}
+			Time.toDigits = toDigits;
+			function template(template, time = /* @__PURE__ */ new Date()) {
+				return template.replace("yyyy", time.getFullYear().toString()).replace("yy", time.getFullYear().toString().slice(2)).replace("MM", toDigits(time.getMonth() + 1)).replace("dd", toDigits(time.getDate())).replace("hh", toDigits(time.getHours())).replace("mm", toDigits(time.getMinutes())).replace("ss", toDigits(time.getSeconds())).replace("SSS", toDigits(time.getMilliseconds(), 3));
+			}
+			Time.template = template;
+		})(Time || (Time = {}));
 		//#endregion
-		//#region ../../util/workspace-path/lib/index.js
-		/**
-		* The `dsh-resource://file/…` address grammar: how a file is named across the
-		* Sidebar and the resource model, built and parsed without touching a
-		* filesystem.
-		* @module
-		*/
-		/** The scheme and type every file address opens with. */
-		const FILE_ADDRESS_PREFIX = "dsh-resource://file/";
-		/** Component-encode one id or path segment, keeping `:` literal for drive letters. */
-		function encodeSegment(segment) {
-			return encodeURIComponent(segment).replace(/%3A/gi, ":");
-		}
-		/** Encode a `/`-separated path segment by segment. */
-		function encodePath(path) {
-			return path.split("/").map(encodeSegment).join("/");
-		}
-		/**
-		* Build the address of a file read through one Session.
-		* @param sessionId - the Session whose Host workspace resolves the path.
-		* @param path - absolute or workspace-relative path; backslashes are normalized to `/`, and leading `./` prefixes are dropped.
-		* @returns the `dsh-resource://file/session/<sessionId>/<path>` address.
-		*/
-		function sessionFileAddress(sessionId, path) {
-			const normalized = path.replace(/\\/g, "/").replace(/^(?:\.\/)+/, "");
-			return `${FILE_ADDRESS_PREFIX}session/${encodeSegment(sessionId)}/${encodePath(normalized)}`;
-		}
-		/**
-		* Browser-safe Workspace path and display helpers.
-		* @module @deepseek-ai/dsh-util-workspace-path
-		*/
-		/** Whether a path uses a Windows drive or UNC prefix. */
-		function isWindowsStylePath(value) {
-			return /^[A-Za-z]:[/\\]/.test(value) || value.startsWith("\\\\");
-		}
-		/**
-		* Whether a path is absolute in either spelling the Host accepts: POSIX (`/a/b`) or Windows drive or UNC.
-		* @param path - the path to classify.
-		* @returns `true` for an absolute path; `false` for a Workspace-relative one.
-		*/
-		function isAbsoluteWorkspacePath(path) {
-			return path.startsWith("/") || isWindowsStylePath(path);
-		}
-		/**
-		* Resolve a Workspace-relative path into the Host-facing spelling used by path operations.
-		* @param cwd - Session Workspace root, when known.
-		* @param path - Absolute or Workspace-relative path.
-		* @returns an absolute path when a Workspace root is available, otherwise the original path.
-		*/
-		function resolveWorkspacePath(cwd, path) {
-			if (isAbsoluteWorkspacePath(path)) return path;
-			if (cwd === void 0 || cwd === "") return path;
-			const separator = isWindowsStylePath(cwd) && cwd.includes("\\") ? "\\" : "/";
-			return `${cwd.replace(/[/\\]+$/, "")}${separator}${path.replace(/^[/\\]+/, "")}`;
-		}
-		/**
-		* The address for a path as a caller holds it: a relative path, or an absolute
-		* path inside the Session's workspace, becomes a `session`-scoped address; an
-		* absolute path outside it, or one whose workspace root is unknown, keeps its
-		* absolute path in that Session's address.
-		* @param sessionId - the Session the path is read in.
-		* @param cwd - that Session's workspace root, when known.
-		* @param path - absolute or workspace-relative path, in either separator spelling.
-		* @returns the `dsh-resource://file/…` address.
-		*/
-		function fileAddressFor(sessionId, cwd, path) {
-			const normalized = path.replace(/\\/g, "/");
-			if (!isAbsoluteWorkspacePath(normalized)) return sessionFileAddress(sessionId, normalized);
-			const root = cwd === void 0 ? "" : cwd.replace(/\\/g, "/").replace(/\/+$/, "");
-			if (root !== "" && normalized === root) return sessionFileAddress(sessionId, "");
-			if (root !== "" && normalized.startsWith(`${root}/`)) return sessionFileAddress(sessionId, normalized.slice(root.length + 1));
-			return sessionFileAddress(sessionId, normalized);
-		}
-		//#endregion
-		//#region \0dsh-css:D:\deepseek-harness\packages\client\ui-deliverables\src\client\FileDiff.module.css.mjs
-		const css$3 = ".sAcvqq_root{--diff-empty-fill:color-mix(in srgb, var(--dsw-alias-interactive-bg-hover) 50%, transparent);box-sizing:border-box;width:100%;min-height:0;color:var(--dsw-alias-label-primary);flex-direction:column;display:flex}.sAcvqq_header{box-sizing:border-box;border-bottom:.5px solid var(--dsw-alias-border-l3);flex:none;align-items:center;gap:6px;height:38px;padding:0 6px 0 8px;display:flex}.sAcvqq_status{color:var(--dsw-alias-label-secondary);align-items:center;gap:12px;margin:0;padding:16px;font-size:13px;display:flex}.sAcvqq_body{min-height:0;font:var(--dsw-font-markdown-code-block);flex-direction:column;flex:auto;padding:8px 0 16px;display:flex;overflow:auto}.sAcvqq_columns{flex:auto;grid-template-columns:minmax(0,1fr) minmax(0,1fr);min-height:0;display:grid}.sAcvqq_column,.sAcvqq_body[data-review-view=unified]:not([data-review-wrap]){grid-template-columns:minmax(max-content,100%);align-content:start;display:grid}.sAcvqq_column{overscroll-behavior:none;min-width:0;overflow-x:scroll}.sAcvqq_column+.sAcvqq_column{border-left:.5px solid var(--dsw-alias-border-l3)}.sAcvqq_sideLine{box-sizing:border-box;white-space:pre;grid-template-columns:3.5em max-content;width:max-content;min-width:100%;min-height:22px;line-height:22px;display:grid}.sAcvqq_note{font:var(--dsw-font-xs-13);color:var(--dsw-alias-label-tertiary);margin:0;padding:4px 16px 8px}.sAcvqq_hunk{margin-bottom:8px}.sAcvqq_hunkHeader{color:var(--dsw-alias-label-tertiary);white-space:pre;padding:4px 16px}.sAcvqq_line{box-sizing:border-box;white-space:pre;grid-template-columns:3.5em 3.5em 1.2em minmax(0,1fr);min-height:22px;line-height:22px;display:grid}.sAcvqq_splitLine{white-space:pre;grid-template-columns:minmax(0,1fr) minmax(0,1fr);min-height:22px;line-height:22px;display:grid}.sAcvqq_cell{box-sizing:border-box;grid-template-columns:3.5em minmax(0,1fr);min-width:0;display:grid}.sAcvqq_cell+.sAcvqq_cell{border-left:.5px solid var(--dsw-alias-border-l3)}.sAcvqq_number{color:var(--dsw-alias-label-tertiary);text-align:right;user-select:none;padding-right:8px}.sAcvqq_sign{text-align:center;user-select:none}.sAcvqq_text{padding-right:16px}.sAcvqq_body[data-review-wrap] .sAcvqq_line,.sAcvqq_body[data-review-wrap] .sAcvqq_splitLine{white-space:pre-wrap}.sAcvqq_body[data-review-wrap] .sAcvqq_text{overflow-wrap:anywhere}.sAcvqq_add{--diff-gutter-fill:var(--dsw-alias-file-diff-added-gutter);--diff-marker:var(--dsw-alias-file-diff-added-marker);background:var(--dsw-alias-file-diff-added-bg)}.sAcvqq_del{--diff-gutter-fill:var(--dsw-alias-file-diff-deleted-gutter);--diff-marker:var(--dsw-alias-file-diff-deleted-marker);background:var(--dsw-alias-file-diff-deleted-bg)}.sAcvqq_add .sAcvqq_number,.sAcvqq_del .sAcvqq_number{background:var(--diff-gutter-fill);color:var(--diff-marker)}.sAcvqq_add .sAcvqq_number:first-child,.sAcvqq_del .sAcvqq_number:first-child{box-shadow:inset 3px 0 0 var(--diff-marker)}.sAcvqq_add .sAcvqq_sign,.sAcvqq_del .sAcvqq_sign{color:var(--diff-marker)}.sAcvqq_context .sAcvqq_text{color:var(--dsw-alias-label-secondary)}.sAcvqq_empty{background:var(--diff-empty-fill)}";
-		const tagId$3 = "@deepseek-ai/dsh-client-ui-deliverables/FileDiff.module.css";
-		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId$3) + "]") === null) {
-			const tag = document.createElement("style");
-			tag.dataset.plugin = "@deepseek-ai/dsh-client-ui-deliverables";
-			tag.dataset.pluginCss = tagId$3;
-			tag.textContent = css$3;
-			document.head.appendChild(tag);
-		}
-		var FileDiff_module_css_default = {
-			"add": "sAcvqq_add",
-			"body": "sAcvqq_body",
-			"cell": "sAcvqq_cell",
-			"column": "sAcvqq_column",
-			"columns": "sAcvqq_columns",
-			"context": "sAcvqq_context",
-			"del": "sAcvqq_del",
-			"empty": "sAcvqq_empty",
-			"header": "sAcvqq_header",
-			"hunk": "sAcvqq_hunk",
-			"hunkHeader": "sAcvqq_hunkHeader",
-			"line": "sAcvqq_line",
-			"note": "sAcvqq_note",
-			"number": "sAcvqq_number",
-			"root": "sAcvqq_root",
-			"sideLine": "sAcvqq_sideLine",
-			"sign": "sAcvqq_sign",
-			"splitLine": "sAcvqq_splitLine",
-			"status": "sAcvqq_status",
-			"text": "sAcvqq_text"
+		//#region ../../../vendor/schemastery/lib/index.mjs
+		const kSchema = Symbol.for("schemastery");
+		const kValidationError = Symbol.for("ValidationError");
+		globalThis.__schemastery_index__ ??= 0;
+		globalThis.__schemastery_refs__ = void 0;
+		var ValidationError = class extends TypeError {
+			options;
+			name = "ValidationError";
+			constructor(message, options) {
+				let prefix = "$";
+				for (const segment of options.path || []) if (typeof segment === "string") prefix += "." + segment;
+				else if (typeof segment === "number") prefix += "[" + segment + "]";
+				else if (typeof segment === "symbol") prefix += `[Symbol(${segment.toString()})]`;
+				if (prefix.startsWith(".")) prefix = prefix.slice(1);
+				super((prefix === "$" ? "" : `${prefix} `) + message);
+				this.options = options;
+			}
+			static is(error) {
+				return !!error?.[kValidationError];
+			}
 		};
-		//#endregion
-		//#region lib/types/client/FileDiff.js
-		/** Shared file comparison for the turn-tail hover preview and Sidebar review. */
-		/** Maximum rendered lines per comparison. */
-		const MAX_RENDERED_LINES = 5e3;
-		function highlightedSide(rows, side, highlighter) {
-			const source = rows.flatMap((row) => {
-				const no = row[side];
-				return no === void 0 ? [] : [{
-					no,
-					text: row.text
-				}];
+		Object.defineProperty(ValidationError.prototype, kValidationError, { value: true });
+		const Schema = function(options) {
+			const schema = function(data, options = {}) {
+				return Schema.resolve(data, schema, options)[0];
+			};
+			if (options.refs) {
+				const refs = mapValues(options.refs, (options) => new Schema(options));
+				const getRef = (uid) => refs[uid];
+				for (const key in refs) {
+					const options = refs[key];
+					options.sKey = getRef(options.sKey);
+					options.inner = getRef(options.inner);
+					options.list = options.list && options.list.map(getRef);
+					options.dict = options.dict && mapValues(options.dict, getRef);
+				}
+				return refs[options.uid];
+			}
+			Object.assign(schema, options);
+			if (typeof schema.callback === "string") try {
+				schema.callback = new Function("return " + schema.callback)();
+			} catch {}
+			Object.defineProperty(schema, "uid", { value: globalThis.__schemastery_index__++ });
+			Object.setPrototypeOf(schema, Schema.prototype);
+			schema.meta ||= {};
+			schema.toString = schema.toString.bind(schema);
+			return schema;
+		};
+		Schema.prototype = Object.create(Function.prototype);
+		Schema.prototype[kSchema] = true;
+		Object.defineProperty(Schema.prototype, "~standard", { get() {
+			return {
+				version: 1,
+				vendor: "schemastery",
+				validate: (value) => {
+					try {
+						return { value: Schema.resolve(value, this, {})[0] };
+					} catch (error) {
+						if (ValidationError.is(error)) return { issues: [{
+							message: error.message,
+							path: error.options.path
+						}] };
+						throw error;
+					}
+				}
+			};
+		} });
+		Schema.ValidationError = ValidationError;
+		Schema.prototype.toJSON = function toJSON() {
+			if (globalThis.__schemastery_refs__) {
+				globalThis.__schemastery_refs__[this.uid] ??= JSON.parse(JSON.stringify({ ...this }));
+				return this.uid;
+			}
+			globalThis.__schemastery_refs__ = { [this.uid]: { ...this } };
+			globalThis.__schemastery_refs__[this.uid] = JSON.parse(JSON.stringify({ ...this }));
+			const result = {
+				uid: this.uid,
+				refs: globalThis.__schemastery_refs__
+			};
+			globalThis.__schemastery_refs__ = void 0;
+			return result;
+		};
+		Schema.prototype.set = function set(key, value) {
+			this.dict[key] = value;
+			return this;
+		};
+		Schema.prototype.push = function push(value) {
+			this.list.push(value);
+			return this;
+		};
+		function mergeDesc(original, messages) {
+			const result = typeof original === "string" ? { "": original } : { ...original };
+			for (const locale in messages) {
+				const value = messages[locale];
+				if (value?.$description || value?.$desc) result[locale] = value.$description || value.$desc;
+				else if (typeof value === "string") result[locale] = value;
+			}
+			return result;
+		}
+		function getInner(value) {
+			return value?.$value ?? value?.$inner;
+		}
+		function extractKeys(data) {
+			return filterKeys(data ?? {}, (key) => !key.startsWith("$"));
+		}
+		Schema.prototype.i18n = function i18n(messages) {
+			const schema = Schema(this);
+			const desc = mergeDesc(schema.meta.description, messages);
+			if (Object.keys(desc).length) schema.meta.description = desc;
+			if (schema.dict) schema.dict = mapValues(schema.dict, (inner, key) => {
+				return inner.i18n(mapValues(messages, (data) => getInner(data)?.[key] ?? data?.[key]));
 			});
-			if (source.length === 0) return /* @__PURE__ */ new Map();
-			const highlighted = highlighter(source.map((line) => line.text).join("\n"));
-			if (highlighted === void 0) return void 0;
-			return new Map(source.map((line, index) => {
-				return [line.no, highlighted[index] ?? []];
+			if (schema.list) schema.list = schema.list.map((inner, index) => {
+				return inner.i18n(mapValues(messages, (data = {}) => {
+					if (Array.isArray(getInner(data))) return getInner(data)[index];
+					if (Array.isArray(data)) return data[index];
+					return extractKeys(data);
+				}));
+			});
+			if (schema.inner) schema.inner = schema.inner.i18n(mapValues(messages, (data) => {
+				if (getInner(data)) return getInner(data);
+				return extractKeys(data);
 			}));
-		}
-		function hunkHighlights(hunk, highlighter) {
-			const rows = hunkRows(hunk);
-			return {
-				old: highlightedSide(rows, "old", highlighter),
-				new: highlightedSide(rows, "new", highlighter)
+			if (schema.sKey) schema.sKey = schema.sKey.i18n(mapValues(messages, (data) => data?.$key));
+			return schema;
+		};
+		Schema.prototype.extra = function extra(key, value) {
+			const schema = Schema(this);
+			schema.meta = {
+				...schema.meta,
+				[key]: value
 			};
-		}
-		function DiffText({ text, spans }) {
-			return (0, react_jsx_runtime.jsx)("span", {
-				className: FileDiff_module_css_default.text,
-				"data-diff-code": spans === void 0 ? void 0 : "",
-				children: spans === void 0 ? text : spans.map((span, index) => (0, react_jsx_runtime.jsx)("span", {
-					style: span.style,
-					children: span.text
-				}, index))
+			return schema;
+		};
+		for (const key of [
+			"required",
+			"disabled",
+			"collapse",
+			"hidden",
+			"loose"
+		]) Object.assign(Schema.prototype, { [key](value = true) {
+			const schema = Schema(this);
+			schema.meta = {
+				...schema.meta,
+				[key]: value
+			};
+			return schema;
+		} });
+		Schema.prototype.deprecated = function deprecated() {
+			const schema = Schema(this);
+			schema.meta.badges ||= [];
+			schema.meta.badges.push({
+				text: "deprecated",
+				type: "danger"
 			});
+			return schema;
+		};
+		Schema.prototype.experimental = function experimental() {
+			const schema = Schema(this);
+			schema.meta.badges ||= [];
+			schema.meta.badges.push({
+				text: "experimental",
+				type: "warning"
+			});
+			return schema;
+		};
+		Schema.prototype.pattern = function pattern(regexp) {
+			const schema = Schema(this);
+			const pattern = pick(regexp, ["source", "flags"]);
+			schema.meta = {
+				...schema.meta,
+				pattern
+			};
+			return schema;
+		};
+		Schema.prototype.simplify = function simplify(value) {
+			if (isVolatile(value)) value = value.get();
+			if (deepEqual(value, this.meta.default, this.type === "dict")) return null;
+			if (isNullable(value)) return value;
+			if (this.type === "object" || this.type === "dict") {
+				const result = {};
+				for (const key in value) {
+					const item = (this.type === "object" ? this.dict[key] : this.inner)?.simplify(value[key]);
+					if (this.type === "dict" || !isNullable(item)) result[key] = item;
+				}
+				if (deepEqual(result, this.meta.default, this.type === "dict")) return null;
+				return result;
+			} else if (this.type === "array" || this.type === "tuple") {
+				const result = [];
+				value.forEach((value, index) => {
+					const schema = this.type === "array" ? this.inner : this.list[index];
+					const item = schema ? schema.simplify(value) : value;
+					result.push(item);
+				});
+				return result;
+			} else if (this.type === "intersect") {
+				const result = {};
+				for (const item of this.list) Object.assign(result, item.simplify(value));
+				return result;
+			} else if (this.type === "union") for (const schema of this.list) try {
+				Schema.resolve(value, schema, {});
+				return schema.simplify(value);
+			} catch {}
+			return value;
+		};
+		Schema.prototype.toString = function toString(inline) {
+			return formatters[this.type]?.(this, inline) ?? `Schema<${this.type}>`;
+		};
+		Schema.prototype.role = function role(role, extra) {
+			const schema = Schema(this);
+			schema.meta = {
+				...schema.meta,
+				role,
+				extra
+			};
+			return schema;
+		};
+		for (const key of [
+			"default",
+			"link",
+			"comment",
+			"description",
+			"max",
+			"min",
+			"step"
+		]) Object.assign(Schema.prototype, { [key](value) {
+			const schema = Schema(this);
+			schema.meta = {
+				...schema.meta,
+				[key]: value
+			};
+			return schema;
+		} });
+		Schema.prototype.volatile = function volatile() {
+			if (this.meta.volatile) throw new TypeError("volatile schema is already wrapped");
+			return this.extra("volatile", true);
+		};
+		const resolvers = {};
+		const checkedVolatile = Symbol("checked-volatile-schema");
+		function validateVolatileSchema(schema, path = [], blocked = false, seen = /* @__PURE__ */ new Map()) {
+			const states = seen.get(schema) ?? /* @__PURE__ */ new Set();
+			if (states.has(blocked)) return;
+			states.add(blocked);
+			seen.set(schema, states);
+			if (schema.meta?.volatile && blocked) throw new ValidationError("volatile fields require a fixed object path without an enclosing volatile field", { path });
+			const nested = blocked || !!schema.meta?.volatile;
+			if (schema.dict) for (const [key, child] of Object.entries(schema.dict)) validateVolatileSchema(child, [...path, key], nested, seen);
+			if (schema.sKey) validateVolatileSchema(schema.sKey, [...path, "<key>"], true, seen);
+			if (schema.inner && (schema.type !== "lazy" || schema.inner[kSchema])) validateVolatileSchema(schema.inner, [...path, "*"], true, seen);
+			if (schema.list) for (let index = 0; index < schema.list.length; index++) validateVolatileSchema(schema.list[index], [...path, String(index)], true, seen);
 		}
-		/**
-		* Number a hunk's lines: context lines count on both sides, deletions on the
-		* old side, additions on the new side.
-		* @param hunk - a served hunk.
-		* @returns the rows in order.
-		*/
-		function hunkRows(hunk) {
-			let oldNo = hunk.oldStart;
-			let newNo = hunk.newStart;
-			return hunk.lines.map((line) => {
-				const text = line.slice(1);
-				switch (line[0]) {
-					case "+": return {
-						kind: "add",
-						old: void 0,
-						new: newNo++,
-						text
-					};
-					case "-": return {
-						kind: "del",
-						old: oldNo++,
-						new: void 0,
-						text
-					};
-					default: return {
-						kind: "context",
-						old: oldNo++,
-						new: newNo++,
-						text
+		Schema.extend = function extend(type, resolve) {
+			resolvers[type] = resolve;
+		};
+		Schema.resolve = function resolve(data, schema, options = {}, strict = false) {
+			if (!schema) return [data];
+			if (!options[checkedVolatile]) {
+				validateVolatileSchema(schema, options.path);
+				options = {
+					...options,
+					[checkedVolatile]: true
+				};
+			}
+			if (schema.meta?.volatile) {
+				const inner = Schema(schema);
+				inner.meta = {
+					...schema.meta,
+					volatile: false
+				};
+				const [value, adapted] = Schema.resolve(data, inner, options, strict);
+				try {
+					return [createVolatile(value), adapted];
+				} catch (error) {
+					throw new ValidationError(error instanceof Error ? error.message : String(error), options);
+				}
+			}
+			if (options.ignore?.(data, schema)) return [data];
+			if (isNullable(data) && schema.type !== "lazy") {
+				if (schema.meta.required) throw new ValidationError(`missing required value`, options);
+				let current = schema;
+				let fallback = schema.meta.default;
+				while (current?.type === "intersect" && isNullable(fallback)) {
+					current = current.list[0];
+					fallback = current?.meta.default;
+				}
+				if (isNullable(fallback)) return [data];
+				data = clone(fallback);
+			}
+			const callback = resolvers[schema.type];
+			if (!callback) throw new ValidationError(`unsupported type "${schema.type}"`, options);
+			try {
+				return callback(data, schema, options, strict);
+			} catch (error) {
+				if (!schema.meta.loose) throw error;
+				return [schema.meta.default];
+			}
+		};
+		Schema.from = function from(source) {
+			if (isNullable(source)) return Schema.any();
+			else if ([
+				"string",
+				"number",
+				"boolean"
+			].includes(typeof source)) return Schema.const(source).required();
+			else if (source[kSchema]) return source;
+			else if (typeof source === "function") switch (source) {
+				case String: return Schema.string().required();
+				case Number: return Schema.number().required();
+				case Boolean: return Schema.boolean().required();
+				case Function: return Schema.function().required();
+				default: return Schema.is(source).required();
+			}
+			else throw new TypeError(`cannot infer schema from ${source}`);
+		};
+		Schema.lazy = function lazy(builder) {
+			const toJSON = () => {
+				if (!schema.inner[kSchema]) {
+					schema.inner = schema.builder();
+					schema.inner.meta = {
+						...schema.meta,
+						...schema.inner.meta
 					};
 				}
-			});
-		}
-		/**
-		* Pair a hunk's lines for the side-by-side view: each run of deletions is
-		* aligned with the run of additions that follows it, row by row, and context
-		* lines sit on both sides.
-		* @param hunk - a served hunk.
-		* @returns the rows in order.
-		*/
-		function splitRows(hunk) {
-			const rows = [];
-			let dels = [];
-			let adds = [];
-			const flush = () => {
-				for (let at = 0; at < Math.max(dels.length, adds.length); at += 1) {
-					const left = dels[at];
-					const right = adds[at];
-					rows.push({
-						...left === void 0 ? {} : { left },
-						...right === void 0 ? {} : { right }
-					});
-				}
-				dels = [];
-				adds = [];
+				return schema.inner.toJSON();
 			};
-			for (const row of hunkRows(hunk)) if (row.kind === "del") dels.push({
-				no: row.old,
-				text: row.text,
-				kind: "del"
+			const schema = new Schema({
+				type: "lazy",
+				builder,
+				inner: { toJSON }
 			});
-			else if (row.kind === "add") adds.push({
-				no: row.new,
-				text: row.text,
-				kind: "add"
-			});
-			else {
-				flush();
-				rows.push({
-					left: {
-						no: row.old,
-						text: row.text,
-						kind: "context"
-					},
-					right: {
-						no: row.new,
-						text: row.text,
-						kind: "context"
+			return schema;
+		};
+		Schema.natural = function natural() {
+			return Schema.number().step(1).min(0);
+		};
+		Schema.percent = function percent() {
+			return Schema.number().step(.01).min(0).max(1).role("slider");
+		};
+		Schema.date = function date() {
+			return Schema.union([Schema.is(Date), Schema.transform(Schema.string().role("datetime"), (value, options) => {
+				const date = new Date(value);
+				if (isNaN(+date)) throw new ValidationError(`invalid date "${value}"`, options);
+				return date;
+			}, true)]);
+		};
+		Schema.regExp = function regExp(flag = "") {
+			return Schema.union([Schema.is(RegExp), Schema.transform(Schema.string().role("regexp", { flag }), (value, options) => {
+				try {
+					return new RegExp(value, flag);
+				} catch (e) {
+					throw new ValidationError(e.message, options);
+				}
+			}, true)]);
+		};
+		Schema.arrayBuffer = function arrayBuffer(encoding) {
+			return Schema.union([
+				Schema.is(ArrayBuffer),
+				Schema.is(SharedArrayBuffer),
+				Schema.transform(Schema.any(), (value, options) => {
+					if (Binary.isSource(value)) return Binary.fromSource(value);
+					throw new ValidationError(`expected ArrayBufferSource but got ${value}`, options);
+				}, true),
+				...encoding ? [Schema.transform(Schema.string(), (value, options) => {
+					try {
+						return encoding === "base64" ? Binary.fromBase64(value) : Binary.fromHex(value);
+					} catch (e) {
+						throw new ValidationError(e.message, options);
+					}
+				}, true)] : []
+			]);
+		};
+		Schema.extend("lazy", (data, schema, options, strict) => {
+			if (!schema.inner[kSchema]) {
+				schema.inner = schema.builder();
+				schema.inner.meta = {
+					...schema.meta,
+					...schema.inner.meta
+				};
+				validateVolatileSchema(schema.inner, options.path, true);
+			}
+			return Schema.resolve(data, schema.inner, options, strict);
+		});
+		Schema.extend("any", (data) => {
+			return [data];
+		});
+		Schema.extend("never", (data, _, options) => {
+			throw new ValidationError(`expected nullable but got ${data}`, options);
+		});
+		Schema.extend("const", (data, { value }, options) => {
+			if (deepEqual(data, value)) return [value];
+			throw new ValidationError(`expected ${value} but got ${data}`, options);
+		});
+		function checkWithinRange(data, meta, description, options, skipMin = false) {
+			const { max = Infinity, min = -Infinity } = meta;
+			if (data > max) throw new ValidationError(`expected ${description} <= ${max} but got ${data}`, options);
+			if (data < min && !skipMin) throw new ValidationError(`expected ${description} >= ${min} but got ${data}`, options);
+		}
+		Schema.extend("string", (data, { meta }, options) => {
+			if (typeof data !== "string") throw new ValidationError(`expected string but got ${data}`, options);
+			if (meta.pattern) {
+				const regexp = new RegExp(meta.pattern.source, meta.pattern.flags);
+				if (!regexp.test(data)) throw new ValidationError(`expect string to match regexp ${regexp}`, options);
+			}
+			checkWithinRange(data.length, meta, "string length", options);
+			return [data];
+		});
+		function decimalShift(data, digits) {
+			const str = data.toString();
+			if (str.includes("e")) return data * Math.pow(10, digits);
+			const index = str.indexOf(".");
+			if (index === -1) return data * Math.pow(10, digits);
+			const frac = str.slice(index + 1);
+			const integer = str.slice(0, index);
+			if (frac.length <= digits) return +(integer + frac.padEnd(digits, "0"));
+			return +(integer + frac.slice(0, digits) + "." + frac.slice(digits));
+		}
+		function isMultipleOf(data, min, step) {
+			step = Math.abs(step);
+			if (!/^\d+\.\d+$/.test(step.toString())) return (data - min) % step === 0;
+			const index = step.toString().indexOf(".");
+			const digits = step.toString().slice(index + 1).length;
+			return Math.abs(decimalShift(data, digits) - decimalShift(min, digits)) % decimalShift(step, digits) === 0;
+		}
+		Schema.extend("number", (data, { meta }, options) => {
+			if (typeof data !== "number") throw new ValidationError(`expected number but got ${data}`, options);
+			checkWithinRange(data, meta, "number", options);
+			const { step } = meta;
+			if (step && !isMultipleOf(data, meta.min ?? 0, step)) throw new ValidationError(`expected number multiple of ${step} but got ${data}`, options);
+			return [data];
+		});
+		Schema.extend("boolean", (data, _, options) => {
+			if (typeof data === "boolean") return [data];
+			throw new ValidationError(`expected boolean but got ${data}`, options);
+		});
+		Schema.extend("bitset", (data, { bits, meta }, options) => {
+			let value = 0, keys = [];
+			if (typeof data === "number") {
+				value = data;
+				for (const key in bits) if (data & bits[key]) keys.push(key);
+			} else if (Array.isArray(data)) {
+				keys = data;
+				for (const key of keys) {
+					if (typeof key !== "string") throw new ValidationError(`expected string but got ${key}`, options);
+					if (key in bits) value |= bits[key];
+				}
+			} else throw new ValidationError(`expected number or array but got ${data}`, options);
+			if (value === meta.default) return [value];
+			return [value, keys];
+		});
+		Schema.extend("function", (data, _, options) => {
+			if (typeof data === "function") return [data];
+			throw new ValidationError(`expected function but got ${data}`, options);
+		});
+		Schema.extend("is", (data, { constructor }, options) => {
+			if (typeof constructor === "function") {
+				if (data instanceof constructor) return [data];
+				throw new ValidationError(`expected ${constructor.name} but got ${data}`, options);
+			} else {
+				if (isNullable(data)) throw new ValidationError(`expected ${constructor} but got ${data}`, options);
+				let prototype = Object.getPrototypeOf(data);
+				while (prototype) {
+					if (prototype.constructor?.name === constructor) return [data];
+					prototype = Object.getPrototypeOf(prototype);
+				}
+				throw new ValidationError(`expected ${constructor} but got ${data}`, options);
+			}
+		});
+		function property(data, key, schema, options) {
+			try {
+				const [value, adapted] = Schema.resolve(data[key], schema, {
+					...options,
+					path: [...options.path || [], key]
+				});
+				if (adapted !== void 0) data[key] = adapted;
+				return value;
+			} catch (e) {
+				if (!options?.autofix) throw e;
+				delete data[key];
+				return schema.meta.volatile ? createVolatile(schema.meta.default) : schema.meta.default;
+			}
+		}
+		Schema.extend("array", (data, { inner, meta }, options) => {
+			if (!Array.isArray(data)) throw new ValidationError(`expected array but got ${data}`, options);
+			checkWithinRange(data.length, meta, "array length", options, !isNullable(inner.meta.default));
+			return [data.map((_, index) => property(data, index, inner, options))];
+		});
+		Schema.extend("dict", (data, { inner, sKey }, options, strict) => {
+			if (!isPlainObject(data)) throw new ValidationError(`expected object but got ${data}`, options);
+			const result = {};
+			for (const key in data) {
+				let rKey;
+				try {
+					rKey = Schema.resolve(key, sKey, options)[0];
+				} catch (error) {
+					if (strict) continue;
+					throw error;
+				}
+				result[rKey] = property(data, key, inner, options);
+				data[rKey] = data[key];
+				if (key !== rKey) delete data[key];
+			}
+			return [result];
+		});
+		Schema.extend("tuple", (data, { list }, options, strict) => {
+			if (!Array.isArray(data)) throw new ValidationError(`expected array but got ${data}`, options);
+			const result = list.map((inner, index) => property(data, index, inner, options));
+			if (strict) return [result];
+			result.push(...data.slice(list.length));
+			return [result];
+		});
+		function merge(result, data) {
+			for (const key in data) {
+				if (key in result) continue;
+				result[key] = data[key];
+			}
+		}
+		Schema.extend("object", (data, { dict }, options, strict) => {
+			if (!isPlainObject(data)) throw new ValidationError(`expected object but got ${data}`, options);
+			const result = {};
+			for (const key in dict) {
+				const value = property(data, key, dict[key], options);
+				if (!isNullable(value) || key in data) result[key] = value;
+			}
+			if (!strict) merge(result, data);
+			return [result];
+		});
+		Schema.extend("union", (data, { list, toString }, options, strict) => {
+			const messages = [];
+			for (const inner of list) try {
+				return Schema.resolve(data, inner, options, strict);
+			} catch (error) {
+				messages.push(error);
+			}
+			throw new ValidationError(`expected ${toString()} but got ${JSON.stringify(data)}`, options);
+		});
+		Schema.extend("intersect", (data, { list, toString }, options, strict) => {
+			if (!list.length) return [data];
+			let result;
+			for (const inner of list) {
+				const value = Schema.resolve(data, inner, options, true)[0];
+				if (isNullable(value)) continue;
+				if (isNullable(result)) result = value;
+				else if (typeof result !== typeof value) throw new ValidationError(`expected ${toString()} but got ${JSON.stringify(data)}`, options);
+				else if (typeof value === "object") merge(result ??= {}, value);
+				else if (result !== value) throw new ValidationError(`expected ${toString()} but got ${JSON.stringify(data)}`, options);
+			}
+			if (!strict && isPlainObject(data)) merge(result, data);
+			return [result];
+		});
+		Schema.extend("transform", (data, { inner, callback, preserve }, options) => {
+			const [result, adapted = data] = Schema.resolve(data, inner, options, true);
+			if (preserve) return [callback(result)];
+			else return [callback(result), callback(adapted)];
+		});
+		const formatters = {};
+		function defineMethod(name, keys, format) {
+			formatters[name] = format;
+			Object.assign(Schema, { [name](...args) {
+				const schema = new Schema({ type: name });
+				keys.forEach((key, index) => {
+					switch (key) {
+						case "sKey":
+							schema.sKey = args[index] ?? Schema.string();
+							break;
+						case "inner":
+							schema.inner = Schema.from(args[index]);
+							break;
+						case "list":
+							schema.list = args[index].map(Schema.from);
+							break;
+						case "dict":
+							schema.dict = mapValues(args[index], Schema.from);
+							break;
+						case "bits":
+							schema.bits = {};
+							for (const key in args[index]) {
+								if (typeof args[index][key] !== "number") continue;
+								schema.bits[key] = args[index][key];
+							}
+							break;
+						case "callback": {
+							const callback = schema.callback = args[index];
+							callback["toJSON"] ||= () => callback.toString();
+							break;
+						}
+						case "constructor": {
+							const constructor = schema.constructor = args[index];
+							if (typeof constructor === "function") constructor["toJSON"] ||= () => constructor["name"];
+							break;
+						}
+						default: schema[key] = args[index];
 					}
 				});
-			}
-			flush();
-			return rows;
+				if (name === "object" || name === "dict") schema.meta.default = {};
+				else if (name === "array" || name === "tuple") schema.meta.default = [];
+				else if (name === "bitset") schema.meta.default = 0;
+				return schema;
+			} });
+		}
+		defineMethod("is", ["constructor"], ({ constructor }) => {
+			if (typeof constructor === "function") return constructor.name;
+			else return constructor;
+		});
+		defineMethod("any", [], () => "any");
+		defineMethod("never", [], () => "never");
+		defineMethod("const", ["value"], ({ value }) => typeof value === "string" ? JSON.stringify(value) : value);
+		defineMethod("string", [], () => "string");
+		defineMethod("number", [], () => "number");
+		defineMethod("boolean", [], () => "boolean");
+		defineMethod("bitset", ["bits"], () => "bitset");
+		defineMethod("function", [], () => "function");
+		defineMethod("array", ["inner"], ({ inner }) => `${inner.toString(true)}[]`);
+		defineMethod("dict", ["inner", "sKey"], ({ inner, sKey }) => `{ [key: ${sKey.toString()}]: ${inner.toString()} }`);
+		defineMethod("tuple", ["list"], ({ list }) => `[${list.map((inner) => inner.toString()).join(", ")}]`);
+		defineMethod("object", ["dict"], ({ dict }) => {
+			if (Object.keys(dict).length === 0) return "{}";
+			return `{ ${Object.entries(dict).map(([key, inner]) => {
+				return `${key}${inner.meta.required ? "" : "?"}: ${inner.toString()}`;
+			}).join(", ")} }`;
+		});
+		defineMethod("union", ["list"], ({ list }, inline) => {
+			const result = list.map(({ toString: format }) => format()).join(" | ");
+			return inline ? `(${result})` : result;
+		});
+		defineMethod("intersect", ["list"], ({ list }) => {
+			return `${list.map((inner) => inner.toString(true)).join(" & ")}`;
+		});
+		defineMethod("transform", [
+			"inner",
+			"callback",
+			"preserve"
+		], ({ inner }, isInner) => inner.toString(isInner));
+		//#endregion
+		//#region lib/types/recovery-config.js
+		/** Shared validation for Host-configured and browser-local connection recovery. */
+		const MAX_TIMER_MS = 2147483647;
+		/** Schema shared by the Host plugin and the Client's recovery input parser. */
+		const ConnectionRecoveryConfigSchema = Schema.object({
+			backoffBaseMs: Schema.natural().min(1).max(MAX_TIMER_MS).default(500),
+			backoffFactor: Schema.number().min(1).max(Number.MAX_VALUE).default(2),
+			backoffMaxMs: Schema.natural().min(1).max(MAX_TIMER_MS).default(1e4),
+			generationReadyWarnMs: Schema.natural().min(1).max(MAX_TIMER_MS).default(3e3),
+			generationReadyTimeoutMs: Schema.natural().min(1).max(MAX_TIMER_MS).default(15e3)
+		});
+		/**
+		* Validate recovery input and supply every timing default before starting work.
+		* @param config - Host configuration, page bootstrap data, or direct loop options.
+		* @returns validated, complete recovery timing.
+		*/
+		function resolveConnectionConfig(config = {}) {
+			const resolved = ConnectionRecoveryConfigSchema(config);
+			if (!Number.isFinite(resolved.backoffFactor)) throw new RangeError("connection recovery backoffFactor must be finite");
+			return resolved;
+		}
+		//#endregion
+		//#region lib/types/client/connection.js
+		/** Connection generation readiness, cancellation, and continuous recovery. */
+		const MANUAL_RECONNECT = /* @__PURE__ */ new Error("connection: manual reconnect requested");
+		const NETWORK_STATE_CHANGED = /* @__PURE__ */ new Error("connection: browser network state changed");
+		function sleep(ms, signal) {
+			return new Promise((resolve) => {
+				const t = setTimeout(done, ms);
+				signal.addEventListener("abort", done, { once: true });
+				function done() {
+					clearTimeout(t);
+					signal.removeEventListener("abort", done);
+					resolve();
+				}
+			});
+		}
+		function waitForAbort(signal) {
+			if (signal.aborted) return Promise.resolve();
+			return new Promise((resolve) => {
+				signal.addEventListener("abort", () => {
+					resolve();
+				}, { once: true });
+			});
 		}
 		/**
-		* The hunks to draw, cut at {@link MAX_RENDERED_LINES} lines in total.
-		* @param hunks - served hunks.
-		* @returns the hunks with the last one shortened as needed, and whether anything was cut.
+		* Opens the registered generation source, reconnecting with exponential backoff on loss.
+		* State (generation/attempt) is instance-private, never in the store.
+		* Sink exceptions do not kill the generation loop.
 		*/
-		function renderedHunks(hunks) {
-			let budget = MAX_RENDERED_LINES;
-			const kept = [];
-			for (const hunk of hunks) {
-				if (budget === 0) return {
-					hunks: kept,
-					truncated: true
+		var ConnectionController = class {
+			source;
+			sinks;
+			generation = 0;
+			attempt = 0;
+			current = null;
+			retryDelay = null;
+			running = false;
+			immediateRetry = false;
+			networkAvailable = true;
+			lastState;
+			config;
+			constructor(source, sinks = {}, config = {}) {
+				this.source = source;
+				this.sinks = sinks;
+				this.config = resolveConnectionConfig(config);
+			}
+			/** Idempotent: begin the connect/pump/reconnect loop. */
+			start() {
+				if (this.running) return;
+				this.running = true;
+				this.loop();
+			}
+			/** Stop the loop and abort the current generation source. */
+			stop() {
+				this.running = false;
+				this.current?.abort();
+				this.current = null;
+				this.retryDelay?.abort();
+				this.retryDelay = null;
+			}
+			/** Reset the retry sequence and replace the current generation or retry delay immediately. */
+			reconnect() {
+				if (!this.running) return;
+				this.attempt = 0;
+				this.immediateRetry = true;
+				this.emitState("connecting");
+				if (!this.isRunning()) return;
+				this.current?.abort(MANUAL_RECONNECT);
+				this.retryDelay?.abort(MANUAL_RECONNECT);
+			}
+			/**
+			* Suspend automatic retries while offline and restart backoff when the network returns.
+			* @param available - whether the browser reports network access.
+			*/
+			setNetworkAvailable(available) {
+				if (this.networkAvailable === available) return;
+				this.networkAvailable = available;
+				this.attempt = 0;
+				this.immediateRetry = false;
+				if (!this.running) return;
+				this.emitState(available ? "connecting" : "disconnected");
+				if (!this.isRunning()) return;
+				this.current?.abort(NETWORK_STATE_CHANGED);
+				this.retryDelay?.abort(NETWORK_STATE_CHANGED);
+			}
+			backoffCap(attempt) {
+				const { backoffBaseMs, backoffFactor, backoffMaxMs } = this.config;
+				return Math.min(backoffMaxMs, backoffBaseMs * backoffFactor ** Math.max(0, attempt - 1));
+			}
+			backoffDelay(attempt) {
+				const cap = this.backoffCap(attempt);
+				return cap / 2 + Math.random() * (cap / 2);
+			}
+			/** Re-read retry inputs after a potentially reentrant state sink. */
+			isRetryInterrupted(immediate) {
+				return this.immediateRetry || !this.networkAvailable && !immediate;
+			}
+			/** Read through a method: stop() flips the flag across awaits, so narrowing from the loop condition must not stick. */
+			isRunning() {
+				return this.running;
+			}
+			/** Re-read both mutable liveness guards after a potentially reentrant sink. */
+			isGenerationActive(controller) {
+				return this.isRunning() && !controller.signal.aborted;
+			}
+			async loop() {
+				let retry = false;
+				while (this.running) {
+					if (!this.networkAvailable && !this.immediateRetry) {
+						const retryDelay = new AbortController();
+						this.retryDelay = retryDelay;
+						this.emitState("disconnected");
+						await waitForAbort(retryDelay.signal);
+						if (this.retryDelay === retryDelay) this.retryDelay = null;
+						if (!this.isRunning()) return;
+						retry = true;
+						continue;
+					}
+					let manualAttempt = false;
+					if (retry) {
+						const immediate = this.immediateRetry;
+						this.immediateRetry = false;
+						if (immediate) this.attempt = 0;
+						manualAttempt = immediate;
+						const attempt = ++this.attempt;
+						this.emitState("connecting");
+						if (!this.isRunning()) return;
+						if (this.isRetryInterrupted(immediate)) continue;
+						if (!immediate) {
+							const retryDelay = new AbortController();
+							this.retryDelay = retryDelay;
+							await sleep(this.backoffDelay(attempt), retryDelay.signal);
+							if (this.retryDelay === retryDelay) this.retryDelay = null;
+							if (!this.isRunning()) return;
+							if (retryDelay.signal.aborted) continue;
+						}
+						console.warn(`[connection] connection lost, retry #${String(attempt)}`);
+						this.callSink(() => {
+							this.sinks.onReconnectRequested?.();
+						});
+						if (!this.isRunning()) return;
+					}
+					const gen = ++this.generation;
+					const ac = new AbortController();
+					this.current = ac;
+					let sourceReady = false;
+					let resolveReady;
+					let rejectReady;
+					let rejectSourceLost;
+					const ready = new Promise((resolve, reject) => {
+						resolveReady = resolve;
+						rejectReady = reject;
+					});
+					const sourceLost = new Promise((_resolve, reject) => {
+						rejectSourceLost = reject;
+					});
+					const reportReady = (host) => {
+						if (sourceReady || gen !== this.generation || !this.isGenerationActive(ac)) return;
+						sourceReady = true;
+						resolveReady(host);
+					};
+					const failed = new Promise((resolve) => {
+						const settle = () => {
+							if (gen === this.generation && !ac.signal.aborted) ac.abort();
+							resolve();
+						};
+						Promise.resolve().then(() => this.source(ac.signal, reportReady)).then(() => {
+							const error = /* @__PURE__ */ new Error("connection generation ended");
+							if (!sourceReady) rejectReady(error);
+							rejectSourceLost(error);
+							settle();
+						}, (error) => {
+							const failure = error instanceof Error ? error : new Error("connection generation failed", { cause: error });
+							if (!sourceReady) rejectReady(failure);
+							rejectSourceLost(failure);
+							settle();
+						});
+					});
+					try {
+						const host = await Promise.race([waitForReady(ready, this.config, ac.signal), sourceLost]);
+						if (ac.signal.aborted) throw new Error("generation aborted during readiness handshake");
+						this.attempt = 0;
+						this.emitState("connected");
+						if (this.isGenerationActive(ac)) this.callSink(() => {
+							this.sinks.onConnected?.(host);
+						});
+					} catch (error) {
+						if (!ac.signal.aborted) ac.abort(error);
+					}
+					await failed;
+					if (!this.isRunning()) return;
+					if (manualAttempt) this.attempt = 0;
+					retry = true;
+				}
+			}
+			/** Deduplicated state emission (sink isolation applies). */
+			emitState(state) {
+				if (this.lastState === state) return;
+				this.lastState = state;
+				this.callSink(() => this.sinks.onStateChange?.(state));
+			}
+			/** Sink exception isolation: a business-layer throw is logged only, never affecting pump or reconnect semantics. */
+			callSink(fn) {
+				try {
+					fn();
+				} catch (error) {
+					console.error("[connection] connection sink threw:", error);
+				}
+			}
+		};
+		/** Report a slow handshake before the hard deadline ends its generation. */
+		function waitForReady(ready, config, signal) {
+			return new Promise((resolve, reject) => {
+				let settled = false;
+				const warning = setTimeout(() => {
+					console.warn(`[connection] generation is still not ready after ${String(config.generationReadyWarnMs)}ms`);
+				}, config.generationReadyWarnMs);
+				const timeout = setTimeout(() => {
+					const error = /* @__PURE__ */ new Error(`connection generation was not ready within ${String(config.generationReadyTimeoutMs)}ms`);
+					console.warn(`[connection] ${error.message}; cancelling generation`);
+					finish({ error });
+				}, config.generationReadyTimeoutMs);
+				const aborted = () => {
+					finish({ error: new Error("connection generation aborted", { cause: signal.reason }) });
 				};
-				kept.push(hunk.lines.length <= budget ? hunk : {
-					...hunk,
-					lines: hunk.lines.slice(0, budget)
+				const finish = (outcome) => {
+					if (settled) return;
+					settled = true;
+					clearTimeout(warning);
+					clearTimeout(timeout);
+					signal.removeEventListener("abort", aborted);
+					if ("error" in outcome) reject(outcome.error);
+					else resolve(outcome.value);
+				};
+				signal.addEventListener("abort", aborted, { once: true });
+				ready.then((value) => {
+					finish({ value });
+				}, (error) => {
+					finish({ error });
 				});
-				budget -= Math.min(budget, hunk.lines.length);
-			}
+			});
+		}
+		//#endregion
+		//#region lib/types/rpc.js
+		/** Generic unary RPC contracts shared by the Host and Client Connection halves. */
+		/**
+		* Brand one validated string as a Connection correlation id.
+		* @param id - validated wire identity.
+		* @returns the same string with the correlation-id brand.
+		*/
+		function RpcId(id) {
+			return id;
+		}
+		/**
+		* Convert a rejected transport operation into a generic failure result.
+		* @param error - rejected transport value.
+		* @returns an `internal` failure preserving the available message.
+		*/
+		function transportError(error) {
 			return {
-				hunks: kept,
-				truncated: hunks.some((hunk, at) => kept[at] !== hunk)
+				ok: false,
+				error: {
+					code: "gateway/internal",
+					message: error instanceof Error ? error.message : String(error),
+					details: {}
+				}
 			};
 		}
-		/** The one-line fact about a text comparison worth stating above its hunks, if any. */
-		function noteOf(diff) {
-			if (!diff.before) return "diff.created";
-			if (!diff.after) return "diff.deleted";
-			if (diff.hunks.length === 0) return "diff.unchanged";
-		}
+		//#endregion
+		//#region lib/types/client/random-uuid.js
+		/** Browser-safe UUID generation for client-side wire correlation. */
 		/**
-		* Render a file comparison with the same states and highlighting in previews and review tabs.
-		* Addition-only and deletion-only comparisons use one column without changing the requested layout.
-		* @param props - comparison state, layout choices, retry action, and localized copy.
-		* @returns the comparison or its loading, unavailable, or error state.
+		* Generate an RFC 4122 version 4 UUID without requiring a secure context.
+		* @returns a UUID backed by `crypto.getRandomValues()`, which browsers expose on insecure origins.
 		*/
-		function FileDiff({ state, split, wrap, retry, t }) {
-			if (state === void 0 || state === "loading") return (0, react_jsx_runtime.jsx)("p", {
-				className: FileDiff_module_css_default.status,
-				role: "status",
-				children: t("diff.loading")
-			});
-			if (state === "missing") return (0, react_jsx_runtime.jsx)("p", {
-				className: FileDiff_module_css_default.status,
-				children: t("diff.missing")
-			});
-			if (state === "error") return (0, react_jsx_runtime.jsxs)("div", {
-				className: FileDiff_module_css_default.status,
-				children: [(0, react_jsx_runtime.jsx)("span", { children: t("diff.error") }), (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
-					size: "sm",
-					onClick: retry,
-					children: t("presented.retry")
-				})]
-			});
-			if (state.kind === "binary") return (0, react_jsx_runtime.jsx)("p", {
-				className: FileDiff_module_css_default.status,
-				children: t("diff.binary")
-			});
-			if (state.kind === "oversized") return (0, react_jsx_runtime.jsx)("p", {
-				className: FileDiff_module_css_default.status,
-				children: t("diff.oversized")
-			});
-			const oneSided = state.hunks.some((hunk) => hunk.lines.some((line) => line.startsWith("+"))) !== state.hunks.some((hunk) => hunk.lines.some((line) => line.startsWith("-")));
-			return (0, react_jsx_runtime.jsx)(TextDiff, {
-				diff: state,
-				split: split && !oneSided,
-				wrap,
-				t
-			});
+		function randomUuid() {
+			const bytes = globalThis.crypto.getRandomValues(new Uint8Array(16));
+			const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+			view.setUint8(6, view.getUint8(6) & 15 | 64);
+			view.setUint8(8, view.getUint8(8) & 63 | 128);
+			const hex = Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
+			return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
 		}
-		/** The kind a paired row carries: a deletion or addition on either side, otherwise context. */
-		function splitRowKind(row) {
-			return row.left?.kind === "del" ? "del" : row.right?.kind === "add" ? "add" : "context";
-		}
-		function hunkHeader(hunk) {
-			return `@@ -${hunk.oldStart},${hunk.oldLines} +${hunk.newStart},${hunk.newLines} @@`;
-		}
+		//#endregion
+		//#region lib/types/client/rpc.js
+		/** Browser caller for generic Connection unary RPC channels. */
+		const CHANNEL_PATTERN = /^\/[A-Za-z0-9._~-]+$/;
+		const ENDPOINT_SEGMENT_PATTERN = /^[A-Za-z0-9_$.-]+$/;
 		/**
-		* The side-by-side view without wrapping: two columns that clip their long
-		* lines and scroll together on both axes, so a long line on one side never
-		* runs under the other and both sides show the same rows and columns of text.
-		* Every line is one fixed-height row, which keeps the sides aligned.
-		* The columns suppress elastic overscroll while retaining native in-range scrolling.
+		* Create the browser-backed generic RPC caller.
+		* @param doFetch - transport override; defaults to the page's global fetch.
+		* @param openStream - optional worker-local Gateway stream carrier.
+		* @returns caller that owns request correlation and response-envelope validation.
 		*/
-		function SplitColumns({ hunks, highlights }) {
-			const paired = (0, react.useMemo)(() => hunks.map((hunk) => ({
-				header: hunkHeader(hunk),
-				rows: splitRows(hunk)
-			})), [hunks]);
-			const columns = (0, react.useRef)({
-				left: null,
-				right: null
-			});
-			const offsets = (0, react.useRef)({
-				left: {
-					scrollLeft: 0,
-					scrollTop: 0
+		function createWebConnectionRpc(doFetch, openStream) {
+			const send = doFetch ?? ((input, init) => globalThis.fetch(input, init));
+			return {
+				async call(channel, endpoint, payload, signal) {
+					assertTarget(channel, endpoint);
+					const rpcId = RpcId(randomUuid());
+					const message = {
+						type: "client-request",
+						rpcId,
+						method: endpoint,
+						payload
+					};
+					const response = await send(`${channel}/${endpoint}`.slice(1), {
+						method: "POST",
+						headers: { "content-type": "application/json" },
+						body: JSON.stringify(message),
+						...signal === void 0 ? {} : { signal }
+					});
+					if (!response.ok) throw new Error(`transport failure for ${channel}/${endpoint}: HTTP ${response.status}`);
+					const full = response.headers.get("content-type")?.split(";", 1)[0]?.trim().toLowerCase() === "multipart/form-data" ? await parseBinaryResponse(response) : parseConnectionResponse(await response.json());
+					signal?.throwIfAborted();
+					if (full.rpcId !== rpcId) throw new Error(`rpcId mismatch for ${endpoint}: sent ${rpcId}, got ${full.rpcId}`);
+					return full.result;
 				},
-				right: {
-					scrollLeft: 0,
-					scrollTop: 0
+				...openStream === void 0 ? {} : { open(channel, endpoint, payload, signal, uplink) {
+					assertTarget(channel, endpoint);
+					if (channel !== "/api") throw new Error(`connection: worker-local streams require the /api channel, got ${JSON.stringify(channel)}`);
+					return openStream(endpoint, payload, signal, uplink);
+				} }
+			};
+		}
+		async function parseBinaryResponse(response) {
+			const body = await response.formData();
+			const fields = /* @__PURE__ */ new Map();
+			for (const [name, value] of body) {
+				if (fields.has(name)) throw new TypeError("connection: invalid binary response fields");
+				fields.set(name, value);
+			}
+			const metadata = fields.get("metadata");
+			fields.delete("metadata");
+			if (typeof metadata !== "string") throw new TypeError("connection: invalid binary response fields");
+			const envelope = JSON.parse(metadata);
+			const full = parseConnectionResponse(envelope);
+			if (!full.result.ok || !isRecord(envelope) || !Array.isArray(envelope.attachments) || envelope.attachments.length === 0) throw new TypeError("connection: invalid binary response result");
+			const root = { value: full.result.value };
+			for (const attachment of envelope.attachments) {
+				if (!isRecord(attachment) || attachment.codec !== "bytes" || typeof attachment.part !== "string" || !Array.isArray(attachment.path)) throw new TypeError("connection: invalid binary response attachment");
+				const data = fields.get(attachment.part);
+				fields.delete(attachment.part);
+				if (!(data instanceof Blob)) throw new TypeError("connection: invalid binary response fields");
+				let parent = root;
+				let key = "value";
+				for (const segment of attachment.path) {
+					const value = Reflect.get(parent, key);
+					if (typeof value !== "object" || value === null) throw new TypeError("connection: invalid binary response path");
+					if (Array.isArray(value)) {
+						if (typeof segment !== "number" || !Number.isSafeInteger(segment) || segment < 0 || segment >= value.length) throw new TypeError("connection: invalid binary response path");
+					} else if (typeof segment !== "string") throw new TypeError("connection: invalid binary response path");
+					if (!Object.hasOwn(value, segment)) throw new TypeError("connection: invalid binary response path");
+					parent = value;
+					key = segment;
 				}
-			});
-			const follow = (side) => (event) => {
-				const peer = side === "left" ? "right" : "left";
-				const other = columns.current[peer];
-				/* v8 ignore next -- Both column refs are attached before browser scroll events can run. */
-				if (other === null) return;
-				for (const axis of ["scrollLeft", "scrollTop"]) {
-					const value = event.currentTarget[axis];
-					if (offsets.current[side][axis] === value) continue;
-					offsets.current[side][axis] = value;
-					other[axis] = value;
-					offsets.current[peer][axis] = other[axis];
+				if (Reflect.get(parent, key) !== null) throw new TypeError("connection: invalid binary response placeholder");
+				Object.defineProperty(parent, key, {
+					value: new Uint8Array(await data.arrayBuffer()),
+					enumerable: true,
+					writable: true,
+					configurable: true
+				});
+			}
+			if (fields.size !== 0) throw new TypeError("connection: invalid binary response fields");
+			return {
+				rpcId: full.rpcId,
+				result: {
+					ok: true,
+					value: root.value
 				}
 			};
-			return (0, react_jsx_runtime.jsx)("div", {
-				className: FileDiff_module_css_default.columns,
-				children: ["left", "right"].map((side) => (0, react_jsx_runtime.jsx)("div", {
-					className: FileDiff_module_css_default.column,
-					"data-diff-side": side,
-					ref: (element) => {
-						columns.current[side] = element;
-					},
-					onScroll: follow(side),
-					children: paired.map((hunk, position) => (0, react_jsx_runtime.jsxs)("section", {
-						className: FileDiff_module_css_default.hunk,
-						children: [(0, react_jsx_runtime.jsx)("div", {
-							className: FileDiff_module_css_default.hunkHeader,
-							"data-diff-hunk-header": true,
-							children: hunk.header
-						}), hunk.rows.map((row, at) => {
-							const cell = row[side];
-							const spans = cell === void 0 ? void 0 : highlights[position]?.[side === "left" ? "old" : "new"]?.get(cell.no);
-							return (0, react_jsx_runtime.jsxs)("div", {
-								className: `${FileDiff_module_css_default.sideLine} ${cell === void 0 ? FileDiff_module_css_default.empty : FileDiff_module_css_default[cell.kind]}`,
-								"data-diff-line": splitRowKind(row),
-								children: [(0, react_jsx_runtime.jsx)("span", {
-									className: FileDiff_module_css_default.number,
-									children: cell?.no ?? ""
-								}), (0, react_jsx_runtime.jsx)(DiffText, {
-									text: cell?.text ?? "",
-									spans
-								})]
-							}, at);
-						})]
-					}, position))
-				}, side))
-			});
 		}
-		/** The hunks of a text comparison with their line numbers, unified or side by side. */
-		function TextDiff({ diff, split, wrap, t }) {
-			const note = noteOf(diff);
-			const { hunks, truncated } = (0, react.useMemo)(() => renderedHunks(diff.hunks), [diff.hunks]);
-			const highlighter = (0, _deepseek_ai_dsh_client_ui_primitives.useCodeHighlighter)((0, _deepseek_ai_dsh_client_ui_primitives.languageForPath)(diff.path));
-			const highlights = (0, react.useMemo)(() => hunks.map((hunk) => hunkHighlights(hunk, highlighter)), [hunks, highlighter]);
-			return (0, react_jsx_runtime.jsxs)("div", {
-				className: FileDiff_module_css_default.body,
-				"data-review-view": split ? "split" : "unified",
-				"data-review-wrap": wrap || void 0,
-				children: [
-					note !== void 0 && (0, react_jsx_runtime.jsx)("p", {
-						className: FileDiff_module_css_default.note,
-						"data-diff-note": hunks.length === 0 ? "empty" : "metadata",
-						children: t(note)
-					}),
-					diff.coarse && (0, react_jsx_runtime.jsx)("p", {
-						className: FileDiff_module_css_default.note,
-						"data-diff-coarse": true,
-						children: t("diff.coarse")
-					}),
-					truncated && (0, react_jsx_runtime.jsx)("p", {
-						className: FileDiff_module_css_default.note,
-						"data-diff-truncated": true,
-						children: t("diff.truncated", { count: String(5e3) })
-					}),
-					split && !wrap ? (0, react_jsx_runtime.jsx)(SplitColumns, {
-						hunks,
-						highlights
-					}) : hunks.map((hunk, position) => {
-						const highlighted = highlights[position];
-						return (0, react_jsx_runtime.jsxs)("section", {
-							className: FileDiff_module_css_default.hunk,
-							children: [(0, react_jsx_runtime.jsx)("div", {
-								className: FileDiff_module_css_default.hunkHeader,
-								"data-diff-hunk-header": true,
-								children: hunkHeader(hunk)
-							}), split ? splitRows(hunk).map((row, at) => (0, react_jsx_runtime.jsxs)("div", {
-								className: FileDiff_module_css_default.splitLine,
-								"data-diff-line": splitRowKind(row),
-								children: [(0, react_jsx_runtime.jsxs)("span", {
-									className: `${FileDiff_module_css_default.cell} ${row.left === void 0 ? FileDiff_module_css_default.empty : FileDiff_module_css_default[row.left.kind]}`,
-									children: [(0, react_jsx_runtime.jsx)("span", {
-										className: FileDiff_module_css_default.number,
-										children: row.left?.no ?? ""
-									}), (0, react_jsx_runtime.jsx)(DiffText, {
-										text: row.left?.text ?? "",
-										spans: row.left === void 0 ? void 0 : highlighted?.old?.get(row.left.no)
-									})]
-								}), (0, react_jsx_runtime.jsxs)("span", {
-									className: `${FileDiff_module_css_default.cell} ${row.right === void 0 ? FileDiff_module_css_default.empty : FileDiff_module_css_default[row.right.kind]}`,
-									children: [(0, react_jsx_runtime.jsx)("span", {
-										className: FileDiff_module_css_default.number,
-										children: row.right?.no ?? ""
-									}), (0, react_jsx_runtime.jsx)(DiffText, {
-										text: row.right?.text ?? "",
-										spans: row.right === void 0 ? void 0 : highlighted?.new?.get(row.right.no)
-									})]
-								})]
-							}, at)) : hunkRows(hunk).map((row, at) => (0, react_jsx_runtime.jsxs)("div", {
-								className: `${FileDiff_module_css_default.line} ${FileDiff_module_css_default[row.kind]}`,
-								"data-diff-line": row.kind,
-								children: [
-									(0, react_jsx_runtime.jsx)("span", {
-										className: FileDiff_module_css_default.number,
-										children: row.old ?? ""
-									}),
-									(0, react_jsx_runtime.jsx)("span", {
-										className: FileDiff_module_css_default.number,
-										children: row.new ?? ""
-									}),
-									(0, react_jsx_runtime.jsx)("span", {
-										className: FileDiff_module_css_default.sign,
-										children: row.kind === "add" ? "+" : row.kind === "del" ? "-" : " "
-									}),
-									(0, react_jsx_runtime.jsx)(DiffText, {
-										text: row.text,
-										spans: row.kind === "add" ? highlighted?.new?.get(row.new) : highlighted?.old?.get(row.old)
-									})
-								]
-							}, at))]
-						}, position);
-					})
-				]
-			});
+		function parseConnectionResponse(value) {
+			if (!isRecord(value) || value.type !== "server-response" || typeof value.rpcId !== "string") throw new TypeError("connection: invalid server-response envelope");
+			const result = value.result;
+			if (!isRecord(result)) throw new TypeError("connection: invalid server-response result");
+			if (result.ok === true) return {
+				rpcId: RpcId(value.rpcId),
+				result: {
+					ok: true,
+					value: result.value
+				}
+			};
+			if (result.ok !== false || !isRecord(result.error)) throw new TypeError("connection: invalid server-response result");
+			const error = result.error;
+			if (typeof error.code !== "string" || typeof error.message !== "string" || !isRecord(error.details)) throw new TypeError("connection: invalid server-response failure");
+			return {
+				rpcId: RpcId(value.rpcId),
+				result: {
+					ok: false,
+					error: {
+						code: error.code,
+						message: error.message,
+						details: error.details
+					}
+				}
+			};
 		}
-		//#endregion
-		//#region ../../core/session/lib/types/surface.js
-		/** Runtime counterpart of the message-producing event union. */
-		const SURFACE_EVENT_TYPES = new Set([
-			"system/message",
-			"developer/message",
-			"user/message",
-			"assistant/message",
-			"tool/result"
-		]);
-		/**
-		* Narrow an event to a surface-eligible event carrying its required marker.
-		* @param event - event to test.
-		* @returns true when both the type and marker identify a surface event.
-		*/
-		function isSurfaceEvent(event) {
-			if (!SURFACE_EVENT_TYPES.has(event.type)) return false;
-			return event.surfaceOp !== void 0;
-		}
-		/**
-		* Narrow an event to an append-origin surface event: one that entered the
-		* surface at its own log position and was never itself a replacement copy.
-		*
-		* The model-visible surface deliberately shadows replaced ranges, so it is the
-		* wrong source for a human transcript — a landed replacement would erase
-		* conversation the user already saw. Append-origin events are that transcript's
-		* durable source material; replacement copies stay model-only.
-		* @param event - event to test.
-		* @returns true when the event appended to the surface tail.
-		*/
-		function isAppendSurfaceEvent(event) {
-			return isSurfaceEvent(event) && event.surfaceOp === "append";
-		}
-		//#endregion
-		//#region lib/types/client/turn-deliverables.js
-		/**
-		* Turn-scoped produced-file Definition and readers. Client-only and
-		* model-free: produced paths come from successful first-party mutation calls,
-		* changed files from the Host's recorded git summary, and deliveries from
-		* `present`; never from presentation data or the closing prose.
-		*/
-		/**
-		* Extract the path from a supported first-party mutation call. Session
-		* `tool/call` events are root calls; PTC dispatch children do not enter this
-		* Definition independently.
-		* @param name - wire tool name.
-		* @param argsRaw - model-produced JSON arguments.
-		* @returns the mutation path, or null when the call is not a supported mutation.
-		*/
-		function mutationPath(name, argsRaw) {
-			let args;
-			try {
-				args = JSON.parse(argsRaw);
-			} catch {
-				return null;
-			}
-			if (!isRecord(args)) return null;
-			switch (name) {
-				case "write": return typeof args.content === "string" ? pathValue(args.file_path) : null;
-				case "edit": return validEditArgs(args) ? pathValue(args.file_path) : null;
-				case "str_replace_editor": return editorMutationPath(args);
-				default: return null;
-			}
-		}
-		/** Validate the fields that an `edit` execution requires. */
-		function validEditArgs(args) {
-			return typeof args.old_string === "string" && args.old_string.length > 0 && typeof args.new_string === "string" && args.old_string !== args.new_string && (args.replace_all === void 0 || typeof args.replace_all === "boolean");
-		}
-		/** Extract a path only from a complete mutating editor command. */
-		function editorMutationPath(args) {
-			const path = pathValue(args.path);
-			if (path === null) return null;
-			switch (args.command) {
-				case "create": return typeof args.file_text === "string" ? path : null;
-				case "str_replace": return typeof args.old_str === "string" && args.old_str.length > 0 && (args.new_str === void 0 || typeof args.new_str === "string") ? path : null;
-				case "insert": return typeof args.insert_line === "number" && Number.isInteger(args.insert_line) && args.insert_line >= 0 && typeof args.new_str === "string" ? path : null;
-				default: return null;
-			}
-		}
-		/** A non-blank path preserves the exact spelling supplied to the tool. */
-		function pathValue(value) {
-			return typeof value === "string" && value.trim().length > 0 ? value : null;
-		}
-		/** Narrow parsed JSON to an argument object. */
 		function isRecord(value) {
 			return typeof value === "object" && value !== null && !Array.isArray(value);
 		}
-		/**
-		* Files produced by one Turn data value.
-		*
-		* The source is the arguments of successful `write`, `edit`, and mutating
-		* `str_replace_editor` calls, not the closing prose: a produced file must be
-		* listed whether or not the model remembered to name it. Reads, unsupported
-		* tools, malformed calls, and failed results contribute nothing. Paths keep
-		* first-seen order and appear once, so a file written and then edited in the
-		* same turn is one entry.
-		*
-		* The Conversation Location index owns turn membership before this function
-		* runs, so paths cannot spill across turns and this derivation does not infer
-		* boundaries from neighboring presentation Nodes.
-		* @param data - engine-published Deliverables data for one Turn.
-		* @param seq - closing Assistant seq; later Tool settlements are excluded.
-		* @returns Produced paths in first-seen order; empty when the turn wrote nothing.
-		*/
-		function producedForClosing(data, seq = Number.POSITIVE_INFINITY) {
-			if (data === void 0) return [];
-			const paths = [];
-			const seen = /* @__PURE__ */ new Set();
-			for (const produced of data.produced) {
-				if (produced.seq > seq || seen.has(produced.path)) continue;
-				seen.add(produced.path);
-				paths.push(produced.path);
-			}
-			return paths;
-		}
-		/**
-		* Claim the turn-tail chain only when its closing turn produced files.
-		* @param owner - Turn-tail owner currency for the closing assistant.
-		* @returns Produced paths as the component's match, or null to decline before mount.
-		*/
-		function selectProducedFiles(owner) {
-			const paths = producedForClosing(owner.turn.data.get("deliverables"), owner.seq);
-			return paths.length === 0 ? null : paths;
-		}
-		/** Turn-local successful mutation accumulator; it publishes no view Node. */
-		const deliverablesDefinition = {
-			kind: "deliverables",
-			match: (event) => {
-				if (event.type === "turn/start") return {
-					id: String(event.data.turn),
-					role: "start"
-				};
-				if (event.type === "tool/call") return {
-					id: String(event.data.turn),
-					role: "update"
-				};
-				if (event.type === "deliverables/presented") return isPresentedData(event.data) ? {
-					id: String(event.data.turn),
-					role: "update"
-				} : null;
-				if (event.type === "workspace/changes") return isChangesEvent(event.data) ? {
-					id: String(event.data.turn),
-					role: "update"
-				} : null;
-				if (event.type === "tool/result" && isAppendSurfaceEvent(event)) return {
-					id: String(event.data.turn),
-					role: "update"
-				};
-				return null;
-			},
-			start: (_context, match) => {
-				if (match.event.type !== "turn/start") throw new Error("deliverables start requires turn/start");
-				return {
-					turn: match.event.data.turn,
-					calls: /* @__PURE__ */ new Map(),
-					produced: []
-				};
-			},
-			update: (context, match) => {
-				if (match.event.type === "workspace/changes") return {
-					...context.state,
-					changes: { seq: match.event.seq }
-				};
-				if (match.event.type === "deliverables/presented") {
-					const { files } = match.event.data;
-					const seq = match.event.seq;
-					const presented = [];
-					for (let index = 0; index < files.length; index += 1) {
-						const file = files[index];
-						if (isPresentedFile(file)) presented.push({
-							...file,
-							seq,
-							index
-						});
-					}
-					if (presented.length === 0) return context.state;
-					return {
-						...context.state,
-						presented: [...context.state.presented ?? [], ...presented]
-					};
-				}
-				if (match.event.type === "tool/call") {
-					const calls = new Map(context.state.calls);
-					calls.set(String(match.event.data.callId), mutationPath(match.event.data.name, match.event.data.arguments));
-					return {
-						...context.state,
-						calls
-					};
-				}
-				if (match.event.type !== "tool/result") return context.state;
-				if (match.event.data.message.isError === true) return context.state;
-				const callId = String(match.event.data.message.source.callId);
-				const path = context.state.calls.get(callId);
-				return path === null || path === void 0 ? context.state : {
-					...context.state,
-					produced: [...context.state.produced, {
-						seq: match.event.seq,
-						path
-					}]
-				};
-			},
-			buildLocationData: (context, scope, previous) => {
-				if (scope !== "turn" || context.state === void 0) return null;
-				if (previous?.kind === "turn" && previous.turn === context.state.turn && previous.key === "deliverables" && previous.value.produced === context.state.produced && previous.value.presented === context.state.presented && previous.value.changes === context.state.changes) return previous;
-				return {
-					kind: "turn",
-					turn: context.state.turn,
-					key: "deliverables",
-					value: {
-						produced: context.state.produced,
-						...context.state.presented === void 0 ? {} : { presented: context.state.presented },
-						...context.state.changes === void 0 ? {} : { changes: context.state.changes }
-					}
-				};
-			}
-		};
-		/**
-		* The turn's latest change announcement.
-		* @param owner - closing turn.
-		* @returns the announcement, or null when the Host recorded none.
-		*/
-		function changesForClosing(owner) {
-			return owner.turn.data.get("deliverables")?.changes ?? null;
-		}
-		/**
-		* Select the latest declaration of each path before the closing reply.
-		* @param owner - closing turn and sequence.
-		* @returns replayable deliveries in first-seen path order.
-		*/
-		function presentedForClosing(owner) {
-			const files = /* @__PURE__ */ new Map();
-			for (const file of owner.turn.data.get("deliverables")?.presented ?? []) if (file.seq < owner.seq) files.set(file.path, file);
-			return [...files.values()];
-		}
-		/**
-		* Resolves inline-code references against one turn's produced or delivered
-		* paths. Exact paths resolve directly; a basename resolves only when exactly
-		* one supplied path has that basename. Ambiguous and unknown tokens stay inert.
-		* @param paths - The turn's produced or delivered paths, already deduplicated.
-		* @param openFile - The chat view's file opener.
-		* @param label - Localizes the accessible open-label for a resolved path.
-		* @returns The resolver MarkdownText consumes; the full path rides `title`,
-		* the same disambiguator the row's chips carry.
-		*/
-		function producedFileMentions(paths, openFile, label) {
-			return { resolve(value) {
-				const path = paths.includes(value) ? value : onlyPathWithBasename(paths, value);
-				if (path === void 0) return void 0;
-				return {
-					open: () => {
-						openFile(path);
-					},
-					label: label(path),
-					title: path
-				};
-			} };
-		}
-		/** The single supplied path whose basename is exactly `value`, else undefined. */
-		function onlyPathWithBasename(paths, value) {
-			const matches = paths.filter((path) => basename(path) === value);
-			return matches.length === 1 ? matches[0] : void 0;
+		function assertTarget(channel, endpoint) {
+			const segments = endpoint.split("/");
+			if (!CHANNEL_PATTERN.test(channel) || segments.some((segment) => segment === "" || segment === "." || segment === ".." || !ENDPOINT_SEGMENT_PATTERN.test(segment))) throw new Error(`connection: invalid RPC target ${JSON.stringify(`${channel}/${endpoint}`)}`);
 		}
 		//#endregion
-		//#region \0dsh-css:D:\deepseek-harness\packages\client\ui-deliverables\src\client\ChangedFiles.module.css.mjs
-		const css$2 = ".aaWu5W_card{--changes-fill:var(--dsw-static-neutral-50);--changes-hover:var(--dsw-static-neutral-100);border:.5px solid var(--dsw-alias-border-l2);border-radius:var(--dsw-radius-lg);background:var(--dsw-alias-bg-layer-1);min-width:0;color:var(--dsw-alias-label-primary);flex-direction:column;margin-top:4px;display:flex;overflow:hidden}.aaWu5W_card[data-single=true]{border-color:var(--dsw-alias-border-l1)}body[data-ds-dark-theme] .aaWu5W_card{--changes-fill:var(--dsw-static-neutral-850);--changes-hover:var(--dsw-static-neutral-800)}.aaWu5W_header{box-sizing:border-box;background:var(--changes-fill);width:100%;min-width:0;height:60px;color:inherit;font:inherit;text-align:left;border:0;align-items:center;gap:10px;margin:0;padding:8px 10px;display:flex}button.aaWu5W_header{cursor:pointer;transition:background-color .12s}button.aaWu5W_header:hover:not(:disabled),button.aaWu5W_header:focus-visible{background:var(--changes-hover)}button.aaWu5W_header:focus-visible{box-shadow:inset 0 0 0 2px var(--dsw-focus-ring-color,var(--dsw-alias-state-business-primary));outline:none}button.aaWu5W_header:disabled{cursor:progress}.aaWu5W_tile{box-sizing:border-box;border:.5px solid var(--dsw-alias-border-l1);border-radius:var(--dsw-radius-lg);background:color-mix(in srgb, var(--dsw-static-neutral-00) 50%, transparent);flex:none;place-items:center;width:40px;height:40px;display:grid}body[data-ds-dark-theme] .aaWu5W_tile{background:color-mix(in srgb, var(--dsw-static-neutral-00) 5%, transparent)}.aaWu5W_titles{flex-direction:column;flex:1;min-width:0;display:flex}.aaWu5W_title{text-overflow:ellipsis;white-space:nowrap;font-size:13px;font-weight:500;line-height:20px;overflow:hidden}.aaWu5W_stat{color:var(--dsw-alias-label-tertiary);font-size:10px;line-height:16px;display:inline-flex}.aaWu5W_statCounts{font-family:var(--ds-font-family-code);gap:6px;display:inline-flex}.aaWu5W_previewHint,.aaWu5W_header:hover .aaWu5W_statCounts,.aaWu5W_header:focus-visible .aaWu5W_statCounts{display:none}.aaWu5W_header:hover .aaWu5W_previewHint,.aaWu5W_header:focus-visible .aaWu5W_previewHint{display:inline}.aaWu5W_stat[data-error=true],.aaWu5W_counts[data-error=true]{color:var(--dsw-alias-state-error-primary)}.aaWu5W_added{color:var(--dsw-alias-state-success-primary)}.aaWu5W_deleted{color:var(--dsw-alias-state-error-primary)}.aaWu5W_list{border-top:.5px solid var(--dsw-alias-border-l2);margin:0;padding:0;list-style:none}.aaWu5W_row{box-sizing:border-box;width:100%;min-width:0;min-height:24px;color:var(--dsw-alias-label-tertiary);cursor:pointer;font-family:var(--ds-font-family-code);text-align:left;background:0 0;border:0;justify-content:space-between;align-items:center;gap:10px;margin:0;padding:7px 18px 7px 14px;font-size:11px;line-height:18px;display:flex}.aaWu5W_row:hover:not(:disabled),.aaWu5W_row:focus-visible{background:var(--dsw-alias-interactive-bg-hover)}.aaWu5W_row:focus-visible{box-shadow:inset 0 0 0 2px var(--dsw-focus-ring-color,var(--dsw-alias-state-business-primary));outline:none}.aaWu5W_row:disabled{cursor:progress}.aaWu5W_path{min-width:0;font-family:var(--dsw-font-family);text-overflow:ellipsis;white-space:nowrap;font-size:12px;overflow:hidden}.aaWu5W_counts{white-space:nowrap;color:var(--dsw-alias-label-tertiary);flex:none;gap:6px;display:inline-flex}.aaWu5W_toggle{box-sizing:border-box;width:100%;color:var(--dsw-alias-label-tertiary);cursor:pointer;font:inherit;text-align:left;background:0 0;border:0;justify-content:flex-start;align-items:center;gap:4px;margin:0;padding:10px 18px 10px 14px;font-size:12px;line-height:18px;display:inline-flex}.aaWu5W_toggle:hover{background:var(--dsw-alias-interactive-bg-hover)}.aaWu5W_toggle svg{flex:none;width:14px;height:14px}@media (pointer:coarse){.aaWu5W_row,.aaWu5W_toggle{min-height:44px}}.aaWu5W_preview{max-height:100%;overflow:hidden}.aaWu5W_previewPath{min-width:0;color:var(--dsw-alias-label-tertiary);font-family:var(--ds-font-family-code);white-space:nowrap;flex:auto;font-size:12px;line-height:20px;overflow:auto hidden}.aaWu5W_preview [data-diff-note=metadata],.aaWu5W_preview [data-diff-hunk-header]{display:none}";
-		const tagId$2 = "@deepseek-ai/dsh-client-ui-deliverables/ChangedFiles.module.css";
-		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId$2) + "]") === null) {
-			const tag = document.createElement("style");
-			tag.dataset.plugin = "@deepseek-ai/dsh-client-ui-deliverables";
-			tag.dataset.pluginCss = tagId$2;
-			tag.textContent = css$2;
-			document.head.appendChild(tag);
-		}
-		var ChangedFiles_module_css_default = {
-			"added": "aaWu5W_added",
-			"card": "aaWu5W_card",
-			"counts": "aaWu5W_counts",
-			"deleted": "aaWu5W_deleted",
-			"header": "aaWu5W_header",
-			"list": "aaWu5W_list",
-			"path": "aaWu5W_path",
-			"preview": "aaWu5W_preview",
-			"previewHint": "aaWu5W_previewHint",
-			"previewPath": "aaWu5W_previewPath",
-			"row": "aaWu5W_row",
-			"stat": "aaWu5W_stat",
-			"statCounts": "aaWu5W_statCounts",
-			"tile": "aaWu5W_tile",
-			"title": "aaWu5W_title",
-			"titles": "aaWu5W_titles",
-			"toggle": "aaWu5W_toggle"
-		};
-		//#endregion
-		//#region lib/types/client/ChangedFiles.js
-		/** Turn changes use a compact single-file card or a header with a folded file list. */
-		/** Rows shown before the fold; the design's summary height for a closing message. */
-		const COLLAPSED_ROWS = 4;
-		const GROUPED$1 = new Intl.NumberFormat("en-US");
-		/** Added and deleted line counts in the card's colors. */
-		function Counts$1({ added, deleted, t }) {
-			return (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [(0, react_jsx_runtime.jsx)("span", {
-				className: ChangedFiles_module_css_default.added,
-				children: t("changes.added", { count: GROUPED$1.format(added) })
-			}), (0, react_jsx_runtime.jsx)("span", {
-				className: ChangedFiles_module_css_default.deleted,
-				children: t("changes.deleted", { count: GROUPED$1.format(deleted) })
-			})] });
-		}
+		//#region lib/types/loopback-hostname.js
 		/**
-		* Render one turn's changed files. The header opens the turn's review in the
-		* right Sidebar on its first file. A single file uses only the header; it and
-		* multi-file rows preview their comparison after a 500ms hover.
-		* @param props - the recorded summary, the review opener, and localized copy.
-		* @returns the card.
+		* Browser-safe, zero-dependency loopback classification shared by the `/api`
+		* Host fence and the package's `ctx.connection` state. The predicate stays
+		* package-internal; client plugins consume the derived state through Cordis.
 		*/
-		function ChangedFiles({ changes, cwd, openReview, t, sessionId, useChangesDiff, loadChangesDiff }) {
-			const cardRef = (0, react.useRef)(null);
-			const pathDescriptionId = (0, react.useId)();
-			const [expanded, setExpanded] = (0, react.useState)(false);
-			const singleFile = changes.total === 1 ? changes.files[0] : void 0;
-			const foldable = changes.files.length > COLLAPSED_ROWS;
-			const rows = foldable && !expanded ? changes.files.slice(0, COLLAPSED_ROWS) : changes.files;
-			const header = (0, react_jsx_runtime.jsxs)("button", {
-				type: "button",
-				className: ChangedFiles_module_css_default.header,
-				"aria-label": singleFile === void 0 ? t("changes.openReview") : t("changes.viewDiff", { name: singleFile.display }),
-				"aria-describedby": singleFile === void 0 ? void 0 : pathDescriptionId,
-				onClick: () => {
-					openReview(0);
-				},
-				children: [(0, react_jsx_runtime.jsx)("span", {
-					className: ChangedFiles_module_css_default.tile,
-					children: singleFile === void 0 ? (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.FileTypeIcon, {
-						kind: "code",
-						size: 20
-					}) : (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.FileTypeIcon, {
-						path: singleFile.path,
-						size: 20
-					})
-				}), (0, react_jsx_runtime.jsxs)("span", {
-					className: ChangedFiles_module_css_default.titles,
-					children: [(0, react_jsx_runtime.jsx)("span", {
-						className: ChangedFiles_module_css_default.title,
-						children: singleFile === void 0 ? t("changes.title", { count: String(changes.total) }) : t("changes.singleTitle", { name: basename(singleFile.path) })
-					}), (0, react_jsx_runtime.jsxs)("span", {
-						className: ChangedFiles_module_css_default.stat,
-						children: [(0, react_jsx_runtime.jsx)("span", {
-							className: ChangedFiles_module_css_default.statCounts,
-							children: singleFile?.binary === true ? t("changes.binary") : singleFile?.oversized === true ? t("changes.oversized") : (0, react_jsx_runtime.jsx)(Counts$1, {
-								t,
-								added: changes.added,
-								deleted: changes.deleted
-							})
-						}), (0, react_jsx_runtime.jsx)("span", {
-							className: ChangedFiles_module_css_default.previewHint,
-							children: t("presented.preview")
-						})]
-					})]
-				})]
-			});
-			return (0, react_jsx_runtime.jsxs)("div", {
-				ref: cardRef,
-				className: ChangedFiles_module_css_default.card,
-				"data-changed-files": true,
-				"data-single": singleFile !== void 0 || void 0,
-				children: [
-					singleFile === void 0 ? header : (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [(0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.HoverCard, {
-						variant: "preview",
-						widthAnchorRef: cardRef,
-						openDelayMs: 500,
-						anchor: header,
-						content: (0, react_jsx_runtime.jsx)(ChangedFilePreview, {
-							sessionId,
-							seq: changes.seq,
-							index: 0,
-							display: resolveWorkspacePath(cwd, singleFile.path),
-							useChangesDiff,
-							loadChangesDiff,
-							t
-						})
-					}), (0, react_jsx_runtime.jsx)("span", {
-						id: pathDescriptionId,
-						hidden: true,
-						children: resolveWorkspacePath(cwd, singleFile.path)
-					})] }),
-					singleFile === void 0 && (0, react_jsx_runtime.jsx)("ul", {
-						className: ChangedFiles_module_css_default.list,
-						children: rows.map((file, index) => (0, react_jsx_runtime.jsxs)("li", { children: [(0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.HoverCard, {
-							variant: "preview",
-							widthAnchorRef: cardRef,
-							openDelayMs: 500,
-							content: (0, react_jsx_runtime.jsx)(ChangedFilePreview, {
-								sessionId,
-								seq: changes.seq,
-								index,
-								display: resolveWorkspacePath(cwd, file.path),
-								useChangesDiff,
-								loadChangesDiff,
-								t
-							}),
-							anchor: (0, react_jsx_runtime.jsxs)("button", {
-								type: "button",
-								className: ChangedFiles_module_css_default.row,
-								"aria-label": t("changes.viewDiff", { name: file.display }),
-								"aria-describedby": `${pathDescriptionId}-${index}`,
-								onClick: () => {
-									openReview(index);
-								},
-								children: [(0, react_jsx_runtime.jsx)("span", {
-									className: ChangedFiles_module_css_default.path,
-									children: file.display
-								}), (0, react_jsx_runtime.jsx)("span", {
-									className: ChangedFiles_module_css_default.counts,
-									children: file.binary === true ? t("changes.binary") : file.oversized === true ? t("changes.oversized") : (0, react_jsx_runtime.jsx)(Counts$1, {
-										t,
-										added: file.added,
-										deleted: file.deleted
-									})
-								})]
-							})
-						}), (0, react_jsx_runtime.jsx)("span", {
-							id: `${pathDescriptionId}-${index}`,
-							hidden: true,
-							children: resolveWorkspacePath(cwd, file.path)
-						})] }, file.display))
-					}),
-					foldable && (0, react_jsx_runtime.jsxs)("button", {
-						type: "button",
-						className: ChangedFiles_module_css_default.toggle,
-						"aria-expanded": expanded,
-						"aria-label": t(expanded ? "changes.collapseAria" : "changes.expandAria", { count: String(changes.files.length) }),
-						onClick: () => {
-							setExpanded((value) => !value);
-						},
-						children: [(0, react_jsx_runtime.jsx)("span", { children: t(expanded ? "changes.collapse" : "changes.all", { count: String(changes.files.length) }) }), expanded ? (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconChevronUpOutlineRegular, {}) : (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconChevronDownOutlineRegular, {})]
-					})
-				]
-			});
-		}
-		/** Mounted only while its hover card is open, so passing over a row does not read a comparison. */
-		function ChangedFilePreview({ sessionId, seq, index, display, useChangesDiff, loadChangesDiff, t }) {
-			const state = useChangesDiff((value) => value[changesDiffUrl(sessionId, seq, index)]);
-			(0, react.useEffect)(() => {
-				if (state === void 0) loadChangesDiff(sessionId, seq, index);
-			}, [
-				state,
-				sessionId,
-				seq,
-				index,
-				loadChangesDiff
-			]);
-			return (0, react_jsx_runtime.jsxs)("div", {
-				className: `${FileDiff_module_css_default.root} ${ChangedFiles_module_css_default.preview}`,
-				"data-changes-hover-preview": true,
-				children: [(0, react_jsx_runtime.jsx)("div", {
-					className: FileDiff_module_css_default.header,
-					children: (0, react_jsx_runtime.jsx)("span", {
-						className: ChangedFiles_module_css_default.previewPath,
-						"data-changes-preview-path": true,
-						children: display
-					})
-				}), (0, react_jsx_runtime.jsx)(FileDiff, {
-					state,
-					split: false,
-					wrap: false,
-					t,
-					retry: () => {
-						loadChangesDiff(sessionId, seq, index);
-					}
-				})]
-			});
-		}
-		//#endregion
-		//#region \0dsh-css:D:\deepseek-harness\packages\client\ui-deliverables\src\client\Deliverables.module.css.mjs
-		const css$1 = ".wV53za_root{--deliverable-fill:var(--dsw-static-neutral-50);--deliverable-hover:var(--dsw-static-neutral-100);flex-direction:column;gap:16px;min-width:0;margin-top:4px;display:flex;container-type:inline-size}.wV53za_root[data-after-changes=true]{margin-top:0}body[data-ds-dark-theme] .wV53za_root{--deliverable-fill:var(--dsw-static-neutral-850);--deliverable-hover:var(--dsw-static-neutral-800)}.wV53za_hostStatus{color:var(--dsw-alias-label-secondary);align-items:center;gap:8px;font-size:12px;line-height:18px;display:flex}.wV53za_presented{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;min-width:0;display:grid}.wV53za_presented[data-single=true]{grid-template-columns:minmax(0,1fr)}.wV53za_file{box-sizing:border-box;border:.5px solid var(--dsw-alias-border-l1);border-radius:var(--dsw-radius-lg);background:var(--deliverable-fill);min-width:0;height:60px;color:var(--dsw-alias-label-primary);align-items:center;gap:10px;padding:8px 10px;transition:background-color .12s;display:flex;position:relative;overflow:hidden}.wV53za_file:hover{background:var(--deliverable-hover)}.wV53za_cardPreview{z-index:1;border-radius:inherit;cursor:pointer;background:0 0;border:0;width:100%;padding:0;position:absolute;inset:0}.wV53za_cardPreview:focus-visible{box-shadow:inset 0 0 0 2px var(--dsw-focus-ring-color,var(--dsw-alias-state-business-primary));outline:none}.wV53za_fileIcon{z-index:2;box-sizing:border-box;pointer-events:none;border:.5px solid var(--dsw-alias-border-l1);border-radius:var(--dsw-radius-lg);background:color-mix(in srgb, var(--dsw-static-neutral-00) 50%, transparent);width:40px;height:40px;color:var(--dsw-alias-link);flex:none;place-items:center;display:grid;position:relative;overflow:hidden}body[data-ds-dark-theme] .wV53za_fileIcon{background:color-mix(in srgb, var(--dsw-static-neutral-00) 5%, transparent)}.wV53za_fileBody{z-index:2;pointer-events:none;flex:1;justify-content:space-between;align-items:center;gap:12px;min-width:0;display:flex;position:relative}.wV53za_details{flex-direction:column;flex:1;justify-content:center;gap:2px;min-width:0;display:flex}.wV53za_fileName{text-overflow:ellipsis;white-space:nowrap;font-size:13px;font-weight:500;line-height:20px;overflow:hidden}.wV53za_description{color:var(--dsw-alias-label-tertiary);text-overflow:ellipsis;white-space:nowrap;font-size:10px;font-weight:400;line-height:16px;overflow:hidden}.wV53za_description[data-error=true]{color:var(--dsw-alias-state-error-primary)}.wV53za_previewHint,.wV53za_file:hover .wV53za_description:not([role=status]) .wV53za_secondaryText{display:none}.wV53za_file:hover .wV53za_description:not([role=status]) .wV53za_previewHint{display:inline}.wV53za_toggle{border-radius:var(--dsw-radius-sm);min-width:0;color:var(--dsw-alias-label-tertiary);cursor:pointer;font:inherit;background:0 0;border:0;align-self:center;align-items:center;gap:4px;padding:1px 11px;font-size:12px;line-height:18px;display:inline-flex}.wV53za_toggle:hover{background:var(--dsw-alias-interactive-bg-hover)}.wV53za_toggle svg{flex:none;width:14px;height:14px}@container (width<=620px){.wV53za_presented{grid-template-columns:minmax(0,1fr)}}.wV53za_actions{pointer-events:auto;flex:none;display:inline-flex}.wV53za_secondaryText[data-success]{animation-name:wV53za_success-fade;animation-timing-function:ease-out;animation-fill-mode:forwards}@keyframes wV53za_success-fade{to{opacity:0}}@media (prefers-reduced-motion:reduce){.wV53za_secondaryText[data-success]{animation-name:none}}";
-		const tagId$1 = "@deepseek-ai/dsh-client-ui-deliverables/Deliverables.module.css";
-		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId$1) + "]") === null) {
-			const tag = document.createElement("style");
-			tag.dataset.plugin = "@deepseek-ai/dsh-client-ui-deliverables";
-			tag.dataset.pluginCss = tagId$1;
-			tag.textContent = css$1;
-			document.head.appendChild(tag);
-		}
-		var Deliverables_module_css_default = {
-			"actions": "wV53za_actions",
-			"cardPreview": "wV53za_cardPreview",
-			"description": "wV53za_description",
-			"details": "wV53za_details",
-			"file": "wV53za_file",
-			"fileBody": "wV53za_fileBody",
-			"fileIcon": "wV53za_fileIcon",
-			"fileName": "wV53za_fileName",
-			"hostStatus": "wV53za_hostStatus",
-			"presented": "wV53za_presented",
-			"previewHint": "wV53za_previewHint",
-			"root": "wV53za_root",
-			"secondaryText": "wV53za_secondaryText",
-			"success-fade": "wV53za_success-fade",
-			"toggle": "wV53za_toggle"
-		};
-		//#endregion
-		//#region lib/types/client/PresentedFileCard.js
-		function cardDescription(description, fallback) {
-			const trimmed = description?.replace(/\s*(?:\([^()]*\)|（[^（）]*）)\s*$/u, "").trim();
-			return trimmed === void 0 || trimmed === "" ? fallback : trimmed;
-		}
 		/**
-		* Render independent file actions without nesting buttons inside a clickable card.
-		* @param props - durable file metadata, Sidebar preview, Host capabilities, gesture status, and localized copy.
-		* @returns the file card and its anchored action menu.
+		* Whether a normalized URL hostname names the local loopback authority.
+		* @param hostname - WHATWG URL hostname (IPv6 literals retain brackets).
+		* @returns true for localhost, IPv6 loopback, or any IPv4 address in 127/8.
 		*/
-		function PresentedFileCard({ file, cwd, phase, host, onPreview, actions, t }) {
-			const succeeded = phase === "opened" || phase === "revealed";
-			const reveal = host?.fileManager ?? "directory";
-			const name = basename(file.path);
-			const metadata = (0, _deepseek_ai_dsh_client_ui_primitives.fileExtension)(name).toUpperCase() || t("presented.file");
-			const status = phase === void 0 ? cardDescription(file.description, metadata) : t(reveal === "directory" && phase === "revealed" ? "presented.directoryOpened" : reveal === "directory" && phase === "revealing" ? "presented.directoryOpening" : reveal === "directory" && phase === "revealError" ? "presented.directoryError" : `presented.${phase}`);
-			return (0, react_jsx_runtime.jsxs)("div", {
-				className: Deliverables_module_css_default.file,
-				"data-presented-file": true,
-				children: [
-					(0, react_jsx_runtime.jsx)("button", {
-						type: "button",
-						className: Deliverables_module_css_default.cardPreview,
-						title: resolveWorkspacePath(cwd, file.path),
-						"aria-label": t("presented.previewCard", { name: file.path }),
-						onClick: onPreview
-					}),
-					(0, react_jsx_runtime.jsx)("span", {
-						className: Deliverables_module_css_default.fileIcon,
-						children: (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.FileTypeIcon, {
-							path: file.path,
-							size: 20
-						})
-					}),
-					(0, react_jsx_runtime.jsxs)("div", {
-						className: Deliverables_module_css_default.fileBody,
-						children: [(0, react_jsx_runtime.jsxs)("div", {
-							className: Deliverables_module_css_default.details,
-							children: [(0, react_jsx_runtime.jsx)("span", {
-								className: Deliverables_module_css_default.fileName,
-								children: name
-							}), (0, react_jsx_runtime.jsxs)("span", {
-								className: Deliverables_module_css_default.description,
-								"data-presented-description": true,
-								role: phase === void 0 ? void 0 : "status",
-								"data-error": phase === "error" || phase === "revealError" || phase === "nativeUnavailable" ? true : void 0,
-								children: [(0, react_jsx_runtime.jsx)("span", {
-									className: Deliverables_module_css_default.secondaryText,
-									"data-success": succeeded || void 0,
-									style: succeeded ? {
-										animationDelay: `${PRESENTED_SUCCESS_HOLD_MS}ms`,
-										animationDuration: `200ms`
-									} : void 0,
-									children: status
-								}), (0, react_jsx_runtime.jsx)("span", {
-									className: Deliverables_module_css_default.previewHint,
-									children: t("presented.preview")
-								})]
-							})]
-						}), (0, react_jsx_runtime.jsx)("div", {
-							className: Deliverables_module_css_default.actions,
-							children: actions
-						})]
-					})
-				]
-			});
+		function isLoopbackHostname(hostname) {
+			if (hostname === "localhost" || hostname === "[::1]") return true;
+			const parts = hostname.split(".");
+			return parts.length === 4 && parts[0] === "127" && parts.every((part) => /^\d{1,3}$/.test(part) && Number(part) <= 255);
 		}
-		//#endregion
-		//#region lib/types/client/Deliverables.js
-		/** The changed-files card, shown only while the Host serves the turn's summary, and explicitly declared files for a closing turn. */
-		const COLLAPSED_PRESENTED_COUNT = 4;
-		/**
-		* Claim turns with a change announcement or declared files.
-		* @param owner - closing turn.
-		* @returns matched announcement and deliveries, or null for a turn with neither.
-		*/
-		function selectDeliverables(owner) {
-			const changes = changesForClosing(owner);
-			const presented = presentedForClosing(owner);
-			return changes === null && presented.length === 0 ? null : {
-				changes,
-				presented
-			};
-		}
-		/**
-		* Contribute file deliveries alongside other completed-Turn artifacts.
-		* @param props - closing Turn, file actions, and localized copy.
-		* @returns file rows, or null when the Turn declares none.
-		*/
-		function DeliverablesTail(props) {
-			const matched = selectDeliverables(props);
-			return matched === null ? null : (0, react_jsx_runtime.jsx)(Deliverables, {
-				...props,
-				matched
-			});
-		}
-		/**
-		* Render the changed-files card, once the Host has served the announced
-		* summary and it lists a file, and shared native opening controls for declared
-		* files. A summary the Host no longer serves leaves no card.
-		* @param props - matched announcement and files, workspace opener, and localized copy.
-		* @returns the closing turn's file rows.
-		*/
-		function Deliverables({ matched, openFile, t, sessionId, useSessions, openPresented, openChangesReview, usePresentedOpen, usePresentedHost, useChangesDiff, loadChangesDiff, useChangesSummary, reloadPresentedHost, loadChangesSummary, useShowCodeDiff, renderSlot }) {
-			const [expanded, setExpanded] = (0, react.useState)(false);
-			const showCodeDiff = useShowCodeDiff((value) => value);
-			const cwd = useSessions((state) => state.byId[sessionId]?.cwd);
-			const states = usePresentedOpen((value) => value);
-			const host = usePresentedHost((value) => value);
-			const announced = showCodeDiff ? matched.changes : null;
-			const summary = useChangesSummary((value) => announced === null ? void 0 : value[changesSummaryUrl(sessionId, announced.seq)]);
-			(0, react.useEffect)(() => {
-				if (announced !== null && summary === void 0) loadChangesSummary(sessionId, announced.seq);
-			}, [
-				announced,
-				summary,
-				sessionId,
-				loadChangesSummary
-			]);
-			const changes = announced !== null && typeof summary === "object" && summary.files.length > 0 ? {
-				seq: announced.seq,
-				...summary
-			} : null;
-			const collapsible = matched.presented.length > COLLAPSED_PRESENTED_COUNT;
-			const presented = collapsible && !expanded ? matched.presented.slice(0, COLLAPSED_PRESENTED_COUNT) : matched.presented;
-			(0, react.useEffect)(() => {
-				if (host === null) reloadPresentedHost();
-			}, [host, reloadPresentedHost]);
-			return (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [changes !== null && (0, react_jsx_runtime.jsx)(ChangedFiles, {
-				changes,
-				cwd,
-				t,
-				sessionId,
-				useChangesDiff,
-				loadChangesDiff,
-				openReview: (index) => {
-					openChangesReview({
-						sessionId,
-						seq: changes.seq,
-						turn: changes.turn
-					}, index);
-				}
-			}), matched.presented.length > 0 && (0, react_jsx_runtime.jsxs)("div", {
-				className: Deliverables_module_css_default.root,
-				"data-after-changes": changes !== null || void 0,
-				children: [
-					host === "error" && (0, react_jsx_runtime.jsxs)("div", {
-						className: Deliverables_module_css_default.hostStatus,
-						children: [(0, react_jsx_runtime.jsx)("span", { children: t("presented.hostError") }), (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
-							size: "sm",
-							onClick: () => {
-								reloadPresentedHost();
-							},
-							children: t("presented.retry")
-						})]
-					}),
-					host !== null && host !== "error" && !host.available && (0, react_jsx_runtime.jsx)("span", {
-						className: Deliverables_module_css_default.hostStatus,
-						children: t("presented.unavailable")
-					}),
-					(0, react_jsx_runtime.jsx)("div", {
-						className: Deliverables_module_css_default.presented,
-						"data-presented-files-row": true,
-						"data-single": matched.presented.length === 1 ? true : void 0,
-						children: presented.map((file) => (0, react_jsx_runtime.jsx)(PresentedFileCard, {
-							file,
-							cwd,
-							phase: states[presentedFileUrl(sessionId, file.seq, file.index)],
-							host: host === "error" ? null : host,
-							t,
-							onPreview: () => {
-								openFile(file.path);
-							},
-							actions: renderSlot("deliverables.file.actions", {
-								actionUrl: presentedFileUrl(sessionId, file.seq, file.index),
-								available: host !== null && host !== "error" && host.available,
-								pending: states[presentedFileUrl(sessionId, file.seq, file.index)] === "opening" || states[presentedFileUrl(sessionId, file.seq, file.index)] === "revealing",
-								onAction: (action, application) => openPresented(sessionId, file.seq, file.index, action, application)
-							})
-						}, `${file.seq}:${file.index}`))
-					}),
-					collapsible && (0, react_jsx_runtime.jsxs)("button", {
-						type: "button",
-						className: Deliverables_module_css_default.toggle,
-						"aria-expanded": expanded,
-						"aria-label": t(expanded ? "presented.collapseAria" : "presented.expandAria", { count: matched.presented.length }),
-						onClick: () => {
-							setExpanded((value) => !value);
-						},
-						children: [(0, react_jsx_runtime.jsx)("span", { children: t(expanded ? "presented.collapse" : "presented.all", { count: matched.presented.length }) }), expanded ? (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconChevronUpOutlineRegular, {}) : (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconChevronDownOutlineRegular, {})]
-					})
-				]
-			})] });
-		}
-		//#endregion
-		//#region \0dsh-css:D:\deepseek-harness\packages\client\ui-deliverables\src\client\ReviewTab.module.css.mjs
-		const css = ".tHbTsG_root{height:100%}.tHbTsG_selector{flex:0 auto;min-width:0}.tHbTsG_selectorLabel{text-overflow:ellipsis;white-space:nowrap;flex:auto;min-width:0;font-size:12px;overflow:hidden}.tHbTsG_selectorButton{box-sizing:border-box;border-radius:var(--dsw-radius-sm);max-width:100%;height:28px;color:var(--dsw-alias-label-primary);cursor:pointer;font:inherit;background:0 0;border:0;align-items:center;gap:4px;padding:0 6px 0 8px;font-size:12px;line-height:20px;display:inline-flex}.tHbTsG_selectorButton:hover,.tHbTsG_selectorButton[aria-expanded=true]{background:var(--dsw-alias-interactive-bg-hover)}.tHbTsG_selectorButton svg{flex:none;display:block}.tHbTsG_item{justify-content:space-between;align-items:center;gap:12px;min-width:0;display:flex}.tHbTsG_itemPath{text-overflow:ellipsis;white-space:nowrap;min-width:0;line-height:20px;overflow:hidden}.tHbTsG_itemCounts,.tHbTsG_counts{font-family:var(--ds-font-family-code);color:var(--dsw-alias-label-tertiary);flex:none;align-items:center;gap:6px;font-size:12px;line-height:20px;display:inline-flex}.tHbTsG_counts{min-width:0;margin-right:auto}.tHbTsG_added{color:var(--dsw-alias-state-success-primary)}.tHbTsG_deleted{color:var(--dsw-alias-state-error-primary)}.tHbTsG_label{color:var(--dsw-alias-label-tertiary)}.tHbTsG_tools{flex:none;align-items:center;gap:2px;margin-left:auto;display:inline-flex}.tHbTsG_tool{border-radius:var(--dsw-radius-sm);width:28px;height:28px;color:var(--dsw-alias-label-secondary);cursor:pointer;background:0 0;border:0;flex:none;justify-content:center;align-items:center;padding:6px;display:inline-flex}.tHbTsG_tool svg{width:15px;height:15px}.tHbTsG_tool:hover:not(:disabled){color:var(--dsw-alias-label-primary);background:var(--dsw-alias-interactive-bg-hover)}.tHbTsG_tool[aria-pressed=true] .tHbTsG_compareIcon{transform:rotate(90deg)}.tHbTsG_tool:disabled{cursor:progress}.tHbTsG_tool[data-error]{color:var(--dsw-alias-state-error-primary)}";
-		const tagId = "@deepseek-ai/dsh-client-ui-deliverables/ReviewTab.module.css";
-		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId) + "]") === null) {
-			const tag = document.createElement("style");
-			tag.dataset.plugin = "@deepseek-ai/dsh-client-ui-deliverables";
-			tag.dataset.pluginCss = tagId;
-			tag.textContent = css;
-			document.head.appendChild(tag);
-		}
-		var ReviewTab_module_css_default = {
-			"added": "tHbTsG_added",
-			"compareIcon": "tHbTsG_compareIcon",
-			"counts": "tHbTsG_counts",
-			"deleted": "tHbTsG_deleted",
-			"item": "tHbTsG_item",
-			"itemCounts": "tHbTsG_itemCounts",
-			"itemPath": "tHbTsG_itemPath",
-			"label": "tHbTsG_label",
-			"root": "tHbTsG_root",
-			"selector": "tHbTsG_selector",
-			"selectorButton": "tHbTsG_selectorButton",
-			"selectorLabel": "tHbTsG_selectorLabel",
-			"tool": "tHbTsG_tool",
-			"tools": "tHbTsG_tools"
-		};
-		//#endregion
-		//#region lib/types/client/ReviewTab.js
-		/**
-		* The review tab: one turn's changed files behind a file selector, with the
-		* selected file's turn-start and turn-end comparison drawn unified or side by
-		* side, wrapped or scrolling, and controls to open the file itself.
-		*/
-		const GROUPED = new Intl.NumberFormat("en-US");
-		/** The file index a navigation names, when it names one. */
-		function navigatedIndex(params) {
-			const index = params?.index;
-			return typeof index === "number" && Number.isSafeInteger(index) && index >= 0 ? index : void 0;
-		}
-		/** Added and deleted line counts in the card's colors. */
-		function Counts({ file, t }) {
-			if (file.binary === true) return (0, react_jsx_runtime.jsx)("span", {
-				className: ReviewTab_module_css_default.label,
-				children: t("changes.binary")
-			});
-			if (file.oversized === true) return (0, react_jsx_runtime.jsx)("span", {
-				className: ReviewTab_module_css_default.label,
-				children: t("changes.oversized")
-			});
-			return (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [(0, react_jsx_runtime.jsx)("span", {
-				className: ReviewTab_module_css_default.added,
-				children: t("changes.added", { count: GROUPED.format(file.added) })
-			}), (0, react_jsx_runtime.jsx)("span", {
-				className: ReviewTab_module_css_default.deleted,
-				children: t("changes.deleted", { count: GROUPED.format(file.deleted) })
-			})] });
-		}
-		/**
-		* The review type's body, registered under `sidebar.right.pane.tab` as `changes-review`.
-		* @param props - composed slot props.
-		* @returns the selected file's comparison behind the file selector, or the state that stands in for it.
-		*/
-		function ReviewTab({ useTabInfo, sessionId, useSessions, useStore, actions, useChangesSummary, useChangesDiff, usePresentedOpen, usePresentedHost, loadChangesSummary, loadChangesDiff, reloadPresentedHost, openChanged, t, renderSlot }) {
-			const { tab } = useTabInfo();
-			const { navigation, signal } = tab;
-			const coordinates = (0, react.useMemo)(() => parseChangesReviewAddress(tab.contentId), [tab.contentId]);
-			if (coordinates === void 0) throw new Error(`ui-deliverables: not a review address "${tab.contentId}"`);
-			const { seq } = coordinates;
-			const cwd = useSessions((sessions) => sessions.byId[sessionId]?.cwd);
-			const summary = useChangesSummary((value) => value[changesSummaryUrl(sessionId, seq)]);
-			const state = useStore((store) => store.byTab[tab.id]);
-			const host = usePresentedHost((value) => value);
-			(0, react.useEffect)(() => {
-				if (state?.navigated === navigation.revision) return;
-				actions.navigated(tab.id, navigation.revision, navigatedIndex(navigation.params) ?? state?.index ?? 0);
-			}, [
-				state,
-				navigation.revision,
-				navigation.params,
-				actions,
-				tab.id
-			]);
-			(0, react.useEffect)(() => {
-				const forget = () => {
-					actions.forget(tab.id);
-				};
-				signal.addEventListener("abort", forget, { once: true });
-				return () => {
-					signal.removeEventListener("abort", forget);
-				};
-			}, [
-				signal,
-				actions,
-				tab.id
-			]);
-			(0, react.useEffect)(() => {
-				if (summary === void 0) loadChangesSummary(sessionId, seq);
-			}, [
-				summary,
-				sessionId,
-				seq,
-				loadChangesSummary
-			]);
-			(0, react.useEffect)(() => {
-				if (host === null) reloadPresentedHost();
-			}, [host, reloadPresentedHost]);
-			const files = typeof summary === "object" ? summary.files : [];
-			const index = state !== void 0 && files[state.index] !== void 0 ? state.index : 0;
-			const file = files[index];
-			const diffState = useChangesDiff((value) => file === void 0 ? void 0 : value[changesDiffUrl(sessionId, seq, index)]);
-			(0, react.useEffect)(() => {
-				if (file !== void 0 && diffState === void 0) loadChangesDiff(sessionId, seq, index);
-			}, [
-				file,
-				diffState,
-				sessionId,
-				seq,
-				index,
-				loadChangesDiff
-			]);
-			const phase = usePresentedOpen((value) => file === void 0 ? void 0 : value[changedFileUrl(sessionId, seq, index)]);
-			const [menuOpen, setMenuOpen] = (0, react.useState)(false);
-			const split = state?.split === true;
-			const wrap = state?.wrap === true;
-			const native = host !== null && host !== "error" && host.available && phase !== "nativeUnavailable";
-			const summaryState = summary === void 0 || summary === "loading" ? "loading" : summary === "missing" ? "missing" : "ready";
-			return (0, react_jsx_runtime.jsxs)("div", {
-				className: `${FileDiff_module_css_default.root} ${ReviewTab_module_css_default.root}`,
-				"data-changes-review": true,
-				"data-review-state": summaryState,
-				children: [
-					(0, react_jsx_runtime.jsxs)("div", {
-						className: FileDiff_module_css_default.header,
-						children: [
-							file === void 0 ? (0, react_jsx_runtime.jsx)("span", {
-								className: ReviewTab_module_css_default.selectorLabel,
-								children: t("review.title", { turn: String(coordinates.turn) })
-							}) : (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Menu, {
-								className: ReviewTab_module_css_default.selector,
-								open: menuOpen,
-								autoFocus: true,
-								portal: true,
-								align: "start",
-								dense: true,
-								onClose: () => {
-									setMenuOpen(false);
-								},
-								anchor: (0, react_jsx_runtime.jsxs)("button", {
-									type: "button",
-									className: ReviewTab_module_css_default.selectorButton,
-									"aria-haspopup": "menu",
-									"aria-expanded": menuOpen,
-									"aria-label": t("review.selectFile"),
-									title: file.display,
-									"data-review-file": file.path,
-									onClick: () => {
-										setMenuOpen((value) => !value);
-									},
-									children: [(0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.PathLabel, { path: file.display }), (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconChevronDownOutlineRegular, { size: 12 })]
-								}),
-								items: files.map((entry, at) => ({
-									id: String(at),
-									label: (0, react_jsx_runtime.jsxs)("span", {
-										className: ReviewTab_module_css_default.item,
-										children: [(0, react_jsx_runtime.jsx)("span", {
-											className: ReviewTab_module_css_default.itemPath,
-											children: entry.display
-										}), (0, react_jsx_runtime.jsx)("span", {
-											className: ReviewTab_module_css_default.itemCounts,
-											children: (0, react_jsx_runtime.jsx)(Counts, {
-												file: entry,
-												t
-											})
-										})]
-									})
-								})),
-								selectedId: String(index),
-								onSelect: (id) => {
-									actions.selected(tab.id, Number(id));
-									setMenuOpen(false);
-								}
-							}),
-							file !== void 0 && (0, react_jsx_runtime.jsx)("span", {
-								className: ReviewTab_module_css_default.counts,
-								children: (0, react_jsx_runtime.jsx)(Counts, {
-									file,
-									t
-								})
-							}),
-							(0, react_jsx_runtime.jsxs)("span", {
-								className: ReviewTab_module_css_default.tools,
-								children: [
-									(0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Tooltip, {
-										label: t(split ? "review.unified" : "review.split"),
-										side: "bottom",
-										delayMs: 500,
-										children: (0, react_jsx_runtime.jsx)("button", {
-											type: "button",
-											className: ReviewTab_module_css_default.tool,
-											"aria-pressed": split,
-											"aria-label": t("review.splitAria"),
-											"data-review-tool": "split",
-											onClick: () => {
-												actions.toggledSplit(tab.id);
-											},
-											children: (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconCompareSplitOutlineRegular, { className: ReviewTab_module_css_default.compareIcon })
-										})
-									}),
-									(0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Tooltip, {
-										label: t(wrap ? "review.nowrap" : "review.wrap"),
-										side: "bottom",
-										delayMs: 500,
-										children: (0, react_jsx_runtime.jsx)("button", {
-											type: "button",
-											className: ReviewTab_module_css_default.tool,
-											"aria-pressed": wrap,
-											"aria-label": t("review.wrapAria"),
-											"data-review-tool": "wrap",
-											onClick: () => {
-												actions.toggledWrap(tab.id);
-											},
-											children: wrap ? (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconNowrapFillRegular, {}) : (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconWrapFillRegular, {})
-										})
-									}),
-									file !== void 0 && (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Tooltip, {
-										label: t("review.openFile"),
-										side: "bottom",
-										delayMs: 500,
-										children: (0, react_jsx_runtime.jsx)("button", {
-											type: "button",
-											className: ReviewTab_module_css_default.tool,
-											"aria-label": t("review.openFileAria", { name: file.display }),
-											"data-review-tool": "open-file",
-											onClick: () => {
-												tab.actions.openResource(fileAddressFor(sessionId, cwd, file.path));
-											},
-											children: (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconInspectOutlineRegular, {})
-										})
-									}),
-									file !== void 0 && renderSlot("deliverables.review.file.actions", {
-										actionUrl: changedFileUrl(sessionId, seq, index),
-										available: native,
-										pending: phase === "opening" || phase === "revealing",
-										onAction: (action, application) => openChanged(sessionId, seq, index, action, application)
-									})
-								]
-							})
-						]
-					}),
-					summaryState === "loading" && (0, react_jsx_runtime.jsx)("p", {
-						className: FileDiff_module_css_default.status,
-						role: "status",
-						children: t("diff.loading")
-					}),
-					summaryState === "missing" && (0, react_jsx_runtime.jsx)("p", {
-						className: FileDiff_module_css_default.status,
-						children: t("diff.missing")
-					}),
-					file !== void 0 && (0, react_jsx_runtime.jsx)(FileDiff, {
-						state: diffState,
-						split,
-						wrap,
-						t,
-						retry: () => {
-							loadChangesDiff(sessionId, seq, index);
-						}
-					})
-				]
-			});
-		}
-		//#endregion
-		//#region lib/types/client/review-definition.js
-		/** The tab kind this package owns. */
-		const CHANGES_REVIEW_KIND = "changes-review";
-		/** This implementation's identity in the tab system, and the key its body registers under. */
-		const CHANGES_REVIEW_ID = "@deepseek-ai/dsh-client-ui-deliverables";
-		/**
-		* The review type's registry definition.
-		* @param t - namespace-bound translate, read fresh on every title call.
-		* @returns the definition to register.
-		*/
-		function changesReviewDefinition(t) {
-			return {
-				id: CHANGES_REVIEW_ID,
-				kind: CHANGES_REVIEW_KIND,
-				patterns: ["dsh-resource://changes-review/**"],
-				priority: "builtin",
-				canOpen: (address) => parseChangesReviewAddress(address) !== void 0,
-				title: (address) => {
-					const turn = parseChangesReviewAddress(address)?.turn;
-					return turn === void 0 ? address : t("review.title", { turn: String(turn) });
-				}
-			};
-		}
-		//#endregion
-		//#region lib/types/client/review-store.js
-		/**
-		* The review tab's view state: which listed file is shown, whether hunks are
-		* drawn side by side, and whether long lines wrap. One bucket per tab, so two
-		* reviews in one session keep their own choices; the bucket ends with the
-		* tab record's signal.
-		*/
-		function bucket(state, tabId) {
-			const tab = state.byTab[tabId];
-			if (tab === void 0) throw new Error(`ui-deliverables: no review state for tab "${tabId}"`);
-			return tab;
-		}
-		/**
-		* Declare the review tab's store; the registration declares it as an
-		* exclusive store, so the framework mints one instance per session.
-		* @returns the store handle to declare on the registration.
-		*/
-		function createReviewStore() {
-			return (0, _deepseek_ai_dsh_client_store.defineStore)({
-				init: () => ({ byTab: {} }),
-				actions: {
-					/**
-					* Apply a navigation: seed a side-by-side, unwrapped tab on its first one, then show the navigated file.
-					* @param d - draft state.
-					* @param tabId - the tab being drawn.
-					* @param revision - the navigation revision being applied.
-					* @param index - the file index the navigation named, or the current one.
-					*/
-					navigated: (d, tabId, revision, index) => {
-						const tab = d.byTab[tabId];
-						if (tab === void 0) d.byTab[tabId] = {
-							index,
-							split: true,
-							wrap: false,
-							navigated: revision
-						};
-						else {
-							tab.index = index;
-							tab.navigated = revision;
-						}
-					},
-					/**
-					* Show another listed file.
-					* @param d - draft state.
-					* @param tabId - the tab being drawn.
-					* @param index - original index in the summary's files array.
-					*/
-					selected: (d, tabId, index) => {
-						bucket(d, tabId).index = index;
-					},
-					/**
-					* Switch between the unified and the side-by-side view.
-					* @param d - draft state.
-					* @param tabId - the tab being drawn.
-					*/
-					toggledSplit: (d, tabId) => {
-						const tab = bucket(d, tabId);
-						tab.split = !tab.split;
-					},
-					/**
-					* Switch line wrapping.
-					* @param d - draft state.
-					* @param tabId - the tab being drawn.
-					*/
-					toggledWrap: (d, tabId) => {
-						const tab = bucket(d, tabId);
-						tab.wrap = !tab.wrap;
-					},
-					/**
-					* Drop a tab's bucket once its record is gone.
-					* @param d - draft state.
-					* @param tabId - the tab that ended.
-					*/
-					forget: (d, tabId) => {
-						d.byTab = Object.fromEntries(Object.entries(d.byTab).filter(([id]) => id !== tabId));
-					}
-				}
-			});
-		}
-		//#endregion
-		//#region lib/types/client/locales.js
-		/** `deliverables` namespace dictionaries: cards, comparison tab, and file-mention copy. */
-		/** Dictionary namespace owned by this plugin. */
-		const NS = "deliverables";
-		/** Simplified Chinese dictionary (the key-set source of truth). */
-		const zh = {
-			"presented.nativeUnavailable": "此文件没有可用的主机路径，请在侧边栏预览",
-			"presented.revealError": "无法在文件管理器中显示，请重试",
-			"presented.directoryError": "无法打开所在文件夹，请重试",
-			"presented.directoryOpening": "正在打开所在文件夹…",
-			"presented.directoryOpened": "已请求打开所在文件夹",
-			"presented.revealed": "已请求在文件管理器中显示",
-			"presented.revealing": "正在文件管理器中显示…",
-			"presented.unavailable": "此主机没有可用的桌面，无法使用外部程序打开文件或文件夹；文件仍可在侧边栏预览",
-			"presented.retry": "重试",
-			"presented.hostError": "无法读取主机桌面信息",
-			"presented.preview": "在侧边栏预览",
-			"presented.previewButton": "在侧边栏打开 {name}",
-			"presented.previewCard": "在侧边栏预览 {name}",
-			"presented.all": "全部 {count} 个文件",
-			"presented.expandAria": "展开全部 {count} 个交付文件",
-			"presented.collapse": "收起",
-			"presented.collapseAria": "收起交付文件列表",
-			"presented.opening": "正在打开…",
-			"presented.opened": "已请求打开",
-			"presented.error": "打开失败，点击重试",
-			"presented.file": "文件",
-			"row.title": "交付文件",
-			"row.running": "正在交付",
-			"row.preparing": "准备交付",
-			"row.ok": "已交付",
-			"row.error": "交付失败",
-			"row.stopped": "已中断",
-			"row.inspect": "查看调用",
-			"changes.title": "已编辑 {count} 个文件",
-			"changes.singleTitle": "已编辑 {name}",
-			"changes.added": "+{count}",
-			"changes.deleted": "-{count}",
-			"changes.binary": "二进制",
-			"changes.openReview": "在侧边栏查看本轮改动",
-			"changes.all": "全部 {count} 个文件",
-			"changes.expandAria": "展开全部 {count} 个改动文件",
-			"changes.collapse": "收起",
-			"changes.collapseAria": "收起改动文件列表",
-			"changes.oversized": "过大",
-			"changes.viewDiff": "查看 {name} 的改动",
-			"review.title": "第 {turn} 轮改动",
-			"review.selectFile": "选择要查看的文件",
-			"review.split": "切换为左右对比",
-			"review.unified": "切换为单栏对比",
-			"review.splitAria": "左右对比",
-			"review.wrap": "开启自动换行",
-			"review.nowrap": "关闭自动换行",
-			"review.wrapAria": "自动换行",
-			"review.openFile": "在侧边栏打开整个文件",
-			"review.openFileAria": "在侧边栏打开 {name}",
-			"diff.loading": "正在读取改动…",
-			"diff.missing": "这轮改动的内容已不可用",
-			"diff.error": "无法读取改动",
-			"diff.binary": "二进制文件，无法显示改动",
-			"diff.oversized": "文件过大，无法显示改动",
-			"diff.created": "本轮新建的文件",
-			"diff.deleted": "本轮删除的文件",
-			"diff.unchanged": "两侧内容相同",
-			"diff.coarse": "逐行对比超时，按整个文件替换显示",
-			"diff.truncated": "只显示前 {count} 行"
-		};
-		/** English dictionary (same key set). */
-		const en = {
-			"presented.nativeUnavailable": "This file has no available Host path. Preview it in the sidebar.",
-			"presented.revealError": "Could not show in file manager. Try again.",
-			"presented.directoryError": "Could not open containing folder. Try again.",
-			"presented.directoryOpening": "Opening containing folder…",
-			"presented.directoryOpened": "Requested opening containing folder",
-			"presented.revealed": "Requested display in file manager",
-			"presented.revealing": "Showing in file manager…",
-			"presented.unavailable": "This Host has no desktop available to open files or folders in external apps. Files can still be previewed in the sidebar.",
-			"presented.retry": "Retry",
-			"presented.hostError": "Could not read the Host desktop information",
-			"presented.preview": "Preview in sidebar",
-			"presented.previewButton": "Open {name} in sidebar",
-			"presented.previewCard": "Preview {name} in sidebar",
-			"presented.all": "All {count} files",
-			"presented.expandAria": "Show all {count} delivered files",
-			"presented.collapse": "Collapse",
-			"presented.collapseAria": "Collapse delivered files",
-			"presented.opening": "Opening…",
-			"presented.opened": "Open requested",
-			"presented.error": "Could not open. Click to retry.",
-			"presented.file": "File",
-			"row.title": "Present files",
-			"row.running": "Delivering",
-			"row.preparing": "Preparing deliverables",
-			"row.ok": "Delivered",
-			"row.error": "Delivery failed",
-			"row.stopped": "Interrupted",
-			"row.inspect": "Inspect call",
-			"changes.title": "Edited {count} files",
-			"changes.singleTitle": "Edited {name}",
-			"changes.added": "+{count}",
-			"changes.deleted": "-{count}",
-			"changes.binary": "binary",
-			"changes.openReview": "Review this turn’s changes in the sidebar",
-			"changes.all": "All {count} files",
-			"changes.expandAria": "Show all {count} changed files",
-			"changes.collapse": "Collapse",
-			"changes.collapseAria": "Collapse changed files",
-			"changes.oversized": "too large",
-			"changes.viewDiff": "View changes to {name}",
-			"review.title": "Review · turn {turn}",
-			"review.selectFile": "Choose the file to review",
-			"review.split": "Switch to split view",
-			"review.unified": "Switch to unified view",
-			"review.splitAria": "Split view",
-			"review.wrap": "Enable line wrap",
-			"review.nowrap": "Disable line wrap",
-			"review.wrapAria": "Line wrap",
-			"review.openFile": "Open the whole file in the sidebar",
-			"review.openFileAria": "Open {name} in sidebar",
-			"diff.loading": "Reading changes…",
-			"diff.missing": "The contents of this turn’s changes are no longer available",
-			"diff.error": "Could not read the changes",
-			"diff.binary": "Binary file; changes cannot be shown",
-			"diff.oversized": "File too large; changes cannot be shown",
-			"diff.created": "Created in this turn",
-			"diff.deleted": "Deleted in this turn",
-			"diff.unchanged": "Both sides hold the same lines",
-			"diff.coarse": "Line comparison timed out; shown as a whole-file replacement",
-			"diff.truncated": "Showing the first {count} lines"
-		};
 		//#endregion
 		//#region lib/types/client/index.js
-		/** Required services for the tail-slot and tab-type registrations and their dictionaries. */
-		const inject = [
-			"slots",
-			"locale",
-			"uiConversation",
-			"remote",
-			"remote.session",
-			"sidebarRightTabs",
-			"sidebarRight",
-			"configForms"
-		];
+		/** Required services (none — this is the wire root). */
+		const inject = [];
+		function watchBrowserNetwork(controller) {
+			const browser = globalThis.window;
+			const initiallyAvailable = browser?.navigator?.onLine;
+			if (browser === void 0 || initiallyAvailable === void 0) return () => {};
+			const online = () => {
+				controller.setNetworkAvailable(true);
+			};
+			const offline = () => {
+				controller.setNetworkAvailable(false);
+			};
+			controller.setNetworkAvailable(initiallyAvailable);
+			browser.addEventListener("online", online);
+			browser.addEventListener("offline", offline);
+			return () => {
+				browser.removeEventListener("online", online);
+				browser.removeEventListener("offline", offline);
+			};
+		}
 		/**
-		* Client plugin body: register the dictionaries, the turn-tail entry, and the comparison tab type.
-		* @param ctx - client root context.
+		* Install one Context-owned Connection service from explicit composition inputs.
+		* @param ctx - client Cordis context.
+		* @param options - physical carrier, reconnect timing, and page location.
+		*/
+		function installConnection(ctx, options = {}) {
+			const pageLocation = options.location;
+			const transport = options.transport;
+			const recovery = options.recovery ?? {};
+			const rpc = transport?.rpc ?? createWebConnectionRpc(transport?.fetch, transport?.openStream);
+			let generationSource;
+			let owner;
+			let generationId = 0;
+			let generation;
+			let state;
+			const generationListeners = /* @__PURE__ */ new Set();
+			const stateListeners = /* @__PURE__ */ new Set();
+			const publishGeneration = (next) => {
+				if (Object.is(generation, next)) return;
+				generation = next;
+				for (const listener of [...generationListeners]) try {
+					listener();
+				} catch (error) {
+					console.error("[connection] generation listener threw:", error);
+				}
+			};
+			const publishState = (next) => {
+				if (state === next) return;
+				state = next;
+				for (const listener of [...stateListeners]) try {
+					listener();
+				} catch (error) {
+					console.error("[connection] state listener threw:", error);
+				}
+			};
+			const releaseOwner = (current) => {
+				if (owner !== current) return;
+				owner = void 0;
+				current.stopNetworkWatch();
+				current.controller.stop();
+				publishGeneration(void 0);
+				publishState(void 0);
+			};
+			const handle = {
+				isLoopback: transport?.ownsHost === true || pageLocation === void 0 || isLoopbackHostname(pageLocation.hostname),
+				generation: {
+					getSnapshot: () => generation,
+					subscribe: (listener) => {
+						generationListeners.add(listener);
+						return () => {
+							generationListeners.delete(listener);
+						};
+					}
+				},
+				state: {
+					getSnapshot: () => state,
+					subscribe: (listener) => {
+						stateListeners.add(listener);
+						return () => {
+							stateListeners.delete(listener);
+						};
+					}
+				},
+				rpc,
+				reconnect() {
+					owner?.controller.reconnect();
+				},
+				registerGenerationSource(source) {
+					if (generationSource !== void 0) throw new Error("connection: a generation source is already registered");
+					generationSource = source;
+					return () => {
+						if (generationSource !== source) return;
+						generationSource = void 0;
+						const current = owner;
+						if (current?.source === source) releaseOwner(current);
+					};
+				},
+				start(sinks, config) {
+					if (owner !== void 0) throw new Error("connection: the stream loop is already owned by another consumer");
+					const source = generationSource;
+					if (source === void 0) throw new Error("connection: no generation source is registered");
+					const token = {};
+					const ownsGeneration = () => owner?.token === token;
+					const controller = new ConnectionController(source, {
+						...sinks,
+						onConnected: (host) => {
+							const nextGeneration = {
+								id: ++generationId,
+								host
+							};
+							publishGeneration(nextGeneration);
+							if (!ownsGeneration() || !Object.is(generation, nextGeneration)) return;
+							sinks.onConnected?.(host);
+						},
+						onStateChange: (state) => {
+							if (state !== "connected") publishGeneration(void 0);
+							if (!ownsGeneration()) return;
+							publishState(state);
+							sinks.onStateChange?.(state);
+						}
+					}, {
+						...recovery,
+						...config
+					});
+					const current = {
+						token,
+						source,
+						controller,
+						stopNetworkWatch: watchBrowserNetwork(controller)
+					};
+					owner = current;
+					controller.start();
+					return { stop: () => {
+						releaseOwner(current);
+					} };
+				}
+			};
+			ctx.provide("connection", handle);
+		}
+		/**
+		* Client plugin body: read the page composition and install its Connection service.
+		* @param ctx - client Cordis context.
 		*/
 		function apply(ctx) {
-			const opener = new PresentedOpenController();
-			const summaries = new ChangesSummaryStore();
-			const diffs = new ChangesDiffStore();
-			ctx.effect(() => () => Promise.all([
-				opener.dispose(),
-				summaries.dispose(),
-				diffs.dispose()
-			]));
-			ctx.on("connection/reset", () => {
-				opener.resetHost();
-				summaries.reset();
-				diffs.reset();
+			const globals = globalThis;
+			const pageLocation = typeof location === "undefined" ? void 0 : location;
+			const transport = globals.__DSH_TRANSPORT__;
+			installConnection(ctx, {
+				...transport === void 0 ? {} : { transport },
+				recovery: resolveConnectionConfig(globals.__DSH_CONNECTION_RECOVERY__),
+				...pageLocation === void 0 ? {} : { location: pageLocation }
 			});
-			ctx.uiConversation.events.register(deliverablesDefinition);
-			ctx.effect(() => ctx.locale.register(NS, {
-				zh,
-				en
-			}), "ui-deliverables: dictionaries");
-			ctx.slots.inject("conversation.chat.turnTail", () => ctx.slots.register({
-				name: "conversation.chat.turnTail",
-				id: "@deepseek-ai/dsh-client-ui-deliverables",
-				locale: NS,
-				children: { "deliverables.file.actions": {
-					kind: "list",
-					scope: "session"
-				} },
-				inject: () => ({
-					hooks: {
-						changesDiff: diffs.state,
-						presentedOpen: opener.state,
-						presentedHost: opener.host,
-						changesSummary: summaries.state,
-						showCodeDiff: ctx.configForms.developerTools.enabled
-					},
-					loadChangesDiff: (sessionId, seq, index) => diffs.load(sessionId, seq, index),
-					reloadPresentedHost: () => opener.loadHost(),
-					loadChangesSummary: (sessionId, seq) => summaries.load(sessionId, seq),
-					openPresented: (sessionId, seq, index, action, application) => opener.open(sessionId, seq, index, action, application),
-					openChanged: (sessionId, seq, index, action, application) => opener.openChanged(sessionId, seq, index, action, application),
-					openChangesReview: (coordinates, index) => {
-						ctx.sidebarRight.openResource(changesReviewAddress(coordinates), { params: { index } });
-					}
-				})
-			}, DeliverablesTail));
-			ctx.slots.inject("tool.call.toolview", () => ctx.slots.register({
-				name: "tool.call.toolview",
-				key: "present",
-				locale: NS
-			}, PresentRow));
-			const t = ctx.locale.bind(NS);
-			ctx.effect(() => ctx.sidebarRightTabs.register(changesReviewDefinition(t)), "ui-deliverables: changes-review type");
-			ctx.effect(() => ctx.slots.inject("sidebar.right.pane.tab", () => ctx.slots.register({
-				name: "sidebar.right.pane.tab",
-				key: CHANGES_REVIEW_ID,
-				locale: NS,
-				store: createReviewStore(),
-				children: { "deliverables.review.file.actions": {
-					kind: "list",
-					scope: "session"
-				} },
-				inject: () => ({
-					hooks: {
-						changesSummary: summaries.state,
-						changesDiff: diffs.state,
-						presentedOpen: opener.state,
-						presentedHost: opener.host
-					},
-					loadChangesSummary: (sessionId, seq) => summaries.load(sessionId, seq),
-					loadChangesDiff: (sessionId, seq, index) => diffs.load(sessionId, seq, index),
-					reloadPresentedHost: () => opener.loadHost(),
-					openChanged: (sessionId, seq, index, action, application) => opener.openChanged(sessionId, seq, index, action, application)
-				})
-			}, ReviewTab)), "ui-deliverables: changes-review body");
-			ctx.provide("chatFileMentions", { forClosing(owner) {
-				const paths = selectProducedFiles(owner);
-				const presented = presentedForClosing(owner);
-				if (paths === null && presented.length === 0) return void 0;
-				return producedFileMentions([...new Set([...paths ?? [], ...presented.map((file) => file.path)])], owner.openFile, (path) => t("presented.previewButton", { name: path }));
-			} });
 		}
 		//#endregion
+		exports.RpcId = RpcId;
 		exports.apply = apply;
 		exports.inject = inject;
+		exports.installConnection = installConnection;
+		exports.transportError = transportError;
 		return module.exports;
 	}
 });
 ;
-//# sourceMappingURL=??@deepseek-ai/dsh-client-ui-deliverables/client.js.map&rev=fa1aa7ce1375
+//# sourceMappingURL=??@deepseek-ai/dsh-client-connection/client.js.map&rev=4b54a2968ff8

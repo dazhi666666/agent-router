@@ -84,6 +84,11 @@ function userMessage(id, text) {
   return { id, role: 'user', source: { kind: 'user' }, content: [{ type: 'text', text: String(text ?? '') }] };
 }
 
+/** 非用户输入（source.kind 不是 user）在 dsh 里显示为注入上下文，kind 即标签 */
+function contextMessage(id, label, text) {
+  return { id, role: 'user', source: { kind: label }, content: [{ type: 'text', text: String(text ?? '') }] };
+}
+
 function assistantMessage(id, text) {
   return {
     id, role: 'assistant',
@@ -115,8 +120,9 @@ function synthesizeEntry(e, seqStart, assistantTexts) {
   };
   const d = e.data || {};
   if (e.kind === 'system') {
-    push('user/message', userMessage(`m${seq}`, `【系统提示词】\n${String(d.text ?? '')}`), { surfaceOp: 'append' });
+    push('user/message', contextMessage(`m${seq}`, '系统提示词', d.text), { surfaceOp: 'append' });
   } else if (e.kind === 'user') {
+    // Router 注入的 [事件] / [信箱] 仍按用户消息下发（dsh 会把回合中的注入上下文整个隐藏），页面上由 board-embed.js 改成提示条样式
     push('user/message', userMessage(`m${seq}`, d.text), { surfaceOp: 'append' });
   } else if (e.kind === 'assistant') {
     const text = String(d.text ?? '');
@@ -164,17 +170,43 @@ export function synthesizeSessionEvents(entries) {
 
 /** Run-aware bridge. Every open stream resolves its own persistent session binding. */
 export function createBridge({ sessions, runs }) {
-  const unpack = p => { const a = p?.args ?? p ?? {}; return a.request ?? a; };
+  // 负载形如 { args: { request } } / { args: [...] }（位置参数，如 interruptByParent(child, parent, mode)）/ 直接对象
+  const unpack = p => {
+    const a = p?.args ?? p ?? {};
+    if (Array.isArray(a)) return typeof a[0] === 'object' && a[0] !== null ? a[0].request ?? a[0] : { childSessionId: a[0], parentSessionId: a[1], mode: a[2] };
+    return a.request ?? a;
+  };
+  const addressId = p => p.sessionId || p.address?.sessionId || p.address?.childSessionId || p.childSessionId;
   const get = id => { const s = sessions.resolve(id); if (!s) throw new Error('会话不存在，请新建会话'); return s; };
   const entries = s => s.runId ? readThreadEntries(runs.dir(s.runId), s.thread) || [] : [];
   const all = () => {
     const items = Object.values(sessions.items).filter(s => !s.runId).map(s => ({ sessionId: s.id, updatedAt: s.createdAt, running: false, blank: true, cwd: s.settings.repo, agentAvailable: true }));
     for (const run of runs.list()) {
-      const threads = listThreadFiles(runs.dir(run.id));
+      const dir = runs.dir(run.id), board = readJson(path.join(dir, 'board.json')), status = readJson(path.join(dir, 'status.json'));
+      const threads = listThreadFiles(dir);
       if (!threads.some(t => t.name === 'manager')) threads.unshift({ name: 'manager', mtimeMs: run.mtime });
-      for (const t of threads) items.push({ sessionId: t.name === 'manager' ? sessions.managerId(run.id) : threadSessionId(run.id, t.name), updatedAt: Math.round(t.mtimeMs), running: runs.running(run.id) && threadRunning(t.name, readJson(path.join(runs.dir(run.id), 'board.json')), readJson(path.join(runs.dir(run.id), 'status.json'))), blank: false, cwd: run.settings?.repo || runs.dir(run.id), agentAvailable: true });
+      for (const t of threads) items.push({
+        sessionId: t.name === 'manager' ? sessions.managerId(run.id) : threadSessionId(run.id, t.name),
+        title: threadTitle(t.name, run, board),
+        updatedAt: Math.round(t.mtimeMs),
+        running: runs.running(run.id) && threadRunning(t.name, board, status),
+        blank: false, cwd: run.settings?.repo || dir, agentAvailable: true
+      });
     }
     return items;
+  };
+  // 主代理会话的子代理目录：每个子代理线程（T1-claude 等）一条，dsh 据此在会话头部提供子代理切换与回溯
+  const catalogOf = runId => {
+    const dir = runs.dir(runId), board = readJson(path.join(dir, 'board.json'));
+    return listThreadFiles(dir).filter(t => t.name !== 'manager').map(t => {
+      const task = board?.tasks?.find(x => t.name.startsWith(`${x.id}-`));
+      return { id: threadSessionId(runId, t.name), createdAt: Date.parse(task?.created_at) || Math.round(t.mtimeMs), mode: 'continuable', label: subagentLabel(t.name, task) };
+    }).sort((a, b) => a.createdAt - b.createdAt);
+  };
+  const projectionValues = id => {
+    const s = id ? sessions.resolve(id) : null;
+    if (s?.runId && s.thread === 'manager') return { ...modelSelectionValues(), subagentCatalog: catalogOf(s.runId) };
+    return modelSelectionValues();
   };
   const context = id => {
     const s = get(id), run = s.runId ? runs.detail(s.runId) : null;
@@ -183,7 +215,7 @@ export function createBridge({ sessions, runs }) {
     return { sessionId: id, runId: s.runId, thread: s.thread, agent: agent || null, settings: run?.settings || s.settings, run, managerSessionId: s.runId ? sessions.managerId(s.runId) : id, capabilities: { configure: !s.runId, send: !s.runId || running && !!agent, stop: running && s.thread === 'manager', models: running && s.thread === 'manager' } };
   };
   const unary = (endpoint, raw) => {
-    const p = unpack(raw), id = p.sessionId || p.address?.sessionId, s = id ? sessions.resolve(id) : null;
+    const p = unpack(raw), id = addressId(p), s = id ? sessions.resolve(id) : null;
     if (endpoint === 'health') return ok({ ready: true });
     if (endpoint === 'session/create') return ok({ sessionId: sessions.create(id).id });
     if (endpoint === 'session/list') return ok({ items: all() });
@@ -213,6 +245,20 @@ export function createBridge({ sessions, runs }) {
       const result = runs.message(s.runId, { text, to: ctx.agent, task_id: task });
       return ok({ accepted: true, ...result });
     }
+    if (endpoint === 'session/projections') return ok({ asOfSeq: 0, values: projectionValues(id) });
+    if (endpoint === 'subagents/prompt') {
+      const ctx = context(id), text = (p.content || []).filter(c => c.type === 'text').map(c => c.text).join('\n').trim();
+      if (!text) throw new Error('消息不能为空');
+      if (!ctx.capabilities.send || ctx.agent === 'manager') throw new Error('该子代理所在的运行已结束');
+      runs.message(ctx.runId, { text, to: ctx.agent, task_id: ctx.thread.split('-')[0] });
+      return ok({ accepted: true });
+    }
+    if (endpoint === 'subagents/interruptByParent') {
+      const ctx = context(p.childSessionId);
+      if (!ctx.runId || !runs.running(ctx.runId)) throw new Error('该子代理所在的运行已结束');
+      runs.command(ctx.runId, { type: 'cancel', task_id: ctx.thread.split('-')[0] });
+      return ok({ accepted: true });
+    }
     if (endpoint === 'session/cancel') {
       const ctx = context(id);
       if (!ctx.capabilities.stop) throw new Error('只有本次运行的主代理会话可停止运行');
@@ -224,19 +270,45 @@ export function createBridge({ sessions, runs }) {
     const p = unpack(raw); let timer;
     const cleanup = () => clearInterval(timer);
     if (endpoint === 'workspace/follow') {
+      // 单一「Agent Router」工作区：首帧 baseline，之后会话增减用 upsert（dsh 只在重连时接受 baseline）
       let previous = '';
       const push = () => {
         const ids = all().map(s => s.sessionId), signature = JSON.stringify(ids);
-        if (signature === previous) return; previous = signature;
-        send({ type: 'baseline', value: { items: [{ workspaceId: 'agent-router', path: runs.root, title: 'Agent Router', sessionIds: ids, createdAt: '2026-01-01T00:00:00Z', updatedAt: new Date().toISOString() }], archivedSessionIds: [], pinnedSessionIds: [] } });
+        if (signature === previous) return;
+        const workspace = { workspaceId: 'agent-router', path: runs.root, title: 'Agent Router', sessionIds: ids, createdAt: '2026-01-01T00:00:00Z', updatedAt: new Date().toISOString() };
+        send(previous ? { type: 'upsert', workspace } : { type: 'baseline', value: { items: [workspace], archivedSessionIds: [], pinnedSessionIds: [] } });
+        previous = signature;
       };
       push(); timer = setInterval(push, 1500); return cleanup;
     }
+    if (endpoint === 'session/control') {
+      const projections = {}, last = new Map();
+      for (const item of all()) {
+        const values = projectionValues(item.sessionId);
+        projections[item.sessionId] = { asOfSeq: 0, values };
+        if (values.subagentCatalog) last.set(item.sessionId, JSON.stringify(values.subagentCatalog));
+      }
+      send({ type: 'baseline', value: { projections } });
+      let seq = 0;
+      timer = setInterval(() => {
+        try {
+          for (const item of all()) {
+            const catalog = projectionValues(item.sessionId).subagentCatalog;
+            if (!catalog) continue;
+            const signature = JSON.stringify(catalog);
+            if (last.get(item.sessionId) === signature) continue;
+            last.set(item.sessionId, signature);
+            send({ type: 'projection', sessionId: item.sessionId, key: 'subagentCatalog', value: catalog, seq: ++seq });
+          }
+        } catch {}
+      }, 1500);
+      return cleanup;
+    }
     if (endpoint === 'session/follow') {
-      const id = p.address?.sessionId || p.sessionId;
+      const id = addressId(p);
       const s = get(id); let count = 0;
       const initial = synthesizeSessionEvents(entries(s)); count = initial.length;
-      send({ type: 'snapshot', header: sessionHeader(id, s.createdAt || initial[0]?.time || Date.now()), cursor: count, records: initial.map(event => ({ type: 'event', event })), hasMore: false, projections: { asOfSeq: count, values: modelSelectionValues() }, assistantStream: { revision: 0 } });
+      send({ type: 'snapshot', header: sessionHeader(id, s.createdAt || initial[0]?.time || Date.now()), cursor: count, records: initial.map(event => ({ type: 'event', event })), hasMore: false, projections: { asOfSeq: count, values: projectionValues(id) }, assistantStream: { revision: 0 } });
       timer = setInterval(() => {
         try {
           const events = synthesizeSessionEvents(entries(get(id)));
@@ -249,6 +321,19 @@ export function createBridge({ sessions, runs }) {
     return dshStream(runs.dataDir, endpoint, raw, send);
   };
   return { unary, stream, context, all };
+}
+
+const AGENT_LABELS = { claude: 'Claude Code', zcode: 'ZCode', devin: 'Devin', codex: 'Codex', opencode: 'OpenCode', antigravity: 'Antigravity' };
+const short = (text, n = 60) => { const v = String(text ?? '').replace(/\s+/g, ' ').trim(); return v.length > n ? `${v.slice(0, n)}…` : v; };
+/** 子代理目录里的标签：T1 · ZCode · 任务标题 */
+function subagentLabel(name, task) {
+  const [taskId, agent] = [name.slice(0, name.lastIndexOf('-')), name.slice(name.lastIndexOf('-') + 1)];
+  return [taskId, AGENT_LABELS[agent] || agent, task?.title && short(task.title, 40)].filter(Boolean).join(' · ');
+}
+/** 侧栏标题：主代理会话用对话的第一条消息，子代理会话标明任务与执行者 */
+function threadTitle(name, run, board) {
+  if (name === 'manager') return short(run.goal || run.id);
+  return `↳ ${subagentLabel(name, board?.tasks?.find(t => name.startsWith(`${t.id}-`)))}`;
 }
 
 function threadRunning(name, board, status) {

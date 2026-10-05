@@ -2,9 +2,28 @@ import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { spawn, spawnSync } from 'node:child_process';
-import { read, mutate } from '../lib/store.mjs';
 import { readJson, writeJson, safeId } from './sessions.mjs';
 import { runtimeConfig, validateModels } from './models.mjs';
+import { loadConfig } from '../lib/config.mjs';
+
+const CLI_AGENTS = ['claude', 'zcode', 'devin', 'codex', 'opencode', 'antigravity'];
+// 主代理可以是 CLI，也可以是 router.config.json 里 llm 下配置的对话模型（chat-agent/）
+const validMain = main => CLI_AGENTS.includes(main) || Object.hasOwn(loadConfig().llm, main);
+
+// CLI 启动的运行没有 run.json：从主代理线程首条消息（goalMessage 的「## 总目标」段）取目标
+function goalFromThread(dir) {
+  try {
+    const fd = fs.openSync(path.join(dir, 'threads', 'manager.jsonl'), 'r');
+    const buf = Buffer.alloc(65536), n = fs.readSync(fd, buf, 0, buf.length, 0); fs.closeSync(fd);
+    for (const line of buf.subarray(0, n).toString('utf8').split('\n')) {
+      let e; try { e = JSON.parse(line); } catch { continue; }
+      if (e.kind !== 'user') continue;
+      const m = String(e.data?.text || '').match(/## 总目标\n([\s\S]*?)\n\n花名册：/);
+      return m ? m[1].trim() : null;
+    }
+  } catch {}
+  return null;
+}
 
 export class Runs {
   constructor({ dataDir, root, launch, kill } = {}) {
@@ -23,43 +42,68 @@ export class Runs {
     const repo = fs.realpathSync(path.resolve(input.repo || path.join(this.root, 'demo', 'todo-cli')));
     if (!fs.statSync(repo).isDirectory()) throw new Error('工作目录必须是文件夹');
     const agents = input.agents ?? ['claude', 'zcode'];
-    if (!Array.isArray(agents) || !agents.length || agents.some(a => !['claude', 'zcode', 'devin', 'codex', 'opencode', 'antigravity'].includes(a))) throw new Error('请选择有效执行成员');
+    if (!Array.isArray(agents) || !agents.length || agents.some(a => !CLI_AGENTS.includes(a))) throw new Error('请选择有效执行成员');
     const main = input.main ?? 'claude';
-    if (!['claude', 'zcode', 'devin', 'codex', 'opencode', 'antigravity'].includes(main)) throw new Error('请选择有效主代理');
+    if (!validMain(main)) throw new Error('请选择有效主代理');
     const timeout = Number(input.timeout ?? 900);
     if (!Number.isInteger(timeout) || timeout < 60 || timeout > 3600) throw new Error('超时须在 60–3600 秒之间');
     const worktree = input.worktree === true;
     if (worktree && spawnSync('git', ['-C', repo, 'rev-parse', '--is-inside-work-tree'], { encoding: 'utf8', windowsHide: true }).status !== 0) throw new Error('worktree 模式需要 Git 仓库');
     return { repo, agents: [...new Set(agents)], main, timeout, worktree, models: validateModels(input.models) };
   }
-  start(input) {
-    const goal = String(input.goal || '').trim();
-    if (!goal || goal.length > 16000) throw new Error('目标不能为空且不能超过 16000 字符');
-    const settings = this.settings(input);
+  // 工作目录不能与其他进行中的运行重叠（同一 git 仓库内的子目录也算）
+  assertNoOverlap(repo, selfId = null) {
     const canonical = dir => {
       const git = spawnSync('git', ['-C', dir, 'rev-parse', '--show-toplevel'], { encoding: 'utf8', windowsHide: true });
       const p = path.resolve(git.status === 0 ? git.stdout.trim() : dir);
       return process.platform === 'win32' ? p.toLowerCase() : p;
     };
-    const target = canonical(settings.repo);
+    const target = canonical(repo);
     for (const run of this.active.values()) {
-      if (run.status !== 'running') continue;
+      if (run.status !== 'running' || run.id === selfId) continue;
       const other = canonical(run.settings.repo);
       if (target === other || target.startsWith(other + path.sep) || other.startsWith(target + path.sep)) throw new Error(`工作目录与运行 ${run.id} 重叠；请选择独立目录或独立 Git worktree`);
     }
+  }
+  start(input) {
+    // 对话模式（默认）：第一条消息原样发给主代理；goal 模式（mode: 'goal'）沿用"总目标 → finish_run"流程
+    const goal = String(input.message ?? input.goal ?? '').trim();
+    if (!goal || goal.length > 16000) throw new Error('消息不能为空且不能超过 16000 字符');
+    const settings = this.settings(input);
+    this.assertNoOverlap(settings.repo);
     const id = `web-${Date.now()}-${crypto.randomBytes(3).toString('hex')}`;
     const dir = this.dir(id);
     fs.mkdirSync(dir, { recursive: true });
     writeJson(path.join(dir, 'board.json'), { seq: { task: 0, msg: 0 }, tasks: [], messages: [] });
-    const meta = { id, goal, settings, startedAt: Date.now(), status: 'running', exitCode: null };
+    const meta = { id, goal, mode: input.mode === 'goal' ? 'goal' : 'chat', settings, startedAt: Date.now(), status: 'running', exitCode: null };
     writeJson(path.join(dir, 'run.json'), meta);
     writeJson(path.join(dir, 'runtime-config.json'), runtimeConfig(settings.models));
-    const args = [goal, '--repo', settings.repo, '--agents', settings.agents.join(','), '--main', settings.main, '--timeout', String(settings.timeout), '--data', dir];
+    const child = this.spawnRouter(meta, goal, false);
+    return { id, dir, pid: child.pid };
+  }
+  /** 对话已休眠/被停止：用新消息重新拉起 Router，--resume 续接原主代理会话 */
+  resume(id, text) {
+    const dir = this.dir(id);
+    const meta = readJson(path.join(dir, 'run.json'));
+    if (!meta?.settings || meta.mode !== 'chat') throw new Error('该运行不在进行中');
+    if (!fs.existsSync(meta.settings.repo)) throw new Error(`工作目录已不存在：${meta.settings.repo}`);
+    this.assertNoOverlap(meta.settings.repo, id);
+    const next = { ...meta, status: 'running', exitCode: null, error: undefined, resumedAt: Date.now() };
+    writeJson(path.join(dir, 'run.json'), next);
+    this.spawnRouter(next, text, true);
+    return { ok: true, delivery: 'resumed' };
+  }
+  spawnRouter(meta, text, resume) {
+    const { id, settings } = meta, dir = this.dir(id);
+    const args = [text, '--repo', settings.repo, '--agents', settings.agents.join(','), '--main', settings.main, '--timeout', String(settings.timeout), '--data', dir];
     if (settings.worktree) args.push('--worktree');
+    if (meta.mode === 'chat') args.push('--chat');
+    if (resume) args.push('--resume');
     let child;
     try { child = this.launch(args, { AGENT_ROUTER_RUN_CONFIG: path.join(dir, 'runtime-config.json') }); }
     catch (e) { writeJson(path.join(dir, 'run.json'), { ...meta, status: 'failed', error: e.message }); throw e; }
-    const run = { ...meta, dir, child, clients: new Set(), seq: 0, events: [], signature: '' };
+    const prev = this.active.get(id);
+    const run = { ...meta, dir, child, clients: prev?.clients || new Set(), seq: prev?.seq || 0, events: [], signature: '' };
     this.active.set(id, run);
     const output = chunk => {
       const line = String(chunk);
@@ -81,7 +125,7 @@ export class Runs {
     child.on('close', code => finish(code));
     run.timer = setInterval(() => this.poll(run), 1200);
     run.timer.unref();
-    return { id, dir, pid: child.pid };
+    return child;
   }
   poll(run) {
     try {
@@ -118,7 +162,7 @@ export class Runs {
       try {
         const d = this.detail(e.name); if (!d.board) return [];
         const tasks = d.board.tasks || [];
-        return [{ id: d.id, goal: d.goal, settings: d.settings, mtime: d.startedAt, live: this.running(d.id), status: d.status, summary: { total: tasks.length, done: tasks.filter(t => t.status === 'done').length, failed: tasks.filter(t => t.status === 'failed').length, running: tasks.filter(t => t.status === 'in_progress').length } }];
+        return [{ id: d.id, goal: d.goal, mode: d.mode, settings: d.settings, mtime: d.startedAt, live: this.running(d.id), status: d.status, summary: { total: tasks.length, done: tasks.filter(t => t.status === 'done').length, failed: tasks.filter(t => t.status === 'failed').length, running: tasks.filter(t => t.status === 'in_progress').length } }];
       } catch { return []; }
     }).sort((a, b) => b.mtime - a.mtime);
   }
@@ -129,7 +173,7 @@ export class Runs {
     const files = sub => {
       try { return fs.readdirSync(path.join(dir, sub)).filter(safeId).map(name => ({ name, size: fs.statSync(path.join(dir, sub, name)).size, mtime: fs.statSync(path.join(dir, sub, name)).mtimeMs })); } catch { return []; }
     };
-    return { id, goal: meta.goal || null, settings: run?.settings || meta.settings || null, status: run?.status || (meta.status === 'running' ? 'interrupted' : meta.status || 'finished'), exitCode: run?.exitCode ?? meta.exitCode ?? null, startedAt: meta.startedAt || fs.statSync(dir).mtimeMs, board: readJson(path.join(dir, 'board.json')), agentStatus: readJson(path.join(dir, 'status.json')), threads: files('threads'), logs: files('logs'), consoleAvailable: fs.existsSync(path.join(dir, 'console.log')) };
+    return { id, goal: meta.goal || goalFromThread(dir), mode: meta.mode || 'goal', settings: run?.settings || meta.settings || null, status: run?.status || (meta.status === 'running' ? 'interrupted' : meta.status || 'finished'), exitCode: run?.exitCode ?? meta.exitCode ?? null, startedAt: meta.startedAt || fs.statSync(dir).mtimeMs, board: readJson(path.join(dir, 'board.json')), agentStatus: readJson(path.join(dir, 'status.json')), threads: files('threads'), logs: files('logs'), consoleAvailable: fs.existsSync(path.join(dir, 'console.log')) };
   }
   command(id, cmd) {
     if (!this.running(id)) throw new Error('该运行不在进行中');
@@ -137,19 +181,33 @@ export class Runs {
     return { ok: true, delivery: 'queued' };
   }
   message(id, { text, to = 'manager', task_id = null }) {
-    if (!this.running(id)) throw new Error('该运行不在进行中');
-    const run = this.active.get(id);
     text = String(text || '').trim();
     if (!text || text.length > 16000) throw new Error('消息不能为空且不能超过 16000 字符');
+    if (!this.running(id) && to === 'manager') return this.resume(id, text);
+    if (!this.running(id)) throw new Error('该运行不在进行中');
+    const run = this.active.get(id);
     if (to === 'manager') return this.command(id, { type: 'message', text });
     if (!run.settings.agents.includes(to)) throw new Error('接收者不属于本次运行');
-    let result;
-    mutate(path.join(run.dir, 'board.json'), b => {
-      if (task_id && !b.tasks.some(t => t.id === task_id && t.assignee === to)) throw new Error('任务与接收者不匹配');
-      const message = { id: `M${++b.seq.msg}`, from: 'user', to, task_id, content: text, read: false, ts: new Date().toISOString() };
-      b.messages.push(message); result = { ok: true, delivery: 'mailbox', messageId: message.id };
-    });
-    this.poll(run); return result;
+    // 任务板归 Router 进程所有：留言经命令通道交给 Router 写入（子代理在 read_inbox 时看到）
+    const board = readJson(path.join(run.dir, 'board.json'), { tasks: [] });
+    if (task_id && !board.tasks.some(t => t.id === task_id && t.assignee === to)) throw new Error('任务与接收者不匹配');
+    this.command(id, { type: 'message', to, task_id, text });
+    return { ok: true, delivery: 'mailbox' };
+  }
+  /** 切换主代理：运行中则交给 Router 在当前回合结束后切换；休眠/停止时写入设置，下次唤醒由新主代理接手 */
+  switchMain(id, main) {
+    if (!validMain(main)) throw new Error('请选择有效主代理');
+    const file = path.join(this.dir(id), 'run.json');
+    const meta = readJson(file);
+    if (!meta?.settings) throw new Error('运行不存在');
+    if (meta.mode !== 'chat') throw new Error('只有对话可以切换主代理');
+    const settings = { ...meta.settings, main };
+    writeJson(file, { ...meta, settings });
+    const run = this.active.get(id);
+    if (run) run.settings = settings;
+    const running = this.running(id);
+    if (running) this.command(id, { type: 'switch_main', main });
+    return { ok: true, main, applied: running ? 'after_turn' : 'next_message' };
   }
   models(id, models) {
     if (!this.running(id)) throw new Error('只有运行中的会话可切换模型');

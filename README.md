@@ -6,34 +6,37 @@
 
 Everything stays on your machine — agent runtimes, sessions, task data and communication. Model inference calls each vendor's API; that is the only boundary.
 
-## Communication: shared task board + event-driven
+## How collaboration works
 
-Agents never talk to each other directly — everything goes through one **local MCP server** (stdio + a JSON file); the Router is the main agent's "hands and feet" (scheduler + event layer):
+You chat with the **main agent**. It works like Claude Code: it answers and makes small changes itself, and delegates larger or parallelizable work to **subagents** (other coding-agent CLIs on this machine) with `create_task`. Each conversation runs in one Router process:
 
 ```
-you ──goal──▶ main agent session (main thread, persistent, bidirectional stream-json)
-                ├─ create_task → returns instantly, keeps working on its own stuff
-                ├─ followup_task → a subagent continues with the original task context
-                ├─ receives [event]/[mailbox] pushes → replies / spawns follow-ups / codes itself
-                └─ goal achieved → calls finish_run to end the run
-                      ▲ events injected live            │ dispatch / harvest (Node scheduler)
-                ┌─────┴──────────────────────────────┴─────┐
-                │        board-server.mjs (MCP/stdio)      │
-                │   tasks + mailbox → data/<run>/board.json│
-                └─────┬──────────┬───────────┬─────────────┘
-              claude -p   agy(stream-json)  zcode -p   opencode run   devin acp
-             (subagents execute tasks: shared working tree by default, optional worktree isolation)
+you ──message──▶ main agent session (persistent: claude / antigravity / devin; turn-chained: zcode / codex / opencode)
+                   ├─ create_task / followup_task / cancel_task   (board tools via MCP)
+                   └─ receives [事件] (finished + full report / failed / blocked) and [信箱] (subagent messages)
+                         ▲ injected                      │ tool calls
+   ┌─────────────────────┴──────────────────────────────▼──────────────────────────┐
+   │ Router process                                                                │
+   │   core/board.mjs      task board, in memory (board.json is only a snapshot)   │
+   │   core/rpc.mjs        local RPC endpoint (127.0.0.1 + per-run token)          │
+   │   core/scheduler.mjs  event-driven dispatch: dependencies, per-agent          │
+   │                       concurrency, follow-ups, cancel                         │
+   │   core/workspace.mjs  direct / worktree preparation and harvest               │
+   └──────────────▲────────────────────────────────────────────────────────────────┘
+                  │ lib/board-server.mjs: thin stdio MCP proxy started by every agent CLI
+        claude -p · zcode -p · codex exec · opencode run · devin acp · agy   (subagent sessions)
 ```
 
-- **Non-blocking dispatch**: after the manager calls `create_task`, the scheduler dispatches ready tasks to the matching subagent within a second (concurrency 1 per subagent, FIFO), and pushes a "queued" event back to the main session.
-- **Follow-up (`followup_task`, Codex-style)**: the manager can ask the original subagent of a finished task to **continue** — the Router injects the original spec, previous result and the new instruction into a fresh session (no session resume: claude/zcode shell snapshots are anchored to the original session directory; resuming into a new directory breaks the Bash tool). The original task's execution mode is reused (direct, or worktree `task/T<id>-c<N>`); the harvest runs as usual afterwards.
-- **Live events**: task merge, failures, and subagent messages (`send_message` to manager) are injected into the main session immediately — no waiting for batch boundaries.
-- **The manager codes too**: tasks with `assignee: manager` are done by the main agent itself (in the main working tree, committing on its own).
-- **Dispatch mode (direct by default)**: subagents work directly in the main working tree (Codex-style shared workspace); multiple tasks run **simultaneously** — the only concurrency limit is "one task at a time per subagent". On completion the Router only force-commits changes the subagent forgot to commit; tasks without code changes are legitimate. For risky, experimental changes: `create_task` with `isolated: true` (per-task isolation), or run with `--worktree` (isolate everything). Note: parallel direct tasks share one working tree — editing the same files can conflict, so keep change scopes disjoint when planning.
-- **Git optional**: direct mode does not require a git repository — without git there are no commits, merges or rollbacks; the Router skips all git actions. `--worktree` isolation requires git.
-- **Isolation & harvest (worktree mode)**: one `git worktree` per task (`task/T<id>` branch); after the session the Router force-commits uncommitted changes, verifies the commit count, merges `--no-ff` back to the main branch, and on failure preserves the scene and pushes an event.
-- **Self-healing**: if the main session process dies it restarts with `--resume` (antigravity: `--conversation`) into the same session, losing no context; 10 minutes of total silence also triggers a forced restart.
-- **Observability**: the full main-session event stream is in `data/<run>/logs/manager-stream.log`; per-member output in `logs/`; the web console shows everything live.
+- **Router-owned lifecycle**: a task is `in_progress` as soon as its session starts and `done` when the session ends normally; the subagent's **final reply is its report**. Subagents only call `update_task(status="failed")` to report failure, so a forgotten tool call can no longer turn finished work into a failure.
+- **Full reports back to the main agent**: when a task finishes, its report (up to 4,000 characters; the full text stays on the board) and the harvest notes are injected as a `[事件]` message. Only completion, failure, blocked-dependency and subagent-message events wake the main agent; there are no "queued/started" notifications that cost a turn.
+- **Concurrency**: each agent runs up to `maxConcurrent` tasks at once (`router.config.json`; defaults: claude/codex/opencode/devin 2, zcode/antigravity 1 because they write their MCP config into the working directory). Tasks with `blocked_by` start when their dependencies are done; if a dependency fails, the main agent is told the task is blocked.
+- **Direct mode (default)**: subagents work in the shared working directory and commit exactly the files they changed. The Router never runs `git add -A` for them: it commits leftover changes only when no other task is running in that directory; otherwise it leaves them uncommitted and says so in the completion message, so changes are never attributed to the wrong task.
+- **Isolated tasks**: `create_task(isolated: true)` or `--worktree` runs a task in its own `git worktree`. On success the branch is merged `--no-ff` (tasks without code changes are fine); on failure or a merge conflict the worktree and branch are kept for inspection.
+- **Follow-ups**: `followup_task(task_id, message)` resumes the subagent's original session when the working directory is unchanged and the CLI supports it (claude, codex, opencode, zcode); otherwise a new session gets the original spec and previous report injected.
+- **Cancel**: the main agent (`cancel_task`) or the web UI can cancel a queued or running task; the session is terminated and its changes are left in place.
+- **Self-healing**: if the main session process dies it restarts into the same session (`--resume` / `--conversation`). In chat mode the Router sleeps after 30 idle minutes and the next message resumes the main agent's session; tasks that were running when the Router stopped are marked failed.
+- **Git optional**: without git there are no commits, merges or isolation; everything else works.
+- **Observability**: the main session's raw stream is in `data/<run>/logs/manager-stream.log`, every session's thread is in `data/<run>/threads/`, and the web app shows everything live.
 
 ## Prerequisites
 
@@ -70,22 +73,31 @@ The web settings panel fills the model dropdowns from each CLI (`opencode models
 
 ## Usage
 
-### Web console (dsh-native UI + classic console, same port)
+### Web app (recommended)
 
 ```bash
-node web/server.mjs        # dsh UI: http://127.0.0.1:2288/   classic console: /console/
+node web/server.mjs        # http://127.0.0.1:2288/
 ```
 
-> `dsh-web/` (a local deepseek-harness build) ships with the repository — the full dsh UI works out of the box; you can also replace it with your own build (must contain `index.html` and `dist/`).
+The web app is the DeepSeek harness (dsh) chat UI (the bundled `dsh-web/` build) with Agent Router's warm theme, top bar and panels injected on top. It works like a plain chat with Claude Code: tell the main agent what you want. It answers questions and makes small changes itself, and hands larger or parallelizable work to subagents with `create_task` (much like Claude Code's subagents). Their results flow back into the chat and it reports to you.
 
-> Rebuilding `dsh-web/` after a deepseek-harness update (current base: 0.2.0-rc.1): copy the two integration files from `web/dsh-harness-patch/` into the harness tree (`router-transport.ts` → `apps/web/src/`, plus the patched `main.ts` that wraps `start()` behind a `router-transport` import) — then `pnpm install && pnpm build`. Boot the web profile (`DSH_HOME=<scratch> node apps/cli/lib/bin.js --profile web --no-open`), follow the token URL to get the auth cookie, save the rendered `/` HTML as `dsh-web/index.html`, fetch every URL in its `__DSH_BOOT__` manifest into `dsh-web/plugins/` (document-relative URL → `pN.js`, plus `map.json`), and copy `apps/web/dist/{assets,favicon.svg,favicon-dark.svg,manifest.webmanifest}` to `dsh-web/dist/`. The manifest revs hash bundle mtimes, so plugins must be re-captured on every rebuild.
+- **New conversation**: click **新会话** in the sidebar. The run settings panel opens: working directory (paste a path, or browse), the main agent (any coding CLI, or a configured chat model), subagents (CLIs that aren't installed are greyed out), direct / isolated mode, subagent timeout and per-agent models. Settings save automatically; the folder chip above the input shows the directory and reopens the panel.
+- **The conversation is the main agent's session**: dsh renders replies, reasoning and tool calls natively. `[事件]` / `[信箱]` injections from the Router show as compact notices (click to expand).
+- **Subagents**: the main agent's session header has dsh's subagent dropdown (live status, click through to each subagent's full conversation, breadcrumb back). Subagent sessions appear in the sidebar as `↳ T1 · ZCode · <task>`. Messaging a subagent goes to its inbox; interrupting it cancels its task.
+- **Top bar**: run status and directory, plus **运行记录** (run history), **任务** (task board and mailbox), **设置** (run settings; after a run starts you can still switch the main agent and change models) and **环境** (which CLIs were found, install/login hints, resolved paths, chat-model API keys).
+- **Conversations never "finish"**: keep replying in the same session. After 30 idle minutes the background process sleeps; your next message wakes it and resumes the same main-agent session (`router.mjs --chat --resume`).
+- Light and dark mode follow the system setting.
 
-- **`/` (default)**: the deepseek-harness native web UI. The workspace sidebar lists each run's agent session threads (one thread per session); click through for the full conversation — task prompts, event notifications, expandable tool-call cards, AI replies — streamed live as thread files change. The "⧉ task board" button in the corner opens the board drawer (iframe integration, not a plugin).
-- **New session / messages in dsh** (bridged to this project's run model): "New session" just registers an empty session; the **first message = the overall goal, which starts a run** (default repo `demo/todo-cli`, members claude+zcode, direct mode; a `cwd` path in the message is used as the target directory if it exists and is not under the data dir). More messages during a run = **interjections to the manager**; "stop generating" = stop the run. That session's dsh conversation is the run's manager thread.
-- **dsh UI trims** (board-embed.js injection): hides buttons with no counterpart here — good/bad answer, branch in new conversation, add workspace, add files or instructions, feedback, model selector; "search sessions" still works; finished runs are no longer mislabelled as running.
-- **`/board`**: a redesigned task board page (openable standalone): run picker, status stats, task cards (status / assignee / duration / result / scene path) and the mailbox, auto-refresh every 2.5 s.
-- **`/console/`**: the classic lightweight console (task board / mailbox / interjections / cancel & retry / log modal).
-- Both UIs share the same data (`data/<run>/threads/*.jsonl`); dsh traffic is bridged to the dsh SessionEvent protocol by `web/dsh-bridge.mjs`.
+`/board` (task board page) and `/console/` (classic console) are still available. Everything shares the same data (`data/<run>/`). Without `dsh-web/`, `/` redirects to the classic console.
+
+<details><summary>Rebuilding <code>dsh-web/</code></summary>
+
+> `dsh-web/` (a local deepseek-harness build) ships with the repository; you can also replace it with your own build (must contain `index.html` and `dist/`).
+
+> Rebuilding `dsh-web/` after a deepseek-harness update (current base: **0.2.1-alpha.1**): the harness frontend source tree lives in-project at `deepseek-harness/` (gitignored; `git clone` it there once if missing). Copy the two integration files from `web/dsh-harness-patch/` into the tree (`router-transport.ts` → `apps/web/src/`, plus the patched `main.ts` that wraps `start()` behind a `router-transport` import) — then `pnpm install && pnpm build` (proxy env needed for the install). Finally run the automated capture: `node web/dsh-harness-patch/capture-dsh-web.mjs <harnessRoot> <projectRoot>/dsh-web 3080` — it boots the web profile with a scratch `DSH_HOME`, follows the token URL for the auth cookie, saves the rendered `/` HTML as `dsh-web/index.html`, fetches every `__DSH_BOOT__` manifest URL into `dsh-web/plugins/` (`pN.js` + `map.json`); you still copy `apps/web/dist/{assets,favicon.svg,favicon-dark.svg,manifest.webmanifest}` to `dsh-web/dist/` by hand. The manifest revs hash bundle mtimes, so plugins must be re-captured on every rebuild.
+
+> The Agent Router look is not part of the build: `web/public/router-ui.css` re-tints dsh's base palettes (`--dsw-static-neutral-bluish-*`, `--dsw-static-deepseek-*`), and `web/public/board-embed.js` adds the top bar and panels. Traffic is bridged to the dsh protocol by `web/dsh-bridge.mjs`.
+</details>
 
 ### Classic console
 
@@ -110,26 +122,18 @@ The board "mailbox" page can send messages to `manager` or a specific subagent. 
 ### CLI
 
 ```bash
-node router.mjs "<overall goal>" [options]
+node router.mjs "<message>" --chat [options]   # chat mode (what the web app uses)
+node router.mjs "<overall goal>" [options]     # goal mode: decompose the goal, finish_run when done
 
 Options:
-  --repo <dir>        target working directory (default ./demo/todo-cli; direct mode doesn't require git)
-  --agents <list>     participating members, comma-separated (default claude,zcode; options: devin,codex,opencode,antigravity)
-  --main <agent>      which CLI the main agent uses (default claude; options: zcode/devin/codex/opencode/antigravity, see "The main agent is selectable")
+  --repo <dir>        working directory (default ./demo/todo-cli; git is optional except for isolation)
+  --agents <list>     subagents, comma-separated (default claude,zcode; options: devin,codex,opencode,antigravity)
+  --main <agent>      which CLI the main agent uses (default claude; see "The main agent is selectable")
   --timeout <sec>     per-subagent session timeout (default 900)
-  --data <dir>        run data directory (default ./data/<timestamp>)
-  --worktree          isolated parallel mode: one worktree per task, merged on completion (default: direct)
-  --max-rounds <n>    (deprecated) unused in event-driven mode, kept for web-form compatibility
-```
-
-Examples:
-
-```bash
-node router.mjs "Add priority sorting to todo-cli, plus tests and a README update" --agents claude,zcode
-# ZCode as the main agent (subagents unchanged):
-node router.mjs "..." --main zcode --agents claude
-# Legacy isolated parallel mode (one worktree per task, parallel execution):
-node router.mjs "..." --agents claude,zcode --worktree
+  --data <dir>        run data directory (default ./data/run-<timestamp>)
+  --worktree          run every task in its own git worktree (default: direct; isolated:true isolates one task)
+  --chat              chat mode: no finish_run; sleeps after 30 idle minutes
+  --resume            with --data: resume the main agent's previous session in that directory
 ```
 
 ### The main agent is selectable (--main)
@@ -143,7 +147,27 @@ The main agent doesn't have to be Claude — any of the six CLIs can take the ro
 | `devin` | persistent ACP child process | sequential `session/prompt` on one session, events stream live; on crash rebuild prefers `session/load` context restore (requires `devin auth login`) |
 | `zcode` / `codex` / `opencode` | turn chaining | these CLIs have no persistent bidirectional stream: each injected message triggers one headless run, chained via sessionId; events are injected between turns, no live tool events within a turn |
 
-Both the web console and the dsh run settings have a "main agent" dropdown; `main` is saved with the run settings and cannot change while running.
+**Switching the main agent**: pick it in the run settings panel before the first message, or switch it there later inside a conversation. A running conversation switches after the current turn, and running subagent tasks are unaffected. A sleeping one switches when the next message wakes it. Sessions cannot be shared between CLIs, so the new main agent starts a fresh session and receives a handoff with the earlier conversation and the task board (`handoffMessage` in `lib/prompts.mjs`). From the API: `PATCH /api/runs/:id/main {"main": "zcode"}`.
+
+### Chat-only models (no tool use)
+
+A model that can only chat (DeepSeek, Kimi, a local model, or anything you can wrap) can join in two ways. The code lives in the standalone [`chat-agent/`](chat-agent/README.md) module.
+
+- **As the main agent.** The Router runs a text tool-calling protocol on its behalf: the model writes `<tool_call>{"name": …, "arguments": …}</tool_call>` blocks, the Router runs them (the board tools plus read-only `read_file` / `list_files` / `search` in the working directory), and the results go back in the next message. The model cannot edit or run anything itself, so it plans, delegates every change to subagents, and reviews their reports. History is saved under `data/<run>/chat-sessions/`, so `--resume` and switching main agents work as usual.
+- **As a `consult` tool.** Every agent (the main agent and subagents) gets a `consult(question, context?, files?)` tool that asks the model for a second opinion. The Router attaches the listed files.
+
+Configure models in `router.config.json`. Each name under `llm` becomes a main-agent choice (`--main deepseek`, or the "对话模型" section of the picker):
+
+```json
+{
+  "llm": {
+    "deepseek": { "label": "DeepSeek", "baseUrl": "https://api.deepseek.com/v1", "model": "deepseek-reasoner", "apiKeyEnv": "DEEPSEEK_API_KEY" }
+  },
+  "consult": "deepseek"
+}
+```
+
+Any OpenAI-compatible endpoint works; add `"proxy": "http://127.0.0.1:10808"` if needed. For anything else, point `"module"` at a JS file that exports `{ complete(messages) → { text } }`.
 
 ### Where to see the prompts
 
@@ -157,24 +181,31 @@ System prompt injection differs per main agent: claude uses `--append-system-pro
 
 ```
 data/<run>/
-├── board.json           # the task board: tasks + mailbox (the MCP server's storage)
+├── board.json           # snapshot of the task board (tasks + mailbox); the Router process owns the live state
+├── status.json          # main agent status + session id (used by --resume)
+├── commands.jsonl       # web → Router channel (messages, cancel, retry, model changes)
 ├── logs/                # raw output per session; the manager's full event stream (manager-stream.log)
 ├── threads/             # event thread per session; system entries = the actual system prompt sent to the AI
+├── chat-sessions/       # message history of a chat-model main agent (chat-agent/), one file per session id
 └── worktrees/           # only for --worktree or isolated tasks (auto-removed after a successful merge)
 ```
 
-## Board tools (available to every agent)
+## Board tools
 
-| Tool | Purpose |
-|---|---|
-| `create_task(title, spec, assignee, blocked_by?, isolated?)` | create a task (manager); `isolated: true` forces a dedicated worktree |
-| `followup_task(task_id, message)` | **manager only**: have a task's original subagent continue with the original context, appending new instructions |
-| `list_tasks` / `get_task` | inspect tasks |
-| `update_task(task_id, status, result?, artifacts?)` | claim (in_progress) / finish (done + result) / mark failed |
-| `send_message(to, content, task_id?)` | message a subagent, the manager, or `*` (everyone) |
-| `read_inbox()` | read your unread messages (auto-marked read) |
-| `get_roster()` | view the team roster |
-| `finish_run(summary)` | **manager only**: end the whole run once the goal is achieved |
+| Tool | Who | Purpose |
+|---|---|---|
+| `create_task(title, spec, assignee, blocked_by?, isolated?)` | manager | launch a subagent on a self-contained task (non-blocking) |
+| `followup_task(task_id, message)` | manager | have the original subagent continue a finished task |
+| `cancel_task(task_id, reason?)` | manager | cancel a queued or running task |
+| `list_tasks` / `get_task` | all | inspect tasks and full reports |
+| `update_task(task_id, status?, result?, artifacts?)` | all | subagents: report failure or attach a structured result (done is automatic); manager: complete its own tasks |
+| `send_message(to, content, task_id?)` | all | message a member, the manager, or `*` |
+| `read_inbox()` | all | read your messages |
+| `get_roster()` | all | view the team |
+| `finish_run(summary)` | manager | goal mode only: end the run |
+| `consult(question, context?, files?)` | all | only when `consult` is configured: ask a chat-only model for a second opinion |
+
+Tool definitions and permissions live in `core/tools.mjs`. Tests for the collaboration core: `node --test core/test.mjs` (includes an end-to-end run of `router.mjs` with fake agents).
 
 ## Permission policy (full access by default)
 
@@ -184,7 +215,7 @@ Every subagent session runs with maximum permissions; no tool use ever waits for
 
 - The main agent defaults to Claude Code; switch via `--main` / run settings to zcode / devin / codex / opencode / antigravity (zcode, codex, opencode are turn-chained: events are injected between turns, no live tool event stream within a turn).
 - The main agent is a single point: process crashes self-heal via `--resume` (antigravity: `--conversation`), but if restarts exceed the limit the run stalls (stoppable from the web console).
-- claude subagents are one-shot sessions and don't receive new messages mid-run (they check the mailbox at start/wrap-up); zcode / devin / opencode / antigravity are the same. True real-time bidirectionality exists only on the manager side (claude / antigravity / devin).
+- Subagents are one-shot sessions and don't receive new messages mid-run (they check the mailbox at the start and before finishing). True real-time bidirectionality exists only on the manager side (claude / antigravity / devin).
 - Worktree merge conflicts mark the task failed and push an event; no automatic rebase.
 - OpenCode requires CLI ≥ 1.18: on older versions (1.1.x) the zen server rejects every free-tier model headless with "free tier can only be used from within OpenCode". Free models queue for the first token (commonly 1–2 minutes) — use a subagent timeout of 300 s or more.
 - The Antigravity CLI's generation API is geo-restricted and requires a local proxy; its board MCP config is written into the target directory as `.agents/mcp_config.json` (restored when the run ends, and added to `.git/info/exclude`).

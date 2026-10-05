@@ -1,440 +1,624 @@
 window.__ModuleLoader__.load({
-	id: "@deepseek-ai/dsh-client-ui-skill",
+	id: "@deepseek-ai/dsh-client-ui-jobs",
 	factory: (require) => {
 		var module = { exports: {} };
 		var exports = module.exports;
 		Object.defineProperty(exports, Symbol.toStringTag, { value: "Module" });
-		let _deepseek_ai_dsh_client_ui_primitives = require("@deepseek-ai/dsh-client-ui-primitives");
 		let react_jsx_runtime = require("react/jsx-runtime");
 		let react = require("react");
-		//#region ../../util/workspace-path/src/file-address.ts
-		/** The scheme and type every file address opens with. */
-		const FILE_ADDRESS_PREFIX = "dsh-resource://file/";
-		/** Component-encode one id or path segment, keeping `:` literal for drive letters. */
-		function encodeSegment(segment) {
-			return encodeURIComponent(segment).replace(/%3A/gi, ":");
-		}
-		/** Encode a `/`-separated path segment by segment. */
-		function encodePath(path) {
-			return path.split("/").map(encodeSegment).join("/");
-		}
-		/**
-		* Build the address of a file read through one Session.
-		* @param sessionId - the Session whose Host workspace resolves the path.
-		* @param path - absolute or workspace-relative path; backslashes are normalized to `/`, and leading `./` prefixes are dropped.
-		* @returns the `dsh-resource://file/session/<sessionId>/<path>` address.
-		*/
-		function sessionFileAddress(sessionId, path) {
-			const normalized = path.replace(/\\/g, "/").replace(/^(?:\.\/)+/, "");
-			return `${FILE_ADDRESS_PREFIX}session/${encodeSegment(sessionId)}/${encodePath(normalized)}`;
-		}
-		//#endregion
-		//#region ../../util/workspace-path/src/index.ts
-		/**
-		* Browser-safe Workspace path and display helpers.
-		* @module @deepseek-ai/dsh-util-workspace-path
-		*/
-		/** Whether a path uses a Windows drive or UNC prefix. */
-		function isWindowsStylePath(value) {
-			return /^[A-Za-z]:[/\\]/.test(value) || value.startsWith("\\\\");
-		}
-		/**
-		* Whether a path is absolute in either spelling the Host accepts: POSIX (`/a/b`) or Windows drive or UNC.
-		* @param path - the path to classify.
-		* @returns `true` for an absolute path; `false` for a Workspace-relative one.
-		*/
-		function isAbsoluteWorkspacePath(path) {
-			return path.startsWith("/") || isWindowsStylePath(path);
-		}
-		/**
-		* The address for a path as a caller holds it: a relative path, or an absolute
-		* path inside the Session's workspace, becomes a `session`-scoped address; an
-		* absolute path outside it, or one whose workspace root is unknown, keeps its
-		* absolute path in that Session's address.
-		* @param sessionId - the Session the path is read in.
-		* @param cwd - that Session's workspace root, when known.
-		* @param path - absolute or workspace-relative path, in either separator spelling.
-		* @returns the `dsh-resource://file/…` address.
-		*/
-		function fileAddressFor(sessionId, cwd, path) {
-			const normalized = path.replace(/\\/g, "/");
-			if (!isAbsoluteWorkspacePath(normalized)) return sessionFileAddress(sessionId, normalized);
-			const root = cwd === void 0 ? "" : cwd.replace(/\\/g, "/").replace(/\/+$/, "");
-			if (root !== "" && normalized === root) return sessionFileAddress(sessionId, "");
-			if (root !== "" && normalized.startsWith(`${root}/`)) return sessionFileAddress(sessionId, normalized.slice(root.length + 1));
-			return sessionFileAddress(sessionId, normalized);
-		}
-		//#endregion
-		//#region \0dsh-css:D:\deepseek-harness\packages\client\ui-skill\src\client\SkillRow.module.css.mjs
-		const css = ".dT6IOG_card{flex-direction:column;display:flex}.dT6IOG_row{height:calc(24px + var(--dsh-content-font-delta,0px));align-items:center;min-width:0;display:flex;position:relative;overflow:hidden}.dT6IOG_row[data-expandable]{cursor:pointer}.dT6IOG_leading{width:calc(16px + var(--dsh-content-font-delta,0px));height:calc(16px + var(--dsh-content-font-delta,0px));color:var(--dsw-alias-label-tertiary);flex:none;justify-content:center;align-items:center;margin-right:6px;display:inline-flex;position:relative}.dT6IOG_leading svg{width:calc(14px + var(--dsh-content-font-delta,0px));height:calc(14px + var(--dsh-content-font-delta,0px))}.dT6IOG_chevron{color:var(--dsw-alias-label-secondary)}.dT6IOG_iconIdle{opacity:1;transition:opacity .1s;display:inline-flex}.dT6IOG_chevronHover{opacity:0;margin:auto;transition:opacity .1s;position:absolute;inset:0}.dT6IOG_row:hover .dT6IOG_iconIdle{opacity:0}.dT6IOG_row:hover .dT6IOG_chevronHover{opacity:1}.dT6IOG_title{font-size:var(--dsh-content-font-size-secondary,13px);line-height:calc(24px + var(--dsh-content-font-delta,0px));color:var(--dsw-alias-label-secondary);flex:none}.dT6IOG_separator{background:var(--dsw-alias-label-caption);border-radius:1px;flex:none;width:2px;height:2px;margin:0 8px}.dT6IOG_summary{text-overflow:ellipsis;white-space:nowrap;min-width:0;font-size:var(--dsh-content-font-size-secondary,13px);line-height:calc(24px + var(--dsh-content-font-delta,0px));color:var(--dsw-alias-label-tertiary);flex:auto;overflow:hidden}.dT6IOG_errorSummary{color:var(--dsw-alias-state-error-primary)}.dT6IOG_stoppedSummary{color:var(--dsw-alias-state-warn-label)}.dT6IOG_bodyWrap{flex-direction:column;display:flex}.dT6IOG_instructionsCard{border:.5px solid var(--dsw-alias-border-l1);border-radius:var(--dsw-radius-lg);background:var(--dsw-alias-markdown-code-block);flex-direction:column;max-height:260px;margin:4px 0 4px 4px;display:flex;overflow:hidden}.dT6IOG_instructionsHeader{border-bottom:.5px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-markdown-code-block-banner);color:var(--dsw-alias-label-caption);text-transform:uppercase;letter-spacing:.04em;flex:none;padding:8px 12px;font-size:11px;font-weight:500;line-height:16px}.dT6IOG_instructions{white-space:pre-wrap;overflow-wrap:anywhere;min-height:0;font:var(--dsw-font-markdown-code-block-small);color:var(--dsw-alias-label-secondary);margin:0;padding:10px 12px 12px;overflow:auto}.dT6IOG_instructions[data-error]{color:var(--dsw-alias-state-error-primary)}.dT6IOG_instructions::-webkit-scrollbar-thumb{border-radius:var(--dsw-radius-sm);background-clip:padding-box;border:2px solid #0000}.dT6IOG_instructions::-webkit-scrollbar-track{margin:6px 0}.dT6IOG_inspectButton{border:.5px solid var(--dsw-alias-border-l4);corner-shape:round;background:var(--dsw-alias-bg-base);color:var(--dsw-alias-label-secondary);cursor:pointer;opacity:0;border-radius:999px;align-self:flex-start;align-items:center;gap:4px;margin:4px 0 2px 4px;padding:2px 8px;font-size:11px;line-height:16px;transition:opacity .1s;display:inline-flex}.dT6IOG_card:hover .dT6IOG_inspectButton,.dT6IOG_inspectButton:focus-visible{opacity:1}.dT6IOG_inspectButton:hover{background:var(--dsw-alias-interactive-bg-hover-solid);color:var(--dsw-alias-label-primary)}.dT6IOG_visuallyHidden{clip:rect(0 0 0 0);white-space:nowrap;width:1px;height:1px;position:absolute;overflow:hidden}@media (prefers-reduced-motion:reduce){.dT6IOG_iconIdle,.dT6IOG_chevronHover,.dT6IOG_inspectButton{transition:none}}";
-		const tagId = "@deepseek-ai/dsh-client-ui-skill/SkillRow.module.css";
+		let _deepseek_ai_dsh_client_ui_primitives = require("@deepseek-ai/dsh-client-ui-primitives");
+		//#region \0dsh-css:D:\deepseek-harness\packages\client\ui-jobs\src\client\JobListAction.module.css.mjs
+		const css = "._4j2ROG_root{position:relative}._4j2ROG_trigger{border-radius:var(--dsw-radius-sm);min-height:28px;color:var(--dsw-alias-label-tertiary);cursor:pointer;background:0 0;border:0;align-items:center;gap:3px;padding:3px 2px;font-size:12px;line-height:18px;display:inline-flex}._4j2ROG_trigger:hover,._4j2ROG_trigger:focus-visible{color:var(--dsw-alias-label-secondary)}._4j2ROG_trigger svg{transition:transform .12s}._4j2ROG_triggerOpen{transform:rotate(180deg)}._4j2ROG_triggerDot{flex:none}._4j2ROG_count{margin:0 5px}._4j2ROG_menu{z-index:100;box-sizing:border-box;border-radius:var(--dsw-radius-lg);background:var(--dsw-specific-menu);width:500px;max-width:min(560px,100vw - 32px);max-height:min(480px,100vh - 140px);backdrop-filter:var(--dsw-menu-backdrop-filter);--dsh-scrollbar-thumb:var(--dsw-alias-scrollbar-bg-l2);--dsh-scrollbar-thumb-hover:var(--dsw-alias-scrollbar-hover-l2);--dsw-elevation-stroke-color:var(--dsw-alias-border-l1);box-shadow:var(--dsw-elevation-prominent);border:0;flex-direction:column;gap:1px;margin:0;padding:3px;list-style:none;display:flex;position:absolute;top:calc(100% + 5px);left:0;overflow:auto}._4j2ROG_sectionHeader{border-top:.5px solid var(--dsw-alias-border-l1);color:var(--dsw-alias-label-tertiary);justify-content:space-between;align-items:center;margin:4px 4px 1px;padding:4px 0 3px;font-size:11px;line-height:16px;display:flex}._4j2ROG_sectionHeader:first-child{border-top:0;margin-top:0}._4j2ROG_sectionToggle,._4j2ROG_sectionClear{border-radius:var(--dsw-radius-sm);color:var(--dsw-alias-label-tertiary);cursor:pointer;background:0 0;border:0;align-items:center;gap:3px;padding:2px 4px;font-size:11px;line-height:16px;display:inline-flex}._4j2ROG_sectionToggle:hover,._4j2ROG_sectionToggle:focus-visible,._4j2ROG_sectionClear:hover,._4j2ROG_sectionClear:focus-visible{background:var(--dsw-alias-fill-l1);color:var(--dsw-alias-label-secondary)}._4j2ROG_sectionChevron{transition:transform .12s;transform:rotate(-90deg)}._4j2ROG_sectionChevronOpen{transform:none}._4j2ROG_item{flex-direction:column;display:flex}._4j2ROG_rowLine{align-items:stretch;gap:6px;display:flex}._4j2ROG_rowLineLive{border-radius:var(--dsw-radius-md);background:var(--dsw-alias-fill-l2);padding:4px 8px 4px 2px}._4j2ROG_rowLineLive:hover{background:color-mix(in srgb, var(--dsw-alias-label-primary) 9%, transparent)}._4j2ROG_rowLineLive ._4j2ROG_kind{background:var(--dsw-specific-menu)}._4j2ROG_rowLine ._4j2ROG_row{flex:1;min-width:0}._4j2ROG_rowLineLive ._4j2ROG_row:hover{background:0 0}._4j2ROG_rowLineLive ._4j2ROG_row:focus-visible{background:color-mix(in srgb, var(--dsw-alias-label-primary) 6%, transparent)}._4j2ROG_chevronBox{border:.5px solid var(--dsw-alias-border-l2);border-radius:var(--dsw-radius-sm);background:var(--dsw-specific-menu);flex:none;justify-content:center;align-self:center;align-items:center;width:20px;height:20px;display:inline-flex}._4j2ROG_stop{border:.5px solid var(--dsw-alias-border-l2);border-radius:var(--dsw-radius-sm);background:var(--dsw-specific-menu);width:20px;height:20px;color:var(--dsw-alias-label-secondary);cursor:pointer;flex:none;justify-content:center;align-self:center;align-items:center;padding:0;display:inline-flex}._4j2ROG_stop:hover,._4j2ROG_stop:focus-visible{border-color:color-mix(in srgb, var(--dsw-alias-state-error-primary) 45%, transparent);color:var(--dsw-alias-state-error-primary)}._4j2ROG_stopArmed,._4j2ROG_stopArmed:hover,._4j2ROG_stopArmed:focus-visible{border-color:color-mix(in srgb, var(--dsw-alias-state-error-primary) 45%, transparent);background:color-mix(in srgb, var(--dsw-alias-state-error-primary) 12%, transparent);width:auto;color:var(--dsw-alias-state-error-primary);gap:4px;padding:0 7px}._4j2ROG_stopLabel{white-space:nowrap;font-size:11px;line-height:18px}._4j2ROG_stopFailed{color:var(--dsw-alias-state-error-primary)}._4j2ROG_row{box-sizing:border-box;border-radius:var(--dsw-radius-sm);width:100%;min-height:28px;color:var(--dsw-alias-label-primary);text-align:left;cursor:pointer;background:0 0;border:0;align-items:center;gap:6px;padding:4px 7px;font-size:12px;line-height:17px;display:flex}._4j2ROG_row:hover,._4j2ROG_row:focus-visible{background:var(--dsw-alias-fill-l1)}._4j2ROG_rowStatic{cursor:default}._4j2ROG_rowStatic:hover{background:0 0}._4j2ROG_rowSettled{color:var(--dsw-alias-label-tertiary)}._4j2ROG_row ._4j2ROG_rowDot{flex:none}._4j2ROG_main{flex-direction:column;flex:1;gap:2px;min-width:0;display:flex}._4j2ROG_primary{align-items:baseline;gap:8px;min-width:0;display:flex}._4j2ROG_secondary{align-items:center;gap:6px;min-width:0;display:flex}._4j2ROG_kind{border-radius:var(--dsw-radius-xs);background:var(--dsw-alias-fill-l2);color:var(--dsw-alias-label-secondary);flex:none;padding:0 5px;font-size:10px;line-height:16px}._4j2ROG_label{min-width:0;font-family:var(--dsw-font-mono);white-space:nowrap;text-overflow:ellipsis;flex:1;overflow:hidden}._4j2ROG_status{max-width:60%;color:var(--dsw-alias-label-tertiary);white-space:nowrap;text-overflow:ellipsis;flex:none;font-size:10px;line-height:16px;overflow:hidden}._4j2ROG_duration{color:var(--dsw-alias-label-tertiary);font-variant-numeric:tabular-nums;flex:none;font-size:11px;line-height:18px}._4j2ROG_chevron{color:var(--dsw-alias-label-tertiary);flex:none}._4j2ROG_chevronOpen{transform:rotate(180deg)}._4j2ROG_panel{--dsl-terminal-command-whitespace:pre-wrap;--dsl-terminal-line-whitespace:pre-wrap;--dsl-terminal-output-max-height:288px;margin:0 8px 8px}._4j2ROG_panel [data-terminal]{--dsl-terminal-gutter:12px}._4j2ROG_notice{color:var(--dsw-alias-label-tertiary);margin:0 8px 6px;font-size:11px;line-height:16px}._4j2ROG_noticeError{color:var(--dsw-alias-state-error-primary)}";
+		const tagId = "@deepseek-ai/dsh-client-ui-jobs/JobListAction.module.css";
 		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId) + "]") === null) {
 			const tag = document.createElement("style");
-			tag.dataset.plugin = "@deepseek-ai/dsh-client-ui-skill";
+			tag.dataset.plugin = "@deepseek-ai/dsh-client-ui-jobs";
 			tag.dataset.pluginCss = tagId;
 			tag.textContent = css;
 			document.head.appendChild(tag);
 		}
-		var SkillRow_module_css_default = {
-			"bodyWrap": "dT6IOG_bodyWrap",
-			"card": "dT6IOG_card",
-			"chevron": "dT6IOG_chevron",
-			"chevronHover": "dT6IOG_chevronHover",
-			"errorSummary": "dT6IOG_errorSummary",
-			"iconIdle": "dT6IOG_iconIdle",
-			"inspectButton": "dT6IOG_inspectButton",
-			"instructions": "dT6IOG_instructions",
-			"instructionsCard": "dT6IOG_instructionsCard",
-			"instructionsHeader": "dT6IOG_instructionsHeader",
-			"leading": "dT6IOG_leading",
-			"row": "dT6IOG_row",
-			"separator": "dT6IOG_separator",
-			"stoppedSummary": "dT6IOG_stoppedSummary",
-			"summary": "dT6IOG_summary",
-			"title": "dT6IOG_title",
-			"visuallyHidden": "dT6IOG_visuallyHidden"
+		var JobListAction_module_css_default = {
+			"chevron": "_4j2ROG_chevron",
+			"chevronBox": "_4j2ROG_chevronBox",
+			"chevronOpen": "_4j2ROG_chevronOpen",
+			"count": "_4j2ROG_count",
+			"duration": "_4j2ROG_duration",
+			"item": "_4j2ROG_item",
+			"kind": "_4j2ROG_kind",
+			"label": "_4j2ROG_label",
+			"main": "_4j2ROG_main",
+			"menu": "_4j2ROG_menu",
+			"notice": "_4j2ROG_notice",
+			"noticeError": "_4j2ROG_noticeError",
+			"panel": "_4j2ROG_panel",
+			"primary": "_4j2ROG_primary",
+			"root": "_4j2ROG_root",
+			"row": "_4j2ROG_row",
+			"rowDot": "_4j2ROG_rowDot",
+			"rowLine": "_4j2ROG_rowLine",
+			"rowLineLive": "_4j2ROG_rowLineLive",
+			"rowSettled": "_4j2ROG_rowSettled",
+			"rowStatic": "_4j2ROG_rowStatic",
+			"secondary": "_4j2ROG_secondary",
+			"sectionChevron": "_4j2ROG_sectionChevron",
+			"sectionChevronOpen": "_4j2ROG_sectionChevronOpen",
+			"sectionClear": "_4j2ROG_sectionClear",
+			"sectionHeader": "_4j2ROG_sectionHeader",
+			"sectionToggle": "_4j2ROG_sectionToggle",
+			"status": "_4j2ROG_status",
+			"stop": "_4j2ROG_stop",
+			"stopArmed": "_4j2ROG_stopArmed",
+			"stopFailed": "_4j2ROG_stopFailed",
+			"stopLabel": "_4j2ROG_stopLabel",
+			"trigger": "_4j2ROG_trigger",
+			"triggerDot": "_4j2ROG_triggerDot",
+			"triggerOpen": "_4j2ROG_triggerOpen"
 		};
 		//#endregion
-		//#region lib/types/client/SkillRow.js
-		/** First physical line for the collapsed error summary and malformed-args fallback. */
-		function firstLine(text) {
-			const newline = text.indexOf("\n");
-			return newline === -1 ? text : text.slice(0, newline);
+		//#region lib/types/client/JobListAction.js
+		/** Stable empty list so a session with no jobs keeps one array identity. */
+		const NO_JOBS = [];
+		/** Minimum gap kept between the popover and the viewport edges (the Menu primitive's portal margin). */
+		const VIEWPORT_MARGIN = 12;
+		/** How long an armed kill waits for its confirming press before disarming. */
+		const KILL_ARM_MS = 3e3;
+		/** How long a failed kill keeps its hint before the button resets. */
+		const KILL_FAILED_MS = 4e3;
+		function isLive(job) {
+			return job.status === "running" || job.status === "stopping";
 		}
-		/** Skill names are the only call argument the compact row presents. */
-		function skillName(argsRaw, callId) {
-			try {
-				const parsed = JSON.parse(argsRaw);
-				if (typeof parsed === "object" && parsed !== null) {
-					const name = parsed.name;
-					if (typeof name === "string" && name !== "") return firstLine(name);
-				}
-			} catch {}
-			return argsRaw === "" ? callId : firstLine(argsRaw);
+		/**
+		* Whether the row offers an output panel: every live job (its output may
+		* still arrive) and a settled one that left retained output behind.
+		*/
+		function isObservable(job) {
+			return isLive(job) || job.output.total > 0;
 		}
-		/** Flatten durable result blocks under the generic Tool-row text contract.
-		*  Keep aligned with ui-tool's models/tool-call-model.ts `resultText`. */
-		function resultText(block) {
-			if (!("kind" in block)) return null;
-			const parts = [];
-			for (const item of block.content) parts.push(item.type === "text" ? item.text : JSON.stringify(item, null, 2));
-			if (parts.length === 0 && block.error !== void 0) parts.push(`${block.error.name}: ${block.error.code}`);
-			return parts.join("\n") || null;
+		/** The one-line qualifier beside the status: live progress while running, the terminal reason once settled. */
+		function jobDetail(job) {
+			return job.progress ?? job.detail;
 		}
-		/** Derive display state without consulting the live skill catalog. */
-		function skillRowModel(block) {
-			const settled = "kind" in block;
-			const argsRaw = (settled ? block.call?.argsRaw : block.argsRaw) ?? "";
-			const state = !settled ? "running" : block.error?.code === "interrupted" ? "stopped" : block.isError ? "error" : "ok";
-			const output = resultText(block);
-			return {
-				name: skillName(argsRaw, block.callId),
-				output,
-				errorSummary: state === "error" && output !== null ? firstLine(output) : null,
-				state
-			};
+		/** Closed-union exhaustiveness fence for the wire status set. */
+		/* v8 ignore next 3 -- closed-union backstop; only reached if a status is forged */
+		function assertNever(value) {
+			throw new Error(`unhandled job status: ${JSON.stringify(value)}`);
 		}
-		/** Leading disclosure slot: state icon at rest, chevron on hover or while open. */
-		function disclosureLeading(open, expandable) {
-			if (open) return (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconChevronDownOutlineRegular, { className: SkillRow_module_css_default.chevron });
-			const icon = (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconSkillOutlineRegular, { size: 14 });
-			if (!expandable) return icon;
-			return (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [(0, react_jsx_runtime.jsx)("span", {
-				className: SkillRow_module_css_default.iconIdle,
-				children: icon
-			}), (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconChevronDownOutlineRegular, { className: `${SkillRow_module_css_default.chevron} ${SkillRow_module_css_default.chevronHover}` })] });
+		/**
+		* Status marker semantics. `stopping` and `killed` share the attention color:
+		* both mean the work ended (or is ending) on request rather than on its own.
+		*/
+		function dotState(status) {
+			switch (status) {
+				case "running": return "ongoing";
+				case "stopping": return "warning";
+				case "completed": return "done";
+				case "killed": return "warning";
+				case "failed": return "error";
+				/* v8 ignore next -- closed wire status union */
+				default: return assertNever(status);
+			}
 		}
-		/** Visually hidden state copy for the color-only running sweep and error tone. */
-		function stateStatus(state, t) {
-			switch (state) {
-				case "running": return t("row.running");
-				case "error": return t("row.failed");
-				default: return null;
+		function statusLabel(status, t) {
+			switch (status) {
+				case "running": return t("status.running");
+				case "stopping": return t("status.stopping");
+				case "completed": return t("status.completed");
+				case "killed": return t("status.killed");
+				case "failed": return t("status.failed");
+				/* v8 ignore next -- closed wire status union */
+				default: return assertNever(status);
 			}
 		}
 		/**
-		* Render one `skill` tool call as an accent summary and instructions disclosure.
-		* @param props - keyed toolview payload plus the skill locale seat.
-		* @returns the dedicated skill row.
+		* Elapsed time in at most two adjacent units. A job that outlives an hour is
+		* already exceptional, so hours is the widest unit — beyond that the figure
+		* stays in hours rather than growing a day/month vocabulary no producer
+		* currently reaches.
 		*/
-		function SkillRow(props) {
-			if (props.phase === "preparing") return (0, react_jsx_runtime.jsx)("div", {
-				className: SkillRow_module_css_default.card,
-				"data-tool": "skill",
-				"data-state": "preparing",
-				children: (0, react_jsx_runtime.jsxs)("div", {
-					className: SkillRow_module_css_default.row,
-					children: [
-						(0, react_jsx_runtime.jsx)("span", {
-							className: SkillRow_module_css_default.leading,
-							children: (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconSkillOutlineRegular, { size: 14 })
-						}),
-						(0, react_jsx_runtime.jsx)("span", {
-							className: SkillRow_module_css_default.visuallyHidden,
-							children: props.t("row.preparing")
-						}),
-						(0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.TextShimmer, {
-							active: true,
-							className: SkillRow_module_css_default.title,
-							children: props.t("row.title")
-						})
-					]
-				})
+		function formatDuration(elapsedMs, t) {
+			const total = Math.max(0, Math.floor(elapsedMs / 1e3));
+			const seconds = total % 60;
+			const minutes = Math.floor(total / 60) % 60;
+			const hours = Math.floor(total / 3600);
+			if (hours > 0) return t("duration.hours", {
+				hours,
+				minutes
 			});
-			return (0, react_jsx_runtime.jsx)(StartedSkillRow, { ...props });
+			if (minutes > 0) return t("duration.minutes", {
+				minutes,
+				seconds
+			});
+			return t("duration.seconds", { seconds });
 		}
-		function StartedSkillRow({ block, inspect, t }) {
-			const model = skillRowModel(block);
-			const [expanded, setExpanded] = (0, react.useState)(false);
-			const expandable = model.output !== null;
-			const open = expanded && expandable;
-			const status = stateStatus(model.state, t);
-			const running = model.state === "running";
-			const summary = model.state === "stopped" ? t("row.stopped") : model.errorSummary ?? model.name;
-			const toggleExpand = () => {
-				setExpanded((value) => !value);
+		/** Localized display copy for the embedded terminal panel. */
+		function terminalLabels(t) {
+			return {
+				/* v8 ignore next */
+				signal: (signal) => t("terminal.signal", { signal }),
+				/* v8 ignore next */
+				exitCode: (code) => t("terminal.exitCode", { code }),
+				noExitCode: t("terminal.noExitCode"),
+				running: t("terminal.running"),
+				failed: t("terminal.failed"),
+				done: t("terminal.done"),
+				copy: t("terminal.copy"),
+				copied: t("terminal.copied"),
+				noOutput: t("terminal.noOutput"),
+				collapseAria: t("terminal.collapseAria"),
+				collapse: t("terminal.collapse"),
+				/* v8 ignore next */
+				expandAria: (hidden) => t("terminal.expandAria", { n: hidden }),
+				/* v8 ignore next */
+				expand: (hidden) => t("terminal.expand", { n: hidden })
 			};
-			const toggleFromKeyboard = (event) => {
-				if (!expandable || event.key !== "Enter" && event.key !== " ") return;
-				event.preventDefault();
-				toggleExpand();
-			};
-			const disclosureProps = expandable ? {
-				role: "button",
-				tabIndex: 0,
-				"aria-expanded": open,
-				onClick: toggleExpand,
-				onKeyDown: toggleFromKeyboard
-			} : {};
-			const leading = disclosureLeading(open, expandable);
-			return (0, react_jsx_runtime.jsxs)("div", {
-				className: SkillRow_module_css_default.card,
-				"data-tool": "skill",
-				"data-state": model.state,
+		}
+		/**
+		* Live rows first in start order, then settled rows newest-first. Two rows
+		* that settled in the same millisecond fall back to start order, so the sort
+		* never depends on the host's map iteration.
+		*/
+		function ordered(jobs) {
+			return [...jobs].sort((left, right) => {
+				const liveLeft = isLive(left);
+				if (liveLeft !== isLive(right)) return liveLeft ? -1 : 1;
+				if (liveLeft) return left.startedAt - right.startedAt;
+				const finished = (right.finishedAt ?? right.startedAt) - (left.finishedAt ?? left.startedAt);
+				return finished !== 0 ? finished : left.startedAt - right.startedAt;
+			});
+		}
+		/** One job row plus, when observable and expanded, its live output panel. */
+		function JobItem({ job, view, expanded, now, onToggle, kill, t }) {
+			const live = isLive(job);
+			const status = statusLabel(job.status, t);
+			const detail = jobDetail(job);
+			const observable = isObservable(job);
+			const labels = (0, react.useMemo)(() => terminalLabels(t), [t]);
+			const duration = formatDuration(live ? now - job.startedAt : (job.finishedAt ?? job.startedAt) - job.startedAt, t);
+			const durationCell = (0, react_jsx_runtime.jsx)("span", {
+				className: JobListAction_module_css_default.duration,
+				title: t(live ? "duration.title.live" : "duration.title.done", { duration }),
+				children: duration
+			});
+			const body = live ? (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [
+				(0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.StateDot, {
+					state: dotState(job.status),
+					className: JobListAction_module_css_default.rowDot
+				}),
+				(0, react_jsx_runtime.jsxs)("span", {
+					className: JobListAction_module_css_default.main,
+					children: [(0, react_jsx_runtime.jsx)("span", {
+						className: JobListAction_module_css_default.primary,
+						children: (0, react_jsx_runtime.jsx)("span", {
+							className: JobListAction_module_css_default.label,
+							title: job.label,
+							children: job.label
+						})
+					}), (0, react_jsx_runtime.jsxs)("span", {
+						className: JobListAction_module_css_default.secondary,
+						title: detail ?? status,
+						children: [
+							(0, react_jsx_runtime.jsx)("span", {
+								className: JobListAction_module_css_default.kind,
+								children: job.kind
+							}),
+							detail !== void 0 ? (0, react_jsx_runtime.jsx)("span", {
+								className: JobListAction_module_css_default.status,
+								children: detail
+							}) : null,
+							durationCell
+						]
+					})]
+				}),
+				(0, react_jsx_runtime.jsx)("span", {
+					className: JobListAction_module_css_default.chevronBox,
+					children: (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconChevronDownOutlineRegular, {
+						size: 12,
+						className: expanded ? `${JobListAction_module_css_default.chevron} ${JobListAction_module_css_default.chevronOpen}` : JobListAction_module_css_default.chevron
+					})
+				})
+			] }) : (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [
+				(0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.StateDot, {
+					state: dotState(job.status),
+					className: JobListAction_module_css_default.rowDot
+				}),
+				(0, react_jsx_runtime.jsx)("span", {
+					className: JobListAction_module_css_default.kind,
+					children: job.kind
+				}),
+				(0, react_jsx_runtime.jsx)("span", {
+					className: JobListAction_module_css_default.label,
+					title: job.label,
+					children: job.label
+				}),
+				(0, react_jsx_runtime.jsx)("span", {
+					className: JobListAction_module_css_default.status,
+					title: detail ?? status,
+					children: detail ?? status
+				}),
+				durationCell,
+				observable ? (0, react_jsx_runtime.jsx)("span", {
+					className: JobListAction_module_css_default.chevronBox,
+					children: (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconChevronDownOutlineRegular, {
+						size: 12,
+						className: expanded ? `${JobListAction_module_css_default.chevron} ${JobListAction_module_css_default.chevronOpen}` : JobListAction_module_css_default.chevron
+					})
+				}) : null
+			] });
+			const killTitle = kill === void 0 ? void 0 : kill.state === "armed" ? t("kill.confirm") : kill.state === "failed" ? t("kill.failed") : t("kill.stop", { label: job.label });
+			return (0, react_jsx_runtime.jsxs)("li", {
+				className: JobListAction_module_css_default.item,
 				children: [(0, react_jsx_runtime.jsxs)("div", {
-					className: SkillRow_module_css_default.row,
-					"data-expandable": expandable || void 0,
-					...disclosureProps,
+					className: live ? `${JobListAction_module_css_default.rowLine} ${JobListAction_module_css_default.rowLineLive}` : JobListAction_module_css_default.rowLine,
+					children: [observable ? (0, react_jsx_runtime.jsx)("button", {
+						type: "button",
+						className: live ? JobListAction_module_css_default.row : `${JobListAction_module_css_default.row} ${JobListAction_module_css_default.rowSettled}`,
+						"aria-expanded": expanded,
+						"aria-label": t(expanded ? "row.collapseAria" : "row.expandAria", { label: job.label }),
+						onClick: onToggle,
+						children: body
+					}) : (0, react_jsx_runtime.jsx)("span", {
+						className: `${JobListAction_module_css_default.row} ${JobListAction_module_css_default.rowSettled} ${JobListAction_module_css_default.rowStatic}`,
+						children: body
+					}), kill !== void 0 ? (0, react_jsx_runtime.jsxs)("button", {
+						type: "button",
+						className: kill.state === "armed" ? `${JobListAction_module_css_default.stop} ${JobListAction_module_css_default.stopArmed}` : kill.state === "failed" ? `${JobListAction_module_css_default.stop} ${JobListAction_module_css_default.stopFailed}` : JobListAction_module_css_default.stop,
+						"data-kill-state": kill.state,
+						disabled: kill.state === "pending",
+						"aria-label": killTitle,
+						title: killTitle,
+						onClick: kill.onPress,
+						children: [(0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconStopFillRegular, { size: 10 }), kill.state === "armed" ? (0, react_jsx_runtime.jsx)("span", {
+							className: JobListAction_module_css_default.stopLabel,
+							children: t("kill.confirmAction")
+						}) : null]
+					}) : null]
+				}), expanded && view !== void 0 ? (0, react_jsx_runtime.jsxs)("div", {
+					className: JobListAction_module_css_default.panel,
 					children: [
-						(0, react_jsx_runtime.jsx)("span", {
-							className: SkillRow_module_css_default.leading,
-							children: leading
-						}),
-						status !== null ? (0, react_jsx_runtime.jsx)("span", {
-							className: SkillRow_module_css_default.visuallyHidden,
-							children: status
+						view.gapBefore ? (0, react_jsx_runtime.jsx)("div", {
+							className: JobListAction_module_css_default.notice,
+							children: t("output.gap")
 						}) : null,
-						(0, react_jsx_runtime.jsxs)(_deepseek_ai_dsh_client_ui_primitives.TextShimmer, {
-							active: running,
-							children: [
-								(0, react_jsx_runtime.jsx)("span", {
-									className: SkillRow_module_css_default.title,
-									children: (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.TextShimmer, { children: t("row.title") })
-								}),
-								(0, react_jsx_runtime.jsx)("span", {
-									className: SkillRow_module_css_default.separator,
-									"data-shimmer-decoration": true,
-									"aria-hidden": true
-								}),
-								(0, react_jsx_runtime.jsx)("span", {
-									className: `${SkillRow_module_css_default.summary}${model.state === "error" ? ` ${SkillRow_module_css_default.errorSummary}` : model.state === "stopped" ? ` ${SkillRow_module_css_default.stoppedSummary}` : ""}`,
-									children: (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.TextShimmer, { children: summary })
-								})
-							]
+						view.error !== void 0 ? (0, react_jsx_runtime.jsx)("div", {
+							className: `${JobListAction_module_css_default.notice} ${JobListAction_module_css_default.noticeError}`,
+							children: t("output.error", { error: view.error })
+						}) : null,
+						(0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.TerminalBlock, {
+							command: job.label,
+							output: view.text,
+							running: live,
+							copyText: job.label,
+							runStateDot: false,
+							maxLines: Number.POSITIVE_INFINITY,
+							labels
 						})
 					]
-				}), open ? (0, react_jsx_runtime.jsxs)("div", {
-					className: SkillRow_module_css_default.bodyWrap,
-					children: [(0, react_jsx_runtime.jsxs)("section", {
-						className: SkillRow_module_css_default.instructionsCard,
-						"aria-label": t("row.instructions"),
-						children: [(0, react_jsx_runtime.jsx)("div", {
-							className: SkillRow_module_css_default.instructionsHeader,
-							children: t("row.instructions")
-						}), (0, react_jsx_runtime.jsx)("pre", {
-							className: SkillRow_module_css_default.instructions,
-							"data-error": model.state === "error" || void 0,
-							children: model.output
-						})]
-					}), inspect !== void 0 ? (0, react_jsx_runtime.jsxs)("button", {
-						type: "button",
-						className: SkillRow_module_css_default.inspectButton,
-						onClick: inspect,
-						children: [(0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconInspectOutlineRegular, {}), t("row.inspect")]
-					}) : null]
+				}) : null]
+			});
+		}
+		/**
+		* Session-header entry point for this session's background jobs. Mounting it
+		* keeps the session's roster stream open; it renders nothing at all until the
+		* session can see at least one job. Expanding an observable row (a live job,
+		* or a settled one with retained output) starts its observation stream, and
+		* collapsing (or closing the popover) stops it — output only flows while
+		* someone is watching. A running row carries a two-press stop button that
+		* requests a human kill through the job controller.
+		* @param props - runtime slot currency, the jobs snapshot hook, the roster,
+		*   observation, and kill controls, and the namespace translator.
+		* @returns the trigger and its popover list, or null when there is nothing to show.
+		*/
+		function JobListAction({ sessionId, useJobs, watchRows, observe, killJob, t }) {
+			const jobs = useJobs((state) => state.rows[sessionId]) ?? NO_JOBS;
+			const observedViews = useJobs((state) => state.observed);
+			const [open, setOpen] = (0, react.useState)(false);
+			const [expandedKey, setExpandedKey] = (0, react.useState)(void 0);
+			const [now, setNow] = (0, react.useState)(() => Date.now());
+			const [settledOpen, setSettledOpen] = (0, react.useState)(void 0);
+			const [clearedKeys, setClearedKeys] = (0, react.useState)(() => /* @__PURE__ */ new Set());
+			const [killPhase, setKillPhase] = (0, react.useState)(void 0);
+			const rootRef = (0, react.useRef)(null);
+			const triggerRef = (0, react.useRef)(null);
+			const menuRef = (0, react.useRef)(null);
+			const [menuShift, setMenuShift] = (0, react.useState)(0);
+			const rows = (0, react.useMemo)(() => ordered(jobs), [jobs]);
+			const liveRows = (0, react.useMemo)(() => rows.filter(isLive), [rows]);
+			const settledRows = (0, react.useMemo)(() => rows.filter((job) => !isLive(job) && !clearedKeys.has(String(job.id))), [rows, clearedKeys]);
+			const settledExpanded = settledOpen ?? liveRows.length === 0;
+			const visibleCount = liveRows.length + settledRows.length;
+			(0, _deepseek_ai_dsh_client_ui_primitives.useDismissOnOutsidePointer)(rootRef, open, setOpen);
+			(0, react.useEffect)(() => watchRows(sessionId), [sessionId, watchRows]);
+			(0, react.useEffect)(() => {
+				if (!open || liveRows.length === 0) return;
+				setNow(Date.now());
+				const timer = setInterval(() => {
+					setNow(Date.now());
+				}, 1e3);
+				return () => {
+					clearInterval(timer);
+				};
+			}, [open, liveRows.length]);
+			(0, react.useLayoutEffect)(() => {
+				if (!open) {
+					setMenuShift(0);
+					return;
+				}
+				const fit = () => {
+					const root = rootRef.current;
+					const menu = menuRef.current;
+					/* v8 ignore next -- both refs are attached while the open popover renders. */
+					if (root === null || menu === null) return;
+					const width = menu.offsetWidth;
+					if (width === 0) return;
+					const anchorLeft = root.getBoundingClientRect().left;
+					setMenuShift(Math.max(VIEWPORT_MARGIN - anchorLeft, Math.min(0, window.innerWidth - VIEWPORT_MARGIN - width - anchorLeft)));
+				};
+				fit();
+				window.addEventListener("resize", fit);
+				return () => {
+					window.removeEventListener("resize", fit);
+				};
+			}, [open]);
+			const expandedRow = open && expandedKey !== void 0 ? rows.find((job) => String(job.id) === expandedKey) : void 0;
+			const activeJob = expandedRow !== void 0 && isObservable(expandedRow) ? expandedRow.id : void 0;
+			(0, react.useEffect)(() => {
+				if (activeJob === void 0) return;
+				return observe(sessionId, activeJob);
+			}, [
+				sessionId,
+				activeJob,
+				observe
+			]);
+			(0, react.useEffect)(() => {
+				if (visibleCount === 0 && open) setOpen(false);
+			}, [visibleCount, open]);
+			(0, react.useEffect)(() => {
+				if (expandedKey !== void 0 && !rows.some((job) => String(job.id) === expandedKey)) setExpandedKey(void 0);
+			}, [rows, expandedKey]);
+			(0, react.useEffect)(() => {
+				if (killPhase === void 0 || killPhase.state === "pending") return;
+				const timer = setTimeout(() => {
+					setKillPhase(void 0);
+				}, killPhase.state === "armed" ? KILL_ARM_MS : KILL_FAILED_MS);
+				return () => {
+					clearTimeout(timer);
+				};
+			}, [killPhase]);
+			(0, react.useEffect)(() => {
+				if (killPhase !== void 0 && !rows.some((job) => String(job.id) === killPhase.key && job.status === "running")) setKillPhase(void 0);
+			}, [rows, killPhase]);
+			const pressKill = (job) => {
+				const key = String(job.id);
+				if (killPhase?.key !== key || killPhase.state !== "armed") {
+					setKillPhase({
+						key,
+						state: "armed"
+					});
+					return;
+				}
+				setKillPhase({
+					key,
+					state: "pending"
+				});
+				killJob(sessionId, key).then((ok) => {
+					setKillPhase((current) => current?.key === key && !ok ? {
+						key,
+						state: "failed"
+					} : current);
+				});
+			};
+			if (visibleCount === 0) return null;
+			const countLabel = t(liveRows.length > 0 ? liveRows.length === 1 ? "count.live.one" : "count.live.other" : visibleCount === 1 ? "count.idle.one" : "count.idle.other", { count: liveRows.length > 0 ? liveRows.length : visibleCount });
+			const clearSettled = () => {
+				setClearedKeys((current) => {
+					const next = new Set(current);
+					for (const job of settledRows) next.add(String(job.id));
+					return next;
+				});
+				if (expandedKey !== void 0 && settledRows.some((job) => String(job.id) === expandedKey)) setExpandedKey(void 0);
+			};
+			const onKeyDown = (event) => {
+				if (event.key !== "Escape" || !open) return;
+				event.preventDefault();
+				setOpen(false);
+				triggerRef.current?.focus();
+			};
+			const item = (job) => (0, react_jsx_runtime.jsx)(JobItem, {
+				job,
+				view: isObservable(job) ? observedViews[String(job.id)] : void 0,
+				expanded: expandedKey === String(job.id),
+				now,
+				onToggle: () => {
+					setExpandedKey((current) => current === String(job.id) ? void 0 : String(job.id));
+				},
+				...job.status === "running" ? { kill: {
+					state: killPhase?.key === String(job.id) ? killPhase.state : "idle",
+					onPress: () => {
+						pressKill(job);
+					}
+				} } : {},
+				t
+			}, String(job.id));
+			return (0, react_jsx_runtime.jsxs)("div", {
+				ref: rootRef,
+				className: JobListAction_module_css_default.root,
+				onKeyDown,
+				children: [(0, react_jsx_runtime.jsxs)("button", {
+					ref: triggerRef,
+					type: "button",
+					className: JobListAction_module_css_default.trigger,
+					"aria-expanded": open,
+					"aria-label": countLabel,
+					onClick: () => {
+						setNow(Date.now());
+						setOpen((current) => !current);
+					},
+					children: [
+						liveRows.length > 0 ? (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.StateDot, {
+							state: "ongoing",
+							className: JobListAction_module_css_default.triggerDot
+						}) : null,
+						(0, react_jsx_runtime.jsx)("span", {
+							className: JobListAction_module_css_default.count,
+							children: countLabel
+						}),
+						(0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconChevronDownOutlineRegular, {
+							size: 12,
+							className: open ? JobListAction_module_css_default.triggerOpen : void 0
+						})
+					]
+				}), open ? (0, react_jsx_runtime.jsxs)("ul", {
+					ref: menuRef,
+					className: JobListAction_module_css_default.menu,
+					style: { left: menuShift },
+					"aria-label": t("list.aria"),
+					children: [
+						liveRows.length > 0 ? (0, react_jsx_runtime.jsx)("li", {
+							className: JobListAction_module_css_default.sectionHeader,
+							"aria-hidden": "true",
+							children: t("section.live")
+						}) : null,
+						liveRows.map(item),
+						settledRows.length > 0 ? (0, react_jsx_runtime.jsxs)("li", {
+							className: JobListAction_module_css_default.sectionHeader,
+							children: [(0, react_jsx_runtime.jsxs)("button", {
+								type: "button",
+								className: JobListAction_module_css_default.sectionToggle,
+								"aria-expanded": settledExpanded,
+								onClick: () => {
+									setSettledOpen(!settledExpanded);
+								},
+								children: [(0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconChevronDownOutlineRegular, {
+									size: 12,
+									className: settledExpanded ? `${JobListAction_module_css_default.sectionChevron} ${JobListAction_module_css_default.sectionChevronOpen}` : JobListAction_module_css_default.sectionChevron
+								}), t("section.settledCount", { count: settledRows.length })]
+							}), (0, react_jsx_runtime.jsx)("button", {
+								type: "button",
+								className: JobListAction_module_css_default.sectionClear,
+								onClick: clearSettled,
+								children: t("section.clear")
+							})]
+						}) : null,
+						settledExpanded ? settledRows.map(item) : null
+					]
 				}) : null]
 			});
 		}
 		//#endregion
 		//#region lib/types/client/locales.js
-		/** `skill` namespace dictionaries for the dedicated tool row. */
-		/** Dictionary namespace owned by this plugin. */
-		const NS = "skill";
 		/** Simplified Chinese dictionary (the key-set source of truth). */
 		const zh = {
-			"row.title": "加载技能",
-			"row.running": "正在加载 skill",
-			"row.preparing": "准备加载技能",
-			"row.failed": "skill 加载失败",
-			"row.stopped": "skill 加载已中止",
-			"row.instructions": "说明",
-			"row.inspect": "查看",
-			"menu.userOnly": "仅用户"
+			"count.live.one": "{count} 个后台任务运行中",
+			"count.live.other": "{count} 个后台任务运行中",
+			"count.idle.one": "{count} 个后台任务",
+			"count.idle.other": "{count} 个后台任务",
+			"list.aria": "后台任务",
+			"section.live": "进行中",
+			"section.settledCount": "已结束 {count}",
+			"section.clear": "清空",
+			"row.expandAria": "展开 {label} 的实时输出",
+			"row.collapseAria": "收起 {label} 的实时输出",
+			"kill.stop": "停止任务 {label}",
+			"kill.confirm": "再次点击确认停止",
+			"kill.confirmAction": "确认停止",
+			"kill.failed": "停止失败",
+			"status.running": "运行中",
+			"status.stopping": "正在停止",
+			"status.completed": "已完成",
+			"status.killed": "已取消",
+			"status.failed": "已失败",
+			"duration.seconds": "{seconds}秒",
+			"duration.minutes": "{minutes}分{seconds}秒",
+			"duration.hours": "{hours}小时{minutes}分",
+			"duration.title.live": "已运行 {duration}",
+			"duration.title.done": "耗时 {duration}",
+			"output.gap": "……较早的输出已丢弃……",
+			"output.error": "实时输出流中断：{error}",
+			"terminal.signal": "信号 {signal}",
+			"terminal.exitCode": "退出码 {code}",
+			"terminal.noExitCode": "未正常退出",
+			"terminal.running": "运行中",
+			"terminal.failed": "已失败",
+			"terminal.done": "已完成",
+			"terminal.copy": "复制",
+			"terminal.copied": "已复制",
+			"terminal.noOutput": "（无输出）",
+			"terminal.collapse": "收起",
+			"terminal.collapseAria": "收起输出",
+			"terminal.expand": "展开其余 {n} 行",
+			"terminal.expandAria": "展开被折叠的 {n} 行输出"
 		};
-		/** English dictionary, checked complete against the zh key set. */
+		/** English dictionary, key-identical to the Chinese source of truth. */
 		const en = {
-			"row.title": "Skill",
-			"row.running": "Loading skill",
-			"row.preparing": "Preparing to load a skill",
-			"row.failed": "Skill load failed",
-			"row.stopped": "Skill load stopped",
-			"row.instructions": "Instructions",
-			"row.inspect": "Inspect",
-			"menu.userOnly": "user-only"
+			"count.live.one": "{count} background job running",
+			"count.live.other": "{count} background jobs running",
+			"count.idle.one": "{count} background job",
+			"count.idle.other": "{count} background jobs",
+			"list.aria": "Background jobs",
+			"section.live": "Running",
+			"section.settledCount": "Finished {count}",
+			"section.clear": "Clear",
+			"row.expandAria": "Show live output of {label}",
+			"row.collapseAria": "Hide live output of {label}",
+			"kill.stop": "Stop task {label}",
+			"kill.confirm": "Click again to confirm",
+			"kill.confirmAction": "Confirm stop",
+			"kill.failed": "Stop failed",
+			"status.running": "running",
+			"status.stopping": "stopping",
+			"status.completed": "completed",
+			"status.killed": "cancelled",
+			"status.failed": "failed",
+			"duration.seconds": "{seconds}s",
+			"duration.minutes": "{minutes}m {seconds}s",
+			"duration.hours": "{hours}h {minutes}m",
+			"duration.title.live": "Running for {duration}",
+			"duration.title.done": "Took {duration}",
+			"output.gap": "… earlier output dropped …",
+			"output.error": "live output stream interrupted: {error}",
+			"terminal.signal": "signal {signal}",
+			"terminal.exitCode": "exit {code}",
+			"terminal.noExitCode": "no exit code",
+			"terminal.running": "running",
+			"terminal.failed": "failed",
+			"terminal.done": "done",
+			"terminal.copy": "Copy",
+			"terminal.copied": "Copied",
+			"terminal.noOutput": "(no output)",
+			"terminal.collapse": "Collapse",
+			"terminal.collapseAria": "Collapse output",
+			"terminal.expand": "Show {n} more lines",
+			"terminal.expandAria": "Expand {n} collapsed output lines"
 		};
 		//#endregion
 		//#region lib/types/client/index.js
-		/** Required services: reference source faces plus the tool-row and locale registries. */
+		/** Required services: the jobs rosters, observations, and kill, the slot registry, and dictionaries. */
 		const inject = [
-			"inputTriggers",
-			"sessions",
+			"jobs",
 			"slots",
-			"locale",
-			"remote",
-			"remote.skills",
-			"sidebarRight"
+			"locale"
 		];
 		/**
-		* Client plugin body: register the '/' source, dictionaries, and keyed tool row.
+		* Client plugin body: register the dictionaries and the header action.
 		* @param ctx - client root context.
 		*/
 		function apply(ctx) {
-			ctx.effect(() => ctx.locale.register(NS, {
+			ctx.effect(() => ctx.locale.register("job", {
 				zh,
 				en
-			}), "ui-skill: dictionaries");
-			ctx.slots.inject("tool.call.toolview", () => ctx.slots.register({
-				name: "tool.call.toolview",
-				key: "skill",
-				locale: NS
-			}, SkillRow));
-			const skills = ctx.remote.skills;
-			const sessions = ctx.sessions;
-			const fetches = /* @__PURE__ */ new Map();
-			const lexiconListeners = /* @__PURE__ */ new Map();
-			const notifyLexicon = (sessionId) => {
-				for (const listener of [...lexiconListeners.get(sessionId) ?? []]) try {
-					listener();
-				} catch (error) {
-					console.error("[ui-skill] lexicon listener failed:", error);
-				}
-			};
-			const fetchCatalog = (sessionId) => {
-				const existing = fetches.get(sessionId);
-				if (existing !== void 0) return existing;
-				const abort = new AbortController();
-				const promise = (async () => {
-					if (sessions.binding(sessionId) === void 0) throw new Error(`skill catalog requires a retained session "${sessionId}"`);
-					return sessions.using(sessionId, {
-						source: "skillCatalog",
-						signal: abort.signal
-					}, async (reference) => {
-						abort.signal.throwIfAborted();
-						const state = reference.binding.session.getSnapshot();
-						if (state.openState !== "open") throw state.openError ?? /* @__PURE__ */ new Error(`session "${sessionId}" is not open`);
-						const result = await skills.list({ sessionId }, abort.signal);
-						abort.signal.throwIfAborted();
-						if (!result.ok) throw new Error(`skills/list failed: ${result.error.code}: ${result.error.message}`);
-						return result.value.skills;
-					});
-				})();
-				const entry = {
-					promise,
-					abort
-				};
-				fetches.set(sessionId, entry);
-				promise.then((skills) => {
-					entry.settled = skills;
-					notifyLexicon(sessionId);
-				}, () => {
-					if (fetches.get(sessionId) === entry) fetches.delete(sessionId);
-				});
-				return entry;
-			};
-			const invalidate = (key) => {
-				const entry = fetches.get(key);
-				if (entry === void 0) return;
-				fetches.delete(key);
-				entry.abort.abort();
-				notifyLexicon(key);
-			};
-			const clearAll = () => {
-				for (const key of [...fetches.keys()]) invalidate(key);
-			};
-			const t = ctx.locale.bind(NS);
-			const source = {
-				trigger: "/",
-				name: "skill",
-				order: 2,
-				async candidates(session, { query, signal }) {
-					if (sessions.subagentAddress(session.sessionId) !== void 0) return [];
-					const skills = await fetchCatalog(session.sessionId).promise;
-					if (signal.aborted) return [];
-					return (0, _deepseek_ai_dsh_client_ui_primitives.rankByName)(skills, query).map((skill) => ({
-						name: skill.name,
-						description: skill.modelInvocable ? skill.description : `${t("menu.userOnly")} · ${skill.description}`
-					}));
-				},
-				warm(session) {
-					if (sessions.subagentAddress(session.sessionId) !== void 0) return;
-					fetchCatalog(session.sessionId).promise.catch(() => {});
-				},
-				lexicon(session) {
-					return fetches.get(session.sessionId)?.settled?.map((skill) => skill.name);
-				},
-				subscribeLexicon(session, listener) {
-					const key = session.sessionId;
-					const listeners = lexiconListeners.get(key) ?? /* @__PURE__ */ new Set();
-					listeners.add(listener);
-					lexiconListeners.set(key, listeners);
-					return () => {
-						listeners.delete(listener);
-						if (listeners.size === 0) lexiconListeners.delete(key);
-					};
-				},
-				openReference(session, { ref }) {
-					if (sessions.subagentAddress(session.sessionId) !== void 0) return false;
-					const cwd = sessions.list.getSnapshot().byId[session.sessionId]?.cwd;
-					const open = (catalog) => {
-						const path = catalog.find((skill) => `/${skill.name}` === ref)?.path;
-						if (path === void 0) return false;
-						ctx.sidebarRight.openResource(fileAddressFor(session.sessionId, cwd, path));
-						return true;
-					};
-					const settled = fetches.get(session.sessionId)?.settled;
-					if (settled !== void 0) return open(settled);
-					const entry = fetchCatalog(session.sessionId);
-					entry.promise.then((catalog) => {
-						if (!entry.abort.signal.aborted) open(catalog);
-					}).catch((error) => {
-						if (!entry.abort.signal.aborted) console.error("[ui-skill] reference preview failed:", error);
-					});
-					return true;
-				},
-				onPick({ candidate }) {
-					return { text: `/${candidate.name} ` };
-				}
-			};
-			const inputTriggers = ctx.get("inputTriggers");
-			ctx.remote.$on("agent-preset/selected", invalidate);
-			ctx.on("connection/reset", clearAll);
-			ctx.effect(() => {
-				const unregister = inputTriggers.registerSource(source);
-				return () => {
-					unregister();
-					clearAll();
-				};
-			}, "ui-skill: source");
+			}), "ui-jobs: dictionaries");
+			ctx.slots.inject("conversation.session.header.actions", () => ctx.slots.register({
+				name: "conversation.session.header.actions",
+				id: "job-list",
+				order: 20,
+				locale: "job",
+				inject: () => ({
+					hooks: { jobs: ctx.jobs.state },
+					watchRows: (sessionId) => ctx.jobs.watchRows(sessionId),
+					observe: (sessionId, id) => ctx.jobs.observe(sessionId, id),
+					killJob: async (sessionId, jobId) => (await ctx.jobs.kill(sessionId, jobId)).ok
+				})
+			}, JobListAction));
 		}
 		//#endregion
 		exports.apply = apply;
@@ -443,4 +627,4 @@ window.__ModuleLoader__.load({
 	}
 });
 ;
-//# sourceMappingURL=??@deepseek-ai/dsh-client-ui-skill/client.js.map&rev=cd8d526424c5
+//# sourceMappingURL=??@deepseek-ai/dsh-client-ui-jobs/client.js.map&rev=2ad2d53f4cfd

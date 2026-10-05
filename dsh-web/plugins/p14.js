@@ -1,1573 +1,704 @@
 window.__ModuleLoader__.load({
-	id: "@deepseek-ai/dsh-client-locale",
+	id: "@deepseek-ai/dsh-client-ui-layout",
 	factory: (require) => {
 		var module = { exports: {} };
 		var exports = module.exports;
 		Object.defineProperty(exports, Symbol.toStringTag, { value: "Module" });
 		let react_jsx_runtime = require("react/jsx-runtime");
 		let react = require("react");
-		let _deepseek_ai_dsh_client_ui_primitives = require("@deepseek-ai/dsh-client-ui-primitives");
 		let _deepseek_ai_dsh_client_store = require("@deepseek-ai/dsh-client-store");
-		//#region lib/types/client/bootstrap.js
-		/** Locale initialization supplied by a native shell before its Client tree mounts. */
+		/** Viewport width below which the sidebar auto-collapses to the rail (deepsuite
+		* LG breakpoint); a manual toggle below it re-expands over the squeezed center
+		* (stores.ts narrowExpanded). */
+		const SIDEBAR_AUTO_COLLAPSE = 1024;
+		/** Maximum normal right panel width as a fraction of the frame. */
+		const RIGHTBAR_MAX_RATIO = .7;
+		/** First-open right panel preference as a fraction of the frame. */
+		const RIGHTBAR_DEFAULT_RATIO = .45;
 		/**
-		* Validate initialization data returned over the preload IPC bridge.
-		* @param value - untrusted IPC response.
-		* @returns language initialization with no persistence side effects.
+		* Clamp a panel width into its contract range.
+		* @param px - requested width.
+		* @param min - range lower bound.
+		* @param max - range upper bound.
+		* @returns the clamped width.
 		*/
-		function parseLocaleBootstrap(value) {
-			if (typeof value !== "object" || value === null || !("languages" in value) || !Array.isArray(value.languages) || !value.languages.every((language) => typeof language === "string") || !("preference" in value) || value.preference !== null && typeof value.preference !== "string") throw new TypeError("locale: invalid native initialization data");
+		function clampWidth(px, min, max) {
+			return Math.min(max, Math.max(min, Math.round(px)));
+		}
+		/**
+		* Solve the three column widths for one viewport frame.
+		* @param viewport - available frame width in px.
+		* @param sidebar - sidebar width preference in px (0 = closed).
+		* @param rightbar - requested right panel width in px (0 = no track).
+		* @param collapsedWidth - track width of the closed sidebar; the default keeps
+		*   the icon rail, 0 hides the column entirely (macOS desktop).
+		* @returns actual widths after shrinking or removing the right track; only
+		*   without that track may the center fall below its minimum, down to zero.
+		*/
+		function computeColumns(viewport, sidebar, rightbar, collapsedWidth = 56) {
+			const s = sidebar === 0 ? collapsedWidth : clampWidth(sidebar, 264, 420);
+			const available = viewport - s - 400;
+			const r = rightbar === 0 || available < 300 ? 0 : Math.min(available, clampWidth(rightbar, 300, viewport * RIGHTBAR_MAX_RATIO));
 			return {
-				languages: value.languages,
-				preference: value.preference
+				sidebar: s,
+				center: Math.max(0, viewport - s - r),
+				rightbar: r
 			};
 		}
 		//#endregion
-		//#region ../../../vendor/cosmokit/lib/index.js
-		/** Return true when a value is `null` or `undefined`. */
-		function isNullable(value) {
-			return value === null || value === void 0;
-		}
-		/** Return true for non-array object values. */
-		function isPlainObject(data) {
-			return data && typeof data === "object" && !Array.isArray(data);
-		}
-		/** Filter object entries and return a new object. */
-		function filterKeys(object, filter) {
-			return Object.fromEntries(Object.entries(object).filter(([key, value]) => filter(key, value)));
-		}
-		/** Map object values while preserving the original key set. */
-		function mapValues(object, transform) {
-			return Object.fromEntries(Object.entries(object).map(([key, value]) => [key, transform(value, key)]));
-		}
-		/** Pick selected keys from an object, optionally including `undefined` values. */
-		function pick(source, keys, forced) {
-			if (!keys) return { ...source };
-			const result = {};
-			for (const key of keys) if (forced || source[key] !== void 0) result[key] = source[key];
-			return result;
-		}
-		/** Shared config references used by schema validators and plugin runtimes. */
-		const write = Symbol.for("cosmokit.volatile.write");
-		function snapshot(value, ancestors = /* @__PURE__ */ new Set()) {
-			if (typeof value === "function") throw new TypeError("volatile config cannot contain functions");
-			if (value === null || typeof value !== "object") return value;
-			if (ancestors.has(value)) throw new TypeError("volatile config cannot contain cycles");
-			ancestors.add(value);
-			try {
-				if (Array.isArray(value)) return Object.freeze(value.map((item) => snapshot(item, ancestors)));
-				if (Object.getPrototypeOf(value) !== Object.prototype && Object.getPrototypeOf(value) !== null) throw new TypeError("volatile config objects must be plain objects or arrays");
-				return Object.freeze(Object.fromEntries(Object.entries(value).map(([key, item]) => [key, snapshot(item, ancestors)])));
-			} finally {
-				ancestors.delete(value);
-			}
-		}
+		//#region lib/types/client/DocumentTitle.js
+		/** Browser title selection follows the active main panel without subscribing the frame. */
 		/**
-		* Create a detached reference containing an immutable copy of the supplied data.
-		* @param value - validated config data; class instances and functions are unsupported.
-		* @returns a reference whose value is updated only by its owning runtime.
+		* Project the selected durable session title into the browser title and
+		* restore the build-selected product title when unmounted.
+		* @param props - Selected session title projection.
+		* @returns No rendered content.
 		*/
-		function createVolatile(value) {
-			let current = snapshot(value);
-			return Object.freeze({
-				get: () => current,
-				[write]: (value) => {
-					current = value;
-				}
+		function DocumentTitle({ useSessions, usePanelInfo, productTitle }) {
+			const showSessionTitle = usePanelInfo((info) => info.activePanelId === null);
+			const title = useSessions((state) => {
+				const current = Object.values(state.byId).find((session) => (session.retainedBy.mainView ?? 0) > 0)?.id;
+				return !showSessionTitle || current === void 0 ? void 0 : state.byId[current]?.title;
 			});
-		}
-		/**
-		* Identify references across ESM/CJS copies of the shared library.
-		* @param value - a parsed config value.
-		* @returns whether the value implements the shared reference protocol.
-		*/
-		function isVolatile(value) {
-			return typeof value === "object" && value !== null && write in value;
-		}
-		/** Test values using `instanceof` with a `toStringTag` fallback. */
-		function is(type, value) {
-			if (arguments.length === 1) return (value) => is(type, value);
-			return type in globalThis && value instanceof globalThis[type] || Object.prototype.toString.call(value).slice(8, -1) === type;
-		}
-		function isArrayBufferLike(value) {
-			return is("ArrayBuffer", value) || is("SharedArrayBuffer", value);
-		}
-		function isArrayBufferSource(value) {
-			return isArrayBufferLike(value) || ArrayBuffer.isView(value);
-		}
-		/** Binary source detection and base64/hex conversion helpers. */
-		var Binary;
-		(function(Binary) {
-			Binary.is = isArrayBufferLike;
-			Binary.isSource = isArrayBufferSource;
-			function fromSource(source) {
-				if (ArrayBuffer.isView(source)) return source.buffer.slice(source.byteOffset, source.byteOffset + source.byteLength);
-				else return source;
-			}
-			Binary.fromSource = fromSource;
-			function toBase64(source) {
-				source = fromSource(source);
-				if (typeof Buffer !== "undefined") return Buffer.from(source).toString("base64");
-				let binary = "";
-				const bytes = new Uint8Array(source);
-				for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
-				return btoa(binary);
-			}
-			Binary.toBase64 = toBase64;
-			function fromBase64(source) {
-				if (typeof Buffer !== "undefined") return fromSource(Buffer.from(source, "base64"));
-				return Uint8Array.from(atob(source), (c) => c.charCodeAt(0));
-			}
-			Binary.fromBase64 = fromBase64;
-			function toHex(source) {
-				source = fromSource(source);
-				if (typeof Buffer !== "undefined") return Buffer.from(source).toString("hex");
-				return Array.from(new Uint8Array(source), (byte) => byte.toString(16).padStart(2, "0")).join("");
-			}
-			Binary.toHex = toHex;
-			function fromHex(source) {
-				if (typeof Buffer !== "undefined") return fromSource(Buffer.from(source, "hex"));
-				const hex = source.length % 2 === 0 ? source : source.slice(0, source.length - 1);
-				const buffer = [];
-				for (let i = 0; i < hex.length; i += 2) buffer.push(parseInt(`${hex[i]}${hex[i + 1]}`, 16));
-				return Uint8Array.from(buffer).buffer;
-			}
-			Binary.fromHex = fromHex;
-		})(Binary || (Binary = {}));
-		Binary.fromBase64;
-		Binary.toBase64;
-		Binary.fromHex;
-		Binary.toHex;
-		/** Deep-clone common JavaScript values while preserving prototypes and cycles. */
-		function clone(source, refs = /* @__PURE__ */ new Map()) {
-			if (!source || typeof source !== "object") return source;
-			if (is("Date", source)) return new Date(source.valueOf());
-			if (is("RegExp", source)) return new RegExp(source.source, source.flags);
-			if (isArrayBufferLike(source)) return source.slice(0);
-			if (ArrayBuffer.isView(source)) return source.buffer.slice(source.byteOffset, source.byteOffset + source.byteLength);
-			const cached = refs.get(source);
-			if (cached) return cached;
-			if (Array.isArray(source)) {
-				const result = [];
-				refs.set(source, result);
-				source.forEach((value, index) => {
-					result[index] = Reflect.apply(clone, null, [value, refs]);
-				});
-				return result;
-			}
-			const result = Object.create(Object.getPrototypeOf(source));
-			refs.set(source, result);
-			for (const key of Reflect.ownKeys(source)) {
-				const descriptor = { ...Reflect.getOwnPropertyDescriptor(source, key) };
-				if ("value" in descriptor) descriptor.value = Reflect.apply(clone, null, [descriptor.value, refs]);
-				Reflect.defineProperty(result, key, descriptor);
-			}
-			return result;
-		}
-		/**
-		* Compare values recursively, treating two volatile references as equal regardless of value.
-		* Strict comparison distinguishes null/undefined, treats opaque objects by identity,
-		* compares URLs by normalized href, treats array holes as undefined, and considers distinct cyclic structures unequal.
-		* @param a - first value.
-		* @param b - second value.
-		* @param strict - whether to require strict data equality outside volatile references.
-		* @returns whether the values compare equal.
-		*/
-		function deepEqual(a, b, strict) {
-			const ancestors = /* @__PURE__ */ new Set();
-			function compare(a, b) {
-				if (a === b) return true;
-				if (isVolatile(a) || isVolatile(b)) return isVolatile(a) && isVolatile(b);
-				if (!strict && isNullable(a) && isNullable(b)) return true;
-				if (typeof a !== typeof b || typeof a !== "object" || !a || !b) return false;
-				if (ancestors.has(a)) return false;
-				function check(test, then) {
-					return test(a) ? test(b) ? then(a, b) : false : test(b) ? false : void 0;
-				}
-				ancestors.add(a);
-				try {
-					return check(Array.isArray, (a, b) => {
-						if (a.length !== b.length) return false;
-						for (let index = 0; index < a.length; index++) if (!compare(a[index], b[index])) return false;
-						return true;
-					}) ?? check(is("Date"), (a, b) => a.valueOf() === b.valueOf()) ?? check(is("URL"), (a, b) => a.href === b.href) ?? check(is("RegExp"), (a, b) => a.source === b.source && a.flags === b.flags) ?? check(isArrayBufferLike, (a, b) => {
-						if (a.byteLength !== b.byteLength) return false;
-						const viewA = new Uint8Array(a);
-						const viewB = new Uint8Array(b);
-						for (let i = 0; i < viewA.length; i++) if (viewA[i] !== viewB[i]) return false;
-						return true;
-					}) ?? ((!strict || [a, b].every((value) => Object.getPrototypeOf(value) === Object.prototype || Object.getPrototypeOf(value) === null)) && Object.keys({
-						...a,
-						...b
-					}).every((key) => compare(a[key], b[key])));
-				} finally {
-					ancestors.delete(a);
-				}
-			}
-			return compare(a, b);
-		}
-		/** Time constants plus parsing and formatting helpers. */
-		var Time;
-		(function(Time) {
-			Time.millisecond = 1;
-			Time.second = 1e3;
-			Time.minute = Time.second * 60;
-			Time.hour = Time.minute * 60;
-			Time.day = Time.hour * 24;
-			Time.week = Time.day * 7;
-			let timezoneOffset = (/* @__PURE__ */ new Date()).getTimezoneOffset();
-			function setTimezoneOffset(offset) {
-				timezoneOffset = offset;
-			}
-			Time.setTimezoneOffset = setTimezoneOffset;
-			function getTimezoneOffset() {
-				return timezoneOffset;
-			}
-			Time.getTimezoneOffset = getTimezoneOffset;
-			function getDateNumber(date = /* @__PURE__ */ new Date(), offset) {
-				if (typeof date === "number") date = new Date(date);
-				if (offset === void 0) offset = timezoneOffset;
-				return Math.floor((date.valueOf() / Time.minute - offset) / 1440);
-			}
-			Time.getDateNumber = getDateNumber;
-			function fromDateNumber(value, offset) {
-				const date = new Date(value * Time.day);
-				if (offset === void 0) offset = timezoneOffset;
-				return new Date(+date + offset * Time.minute);
-			}
-			Time.fromDateNumber = fromDateNumber;
-			const numeric = /\d+(?:\.\d+)?/.source;
-			const timeRegExp = new RegExp(`^${[
-				"w(?:eek(?:s)?)?",
-				"d(?:ay(?:s)?)?",
-				"h(?:our(?:s)?)?",
-				"m(?:in(?:ute)?(?:s)?)?",
-				"s(?:ec(?:ond)?(?:s)?)?"
-			].map((unit) => `(${numeric}${unit})?`).join("")}$`);
-			function parseTime(source) {
-				const capture = timeRegExp.exec(source);
-				if (!capture) return 0;
-				return (parseFloat(capture[1]) * Time.week || 0) + (parseFloat(capture[2]) * Time.day || 0) + (parseFloat(capture[3]) * Time.hour || 0) + (parseFloat(capture[4]) * Time.minute || 0) + (parseFloat(capture[5]) * Time.second || 0);
-			}
-			Time.parseTime = parseTime;
-			function parseDate(date) {
-				const parsed = parseTime(date);
-				if (parsed) date = Date.now() + parsed;
-				else if (/^\d{1,2}(:\d{1,2}){1,2}$/.test(date)) date = `${(/* @__PURE__ */ new Date()).toLocaleDateString()}-${date}`;
-				else if (/^\d{1,2}-\d{1,2}-\d{1,2}(:\d{1,2}){1,2}$/.test(date)) date = `${(/* @__PURE__ */ new Date()).getFullYear()}-${date}`;
-				return date ? new Date(date) : /* @__PURE__ */ new Date();
-			}
-			Time.parseDate = parseDate;
-			function format(ms) {
-				const abs = Math.abs(ms);
-				if (abs >= Time.day - Time.hour / 2) return Math.round(ms / Time.day) + "d";
-				else if (abs >= Time.hour - Time.minute / 2) return Math.round(ms / Time.hour) + "h";
-				else if (abs >= Time.minute - Time.second / 2) return Math.round(ms / Time.minute) + "m";
-				else if (abs >= Time.second) return Math.round(ms / Time.second) + "s";
-				return ms + "ms";
-			}
-			Time.format = format;
-			function toDigits(source, length = 2) {
-				return source.toString().padStart(length, "0");
-			}
-			Time.toDigits = toDigits;
-			function template(template, time = /* @__PURE__ */ new Date()) {
-				return template.replace("yyyy", time.getFullYear().toString()).replace("yy", time.getFullYear().toString().slice(2)).replace("MM", toDigits(time.getMonth() + 1)).replace("dd", toDigits(time.getDate())).replace("hh", toDigits(time.getHours())).replace("mm", toDigits(time.getMinutes())).replace("ss", toDigits(time.getSeconds())).replace("SSS", toDigits(time.getMilliseconds(), 3));
-			}
-			Time.template = template;
-		})(Time || (Time = {}));
-		//#endregion
-		//#region ../../../vendor/schemastery/lib/index.mjs
-		const kSchema = Symbol.for("schemastery");
-		const kValidationError = Symbol.for("ValidationError");
-		globalThis.__schemastery_index__ ??= 0;
-		globalThis.__schemastery_refs__ = void 0;
-		var ValidationError = class extends TypeError {
-			options;
-			name = "ValidationError";
-			constructor(message, options) {
-				let prefix = "$";
-				for (const segment of options.path || []) if (typeof segment === "string") prefix += "." + segment;
-				else if (typeof segment === "number") prefix += "[" + segment + "]";
-				else if (typeof segment === "symbol") prefix += `[Symbol(${segment.toString()})]`;
-				if (prefix.startsWith(".")) prefix = prefix.slice(1);
-				super((prefix === "$" ? "" : `${prefix} `) + message);
-				this.options = options;
-			}
-			static is(error) {
-				return !!error?.[kValidationError];
-			}
-		};
-		Object.defineProperty(ValidationError.prototype, kValidationError, { value: true });
-		const Schema = function(options) {
-			const schema = function(data, options = {}) {
-				return Schema.resolve(data, schema, options)[0];
-			};
-			if (options.refs) {
-				const refs = mapValues(options.refs, (options) => new Schema(options));
-				const getRef = (uid) => refs[uid];
-				for (const key in refs) {
-					const options = refs[key];
-					options.sKey = getRef(options.sKey);
-					options.inner = getRef(options.inner);
-					options.list = options.list && options.list.map(getRef);
-					options.dict = options.dict && mapValues(options.dict, getRef);
-				}
-				return refs[options.uid];
-			}
-			Object.assign(schema, options);
-			if (typeof schema.callback === "string") try {
-				schema.callback = new Function("return " + schema.callback)();
-			} catch {}
-			Object.defineProperty(schema, "uid", { value: globalThis.__schemastery_index__++ });
-			Object.setPrototypeOf(schema, Schema.prototype);
-			schema.meta ||= {};
-			schema.toString = schema.toString.bind(schema);
-			return schema;
-		};
-		Schema.prototype = Object.create(Function.prototype);
-		Schema.prototype[kSchema] = true;
-		Object.defineProperty(Schema.prototype, "~standard", { get() {
-			return {
-				version: 1,
-				vendor: "schemastery",
-				validate: (value) => {
-					try {
-						return { value: Schema.resolve(value, this, {})[0] };
-					} catch (error) {
-						if (ValidationError.is(error)) return { issues: [{
-							message: error.message,
-							path: error.options.path
-						}] };
-						throw error;
-					}
-				}
-			};
-		} });
-		Schema.ValidationError = ValidationError;
-		Schema.prototype.toJSON = function toJSON() {
-			if (globalThis.__schemastery_refs__) {
-				globalThis.__schemastery_refs__[this.uid] ??= JSON.parse(JSON.stringify({ ...this }));
-				return this.uid;
-			}
-			globalThis.__schemastery_refs__ = { [this.uid]: { ...this } };
-			globalThis.__schemastery_refs__[this.uid] = JSON.parse(JSON.stringify({ ...this }));
-			const result = {
-				uid: this.uid,
-				refs: globalThis.__schemastery_refs__
-			};
-			globalThis.__schemastery_refs__ = void 0;
-			return result;
-		};
-		Schema.prototype.set = function set(key, value) {
-			this.dict[key] = value;
-			return this;
-		};
-		Schema.prototype.push = function push(value) {
-			this.list.push(value);
-			return this;
-		};
-		function mergeDesc(original, messages) {
-			const result = typeof original === "string" ? { "": original } : { ...original };
-			for (const locale in messages) {
-				const value = messages[locale];
-				if (value?.$description || value?.$desc) result[locale] = value.$description || value.$desc;
-				else if (typeof value === "string") result[locale] = value;
-			}
-			return result;
-		}
-		function getInner(value) {
-			return value?.$value ?? value?.$inner;
-		}
-		function extractKeys(data) {
-			return filterKeys(data ?? {}, (key) => !key.startsWith("$"));
-		}
-		Schema.prototype.i18n = function i18n(messages) {
-			const schema = Schema(this);
-			const desc = mergeDesc(schema.meta.description, messages);
-			if (Object.keys(desc).length) schema.meta.description = desc;
-			if (schema.dict) schema.dict = mapValues(schema.dict, (inner, key) => {
-				return inner.i18n(mapValues(messages, (data) => getInner(data)?.[key] ?? data?.[key]));
-			});
-			if (schema.list) schema.list = schema.list.map((inner, index) => {
-				return inner.i18n(mapValues(messages, (data = {}) => {
-					if (Array.isArray(getInner(data))) return getInner(data)[index];
-					if (Array.isArray(data)) return data[index];
-					return extractKeys(data);
-				}));
-			});
-			if (schema.inner) schema.inner = schema.inner.i18n(mapValues(messages, (data) => {
-				if (getInner(data)) return getInner(data);
-				return extractKeys(data);
-			}));
-			if (schema.sKey) schema.sKey = schema.sKey.i18n(mapValues(messages, (data) => data?.$key));
-			return schema;
-		};
-		Schema.prototype.extra = function extra(key, value) {
-			const schema = Schema(this);
-			schema.meta = {
-				...schema.meta,
-				[key]: value
-			};
-			return schema;
-		};
-		for (const key of [
-			"required",
-			"disabled",
-			"collapse",
-			"hidden",
-			"loose"
-		]) Object.assign(Schema.prototype, { [key](value = true) {
-			const schema = Schema(this);
-			schema.meta = {
-				...schema.meta,
-				[key]: value
-			};
-			return schema;
-		} });
-		Schema.prototype.deprecated = function deprecated() {
-			const schema = Schema(this);
-			schema.meta.badges ||= [];
-			schema.meta.badges.push({
-				text: "deprecated",
-				type: "danger"
-			});
-			return schema;
-		};
-		Schema.prototype.experimental = function experimental() {
-			const schema = Schema(this);
-			schema.meta.badges ||= [];
-			schema.meta.badges.push({
-				text: "experimental",
-				type: "warning"
-			});
-			return schema;
-		};
-		Schema.prototype.pattern = function pattern(regexp) {
-			const schema = Schema(this);
-			const pattern = pick(regexp, ["source", "flags"]);
-			schema.meta = {
-				...schema.meta,
-				pattern
-			};
-			return schema;
-		};
-		Schema.prototype.simplify = function simplify(value) {
-			if (isVolatile(value)) value = value.get();
-			if (deepEqual(value, this.meta.default, this.type === "dict")) return null;
-			if (isNullable(value)) return value;
-			if (this.type === "object" || this.type === "dict") {
-				const result = {};
-				for (const key in value) {
-					const item = (this.type === "object" ? this.dict[key] : this.inner)?.simplify(value[key]);
-					if (this.type === "dict" || !isNullable(item)) result[key] = item;
-				}
-				if (deepEqual(result, this.meta.default, this.type === "dict")) return null;
-				return result;
-			} else if (this.type === "array" || this.type === "tuple") {
-				const result = [];
-				value.forEach((value, index) => {
-					const schema = this.type === "array" ? this.inner : this.list[index];
-					const item = schema ? schema.simplify(value) : value;
-					result.push(item);
-				});
-				return result;
-			} else if (this.type === "intersect") {
-				const result = {};
-				for (const item of this.list) Object.assign(result, item.simplify(value));
-				return result;
-			} else if (this.type === "union") for (const schema of this.list) try {
-				Schema.resolve(value, schema, {});
-				return schema.simplify(value);
-			} catch {}
-			return value;
-		};
-		Schema.prototype.toString = function toString(inline) {
-			return formatters[this.type]?.(this, inline) ?? `Schema<${this.type}>`;
-		};
-		Schema.prototype.role = function role(role, extra) {
-			const schema = Schema(this);
-			schema.meta = {
-				...schema.meta,
-				role,
-				extra
-			};
-			return schema;
-		};
-		for (const key of [
-			"default",
-			"link",
-			"comment",
-			"description",
-			"max",
-			"min",
-			"step"
-		]) Object.assign(Schema.prototype, { [key](value) {
-			const schema = Schema(this);
-			schema.meta = {
-				...schema.meta,
-				[key]: value
-			};
-			return schema;
-		} });
-		Schema.prototype.volatile = function volatile() {
-			if (this.meta.volatile) throw new TypeError("volatile schema is already wrapped");
-			return this.extra("volatile", true);
-		};
-		const resolvers = {};
-		const checkedVolatile = Symbol("checked-volatile-schema");
-		function validateVolatileSchema(schema, path = [], blocked = false, seen = /* @__PURE__ */ new Map()) {
-			const states = seen.get(schema) ?? /* @__PURE__ */ new Set();
-			if (states.has(blocked)) return;
-			states.add(blocked);
-			seen.set(schema, states);
-			if (schema.meta?.volatile && blocked) throw new ValidationError("volatile fields require a fixed object path without an enclosing volatile field", { path });
-			const nested = blocked || !!schema.meta?.volatile;
-			if (schema.dict) for (const [key, child] of Object.entries(schema.dict)) validateVolatileSchema(child, [...path, key], nested, seen);
-			if (schema.sKey) validateVolatileSchema(schema.sKey, [...path, "<key>"], true, seen);
-			if (schema.inner && (schema.type !== "lazy" || schema.inner[kSchema])) validateVolatileSchema(schema.inner, [...path, "*"], true, seen);
-			if (schema.list) for (let index = 0; index < schema.list.length; index++) validateVolatileSchema(schema.list[index], [...path, String(index)], true, seen);
-		}
-		Schema.extend = function extend(type, resolve) {
-			resolvers[type] = resolve;
-		};
-		Schema.resolve = function resolve(data, schema, options = {}, strict = false) {
-			if (!schema) return [data];
-			if (!options[checkedVolatile]) {
-				validateVolatileSchema(schema, options.path);
-				options = {
-					...options,
-					[checkedVolatile]: true
+			(0, react.useEffect)(() => {
+				document.title = title === void 0 ? productTitle : `${title} — ${productTitle}`;
+				return () => {
+					document.title = productTitle;
 				};
-			}
-			if (schema.meta?.volatile) {
-				const inner = Schema(schema);
-				inner.meta = {
-					...schema.meta,
-					volatile: false
-				};
-				const [value, adapted] = Schema.resolve(data, inner, options, strict);
-				try {
-					return [createVolatile(value), adapted];
-				} catch (error) {
-					throw new ValidationError(error instanceof Error ? error.message : String(error), options);
-				}
-			}
-			if (options.ignore?.(data, schema)) return [data];
-			if (isNullable(data) && schema.type !== "lazy") {
-				if (schema.meta.required) throw new ValidationError(`missing required value`, options);
-				let current = schema;
-				let fallback = schema.meta.default;
-				while (current?.type === "intersect" && isNullable(fallback)) {
-					current = current.list[0];
-					fallback = current?.meta.default;
-				}
-				if (isNullable(fallback)) return [data];
-				data = clone(fallback);
-			}
-			const callback = resolvers[schema.type];
-			if (!callback) throw new ValidationError(`unsupported type "${schema.type}"`, options);
-			try {
-				return callback(data, schema, options, strict);
-			} catch (error) {
-				if (!schema.meta.loose) throw error;
-				return [schema.meta.default];
-			}
-		};
-		Schema.from = function from(source) {
-			if (isNullable(source)) return Schema.any();
-			else if ([
-				"string",
-				"number",
-				"boolean"
-			].includes(typeof source)) return Schema.const(source).required();
-			else if (source[kSchema]) return source;
-			else if (typeof source === "function") switch (source) {
-				case String: return Schema.string().required();
-				case Number: return Schema.number().required();
-				case Boolean: return Schema.boolean().required();
-				case Function: return Schema.function().required();
-				default: return Schema.is(source).required();
-			}
-			else throw new TypeError(`cannot infer schema from ${source}`);
-		};
-		Schema.lazy = function lazy(builder) {
-			const toJSON = () => {
-				if (!schema.inner[kSchema]) {
-					schema.inner = schema.builder();
-					schema.inner.meta = {
-						...schema.meta,
-						...schema.inner.meta
-					};
-				}
-				return schema.inner.toJSON();
-			};
-			const schema = new Schema({
-				type: "lazy",
-				builder,
-				inner: { toJSON }
-			});
-			return schema;
-		};
-		Schema.natural = function natural() {
-			return Schema.number().step(1).min(0);
-		};
-		Schema.percent = function percent() {
-			return Schema.number().step(.01).min(0).max(1).role("slider");
-		};
-		Schema.date = function date() {
-			return Schema.union([Schema.is(Date), Schema.transform(Schema.string().role("datetime"), (value, options) => {
-				const date = new Date(value);
-				if (isNaN(+date)) throw new ValidationError(`invalid date "${value}"`, options);
-				return date;
-			}, true)]);
-		};
-		Schema.regExp = function regExp(flag = "") {
-			return Schema.union([Schema.is(RegExp), Schema.transform(Schema.string().role("regexp", { flag }), (value, options) => {
-				try {
-					return new RegExp(value, flag);
-				} catch (e) {
-					throw new ValidationError(e.message, options);
-				}
-			}, true)]);
-		};
-		Schema.arrayBuffer = function arrayBuffer(encoding) {
-			return Schema.union([
-				Schema.is(ArrayBuffer),
-				Schema.is(SharedArrayBuffer),
-				Schema.transform(Schema.any(), (value, options) => {
-					if (Binary.isSource(value)) return Binary.fromSource(value);
-					throw new ValidationError(`expected ArrayBufferSource but got ${value}`, options);
-				}, true),
-				...encoding ? [Schema.transform(Schema.string(), (value, options) => {
-					try {
-						return encoding === "base64" ? Binary.fromBase64(value) : Binary.fromHex(value);
-					} catch (e) {
-						throw new ValidationError(e.message, options);
-					}
-				}, true)] : []
-			]);
-		};
-		Schema.extend("lazy", (data, schema, options, strict) => {
-			if (!schema.inner[kSchema]) {
-				schema.inner = schema.builder();
-				schema.inner.meta = {
-					...schema.meta,
-					...schema.inner.meta
-				};
-				validateVolatileSchema(schema.inner, options.path, true);
-			}
-			return Schema.resolve(data, schema.inner, options, strict);
-		});
-		Schema.extend("any", (data) => {
-			return [data];
-		});
-		Schema.extend("never", (data, _, options) => {
-			throw new ValidationError(`expected nullable but got ${data}`, options);
-		});
-		Schema.extend("const", (data, { value }, options) => {
-			if (deepEqual(data, value)) return [value];
-			throw new ValidationError(`expected ${value} but got ${data}`, options);
-		});
-		function checkWithinRange(data, meta, description, options, skipMin = false) {
-			const { max = Infinity, min = -Infinity } = meta;
-			if (data > max) throw new ValidationError(`expected ${description} <= ${max} but got ${data}`, options);
-			if (data < min && !skipMin) throw new ValidationError(`expected ${description} >= ${min} but got ${data}`, options);
+			}, [productTitle, title]);
+			return null;
 		}
-		Schema.extend("string", (data, { meta }, options) => {
-			if (typeof data !== "string") throw new ValidationError(`expected string but got ${data}`, options);
-			if (meta.pattern) {
-				const regexp = new RegExp(meta.pattern.source, meta.pattern.flags);
-				if (!regexp.test(data)) throw new ValidationError(`expect string to match regexp ${regexp}`, options);
-			}
-			checkWithinRange(data.length, meta, "string length", options);
-			return [data];
-		});
-		function decimalShift(data, digits) {
-			const str = data.toString();
-			if (str.includes("e")) return data * Math.pow(10, digits);
-			const index = str.indexOf(".");
-			if (index === -1) return data * Math.pow(10, digits);
-			const frac = str.slice(index + 1);
-			const integer = str.slice(0, index);
-			if (frac.length <= digits) return +(integer + frac.padEnd(digits, "0"));
-			return +(integer + frac.slice(0, digits) + "." + frac.slice(digits));
-		}
-		function isMultipleOf(data, min, step) {
-			step = Math.abs(step);
-			if (!/^\d+\.\d+$/.test(step.toString())) return (data - min) % step === 0;
-			const index = step.toString().indexOf(".");
-			const digits = step.toString().slice(index + 1).length;
-			return Math.abs(decimalShift(data, digits) - decimalShift(min, digits)) % decimalShift(step, digits) === 0;
-		}
-		Schema.extend("number", (data, { meta }, options) => {
-			if (typeof data !== "number") throw new ValidationError(`expected number but got ${data}`, options);
-			checkWithinRange(data, meta, "number", options);
-			const { step } = meta;
-			if (step && !isMultipleOf(data, meta.min ?? 0, step)) throw new ValidationError(`expected number multiple of ${step} but got ${data}`, options);
-			return [data];
-		});
-		Schema.extend("boolean", (data, _, options) => {
-			if (typeof data === "boolean") return [data];
-			throw new ValidationError(`expected boolean but got ${data}`, options);
-		});
-		Schema.extend("bitset", (data, { bits, meta }, options) => {
-			let value = 0, keys = [];
-			if (typeof data === "number") {
-				value = data;
-				for (const key in bits) if (data & bits[key]) keys.push(key);
-			} else if (Array.isArray(data)) {
-				keys = data;
-				for (const key of keys) {
-					if (typeof key !== "string") throw new ValidationError(`expected string but got ${key}`, options);
-					if (key in bits) value |= bits[key];
-				}
-			} else throw new ValidationError(`expected number or array but got ${data}`, options);
-			if (value === meta.default) return [value];
-			return [value, keys];
-		});
-		Schema.extend("function", (data, _, options) => {
-			if (typeof data === "function") return [data];
-			throw new ValidationError(`expected function but got ${data}`, options);
-		});
-		Schema.extend("is", (data, { constructor }, options) => {
-			if (typeof constructor === "function") {
-				if (data instanceof constructor) return [data];
-				throw new ValidationError(`expected ${constructor.name} but got ${data}`, options);
-			} else {
-				if (isNullable(data)) throw new ValidationError(`expected ${constructor} but got ${data}`, options);
-				let prototype = Object.getPrototypeOf(data);
-				while (prototype) {
-					if (prototype.constructor?.name === constructor) return [data];
-					prototype = Object.getPrototypeOf(prototype);
-				}
-				throw new ValidationError(`expected ${constructor} but got ${data}`, options);
-			}
-		});
-		function property(data, key, schema, options) {
-			try {
-				const [value, adapted] = Schema.resolve(data[key], schema, {
-					...options,
-					path: [...options.path || [], key]
-				});
-				if (adapted !== void 0) data[key] = adapted;
-				return value;
-			} catch (e) {
-				if (!options?.autofix) throw e;
-				delete data[key];
-				return schema.meta.volatile ? createVolatile(schema.meta.default) : schema.meta.default;
-			}
-		}
-		Schema.extend("array", (data, { inner, meta }, options) => {
-			if (!Array.isArray(data)) throw new ValidationError(`expected array but got ${data}`, options);
-			checkWithinRange(data.length, meta, "array length", options, !isNullable(inner.meta.default));
-			return [data.map((_, index) => property(data, index, inner, options))];
-		});
-		Schema.extend("dict", (data, { inner, sKey }, options, strict) => {
-			if (!isPlainObject(data)) throw new ValidationError(`expected object but got ${data}`, options);
-			const result = {};
-			for (const key in data) {
-				let rKey;
-				try {
-					rKey = Schema.resolve(key, sKey, options)[0];
-				} catch (error) {
-					if (strict) continue;
-					throw error;
-				}
-				result[rKey] = property(data, key, inner, options);
-				data[rKey] = data[key];
-				if (key !== rKey) delete data[key];
-			}
-			return [result];
-		});
-		Schema.extend("tuple", (data, { list }, options, strict) => {
-			if (!Array.isArray(data)) throw new ValidationError(`expected array but got ${data}`, options);
-			const result = list.map((inner, index) => property(data, index, inner, options));
-			if (strict) return [result];
-			result.push(...data.slice(list.length));
-			return [result];
-		});
-		function merge(result, data) {
-			for (const key in data) {
-				if (key in result) continue;
-				result[key] = data[key];
-			}
-		}
-		Schema.extend("object", (data, { dict }, options, strict) => {
-			if (!isPlainObject(data)) throw new ValidationError(`expected object but got ${data}`, options);
-			const result = {};
-			for (const key in dict) {
-				const value = property(data, key, dict[key], options);
-				if (!isNullable(value) || key in data) result[key] = value;
-			}
-			if (!strict) merge(result, data);
-			return [result];
-		});
-		Schema.extend("union", (data, { list, toString }, options, strict) => {
-			const messages = [];
-			for (const inner of list) try {
-				return Schema.resolve(data, inner, options, strict);
-			} catch (error) {
-				messages.push(error);
-			}
-			throw new ValidationError(`expected ${toString()} but got ${JSON.stringify(data)}`, options);
-		});
-		Schema.extend("intersect", (data, { list, toString }, options, strict) => {
-			if (!list.length) return [data];
-			let result;
-			for (const inner of list) {
-				const value = Schema.resolve(data, inner, options, true)[0];
-				if (isNullable(value)) continue;
-				if (isNullable(result)) result = value;
-				else if (typeof result !== typeof value) throw new ValidationError(`expected ${toString()} but got ${JSON.stringify(data)}`, options);
-				else if (typeof value === "object") merge(result ??= {}, value);
-				else if (result !== value) throw new ValidationError(`expected ${toString()} but got ${JSON.stringify(data)}`, options);
-			}
-			if (!strict && isPlainObject(data)) merge(result, data);
-			return [result];
-		});
-		Schema.extend("transform", (data, { inner, callback, preserve }, options) => {
-			const [result, adapted = data] = Schema.resolve(data, inner, options, true);
-			if (preserve) return [callback(result)];
-			else return [callback(result), callback(adapted)];
-		});
-		const formatters = {};
-		function defineMethod(name, keys, format) {
-			formatters[name] = format;
-			Object.assign(Schema, { [name](...args) {
-				const schema = new Schema({ type: name });
-				keys.forEach((key, index) => {
-					switch (key) {
-						case "sKey":
-							schema.sKey = args[index] ?? Schema.string();
-							break;
-						case "inner":
-							schema.inner = Schema.from(args[index]);
-							break;
-						case "list":
-							schema.list = args[index].map(Schema.from);
-							break;
-						case "dict":
-							schema.dict = mapValues(args[index], Schema.from);
-							break;
-						case "bits":
-							schema.bits = {};
-							for (const key in args[index]) {
-								if (typeof args[index][key] !== "number") continue;
-								schema.bits[key] = args[index][key];
-							}
-							break;
-						case "callback": {
-							const callback = schema.callback = args[index];
-							callback["toJSON"] ||= () => callback.toString();
-							break;
-						}
-						case "constructor": {
-							const constructor = schema.constructor = args[index];
-							if (typeof constructor === "function") constructor["toJSON"] ||= () => constructor["name"];
-							break;
-						}
-						default: schema[key] = args[index];
-					}
-				});
-				if (name === "object" || name === "dict") schema.meta.default = {};
-				else if (name === "array" || name === "tuple") schema.meta.default = [];
-				else if (name === "bitset") schema.meta.default = 0;
-				return schema;
-			} });
-		}
-		defineMethod("is", ["constructor"], ({ constructor }) => {
-			if (typeof constructor === "function") return constructor.name;
-			else return constructor;
-		});
-		defineMethod("any", [], () => "any");
-		defineMethod("never", [], () => "never");
-		defineMethod("const", ["value"], ({ value }) => typeof value === "string" ? JSON.stringify(value) : value);
-		defineMethod("string", [], () => "string");
-		defineMethod("number", [], () => "number");
-		defineMethod("boolean", [], () => "boolean");
-		defineMethod("bitset", ["bits"], () => "bitset");
-		defineMethod("function", [], () => "function");
-		defineMethod("array", ["inner"], ({ inner }) => `${inner.toString(true)}[]`);
-		defineMethod("dict", ["inner", "sKey"], ({ inner, sKey }) => `{ [key: ${sKey.toString()}]: ${inner.toString()} }`);
-		defineMethod("tuple", ["list"], ({ list }) => `[${list.map((inner) => inner.toString()).join(", ")}]`);
-		defineMethod("object", ["dict"], ({ dict }) => {
-			if (Object.keys(dict).length === 0) return "{}";
-			return `{ ${Object.entries(dict).map(([key, inner]) => {
-				return `${key}${inner.meta.required ? "" : "?"}: ${inner.toString()}`;
-			}).join(", ")} }`;
-		});
-		defineMethod("union", ["list"], ({ list }, inline) => {
-			const result = list.map(({ toString: format }) => format()).join(" | ");
-			return inline ? `(${result})` : result;
-		});
-		defineMethod("intersect", ["list"], ({ list }) => {
-			return `${list.map((inner) => inner.toString(true)).join(" & ")}`;
-		});
-		defineMethod("transform", [
-			"inner",
-			"callback",
-			"preserve"
-		], ({ inner }, isInner) => inner.toString(isInner));
 		//#endregion
-		//#region lib/types/locale-settings.js
-		/** Locale preference stored in the Host user-settings document. */
-		/** Settings namespace owned by the locale plugin. */
-		const LOCALE_SETTINGS_NAMESPACE = "locale";
-		/** Field carrying an explicit locale selection; absence delegates to the browser. */
-		const LOCALE_PREFERENCE_FIELD = "preference";
-		/** Accepted BCP 47-style language ids. */
-		const LOCALE_ID_PATTERN = /^[A-Za-z]{2,8}(?:-[A-Za-z0-9]{1,8})*$/u;
-		/** Locale identifiers shipped by the browser client. */
-		const LOCALE_IDS = ["zh", "en"];
-		/** Durable locale schema; also the wire envelope the browser scope validates against. */
-		const LocaleSettingsFields = { [LOCALE_PREFERENCE_FIELD]: Schema.string().pattern(LOCALE_ID_PATTERN).required(false) };
-		Schema.object(LocaleSettingsFields);
-		//#endregion
-		//#region lib/types/locales/zh.js
-		/** zh base dictionary for the common namespace: cross-feature standard words. */
-		const zh$1 = {
-			"ok": "确定",
-			"cancel": "取消",
-			"close": "关闭",
-			"copy": "复制",
-			"copied": "复制成功",
-			"codeBlock.title": "代码块",
-			"codeBlock.wrap": "自动换行",
-			"codeBlock.unwrap": "取消自动换行",
-			"copy.failed": "复制失败",
-			"copy.value": "复制值",
-			"copy.json": "复制 JSON",
-			"copy.path": "复制属性路径",
-			"copy.prettyJson": "复制格式化 JSON",
-			"copy.compactJson": "复制紧凑 JSON",
-			"copy.optionsHint": "{action}；右键点击可选择复制方式",
-			"retry": "重试",
-			"loading": "加载中…",
-			"load.failed": "加载失败",
-			"submit": "提交",
-			"submitting": "正在提交…",
-			"next": "下一步",
-			"previous": "上一步",
-			"skip": "跳过",
-			"delete": "删除",
-			"edit": "编辑",
-			"save": "保存",
-			"search": "搜索",
-			"more": "更多",
-			"collapse": "收起",
-			"expand": "展开",
-			"back": "返回",
-			"brand.localBuild": "DSH 本地构建",
-			"workspace.defaultName": "默认工作区",
-			"unknown": "未知",
-			"none": "无",
-			"truncated": "已截断",
-			"json.label": "JSON",
-			"markdown.footnotes": "脚注",
-			"markdown.truncatedCharacters": "… 已截断，共 {total} 字符",
-			"number.thousand": "{value}K",
-			"number.million": "{value}M"
-		};
-		//#endregion
-		//#region lib/types/locales/en.js
-		/** en base dictionary for the common namespace, checked complete against the zh key set. */
-		const en$1 = {
-			"ok": "OK",
-			"cancel": "Cancel",
-			"close": "Close",
-			"copy": "Copy",
-			"copied": "Copied",
-			"codeBlock.title": "Code block",
-			"codeBlock.wrap": "Wrap lines",
-			"codeBlock.unwrap": "Do not wrap lines",
-			"copy.failed": "Copy failed",
-			"copy.value": "Copy value",
-			"copy.json": "Copy JSON",
-			"copy.path": "Copy property path",
-			"copy.prettyJson": "Copy pretty JSON",
-			"copy.compactJson": "Copy compact JSON",
-			"copy.optionsHint": "{action}; right-click for copy options",
-			"retry": "Retry",
-			"loading": "Loading…",
-			"load.failed": "Failed to load",
-			"submit": "Submit",
-			"submitting": "Submitting…",
-			"next": "Next",
-			"previous": "Previous",
-			"skip": "Skip",
-			"delete": "Delete",
-			"edit": "Edit",
-			"save": "Save",
-			"search": "Search",
-			"more": "More",
-			"collapse": "Collapse",
-			"expand": "Expand",
-			"back": "Back",
-			"brand.localBuild": "DSH Local Build",
-			"workspace.defaultName": "Default workspace",
-			"unknown": "Unknown",
-			"none": "None",
-			"truncated": "Truncated",
-			"json.label": "JSON",
-			"markdown.footnotes": "Footnotes",
-			"markdown.truncatedCharacters": "… truncated at {total} characters",
-			"number.thousand": "{value}K",
-			"number.million": "{value}M"
-		};
-		//#endregion
-		//#region lib/types/locales/settings.js
-		/** `settings.locale` namespace dictionaries (the Language row's copy). */
-		/** Simplified Chinese dictionary (the key-set source of truth). */
-		const zh = { "language.title": "语言" };
-		/** English dictionary, checked complete against the zh key set. */
-		const en = { "language.title": "Language" };
-		//#endregion
-		//#region \0dsh-css:D:\deepseek-harness\packages\client\locale\src\client\LanguageRow.module.css.mjs
-		const css = ".hXJRqa_row{border-bottom:.5px solid var(--dsw-alias-border-l2);align-items:center;gap:8px;padding:16px 0;display:flex}.hXJRqa_rowText{flex-direction:column;flex:1;gap:4px;min-width:0;padding-right:48px;display:flex}.hXJRqa_title{color:var(--dsw-alias-label-primary);font-size:14px;font-weight:400;line-height:22px}.hXJRqa_selector{border-radius:var(--dsw-radius-md);background:var(--dsw-alias-bg-module-platform);height:36px;font:inherit;color:var(--dsw-alias-label-primary);cursor:pointer;border:none;align-items:center;gap:12px;padding:0 14px;font-size:14px;line-height:22px;display:inline-flex}.hXJRqa_selector:hover{background:var(--dsw-alias-interactive-bg-hover)}.hXJRqa_chevron{flex:none}";
-		const tagId = "@deepseek-ai/dsh-client-locale/LanguageRow.module.css";
+		//#region \0dsh-css:D:\deepseek-harness\packages\client\ui-layout\src\client\AppFrame.module.css.mjs
+		const css = ".wHEsxq_frame{background:var(--dsw-alias-bg-base);grid-template-rows:minmax(0,1fr) auto;height:100%;display:grid;position:relative;overflow:hidden}.wHEsxq_frame[data-animating]{transition:grid-template-columns var(--ds-transition-duration-slow) var(--ds-ease-in-out)}.wHEsxq_frame[data-dragging]{transition:none}[data-windows-titlebar] .wHEsxq_frame{--dsh-windows-content-radius:16px;box-sizing:border-box;padding-top:var(--dsh-windows-titlebar-height);background:var(--dsw-specific-sidebar-fill)}[data-windows-titlebar] .wHEsxq_centerCol{background:var(--dsw-alias-bg-base);border-radius:var(--dsh-windows-content-radius) 0 0 0;corner-shape:round}[data-windows-titlebar] .wHEsxq_frame:before{content:\"\";height:var(--dsh-windows-titlebar-height);background:var(--dsw-specific-sidebar-fill);-webkit-app-region:drag;position:absolute;inset:0 0 auto}[data-windows-titlebar] .wHEsxq_sidebarCol{border-right:none}@media (prefers-reduced-motion:reduce){.wHEsxq_frame[data-animating]{transition:none}}.wHEsxq_sidebarCol{background:var(--dsw-specific-sidebar-fill);border-right:.5px solid var(--dsw-alias-border-l3);min-width:0;overflow:hidden}.wHEsxq_centerCol{flex-direction:column;min-width:0;display:flex;overflow:hidden}[data-platform=darwin] .wHEsxq_frame{background:0 0}html[data-platform=darwin]{--dsh-frame-top-clearance:48px}html[data-windows-titlebar]{--dsh-frame-top-clearance:var(--dsh-windows-titlebar-height);--dsh-frame-chrome-top:var(--dsh-windows-titlebar-height)}html[data-platform=darwin],html[data-windows-titlebar]{--dsh-frame-overlay-top:calc(var(--dsh-frame-top-clearance) + 20px)}html[data-platform=darwin][data-fullscreen],html[data-windows-titlebar][data-fullscreen]{--dsh-frame-overlay-top:20px;--dsh-frame-chrome-top:0px}[data-platform=darwin] .wHEsxq_sidebarCol{background:linear-gradient(to bottom, #7a9bf01a, #7a9bf000 35%, #8f89b800 68%, #8f89b817), color-mix(in srgb, color-mix(in srgb, var(--dsw-specific-sidebar-fill) 97%, #7a9bf0) 40%, transparent);border-right:none}[data-platform=darwin] [data-ds-dark-theme] .wHEsxq_sidebarCol{background:linear-gradient(to bottom, #7a9bf014, #7a9bf000 35%, #8f89b800 68%, #8f89b812), color-mix(in srgb, var(--dsw-specific-sidebar-fill) 50%, transparent)}@media (prefers-reduced-transparency:reduce){[data-platform=darwin] .wHEsxq_sidebarCol,[data-platform=darwin] [data-ds-dark-theme] .wHEsxq_sidebarCol{background:color-mix(in srgb, var(--dsw-specific-sidebar-fill) 90%, transparent)}}[data-platform=darwin] .wHEsxq_centerCol{background:var(--dsw-alias-bg-base);border-left:.5px solid var(--dsw-alias-border-l3)}[data-platform=darwin] .wHEsxq_rightbarCol{background:var(--dsw-alias-bg-base)}[data-platform=darwin] [data-sidebar-collapsed] .wHEsxq_centerCol{border-left:none}[data-platform=darwin] .wHEsxq_frame[data-sidebar-collapsed]{--dsh-frame-leading-clearance:160px}[data-platform=darwin][data-fullscreen] .wHEsxq_frame[data-sidebar-collapsed]{--dsh-frame-leading-clearance:84px}[data-platform=darwin][data-fullscreen] .wHEsxq_leadingSeat{left:12px}.wHEsxq_leadingSeat{z-index:15;-webkit-app-region:no-drag;align-items:center;display:flex;position:absolute;top:11px;left:88px}.wHEsxq_handle{cursor:col-resize;z-index:11;touch-action:none;grid-area:1/1/2/-1;width:8px;margin-left:-4px;position:absolute;top:0;bottom:0}.wHEsxq_frame[data-animating] .wHEsxq_handle{transition:left var(--ds-transition-duration-slow) var(--ds-ease-in-out)}.wHEsxq_frame[data-dragging] .wHEsxq_handle,.wHEsxq_frame[data-rightbar-fullscreen],.wHEsxq_frame[data-rightbar-fullscreen] .wHEsxq_handle,.wHEsxq_frame[data-rightbar-instant],.wHEsxq_frame[data-rightbar-instant] .wHEsxq_handle{transition:none}@media (prefers-reduced-motion:reduce){.wHEsxq_frame[data-animating] .wHEsxq_handle{transition:none}}.wHEsxq_rightbarCol{min-width:0;position:relative;overflow:visible}.wHEsxq_bottomRow{background:var(--dsw-alias-bg-base);grid-column:1/-1;min-width:0;min-height:0;overflow:auto}.wHEsxq_overlayLayer{z-index:20;pointer-events:none;position:absolute;inset:0}.wHEsxq_overlayLayer>*{pointer-events:auto}";
+		const tagId = "@deepseek-ai/dsh-client-ui-layout/AppFrame.module.css";
 		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId) + "]") === null) {
 			const tag = document.createElement("style");
-			tag.dataset.plugin = "@deepseek-ai/dsh-client-locale";
+			tag.dataset.plugin = "@deepseek-ai/dsh-client-ui-layout";
 			tag.dataset.pluginCss = tagId;
 			tag.textContent = css;
 			document.head.appendChild(tag);
 		}
-		var LanguageRow_module_css_default = {
-			"chevron": "hXJRqa_chevron",
-			"row": "hXJRqa_row",
-			"rowText": "hXJRqa_rowText",
-			"selector": "hXJRqa_selector",
-			"title": "hXJRqa_title"
+		var AppFrame_module_css_default = {
+			"bottomRow": "wHEsxq_bottomRow",
+			"centerCol": "wHEsxq_centerCol",
+			"frame": "wHEsxq_frame",
+			"handle": "wHEsxq_handle",
+			"leadingSeat": "wHEsxq_leadingSeat",
+			"overlayLayer": "wHEsxq_overlayLayer",
+			"rightbarCol": "wHEsxq_rightbarCol",
+			"sidebarCol": "wHEsxq_sidebarCol"
 		};
 		//#endregion
-		//#region lib/types/client/LanguageRow.js
+		//#region lib/types/client/AppFrame.js
 		/**
-		* Language preference row registered into the General section item slot
-		* (figma 501:30011 'Setting-Cell'): title + selector pill opening the locale
-		* menu. Registered by this package — the locale feature owns its own
-		* settings surface.
+		* Three-column shell frame, registered into the built-in 'root' slot (the web
+		* shell renders only 'root'). Owns the grid tracks (sidebar | center |
+		* rightbar), the drag handles (pointer capture + rAF throttle), the column
+		* solve (columns.ts), and the child-slot render decisions: the sidebar slot
+		* receives live parameters from that solve. The root-scoped main slot selects
+		* the Conversation or a global panel. Each column occupant owns its Session
+		* binding and reports the geometry it needs.
+		*
+		* The right column is a track, not a box: its occupant draws its panel anchored
+		* to the frame's right edge at the resolved normal width, and the
+		* track only decides whether the centre makes room for it. The occupant reports
+		* shown/track/fullscreen through `ctx.layout`; fullscreen keeps the reported
+		* track but hides the outer resize handle. Everything arrives through the framework
+		* shares — zero cordis or framework imports, zero self-made hooks.
 		*/
+		/** Center column grid item (session-body building block). */
+		function CenterColumn(props) {
+			return (0, react_jsx_runtime.jsx)("div", {
+				className: AppFrame_module_css_default.centerCol,
+				children: props.children
+			});
+		}
+		/** Subscribe to the main key without subscribing the column frame to each panel id. */
+		function MainPanel({ usePanelInfo, renderSlot }) {
+			return renderSlot("main", {}, { entryKey: usePanelInfo((info) => info.activePanelId) ?? "conversation" });
+		}
 		/**
-		* Render the Language row.
-		* @param props - composed slot props.
-		* @returns the row element tree.
+		* Right column grid item. Zero-width unless the occupant asked for a track; the
+		* occupant's panel is positioned against the column's right edge, which never
+		* moves, so it can hang over the centre when there is no track.
 		*/
-		function LanguageRow({ t, setLocale, useStore }) {
-			const active = useStore((s) => s.active);
-			const options = useStore((s) => s.options);
-			const [open, setOpen] = (0, react.useState)(false);
-			const activeLabel = options.find((o) => o.id === active)?.label ?? active;
+		function RightbarColumn(props) {
+			return (0, react_jsx_runtime.jsx)("div", {
+				className: AppFrame_module_css_default.rightbarCol,
+				"data-rightbar-col": true,
+				children: props.children
+			});
+		}
+		/**
+		* One drag handle: pointer capture, rAF-throttled dx reports against the drag-start origin.
+		* `side` keys the hover-reveal CSS to the owning column.
+		*/
+		function DragHandle(props) {
+			const [dragging, setDragging] = (0, react.useState)(false);
+			const origin = (0, react.useRef)(0);
+			const latest = (0, react.useRef)(0);
+			const frame = (0, react.useRef)(null);
+			const capture = (0, react.useRef)(null);
+			const callbacks = (0, react.useRef)({
+				onStart: props.onStart,
+				onDrag: props.onDrag,
+				onEnd: props.onEnd
+			});
+			callbacks.current = {
+				onStart: props.onStart,
+				onDrag: props.onDrag,
+				onEnd: props.onEnd
+			};
+			const endDrag = (0, react.useCallback)(() => {
+				const active = capture.current;
+				if (active === null) return;
+				capture.current = null;
+				if (frame.current !== null) {
+					cancelAnimationFrame(frame.current);
+					frame.current = null;
+				}
+				if (active.element.hasPointerCapture(active.id)) active.element.releasePointerCapture(active.id);
+				setDragging(false);
+				callbacks.current.onEnd();
+			}, []);
+			(0, react.useEffect)(() => endDrag, [endDrag]);
+			const onPointerDown = (0, react.useCallback)((e) => {
+				if (e.button !== 0 || capture.current !== null) return;
+				e.preventDefault();
+				e.currentTarget.setPointerCapture(e.pointerId);
+				capture.current = {
+					element: e.currentTarget,
+					id: e.pointerId
+				};
+				origin.current = e.clientX;
+				latest.current = e.clientX;
+				callbacks.current.onStart();
+				setDragging(true);
+			}, []);
+			const onPointerMove = (0, react.useCallback)((e) => {
+				if (capture.current?.id !== e.pointerId) return;
+				latest.current = e.clientX;
+				frame.current ??= requestAnimationFrame(() => {
+					frame.current = null;
+					callbacks.current.onDrag(latest.current - origin.current);
+				});
+			}, []);
+			const onPointerUp = (0, react.useCallback)((e) => {
+				if (capture.current?.id !== e.pointerId) return;
+				callbacks.current.onDrag(e.clientX - origin.current);
+				endDrag();
+			}, [endDrag]);
+			const onPointerCancel = (0, react.useCallback)((e) => {
+				if (capture.current?.id === e.pointerId) endDrag();
+			}, [endDrag]);
+			return (0, react_jsx_runtime.jsx)("div", {
+				className: AppFrame_module_css_default.handle,
+				style: { left: props.left },
+				"data-side": props.side,
+				"data-dragging": dragging || void 0,
+				onPointerDown,
+				onPointerMove,
+				onPointerUp,
+				onPointerCancel,
+				onLostPointerCapture: onPointerCancel
+			});
+		}
+		/** The three-column frame (see module doc). */
+		function AppFrame({ useStore, useSessions, usePanelInfo, actions, renderSlot, t }) {
+			const layoutInfo = useStore((state) => state.layoutInfo);
+			const frameRef = (0, react.useRef)(null);
+			const viewport = layoutInfo.viewportWidth;
+			(0, react.useLayoutEffect)(() => {
+				const el = frameRef.current;
+				/* v8 ignore next -- the ref is always attached by effect time: the frame div renders unconditionally. */
+				if (el === null) return;
+				let raf = null;
+				let disposed = false;
+				const measure = () => {
+					const width = el.getBoundingClientRect().width;
+					if (width > 0) actions.setViewportWidth(width);
+				};
+				measure();
+				const observer = new ResizeObserver(() => {
+					if (disposed) return;
+					raf ??= requestAnimationFrame(() => {
+						raf = null;
+						measure();
+					});
+				});
+				observer.observe(el);
+				return () => {
+					disposed = true;
+					observer.disconnect();
+					if (raf !== null) cancelAnimationFrame(raf);
+				};
+			}, [actions]);
+			const narrow = viewport < SIDEBAR_AUTO_COLLAPSE;
+			const sidebarCollapsed = narrow ? !layoutInfo.narrowExpanded : layoutInfo.sidebar === 0;
+			const sidebarPreference = sidebarCollapsed ? 0 : layoutInfo.sidebar === 0 ? 280 : layoutInfo.sidebar;
+			const rightbarPreference = layoutInfo.rightbar ?? viewport * .45;
+			const darwin = document.documentElement.dataset.platform === "darwin";
+			const collapsedWidth = darwin || document.documentElement.hasAttribute("data-windows-titlebar") ? 0 : 56;
+			const normal = computeColumns(viewport, !layoutInfo.rightbarShown && narrow ? 0 : sidebarPreference, rightbarPreference, collapsedWidth);
+			const cols = computeColumns(viewport, sidebarPreference, layoutInfo.rightbarTrack ? rightbarPreference : 0, collapsedWidth);
+			const colsRef = (0, react.useRef)(cols);
+			colsRef.current = cols;
+			const rightbarWidth = (0, react.useRef)(normal.rightbar);
+			rightbarWidth.current = normal.rightbar;
+			const sidebarBase = (0, react.useRef)(0);
+			const rightbarBase = (0, react.useRef)(0);
+			const [dragging, setDragging] = (0, react.useState)(false);
+			const [animating, setAnimating] = (0, react.useState)(0);
+			const trackToggle = `${sidebarCollapsed}:${layoutInfo.rightbarTrack}`;
+			const previousToggle = (0, react.useRef)(trackToggle);
+			const previousViewport = (0, react.useRef)(viewport);
+			(0, react.useLayoutEffect)(() => {
+				const viewportChanged = previousViewport.current !== viewport;
+				previousViewport.current = viewport;
+				if (previousToggle.current === trackToggle) return;
+				previousToggle.current = trackToggle;
+				if (viewportChanged) return;
+				setAnimating((token) => token + 1);
+			}, [trackToggle, viewport]);
+			(0, react.useEffect)(() => {
+				if (animating === 0) return;
+				const frame = frameRef.current;
+				/* v8 ignore next -- the ref is always attached by effect time: the frame div renders unconditionally. */
+				if (frame === null) return;
+				const settle = () => {
+					setAnimating(0);
+				};
+				const onTransitionEnd = (event) => {
+					if (event.target === frame && event.propertyName === "grid-template-columns") settle();
+				};
+				frame.addEventListener("transitionend", onTransitionEnd);
+				const timer = setTimeout(settle, 600);
+				return () => {
+					frame.removeEventListener("transitionend", onTransitionEnd);
+					clearTimeout(timer);
+				};
+			}, [animating]);
+			const onDragEnd = (0, react.useCallback)(() => {
+				setDragging(false);
+			}, []);
+			const onSidebarStart = (0, react.useCallback)(() => {
+				sidebarBase.current = colsRef.current.sidebar;
+				setDragging(true);
+			}, []);
+			const onSidebarDrag = (0, react.useCallback)((dx) => {
+				actions.setSidebar(sidebarBase.current + dx);
+			}, [actions]);
+			const onRightbarStart = (0, react.useCallback)(() => {
+				rightbarBase.current = rightbarWidth.current;
+				setDragging(true);
+			}, []);
+			const onRightbarDrag = (0, react.useCallback)((dx) => {
+				actions.setRightbar(rightbarBase.current - dx);
+			}, [actions]);
+			const productTitle = {}.DSH_CLIENT_TITLE ?? t("brand.localBuild");
+			const rightbarMax = cols.rightbar === 0 ? 0 : clampWidth(rightbarPreference, 300, viewport * RIGHTBAR_MAX_RATIO);
+			const sidebar = (0, react.useMemo)(() => renderSlot("sidebar", {
+				collapsed: sidebarCollapsed,
+				width: cols.sidebar
+			}), [
+				renderSlot,
+				sidebarCollapsed,
+				cols.sidebar
+			]);
+			const main = (0, react.useMemo)(() => (0, react_jsx_runtime.jsx)(MainPanel, {
+				usePanelInfo,
+				renderSlot
+			}), [usePanelInfo, renderSlot]);
+			const overlays = (0, react.useMemo)(() => renderSlot("shell.overlay", {}), [renderSlot]);
+			const leading = (0, react.useMemo)(() => renderSlot("shell.leading", {}), [renderSlot]);
+			const leadingMounted = darwin && sidebarCollapsed;
 			return (0, react_jsx_runtime.jsxs)("div", {
-				className: LanguageRow_module_css_default.row,
-				children: [(0, react_jsx_runtime.jsx)("div", {
-					className: LanguageRow_module_css_default.rowText,
-					children: (0, react_jsx_runtime.jsx)("div", {
-						className: LanguageRow_module_css_default.title,
-						children: t("language.title")
+				ref: frameRef,
+				className: AppFrame_module_css_default.frame,
+				style: {
+					...document.documentElement.hasAttribute("data-windows-titlebar") ? { "--dsh-windows-sidebar-width": `${cols.sidebar}px` } : {},
+					gridTemplateColumns: `${cols.sidebar}px minmax(${cols.rightbar === 0 ? 0 : 400}px, 1fr) minmax(0px, ${rightbarMax}px)`
+				},
+				"data-sidebar-collapsed": sidebarCollapsed || void 0,
+				"data-rightbar-collapsed": cols.rightbar === 0 || void 0,
+				"data-rightbar-fullscreen": layoutInfo.rightbarFullscreen || void 0,
+				"data-rightbar-instant": layoutInfo.rightbarInstant || void 0,
+				"data-dragging": dragging || void 0,
+				"data-animating": animating > 0 || void 0,
+				children: [
+					(0, react_jsx_runtime.jsx)(DocumentTitle, {
+						productTitle,
+						useSessions,
+						usePanelInfo
+					}),
+					(0, react_jsx_runtime.jsx)("div", {
+						className: AppFrame_module_css_default.sidebarCol,
+						children: sidebar
+					}),
+					(0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [(0, react_jsx_runtime.jsx)(CenterColumn, { children: main }), (0, react_jsx_runtime.jsx)(RightbarColumn, { children: renderSlot("rightbar", {
+						width: normal.rightbar,
+						viewportWidth: viewport,
+						canShow: normal.rightbar > 0
+					}) })] }),
+					(0, react_jsx_runtime.jsx)("div", {
+						className: AppFrame_module_css_default.bottomRow,
+						"data-shell-bottom": true,
+						children: renderSlot("shell.bottom", {})
+					}),
+					(0, react_jsx_runtime.jsx)("div", {
+						className: AppFrame_module_css_default.overlayLayer,
+						"data-shell-overlay": true,
+						children: overlays
+					}),
+					leadingMounted && (0, react_jsx_runtime.jsx)("div", {
+						className: AppFrame_module_css_default.leadingSeat,
+						"data-shell-leading": true,
+						children: leading
+					}),
+					!sidebarCollapsed && (0, react_jsx_runtime.jsx)(DragHandle, {
+						side: "sidebar",
+						left: cols.sidebar,
+						onStart: onSidebarStart,
+						onDrag: onSidebarDrag,
+						onEnd: onDragEnd
+					}),
+					layoutInfo.rightbarShown && !layoutInfo.rightbarFullscreen && normal.rightbar > 0 && (0, react_jsx_runtime.jsx)(DragHandle, {
+						side: "rightbar",
+						left: viewport - normal.rightbar,
+						onStart: onRightbarStart,
+						onDrag: onRightbarDrag,
+						onEnd: onDragEnd
 					})
-				}), (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Menu, {
-					open,
-					onClose: () => {
-						setOpen(false);
-					},
-					items: options.map((o) => ({
-						id: o.id,
-						label: o.label
-					})),
-					selectedId: active,
-					onSelect: (id) => {
-						setLocale(id);
-						setOpen(false);
-					},
-					align: "end",
-					portal: true,
-					anchor: (0, react_jsx_runtime.jsxs)("button", {
-						type: "button",
-						className: LanguageRow_module_css_default.selector,
-						"aria-haspopup": "menu",
-						"aria-expanded": open,
-						onClick: () => {
-							setOpen((v) => !v);
-						},
-						children: [activeLabel, (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconChevronDownOutlineRegular, { className: LanguageRow_module_css_default.chevron })]
-					})
-				})]
+				]
 			});
 		}
 		//#endregion
-		//#region lib/types/client/settings-store.js
+		//#region lib/types/client/stores.js
 		/**
-		* Language row slot store: a mirror of the locale service snapshot. The
-		* plugin's apply-world change listener is the only writer; the row component
-		* reads via props.useStore.
+		* Root-owned frame measurement, panel preferences, and presentation reports.
+		* The registration supplies a fresh store and binds its actions to ctx.layout.
 		*/
 		/**
-		* Declares the Language row state and write surface.
-		* @returns the store handle.
+		* Create the layout panel store handle. For the sidebar the preference IS the
+		* width, so closing it forgets its drag width — reopening restores the contract
+		* default. The right panel initializes at 45% of the frame on first opening
+		* and keeps that px preference across resizes and close. Drag writes clamp to
+		* the current frame's range. Narrow sidebar toggles change only the expansion
+		* override; opening the right panel clears that override.
+		* @returns the store handle (spec + type + identity + factory in one).
 		*/
-		function createLanguageRowStore() {
+		function createLayoutStore() {
 			return (0, _deepseek_ai_dsh_client_store.defineStore)({
 				init: () => ({
-					active: "",
-					options: [],
-					revision: -1
+					panelInfo: { activePanelId: null },
+					layoutInfo: {
+						sidebar: 280,
+						viewportWidth: window.innerWidth,
+						narrowExpanded: false,
+						rightbar: null,
+						rightbarShown: false,
+						rightbarTrack: false,
+						rightbarFullscreen: false,
+						rightbarInstant: false
+					}
 				}),
-				actions: { sync: (d, active, options, revision) => {
-					if (revision <= d.revision) return;
-					d.active = active;
-					d.options = options;
-					d.revision = revision;
-				} }
+				actions: {
+					selectPanel: (d, panelId) => {
+						d.panelInfo.activePanelId = panelId;
+					},
+					retainMainPanels: (d, panelIds) => {
+						if (d.panelInfo.activePanelId !== null && !panelIds.includes(d.panelInfo.activePanelId)) d.panelInfo.activePanelId = null;
+					},
+					setSidebar: (d, px) => {
+						d.layoutInfo.rightbarInstant = false;
+						d.layoutInfo.sidebar = clampWidth(px, 264, 420);
+					},
+					toggleSidebar: (d) => {
+						d.layoutInfo.rightbarInstant = false;
+						if (d.layoutInfo.viewportWidth < 1024) d.layoutInfo.narrowExpanded = !d.layoutInfo.narrowExpanded;
+						else d.layoutInfo.sidebar = d.layoutInfo.sidebar === 0 ? 280 : 0;
+					},
+					setViewportWidth: (d, width) => {
+						if (d.layoutInfo.viewportWidth === width) return;
+						d.layoutInfo.rightbarInstant = false;
+						if (d.layoutInfo.viewportWidth < 1024 !== width < 1024) d.layoutInfo.narrowExpanded = false;
+						d.layoutInfo.viewportWidth = width;
+					},
+					setRightbar: (d, px) => {
+						d.layoutInfo.rightbarInstant = false;
+						d.layoutInfo.rightbar = clampWidth(px, 300, Math.max(300, d.layoutInfo.viewportWidth * RIGHTBAR_MAX_RATIO));
+					},
+					openRightbar: (d, track, fullscreen) => {
+						if (!d.layoutInfo.rightbarShown || d.layoutInfo.rightbarTrack !== track || d.layoutInfo.rightbarFullscreen !== fullscreen) d.layoutInfo.rightbarInstant = d.layoutInfo.rightbarFullscreen && !fullscreen;
+						if (!d.layoutInfo.rightbarShown && d.layoutInfo.viewportWidth < 1024) d.layoutInfo.narrowExpanded = false;
+						d.layoutInfo.rightbar ??= Math.max(300, Math.round(d.layoutInfo.viewportWidth * RIGHTBAR_DEFAULT_RATIO));
+						d.layoutInfo.rightbarShown = true;
+						d.layoutInfo.rightbarTrack = track;
+						d.layoutInfo.rightbarFullscreen = fullscreen;
+					},
+					closeRightbar: (d) => {
+						if (d.layoutInfo.rightbarShown) d.layoutInfo.rightbarInstant = d.layoutInfo.rightbarFullscreen;
+						d.layoutInfo.rightbarShown = false;
+						d.layoutInfo.rightbarTrack = false;
+						d.layoutInfo.rightbarFullscreen = false;
+					}
+				}
 			});
 		}
+		//#endregion
+		//#region lib/types/client/service.js
+		/** Cross-plugin panel-action face (ctx.layout). */
+		var LayoutController = class {
+			panels;
+			hasMainPanel;
+			panelInfo;
+			navigation = new AbortController();
+			/**
+			* @param panels - actions of the instance shared with the root entry.
+			* @param hasMainPanel - checks the live main-slot registry for a panel id.
+			* @param panelInfo - root store's shared central-panel selection source.
+			*/
+			constructor(panels, hasMainPanel, panelInfo) {
+				this.panels = panels;
+				this.hasMainPanel = hasMainPanel;
+				this.panelInfo = panelInfo;
+			}
+			/** Select a global panel or return to the Conversation. */
+			selectPanel(panelId) {
+				if (panelId !== null && !this.hasMainPanel(panelId)) throw new Error(`layout.selectPanel: main panel "${panelId}" is not registered`);
+				this.navigation.abort();
+				this.panels.selectPanel(panelId);
+			}
+			/** @returns the new pending navigation's cancellation signal. */
+			beginNavigation() {
+				this.navigation.abort();
+				this.navigation = new AbortController();
+				return this.navigation.signal;
+			}
+			/** Invalidate pending navigations when the layout owner is unloaded. */
+			dispose() {
+				this.navigation.abort();
+			}
+			/** Toggle the sidebar panel (closed ⟷ contract default width). */
+			toggleSidebar() {
+				this.panels.toggleSidebar();
+			}
+			/** Report the right panel's track and fullscreen presentation. */
+			openRightbar(track, fullscreen) {
+				this.panels.openRightbar(track, fullscreen);
+			}
+			/** Report the right panel as hidden: no track, no handle. */
+			closeRightbar() {
+				this.panels.closeRightbar();
+			}
+		};
+		//#endregion
+		//#region lib/types/client/shortcut-locales.js
+		/** Layout command labels. */
+		const zh = { toggle: "展开／收起左侧栏" };
+		/** English labels for the same layout commands. */
+		const en = { toggle: "Toggle left sidebar" };
+		//#endregion
+		//#region lib/types/client/theme-presenter.js
+		/** Body attribute selecting the dark base palette in the token stylesheets. */
+		const DARK_ATTRIBUTE = "data-ds-dark-theme";
+		/**
+		* Root attribute publishing the theme source (`light`, `dark`, or `system`)
+		* for host shells that mirror it into the native theme (the Electron preload
+		* forwards it to `nativeTheme.themeSource`, so native chrome, renderer
+		* `prefers-color-scheme` queries, and Platform login links follow the app
+		* palette on every platform). `system` only when the preference is `system`;
+		* a fixed preference (including registered theme ids) publishes its resolved
+		* scheme.
+		*/
+		const THEME_SOURCE_ATTRIBUTE = "data-ds-theme-source";
+		/** Body variable carrying the user's content font size in px. */
+		const CONTENT_FONT_SIZE_VARIABLE = "--dsh-content-font-size";
+		/** Applies theme snapshots to the document; one instance per plugin fiber. */
+		var ThemePresenter = class {
+			/** Token names this presenter wrote in the last apply (its retraction set). */
+			appliedTokens = [];
+			/** The single metadata node this presenter inserts and removes. */
+			themeColorMeta;
+			/** Create the presenter-owned metadata node before the first snapshot arrives. */
+			constructor() {
+				this.themeColorMeta = document.createElement("meta");
+				this.themeColorMeta.name = "theme-color";
+			}
+			/**
+			* Project a snapshot onto the document: set root `color-scheme` and the body
+			* palette attribute from `active.colorScheme` (never the id — `system` is
+			* resolved upstream), publish the content font-size axis, then replace the
+			* previously applied token variables with `active.tokens`. Browser
+			* theme-color metadata follows the computed body background after those
+			* writes, so the rendered palette remains the color authority.
+			* @param snapshot - resolved theme snapshot from ctx.theme.
+			*/
+			apply(snapshot) {
+				const scheme = snapshot.active.colorScheme;
+				document.documentElement.style.colorScheme = scheme;
+				document.documentElement.setAttribute(THEME_SOURCE_ATTRIBUTE, snapshot.preference === "system" ? "system" : scheme);
+				const body = document.body;
+				if (scheme === "dark") body.setAttribute(DARK_ATTRIBUTE, "");
+				else body.removeAttribute(DARK_ATTRIBUTE);
+				body.style.setProperty(CONTENT_FONT_SIZE_VARIABLE, `${snapshot.fontSize}px`);
+				for (const name of this.appliedTokens) body.style.removeProperty(name);
+				this.appliedTokens = [];
+				for (const [name, value] of Object.entries(snapshot.active.tokens)) {
+					body.style.setProperty(name, value);
+					this.appliedTokens.push(name);
+				}
+				this.themeColorMeta.content = getComputedStyle(body).backgroundColor;
+				if (!this.themeColorMeta.isConnected) document.head.append(this.themeColorMeta);
+			}
+			/**
+			* Retract root color-scheme, the theme-source attribute, the palette
+			* attribute, token variables, the font-size axis, and the owned metadata node.
+			*/
+			dispose() {
+				document.documentElement.style.removeProperty("color-scheme");
+				document.documentElement.removeAttribute(THEME_SOURCE_ATTRIBUTE);
+				const body = document.body;
+				body.removeAttribute(DARK_ATTRIBUTE);
+				body.style.removeProperty(CONTENT_FONT_SIZE_VARIABLE);
+				for (const name of this.appliedTokens) body.style.removeProperty(name);
+				this.appliedTokens = [];
+				this.themeColorMeta.remove();
+			}
+		};
 		//#endregion
 		//#region lib/types/client/index.js
-		/**
-		* English is both the locale the UI opens in when the browser names no registered
-		* language (and for non-browser runs), and the dictionary consulted after the
-		* active locale misses a key. One constant serves both because the shipped
-		* `zh`/`en` dictionaries carry identical key sets, so neither direction can
-		* leave a key unresolved; the residual case points at English rather than
-		* zh because a browser naming no registered language is the reader least
-		* likely to read Chinese.
-		*/
-		const FALLBACK_LOCALE = "en";
-		/** Shared namespace for shell-level texts. */
-		const COMMON_NS = "common";
-		/** Namespace owning this feature's settings-row copy. */
-		const SETTINGS_NS = "settings.locale";
-		/** The two locales and dictionaries shipped by this package. */
-		const BUILT_IN_LOCALE_METADATA = {
-			zh: {
-				label: "中文",
-				fallback: "en"
-			},
-			en: { label: "English" }
-		};
-		const BUILT_IN_LOCALES = Object.freeze(LOCALE_IDS.map((id) => Object.freeze({
-			id,
-			...BUILT_IN_LOCALE_METADATA[id]
-		})));
-		/** Case-insensitive key for BCP 47-style ids. */
-		function localeKey(value) {
-			return value.toLowerCase();
-		}
-		/** Validate and detach a language-pack contribution from its mutable input. */
-		function normalizeLanguage(input) {
-			if (!LOCALE_ID_PATTERN.test(input.id)) throw new Error(`locale id "${input.id}" is not a BCP 47-style tag`);
-			if (input.label.trim() === "") throw new Error("locale label must not be empty");
-			if (!LOCALE_ID_PATTERN.test(input.fallback)) throw new Error(`locale fallback "${input.fallback}" is not a BCP 47-style tag`);
-			return Object.freeze({
-				id: input.id,
-				label: input.label,
-				fallback: input.fallback
-			});
-		}
-		/**
-		* Point `<html lang>` at the active locale, keeping the served document in
-		* sync with locale snapshot changes.
-		* @param snapshot - current locale state, including the active definition.
-		*/
-		function syncDocumentLanguage(snapshot) {
-			if (typeof document === "undefined") return;
-			const language = snapshot.active === "zh" ? "zh-CN" : snapshot.active;
-			if (document.documentElement.lang !== language) document.documentElement.lang = language;
-		}
-		/**
-		* Dictionary registry plus locale preference. Lookup walks the active
-		* language's declared fallback chain in the entry namespace, then repeats it
-		* in the shared common namespace before showing the key itself. Reads go
-		* through {@link getLocale}; preferences change only through
-		* {@link setLocale}, while language packs extend the catalog through
-		* {@link addLanguage}. Continuous sync uses the `locale/change` event or
-		* the LocaleFace getSnapshot/subscribe pair installed through
-		* `ctx.slots.installLocale`.
-		*/
-		var LocaleRuntime = class {
-			bootstrap;
-			dicts = /* @__PURE__ */ new Map();
-			bound = /* @__PURE__ */ new Map();
-			catalog = /* @__PURE__ */ new Map();
-			fallbackChains = /* @__PURE__ */ new Map();
-			snapshot;
-			listeners = /* @__PURE__ */ new Set();
-			ctx;
-			host;
-			/** Browser-derived locale standing wherever no explicit Host selection does. */
-			provisional;
-			/** Last explicit selection, including one awaiting an external registration. */
-			preference;
-			/**
-			* @param ctx - owning context (change events are emitted on it; the scope
-			* listener is released through ctx.effect on dispose).
-			* @param host - durable preference scope owned by the providing plugin;
-			* absent compositions (standalone dictionary registries) stay process-local.
-			* @param bootstrap - native initialization; absent in ordinary browsers.
-			*/
-			constructor(ctx, host, bootstrap) {
-				this.bootstrap = bootstrap;
-				this.ctx = ctx;
-				this.host = host;
-				for (const locale of BUILT_IN_LOCALES) this.catalog.set(localeKey(locale.id), locale);
-				const locales = this.localeList();
-				this.provisional = resolveInitialLocale(locales, bootstrap?.languages);
-				this.preference = bootstrap?.preference ?? void 0;
-				this.snapshot = Object.freeze({
-					active: this.resolveActive(),
-					locales,
-					revision: 0
-				});
-				if (host !== void 0) {
-					ctx.effect(() => host.subscribe(() => {
-						this.adopt(host);
-					}), "locale: settings scope adoption");
-					this.adopt(host);
-				}
-			}
-			/**
-			* Read the current immutable locale snapshot.
-			* @returns the current snapshot (stable reference until the next change).
-			*/
-			getLocale() {
-				return this.snapshot;
-			}
-			/**
-			* Resolve package text through the active language's declared fallback chain.
-			* Plain strings stay verbatim; maps do not consult registered dictionaries.
-			* @param text - package text whose locale keys are lowercase and include English.
-			* @returns the first available translation, including an empty string.
-			*/
-			resolveText(text) {
-				if (typeof text === "string") return text;
-				return this.fallbackChain(this.snapshot.active).reduceRight((resolved, locale) => text[localeKey(locale)] ?? resolved, text.en);
-			}
-			/**
-			* LocaleFace getSnapshot: the current snapshot (carries `revision`; stable
-			* reference between changes, uSES-safe).
-			* @returns the current snapshot.
-			*/
-			getSnapshot() {
-				return this.snapshot;
-			}
-			/**
-			* LocaleFace subscribe: notified on every snapshot change (locale switch
-			* or dictionary registration — registrations bump the revision so already
-			* rendered outlets pick up late-arriving dictionaries and locale definitions).
-			* @param fn - change callback.
-			* @returns unsubscribe.
-			*/
-			subscribe(fn) {
-				this.listeners.add(fn);
-				return () => {
-					this.listeners.delete(fn);
-				};
-			}
-			/**
-			* Switch the active locale — the only user preference write entry.
-			*
-			* The durable write happens even when the id already matches the active
-			* locale, because the active value may be a provisional browser-derived or
-			* fallback resolution that nothing has stored yet. Picking the language
-			* already on screen is still an explicit choice, and it must survive a
-			* different browser sharing the same DSH home. Only the render notification
-			* is conditional: republishing an unchanged locale would churn every
-			* subscriber for nothing.
-			* @param id - a registered locale id; unknown ids throw.
-			*/
-			setLocale(id) {
-				const match = this.catalog.get(localeKey(id));
-				if (match === void 0) throw new Error(`locale "${id}" is not registered`);
-				this.preference = match.id;
-				if (this.snapshot.active !== match.id) this.publish(match.id, true);
-				this.host?.set(LOCALE_PREFERENCE_FIELD, match.id);
-			}
-			/**
-			* Add one selectable language to the shared catalog. Its fallback must
-			* already be registered, and following fallback definitions must terminate
-			* at English. Dictionaries may register before or after this definition.
-			* Registration rechecks an unresolved Host preference and the browser's
-			* ordered language list. The caller owns the returned disposer; removing an
-			* active language falls back without clearing the stored id.
-			* @param input - stable id, self-described label, and fallback language id.
-			* @returns idempotent disposer removing this exact definition.
-			* @throws when fields are malformed, the id is occupied, or the fallback
-			* target is unknown or creates a cycle.
-			*/
-			addLanguage(input) {
-				const candidate = normalizeLanguage(input);
-				const key = localeKey(candidate.id);
-				if (this.catalog.has(key)) throw new Error(`locale "${candidate.id}" is already registered`);
-				const fallback = this.catalog.get(localeKey(candidate.fallback));
-				if (fallback === void 0) throw new Error(`locale fallback "${candidate.fallback}" is not registered`);
-				const language = Object.freeze({
-					...candidate,
-					fallback: fallback.id
-				});
-				this.catalog.set(key, language);
-				try {
-					this.assertFallbackChain(language.id);
-				} catch (error) {
-					this.catalog.delete(key);
-					throw error;
-				}
-				this.publishCatalog();
-				return () => {
-					if (this.catalog.get(key) !== language) return;
-					this.catalog.delete(key);
-					this.publishCatalog();
-				};
-			}
-			/**
-			* Adopt the scope's accepted durable selection without writing it back; an
-			* absent selection returns to the browser-derived locale.
-			* @param host - the constructor-narrowed scope driving this adoption.
-			*/
-			adopt(host) {
-				const section = host.getSnapshot().value;
-				if (section === void 0) return;
-				this.preference = section.preference;
-				const target = this.resolveActive();
-				if (this.snapshot.active === target) return;
-				this.publish(target, true);
-			}
-			/** Recompute browser fallback and publish the current catalog. */
-			publishCatalog() {
-				this.fallbackChains.clear();
-				const locales = this.localeList();
-				this.provisional = resolveInitialLocale(locales, this.bootstrap?.languages);
-				const active = this.resolveActive();
-				this.publish(active, active !== this.snapshot.active, locales);
-			}
-			/** Resolve an explicit preference only while its definition is available. */
-			resolveActive() {
-				if (this.preference === void 0) return this.provisional;
-				return this.catalog.get(localeKey(this.preference))?.id ?? this.provisional;
-			}
-			/** Snapshot the catalog in registration order. */
-			localeList() {
-				return Object.freeze([...this.catalog.values()]);
-			}
-			/** Fail a new definition whose complete fallback path does not reach English. */
-			assertFallbackChain(start) {
-				const seen = /* @__PURE__ */ new Set();
-				let current = this.catalog.get(localeKey(start));
-				while (current !== void 0) {
-					const key = localeKey(current.id);
-					if (seen.has(key)) throw new Error(`locale fallback cycle includes "${current.id}"`);
-					seen.add(key);
-					if (key === localeKey("en")) return;
-					/* v8 ignore next -- English is the only built-in terminal and every
-					* language accepted by addLanguage has a required fallback. */
-					if (current.fallback === void 0) throw new Error(`locale "${current.id}" fallback chain does not reach "en"`);
-					const next = this.catalog.get(localeKey(current.fallback));
-					if (next === void 0) throw new Error(`locale fallback "${current.fallback}" is not registered`);
-					current = next;
-				}
-			}
-			/** Resolve a lookup chain, falling directly to English across an unload gap. */
-			fallbackChain(start) {
-				const startKey = localeKey(start);
-				const cached = this.fallbackChains.get(startKey);
-				if (cached !== void 0) return cached;
-				const chain = [];
-				const seen = /* @__PURE__ */ new Set();
-				let current = this.catalog.get(startKey);
-				while (current !== void 0 && !seen.has(localeKey(current.id))) {
-					const key = localeKey(current.id);
-					seen.add(key);
-					chain.push(current.id);
-					current = current.fallback === void 0 ? void 0 : this.catalog.get(localeKey(current.fallback));
-				}
-				if (!seen.has(localeKey("en"))) chain.push("en");
-				const resolved = Object.freeze(chain);
-				this.fallbackChains.set(startKey, resolved);
-				return resolved;
-			}
-			register(ns, localeOrDicts, dict) {
-				const pairs = typeof localeOrDicts === "string" ? [[localeOrDicts, dict]] : Object.entries(localeOrDicts);
-				for (const [locale] of pairs) if (!LOCALE_ID_PATTERN.test(locale)) throw new Error(`locale id "${locale}" is not a BCP 47-style tag`);
-				let locales = this.dicts.get(ns);
-				if (!locales) {
-					locales = /* @__PURE__ */ new Map();
-					this.dicts.set(ns, locales);
-				}
-				for (const [locale] of pairs) if (locales.has(localeKey(locale))) throw new Error(`locale namespace "${ns}" already has locale "${locale}"`);
-				for (const [locale, entries] of pairs) locales.set(localeKey(locale), entries);
-				this.publish(this.snapshot.active, false);
-				return () => {
-					const owner = this.dicts.get(ns);
-					/* v8 ignore next -- defensive: a namespace's locales map is created on
-					* first register and never removed, so the disposer always finds it. */
-					if (!owner) return;
-					let removed = false;
-					for (const [locale, entries] of pairs) {
-						const key = localeKey(locale);
-						if (owner.get(key) === entries) {
-							owner.delete(key);
-							removed = true;
-						}
-					}
-					if (removed) this.publish(this.snapshot.active, false);
-				};
-			}
-			bind(ns) {
-				let t = this.bound.get(ns);
-				if (!t) {
-					t = (key, params) => this.translate(ns, key, params);
-					this.bound.set(ns, t);
-					return t;
-				}
-				return t;
-			}
-			translate(ns, key, params) {
-				const chain = this.fallbackChain(this.snapshot.active);
-				const template = this.lookup(ns, key, chain) ?? (ns !== "common" ? this.lookup("common", key, chain) : void 0) ?? key;
-				if (!params) return template;
-				return template.replace(/\{(\w+)\}/g, (match, name) => name in params ? String(params[name]) : match);
-			}
-			lookup(ns, key, chain) {
-				const locales = this.dicts.get(ns);
-				for (const locale of chain) {
-					const value = locales?.get(localeKey(locale))?.[key];
-					if (value !== void 0) return value;
-				}
-			}
-			/**
-			* Advance the snapshot revision and notify LocaleFace subscribers (render
-			* refresh). Only an active-locale switch additionally emits
-			* `locale/change` — dictionary registrations stay off the event so
-			* registration-heavy boot cannot storm event listeners (which may
-			* re-register slots in response).
-			*/
-			publish(active, localeChanged, locales = this.snapshot.locales) {
-				this.snapshot = Object.freeze({
-					active,
-					locales,
-					revision: this.snapshot.revision + 1
-				});
-				if (localeChanged) this.ctx.emit("locale/change", this.snapshot);
-				for (const fn of [...this.listeners]) try {
-					fn();
-				} catch (error) {
-					console.error("locale subscriber crashed:", error);
-				}
-			}
-		};
-		/**
-		* The browser's own language wins over {@link FALLBACK_LOCALE}; an explicit
-		* Host preference may replace this provisional value after plugin activation.
-		*/
-		function resolveInitialLocale(locales, languages) {
-			return detectBrowserLocale(locales, languages) ?? "en";
-		}
-		/**
-		* The first registered locale the browser asks for. Each browser tag first
-		* matches a locale id exactly, then its primary subtag, so an exact regional
-		* registration wins before a language-wide fallback.
-		* `window` is the browser test, not `navigator`: Node exposes a global
-		* `navigator` reporting the machine's own language, which must not decide the
-		* locale for non-browser runs. `navigator.language` trails the ordered
-		* `languages` list and covers hosts exposing only the single tag.
-		* @param locales - definitions currently available to the browser.
-		* @param languages - native system language order, when supplied by a shell.
-		* @returns the first matching locale id, or undefined.
-		*/
-		function detectBrowserLocale(locales, languages) {
-			if (languages === void 0) {
-				if (typeof window === "undefined") return void 0;
-				languages = [...navigator.languages ?? [], navigator.language];
-			}
-			for (const tag of languages) {
-				const requested = localeKey(tag);
-				const exact = locales.find((locale) => localeKey(locale.id) === requested);
-				if (exact !== void 0) return exact.id;
-				const primary = requested.split("-")[0];
-				const match = locales.find((locale) => localeKey(locale.id).split("-")[0] === primary);
-				if (match !== void 0) return match.id;
-			}
-		}
-		/** Required services: slot registration plus the settings transport. */
+		/** Required services (cordis fiber inject — the loader passes all module exports as an object plugin). */
 		const inject = [
 			"slots",
-			"remote",
-			"configForms"
+			"theme",
+			"locale",
+			"shortcuts"
 		];
 		/**
-		* Client plugin body: provide the locale service with base dictionaries and
-		* register the feature-owned Language preference row into the General
-		* section's item slot (a feature owns its settings surface).
-		* @param ctx - client cordis context.
-		* @returns resolves after native language initialization and plugin registration.
+		* Client plugin body: provide ctx.layout, then one register() call — AppFrame
+		* into 'root' with its child-slot declarations, the layout store seat,
+		* and the shared root instance supplying commands and the panel-info source.
+		* @param ctx - client root context.
 		*/
-		async function apply(ctx) {
-			const bridge = globalThis.__DSH_LOCALE__;
-			let bootstrap;
-			if (bridge !== void 0) {
-				let value;
-				try {
-					value = await bridge.read();
-				} catch (error) {
-					if (ctx.fiber.uid === null) return;
-					throw error;
-				}
-				if (ctx.fiber.uid === null) return;
-				bootstrap = parseLocaleBootstrap(value);
-			}
-			const locale = new LocaleRuntime(ctx, ctx.configForms.get(LOCALE_SETTINGS_NAMESPACE), bootstrap);
-			locale.register(COMMON_NS, {
-				zh: zh$1,
-				en: en$1
-			});
-			locale.register(SETTINGS_NS, {
+		function apply(ctx) {
+			ctx.effect(() => ctx.locale.register("shortcuts.layout", {
 				zh,
 				en
-			});
-			ctx.provide("locale", locale);
-			if (bridge !== void 0) {
-				ctx.on("locale/change", (snapshot) => {
-					bridge.onChange(snapshot.active);
+			}), "layout: command labels");
+			const t = ctx.locale.bind("shortcuts.layout");
+			ctx.effect(() => {
+				const handle = createLayoutStore();
+				const instance = handle.create();
+				const store = {
+					...handle,
+					create: () => instance
+				};
+				const retainMainPanels = () => {
+					instance.actions.retainMainPanels(ctx.slots.entries("main").flatMap((entry) => entry.options.key === void 0 ? [] : [entry.options.key]));
+				};
+				const layout = new LayoutController(instance.actions, (id) => ctx.slots.entries("main").some((entry) => entry.options.key === id), {
+					getSnapshot: () => instance.getSnapshot().panelInfo,
+					subscribe: (listener) => instance.subscribe(listener)
 				});
-				bridge.onChange(locale.getSnapshot().active);
-			}
-			ctx.slots.installLocale(locale);
-			const store = createLanguageRowStore();
-			let bound;
-			const sync = () => {
-				const snapshot = locale.getSnapshot();
-				syncDocumentLanguage(snapshot);
-				bound?.sync(snapshot.active, snapshot.locales.map((l) => ({
-					id: l.id,
-					label: l.label
-				})), snapshot.revision);
-			};
-			ctx.effect(() => locale.subscribe(sync), "locale: language row and document synchronization");
-			sync();
-			const injected = (actions) => {
-				bound = actions;
-				sync();
-				return { setLocale: (id) => {
-					locale.setLocale(id);
-				} };
-			};
-			ctx.slots.inject("settings.general.item", () => ctx.slots.register({
-				name: "settings.general.item",
-				id: "language",
-				order: 0,
-				store,
-				locale: SETTINGS_NS,
-				inject: injected
-			}, LanguageRow));
+				const disposePanelInfo = ctx.slots.provideRoot({ hooks: { panelInfo: layout.panelInfo } });
+				const disposeService = ctx.reflect.provide("layout", layout);
+				const disposeRegistration = ctx.slots.register({
+					name: "root",
+					locale: "common",
+					children: {
+						"sidebar": {
+							kind: "single",
+							scope: "root"
+						},
+						"main": {
+							kind: "keyed",
+							scope: "root"
+						},
+						"rightbar": {
+							kind: "single",
+							scope: "root"
+						},
+						"shell.bottom": {
+							kind: "single",
+							scope: "root"
+						},
+						"shell.overlay": {
+							kind: "list",
+							scope: "root"
+						},
+						"shell.leading": {
+							kind: "single",
+							scope: "root"
+						}
+					},
+					store
+				}, AppFrame);
+				const disposeShortcut = ctx.shortcuts.register({
+					id: "sidebar.left.toggle",
+					label: () => t("toggle"),
+					aliases: ["sidebar", "toggle left sidebar"],
+					defaults: {
+						"desktop:macos": {
+							code: "KeyB",
+							modifiers: ["primary"]
+						},
+						"desktop:windows": {
+							code: "KeyB",
+							modifiers: ["primary"]
+						},
+						"desktop:linux": {
+							code: "KeyB",
+							modifiers: ["primary"]
+						},
+						"web:macos": {
+							code: "KeyB",
+							modifiers: ["primary", "alt"]
+						},
+						"web:windows": {
+							code: "KeyB",
+							modifiers: ["primary", "alt"]
+						}
+					},
+					regions: ["page", "editable"],
+					modals: [],
+					resolve: () => ({
+						status: "handled",
+						run: () => {
+							layout.toggleSidebar();
+						}
+					})
+				});
+				const disposePanels = ctx.slots.subscribe("main", retainMainPanels);
+				retainMainPanels();
+				return () => {
+					disposeShortcut();
+					layout.dispose();
+					disposePanels();
+					disposeRegistration();
+					disposePanelInfo();
+					disposeService();
+				};
+			}, "ui-layout: service + root registration");
+			ctx.effect(() => {
+				const presenter = new ThemePresenter();
+				presenter.apply(ctx.theme.getTheme());
+				const off = ctx.on("theme/change", (snapshot) => {
+					presenter.apply(snapshot);
+				});
+				return () => {
+					off();
+					presenter.dispose();
+				};
+			}, "ui-layout: theme presenter");
 		}
 		//#endregion
-		exports.COMMON_NS = COMMON_NS;
-		exports.FALLBACK_LOCALE = FALLBACK_LOCALE;
-		exports.LocaleRuntime = LocaleRuntime;
-		exports.SETTINGS_NS = SETTINGS_NS;
+		exports.LayoutController = LayoutController;
 		exports.apply = apply;
 		exports.inject = inject;
 		return module.exports;
 	}
 });
 ;
-//# sourceMappingURL=??@deepseek-ai/dsh-client-locale/client.js.map&rev=1c49e8be1340
+//# sourceMappingURL=??@deepseek-ai/dsh-client-ui-layout/client.js.map&rev=4341461fe2d0

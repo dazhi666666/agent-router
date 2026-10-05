@@ -1,657 +1,440 @@
 window.__ModuleLoader__.load({
-	id: "@deepseek-ai/dsh-client-ui-workflow-run",
+	id: "@deepseek-ai/dsh-client-ui-skill",
 	factory: (require) => {
 		var module = { exports: {} };
 		var exports = module.exports;
 		Object.defineProperty(exports, Symbol.toStringTag, { value: "Module" });
+		let _deepseek_ai_dsh_client_ui_primitives = require("@deepseek-ai/dsh-client-ui-primitives");
 		let react_jsx_runtime = require("react/jsx-runtime");
 		let react = require("react");
-		let _deepseek_ai_dsh_client_ui_primitives = require("@deepseek-ai/dsh-client-ui-primitives");
-		let _deepseek_ai_dsh_client_store = require("@deepseek-ai/dsh-client-store");
-		//#region \0dsh-css:D:\deepseek-harness\packages\client\ui-workflow-run\src\client\WorkflowRunPanel.module.css.mjs
-		const css = ".-oHI9q_root{width:100%;min-width:0}.-oHI9q_runHeader{box-sizing:border-box;border-radius:var(--dsw-radius-md);background:var(--dsw-alias-bg-module-platform);align-items:center;gap:6px;width:100%;min-width:0;height:32px;padding:0 8px;display:flex}.-oHI9q_runHeader:focus-visible{outline:var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color,var(--dsw-alias-state-business-primary));outline-offset:-2px}.-oHI9q_runLeading{width:calc(16px + var(--dsh-content-font-delta,0px));height:calc(16px + var(--dsh-content-font-delta,0px));color:var(--dsw-alias-label-tertiary);flex:none;justify-content:center;align-items:center;margin-right:0;display:inline-flex}.-oHI9q_runTitle{max-width:42%;color:var(--dsw-alias-label-secondary);font-size:var(--dsh-content-font-size-secondary,13px);font-weight:510;line-height:calc(24px + var(--dsh-content-font-delta,0px));text-overflow:ellipsis;white-space:nowrap;flex:none;overflow:hidden}.-oHI9q_runSummary{min-width:0;color:var(--dsw-alias-label-tertiary);font-size:var(--dsh-content-font-size-secondary,13px);line-height:calc(18px + var(--dsh-content-font-delta-secondary,0px));text-overflow:ellipsis;white-space:nowrap;flex:1;overflow:hidden}.-oHI9q_statusTail{height:20px;color:var(--dsw-alias-label-secondary);white-space:nowrap;flex:none;align-items:center;gap:4px;font-size:11px;font-weight:510;line-height:16px;display:inline-flex;overflow:hidden}.-oHI9q_phaseHeader{box-sizing:border-box;align-items:center;gap:6px;width:100%;min-width:0;height:32px;display:flex}.-oHI9q_phaseHeader:focus-visible{outline:var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color,var(--dsw-alias-state-business-primary));outline-offset:-2px;border-radius:var(--dsw-radius-md)}.-oHI9q_phaseLeading{width:calc(16px + var(--dsh-content-font-delta,0px));height:calc(16px + var(--dsh-content-font-delta,0px));color:var(--dsw-alias-label-tertiary);flex:none;justify-content:center;align-items:center;margin-right:0;display:inline-flex}.-oHI9q_phaseTitle{min-width:0;max-width:42%;color:var(--dsw-alias-label-secondary);font-size:var(--dsh-content-font-size-secondary,13px);line-height:calc(24px + var(--dsh-content-font-delta,0px));text-overflow:ellipsis;white-space:nowrap;flex:0 auto;overflow:hidden}.-oHI9q_phaseCount{min-width:0;color:var(--dsw-alias-label-tertiary);font-size:var(--dsh-content-font-size-secondary,13px);line-height:calc(20px + var(--dsh-content-font-delta-secondary,0px));text-overflow:ellipsis;white-space:nowrap;flex:1;overflow:hidden}.-oHI9q_phaseStatus{width:calc(132px + var(--dsh-content-font-delta-secondary,0px) * 10);color:var(--dsw-alias-label-secondary);font-size:var(--dsh-content-font-size-secondary,13px);line-height:calc(20px + var(--dsh-content-font-delta-secondary,0px));text-align:right;text-overflow:ellipsis;white-space:nowrap;flex:none;overflow:hidden}.-oHI9q_separator{corner-shape:round;background:var(--dsw-alias-label-tertiary);border-radius:50%;flex:none;width:2px;height:2px}.-oHI9q_phaseList{flex-direction:column;gap:4px;min-width:0;padding:4px 0 0 16px;display:flex}.-oHI9q_phase{min-width:0}.-oHI9q_members{flex-direction:column;gap:2px;min-width:0;padding:0 0 0 16px;display:flex}.-oHI9q_memberRow,.-oHI9q_memberButton{width:100%;min-width:0;min-height:calc(24px + var(--dsh-content-font-delta,0px));border-radius:var(--dsw-radius-sm);color:var(--dsw-alias-label-secondary);font:inherit;text-align:left;background:0 0;border:0;align-items:center;gap:12px;padding:0;display:flex}.-oHI9q_memberButton{cursor:pointer}.-oHI9q_memberButton .-oHI9q_memberLabel{color:var(--dsw-alias-link);font-weight:500;text-decoration:none}.-oHI9q_memberButton:hover .-oHI9q_memberLabel,.-oHI9q_memberButton:focus-visible .-oHI9q_memberLabel{text-underline-offset:3px;text-decoration:underline dotted}.-oHI9q_dotSlot{width:16px;height:calc(24px + var(--dsh-content-font-delta,0px));flex:none;justify-content:center;align-items:center;display:inline-flex;overflow:hidden}.-oHI9q_memberButton:focus-visible{outline:none}.-oHI9q_memberButton:focus-visible .-oHI9q_memberLabelWrap{outline:var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color,var(--dsw-alias-state-business-primary));outline-offset:-1px}.-oHI9q_memberLabelWrap{min-width:0;height:calc(24px + var(--dsh-content-font-delta,0px));border-radius:var(--dsw-radius-sm);flex:1;align-items:center;padding:0 2px;display:flex;overflow:hidden}.-oHI9q_memberLabel{min-width:0;color:var(--dsw-alias-label-secondary);font-size:var(--dsh-content-font-size,14px);line-height:calc(24px + var(--dsh-content-font-delta,0px));text-overflow:ellipsis;white-space:nowrap;flex:1;overflow:hidden}.-oHI9q_memberStatus{width:64px;color:var(--dsw-alias-label-secondary);font-size:var(--dsh-content-font-size-secondary,13px);line-height:calc(20px + var(--dsh-content-font-delta-secondary,0px));text-align:right;text-overflow:ellipsis;white-space:nowrap;flex:none;overflow:hidden}.-oHI9q_empty{color:var(--dsw-alias-label-tertiary);font-size:var(--dsh-content-font-size-secondary,13px);line-height:calc(20px + var(--dsh-content-font-delta-secondary,0px));padding:0}@media (width<=560px){.-oHI9q_phaseList,.-oHI9q_members{padding-left:12px}}.-oHI9q_headerContent{flex:1}.-oHI9q_headerContentLayout{gap:6px}";
-		const tagId = "@deepseek-ai/dsh-client-ui-workflow-run/WorkflowRunPanel.module.css";
+		//#region ../../util/workspace-path/src/file-address.ts
+		/** The scheme and type every file address opens with. */
+		const FILE_ADDRESS_PREFIX = "dsh-resource://file/";
+		/** Component-encode one id or path segment, keeping `:` literal for drive letters. */
+		function encodeSegment(segment) {
+			return encodeURIComponent(segment).replace(/%3A/gi, ":");
+		}
+		/** Encode a `/`-separated path segment by segment. */
+		function encodePath(path) {
+			return path.split("/").map(encodeSegment).join("/");
+		}
+		/**
+		* Build the address of a file read through one Session.
+		* @param sessionId - the Session whose Host workspace resolves the path.
+		* @param path - absolute or workspace-relative path; backslashes are normalized to `/`, and leading `./` prefixes are dropped.
+		* @returns the `dsh-resource://file/session/<sessionId>/<path>` address.
+		*/
+		function sessionFileAddress(sessionId, path) {
+			const normalized = path.replace(/\\/g, "/").replace(/^(?:\.\/)+/, "");
+			return `${FILE_ADDRESS_PREFIX}session/${encodeSegment(sessionId)}/${encodePath(normalized)}`;
+		}
+		//#endregion
+		//#region ../../util/workspace-path/src/index.ts
+		/**
+		* Browser-safe Workspace path and display helpers.
+		* @module @deepseek-ai/dsh-util-workspace-path
+		*/
+		/** Whether a path uses a Windows drive or UNC prefix. */
+		function isWindowsStylePath(value) {
+			return /^[A-Za-z]:[/\\]/.test(value) || value.startsWith("\\\\");
+		}
+		/**
+		* Whether a path is absolute in either spelling the Host accepts: POSIX (`/a/b`) or Windows drive or UNC.
+		* @param path - the path to classify.
+		* @returns `true` for an absolute path; `false` for a Workspace-relative one.
+		*/
+		function isAbsoluteWorkspacePath(path) {
+			return path.startsWith("/") || isWindowsStylePath(path);
+		}
+		/**
+		* The address for a path as a caller holds it: a relative path, or an absolute
+		* path inside the Session's workspace, becomes a `session`-scoped address; an
+		* absolute path outside it, or one whose workspace root is unknown, keeps its
+		* absolute path in that Session's address.
+		* @param sessionId - the Session the path is read in.
+		* @param cwd - that Session's workspace root, when known.
+		* @param path - absolute or workspace-relative path, in either separator spelling.
+		* @returns the `dsh-resource://file/…` address.
+		*/
+		function fileAddressFor(sessionId, cwd, path) {
+			const normalized = path.replace(/\\/g, "/");
+			if (!isAbsoluteWorkspacePath(normalized)) return sessionFileAddress(sessionId, normalized);
+			const root = cwd === void 0 ? "" : cwd.replace(/\\/g, "/").replace(/\/+$/, "");
+			if (root !== "" && normalized === root) return sessionFileAddress(sessionId, "");
+			if (root !== "" && normalized.startsWith(`${root}/`)) return sessionFileAddress(sessionId, normalized.slice(root.length + 1));
+			return sessionFileAddress(sessionId, normalized);
+		}
+		//#endregion
+		//#region \0dsh-css:D:\deepseek-harness\packages\client\ui-skill\src\client\SkillRow.module.css.mjs
+		const css = ".dT6IOG_card{flex-direction:column;display:flex}.dT6IOG_row{height:calc(24px + var(--dsh-content-font-delta,0px));min-width:0;color:var(--dsw-alias-label-tertiary);align-items:center;transition:color .1s;display:flex;position:relative;overflow:hidden}.dT6IOG_row:hover{color:var(--dsw-alias-label-secondary)}.dT6IOG_row[data-expandable]{cursor:pointer}.dT6IOG_leading{width:calc(16px + var(--dsh-content-font-delta,0px));height:calc(16px + var(--dsh-content-font-delta,0px));color:inherit;flex:none;justify-content:center;align-items:center;margin-right:6px;display:inline-flex;position:relative}.dT6IOG_leading svg{width:calc(14px + var(--dsh-content-font-delta,0px));height:calc(14px + var(--dsh-content-font-delta,0px))}.dT6IOG_chevron{color:inherit}.dT6IOG_iconIdle{opacity:1;transition:opacity .1s;display:inline-flex}.dT6IOG_chevronHover{opacity:0;margin:auto;transition:opacity .1s;position:absolute;inset:0}.dT6IOG_row:hover .dT6IOG_iconIdle{opacity:0}.dT6IOG_row:hover .dT6IOG_chevronHover{opacity:1}.dT6IOG_title{font-size:var(--dsh-content-font-size-secondary,13px);line-height:calc(24px + var(--dsh-content-font-delta,0px));flex:none}.dT6IOG_separator{background:var(--dsw-alias-label-caption);border-radius:1px;flex:none;width:2px;height:2px;margin:0 8px}.dT6IOG_summary{text-overflow:ellipsis;white-space:nowrap;min-width:0;font-size:var(--dsh-content-font-size-secondary,13px);line-height:calc(24px + var(--dsh-content-font-delta,0px));flex:auto;overflow:hidden}.dT6IOG_errorSummary{color:var(--dsw-alias-state-error-primary)}.dT6IOG_stoppedSummary{color:var(--dsw-alias-state-warn-label)}.dT6IOG_bodyWrap{flex-direction:column;display:flex}.dT6IOG_instructionsCard{border:.5px solid var(--dsw-alias-border-l1);border-radius:var(--dsw-radius-lg);background:var(--dsw-alias-markdown-code-block);flex-direction:column;max-height:260px;margin:4px 0 4px 4px;display:flex;overflow:hidden}.dT6IOG_instructionsHeader{border-bottom:.5px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-markdown-code-block-banner);color:var(--dsw-alias-label-caption);text-transform:uppercase;letter-spacing:.04em;flex:none;padding:8px 12px;font-size:11px;font-weight:500;line-height:16px}.dT6IOG_instructions{white-space:pre-wrap;overflow-wrap:anywhere;min-height:0;font:var(--dsw-font-markdown-code-block-small);color:var(--dsw-alias-label-secondary);margin:0;padding:10px 12px 12px;overflow:auto}.dT6IOG_instructions[data-error]{color:var(--dsw-alias-state-error-primary)}.dT6IOG_instructions::-webkit-scrollbar-thumb{border-radius:var(--dsw-radius-sm);background-clip:padding-box;border:2px solid #0000}.dT6IOG_instructions::-webkit-scrollbar-track{margin:6px 0}.dT6IOG_inspectButton{border:.5px solid var(--dsw-alias-border-l4);corner-shape:round;background:var(--dsw-alias-bg-base);color:var(--dsw-alias-label-secondary);cursor:pointer;opacity:0;border-radius:999px;align-self:flex-start;align-items:center;gap:4px;margin:4px 0 2px 4px;padding:2px 8px;font-size:11px;line-height:16px;transition:opacity .1s;display:inline-flex}.dT6IOG_card:hover .dT6IOG_inspectButton,.dT6IOG_inspectButton:focus-visible{opacity:1}.dT6IOG_inspectButton:hover{background:var(--dsw-alias-interactive-bg-hover-solid);color:var(--dsw-alias-label-primary)}.dT6IOG_visuallyHidden{clip:rect(0 0 0 0);white-space:nowrap;width:1px;height:1px;position:absolute;overflow:hidden}@media (prefers-reduced-motion:reduce){.dT6IOG_row,.dT6IOG_iconIdle,.dT6IOG_chevronHover,.dT6IOG_inspectButton{transition:none}}";
+		const tagId = "@deepseek-ai/dsh-client-ui-skill/SkillRow.module.css";
 		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId) + "]") === null) {
 			const tag = document.createElement("style");
-			tag.dataset.plugin = "@deepseek-ai/dsh-client-ui-workflow-run";
+			tag.dataset.plugin = "@deepseek-ai/dsh-client-ui-skill";
 			tag.dataset.pluginCss = tagId;
 			tag.textContent = css;
 			document.head.appendChild(tag);
 		}
-		var WorkflowRunPanel_module_css_default = {
-			"dotSlot": "-oHI9q_dotSlot",
-			"empty": "-oHI9q_empty",
-			"headerContent": "-oHI9q_headerContent",
-			"headerContentLayout": "-oHI9q_headerContentLayout",
-			"memberButton": "-oHI9q_memberButton",
-			"memberLabel": "-oHI9q_memberLabel",
-			"memberLabelWrap": "-oHI9q_memberLabelWrap",
-			"memberRow": "-oHI9q_memberRow",
-			"memberStatus": "-oHI9q_memberStatus",
-			"members": "-oHI9q_members",
-			"phase": "-oHI9q_phase",
-			"phaseCount": "-oHI9q_phaseCount",
-			"phaseHeader": "-oHI9q_phaseHeader",
-			"phaseLeading": "-oHI9q_phaseLeading",
-			"phaseList": "-oHI9q_phaseList",
-			"phaseStatus": "-oHI9q_phaseStatus",
-			"phaseTitle": "-oHI9q_phaseTitle",
-			"root": "-oHI9q_root",
-			"runHeader": "-oHI9q_runHeader",
-			"runLeading": "-oHI9q_runLeading",
-			"runSummary": "-oHI9q_runSummary",
-			"runTitle": "-oHI9q_runTitle",
-			"separator": "-oHI9q_separator",
-			"statusTail": "-oHI9q_statusTail"
+		var SkillRow_module_css_default = {
+			"bodyWrap": "dT6IOG_bodyWrap",
+			"card": "dT6IOG_card",
+			"chevron": "dT6IOG_chevron",
+			"chevronHover": "dT6IOG_chevronHover",
+			"errorSummary": "dT6IOG_errorSummary",
+			"iconIdle": "dT6IOG_iconIdle",
+			"inspectButton": "dT6IOG_inspectButton",
+			"instructions": "dT6IOG_instructions",
+			"instructionsCard": "dT6IOG_instructionsCard",
+			"instructionsHeader": "dT6IOG_instructionsHeader",
+			"leading": "dT6IOG_leading",
+			"row": "dT6IOG_row",
+			"separator": "dT6IOG_separator",
+			"stoppedSummary": "dT6IOG_stoppedSummary",
+			"summary": "dT6IOG_summary",
+			"title": "dT6IOG_title",
+			"visuallyHidden": "dT6IOG_visuallyHidden"
 		};
 		//#endregion
-		//#region lib/types/client/WorkflowRunPanel.js
-		const STATUS_KEYS = {
-			running: "status.running",
-			completed: "status.completed",
-			failed: "status.failed",
-			cancelled: "status.cancelled",
-			interrupted: "status.interrupted"
-		};
-		function dotState(status) {
-			switch (status) {
-				case "running": return "ongoing";
-				case "completed": return "done";
-				case "failed": return "error";
-				case "cancelled":
-				case "interrupted": return "warning";
-				/* v8 ignore next -- WorkflowRunStatus is closed and every variant is handled above. */
-				default: return status;
+		//#region lib/types/client/SkillRow.js
+		/** First physical line for the collapsed error summary and malformed-args fallback. */
+		function firstLine(text) {
+			const newline = text.indexOf("\n");
+			return newline === -1 ? text : text.slice(0, newline);
+		}
+		/** Skill names are the only call argument the compact row presents. */
+		function skillName(argsRaw, callId) {
+			try {
+				const parsed = JSON.parse(argsRaw);
+				if (typeof parsed === "object" && parsed !== null) {
+					const name = parsed.name;
+					if (typeof name === "string" && name !== "") return firstLine(name);
+				}
+			} catch {}
+			return argsRaw === "" ? callId : firstLine(argsRaw);
+		}
+		/** Flatten durable result blocks under the generic Tool-row text contract.
+		*  Keep aligned with ui-tool's models/tool-call-model.ts `resultText`. */
+		function resultText(block) {
+			if (!("kind" in block)) return null;
+			const parts = [];
+			for (const item of block.content) parts.push(item.type === "text" ? item.text : JSON.stringify(item, null, 2));
+			if (parts.length === 0 && block.error !== void 0) parts.push(`${block.error.name}: ${block.error.code}`);
+			return parts.join("\n") || null;
+		}
+		/** Derive display state without consulting the live skill catalog. */
+		function skillRowModel(block) {
+			const settled = "kind" in block;
+			const argsRaw = (settled ? block.call?.argsRaw : block.argsRaw) ?? "";
+			const state = !settled ? "running" : block.error?.code === "interrupted" ? "stopped" : block.isError ? "error" : "ok";
+			const output = resultText(block);
+			return {
+				name: skillName(argsRaw, block.callId),
+				output,
+				errorSummary: state === "error" && output !== null ? firstLine(output) : null,
+				state
+			};
+		}
+		/** Leading disclosure slot: state icon at rest, chevron on hover or while open. */
+		function disclosureLeading(open, expandable) {
+			if (open) return (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconChevronDownOutlineRegular, { className: SkillRow_module_css_default.chevron });
+			const icon = (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconSkillOutlineRegular, { size: 14 });
+			if (!expandable) return icon;
+			return (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [(0, react_jsx_runtime.jsx)("span", {
+				className: SkillRow_module_css_default.iconIdle,
+				children: icon
+			}), (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconChevronDownOutlineRegular, { className: `${SkillRow_module_css_default.chevron} ${SkillRow_module_css_default.chevronHover}` })] });
+		}
+		/** Visually hidden state copy for the color-only running sweep and error tone. */
+		function stateStatus(state, t) {
+			switch (state) {
+				case "running": return t("row.running");
+				case "error": return t("row.failed");
+				default: return null;
 			}
 		}
-		function readablePhase(phase, t) {
-			if (phase === null) return t("phase.unassigned");
-			return phase === "" ? t("phase.empty") : phase;
-		}
-		function readableMember(label, t) {
-			return label === "" ? t("member.empty") : label;
-		}
-		function statusCount(status, count, t) {
-			return t(`statusCount.${status}`, { count });
-		}
-		function memberCount(count, t) {
-			return t(count === 1 ? "run.members.one" : "run.members.other", { count });
-		}
-		function StatusDisclosure(props) {
-			return (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.DisclosureRow, {
-				...props,
-				expandable: true
-			});
-		}
-		function abnormal(status) {
-			return status === "failed" || status === "cancelled" || status === "interrupted";
-		}
-		function phaseDisclosureFacts(phase) {
-			return {
-				mode: phase.members.some((member) => abnormal(member.status)) ? "abnormal" : phase.members.some((member) => member.status === "running") ? "running" : "clean",
-				activityCount: phase.members.length
-			};
-		}
-		function runDisclosureFacts(status, phases) {
-			return {
-				mode: abnormal(status) || phases.some(([, facts]) => facts.mode === "abnormal") ? "abnormal" : status === "running" || phases.some(([, facts]) => facts.mode === "running") ? "running" : "clean",
-				activityCount: phases.reduce((count, [, facts]) => count + facts.activityCount, 0)
-			};
-		}
-		function initialDisclosureState(facts) {
-			return {
-				...facts,
-				open: facts.mode !== "clean",
-				pendingCleanCollapse: false
-			};
-		}
-		function advanceDisclosureState(current, facts, focusWithin) {
-			if (current.mode === facts.mode && current.activityCount === facts.activityCount) {
-				if (!current.pendingCleanCollapse || focusWithin) return current;
-				return {
-					...current,
-					open: false,
-					pendingCleanCollapse: false
-				};
-			}
-			if (facts.mode === "clean") {
-				const deferCollapse = current.open && focusWithin;
-				return {
-					...facts,
-					open: deferCollapse,
-					pendingCleanCollapse: deferCollapse
-				};
-			}
-			if (current.mode === "clean" || facts.mode === "abnormal" && current.mode !== "abnormal") return {
-				...facts,
-				open: true,
-				pendingCleanCollapse: false
-			};
-			return {
-				...facts,
-				open: current.open,
-				pendingCleanCollapse: false
-			};
-		}
-		function focusIsWithin(element) {
-			if (element === null || element === void 0) return false;
-			return element.contains(element.ownerDocument.activeElement);
-		}
-		function collapsePending(state) {
-			if (!state.pendingCleanCollapse) return state;
-			return {
-				...state,
-				open: false,
-				pendingCleanCollapse: false
-			};
-		}
-		function existingPhaseState(phases, key) {
-			const phase = phases.get(key);
-			/* v8 ignore next -- mounted phase callbacks are created from this owner map. */
-			if (phase === void 0) throw new Error(`Missing disclosure state for phase ${key}`);
-			return phase;
-		}
-		function preventPendingHeaderFocus(event) {
-			const header = event.currentTarget.querySelector("[data-disclosure-row]");
-			/* v8 ignore next -- DisclosureRow always renders its header before the content. */
-			if (header === null) throw new Error("Missing disclosure header");
-			if (header.contains(event.target)) event.preventDefault();
-		}
-		function phaseStatusSummary(members, t) {
-			const counts = /* @__PURE__ */ new Map();
-			for (const member of members) counts.set(member.status, (counts.get(member.status) ?? 0) + 1);
-			const count = (status) => counts.get(status) ?? 0;
-			const active = [
-				"running",
-				"failed",
-				"cancelled",
-				"interrupted"
-			].filter((status) => count(status) > 0);
-			if (active.length === 0) return statusCount("completed", count("completed"), t);
-			return (active.includes("interrupted") && count("completed") > 0 ? ["completed", ...active] : active).map((status) => statusCount(status, count(status), t)).join(" · ");
-		}
-		function navigableMembers(sessions, phases, parentId, statuses) {
-			const catalog = sessions.projectionsBySession[parentId];
-			const result = [];
-			for (const phase of phases) for (const member of phase.members) {
-				const child = catalog?.values.subagentCatalog?.find((entry) => entry.id === member.childId);
-				if (member.status === "running" && child !== void 0 && (statuses.get(child.id)?.running ?? sessions.byId[child.id]?.running) === true) result.push(member.childId);
-			}
-			return result;
-		}
-		function RunHeader({ children, count, name, onToggle, open, status, t }) {
-			return (0, react_jsx_runtime.jsx)(StatusDisclosure, {
-				icon: (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconChevronRightOutlineRegular, {}),
-				title: t("run.title", { name }),
-				open,
-				onToggle,
-				expandOnRowClick: true,
-				previewChevron: false,
-				keepContentWhenOpen: true,
-				rowClassName: WorkflowRunPanel_module_css_default.runHeader,
-				contentClassName: WorkflowRunPanel_module_css_default.headerContent,
-				contentLayoutClassName: WorkflowRunPanel_module_css_default.headerContentLayout,
-				leadingClassName: WorkflowRunPanel_module_css_default.runLeading,
-				titleClassName: WorkflowRunPanel_module_css_default.runTitle,
-				collapsedContent: (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [
-					(0, react_jsx_runtime.jsx)("span", {
-						className: WorkflowRunPanel_module_css_default.separator,
-						"aria-hidden": true
-					}),
-					(0, react_jsx_runtime.jsx)("span", {
-						className: WorkflowRunPanel_module_css_default.runSummary,
-						children: memberCount(count, t)
-					}),
-					(0, react_jsx_runtime.jsxs)("span", {
-						className: WorkflowRunPanel_module_css_default.statusTail,
-						"data-status": status,
-						children: [(0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.StateDot, { state: dotState(status) }), (0, react_jsx_runtime.jsx)("span", { children: t(STATUS_KEYS[status]) })]
-					})
-				] }),
-				children
-			});
-		}
-		function MemberRow({ member, navigable, openSession, parentSessionId, t }) {
-			const name = readableMember(member.label, t);
-			const [focused, setFocused] = (0, react.useState)(false);
-			const renderButton = navigable || focused;
-			const content = (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [
-				(0, react_jsx_runtime.jsx)("span", {
-					className: WorkflowRunPanel_module_css_default.dotSlot,
-					children: (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.StateDot, { state: dotState(member.status) })
-				}),
-				(0, react_jsx_runtime.jsx)("span", {
-					className: WorkflowRunPanel_module_css_default.memberLabelWrap,
-					"data-member-label-wrap": true,
-					children: (0, react_jsx_runtime.jsx)("span", {
-						className: WorkflowRunPanel_module_css_default.memberLabel,
-						"data-member-label": true,
-						children: name
-					})
-				}),
-				(0, react_jsx_runtime.jsx)("span", {
-					className: WorkflowRunPanel_module_css_default.memberStatus,
-					"data-member-status-text": true,
-					children: t(STATUS_KEYS[member.status])
-				})
-			] });
-			if (!renderButton) return (0, react_jsx_runtime.jsx)("div", {
-				className: WorkflowRunPanel_module_css_default.memberRow,
-				"data-member-status": member.status,
-				children: content
-			});
-			return (0, react_jsx_runtime.jsx)("button", {
-				type: "button",
-				className: navigable ? WorkflowRunPanel_module_css_default.memberButton : WorkflowRunPanel_module_css_default.memberRow,
-				"data-member-status": member.status,
-				"aria-disabled": navigable ? void 0 : true,
-				"aria-label": navigable ? t("member.open", { name }) : name,
-				tabIndex: navigable ? void 0 : -1,
-				onFocus: () => {
-					setFocused(true);
-				},
-				onBlur: () => {
-					setFocused(false);
-				},
-				onClick: navigable ? () => {
-					openSession({
-						parentSessionId,
-						childSessionId: member.childId,
-						mode: "one-shot"
-					});
-				} : void 0,
-				children: content
-			});
-		}
-		function PhaseSection({ contentRef, onContentBlur, onToggle, open, pendingCleanCollapse, phase, navigable, openSession, parentSessionId, t }) {
-			return (0, react_jsx_runtime.jsx)("div", {
-				className: WorkflowRunPanel_module_css_default.phase,
-				onMouseDownCapture: pendingCleanCollapse ? preventPendingHeaderFocus : void 0,
-				children: (0, react_jsx_runtime.jsx)(StatusDisclosure, {
-					icon: (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconChevronRightOutlineRegular, {}),
-					title: readablePhase(phase.phase, t),
-					open,
-					onToggle,
-					expandOnRowClick: true,
-					previewChevron: false,
-					keepContentWhenOpen: true,
-					rowClassName: WorkflowRunPanel_module_css_default.phaseHeader,
-					contentClassName: WorkflowRunPanel_module_css_default.headerContent,
-					contentLayoutClassName: WorkflowRunPanel_module_css_default.headerContentLayout,
-					leadingClassName: WorkflowRunPanel_module_css_default.phaseLeading,
-					titleClassName: WorkflowRunPanel_module_css_default.phaseTitle,
-					collapsedContent: (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [
+		/**
+		* Render one `skill` tool call as an accent summary and instructions disclosure.
+		* @param props - keyed toolview payload plus the skill locale seat.
+		* @returns the dedicated skill row.
+		*/
+		function SkillRow(props) {
+			if (props.phase === "preparing") return (0, react_jsx_runtime.jsx)("div", {
+				className: SkillRow_module_css_default.card,
+				"data-tool": "skill",
+				"data-state": "preparing",
+				children: (0, react_jsx_runtime.jsxs)("div", {
+					className: SkillRow_module_css_default.row,
+					children: [
 						(0, react_jsx_runtime.jsx)("span", {
-							className: WorkflowRunPanel_module_css_default.separator,
-							"aria-hidden": true
+							className: SkillRow_module_css_default.leading,
+							children: (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconSkillOutlineRegular, { size: 14 })
 						}),
 						(0, react_jsx_runtime.jsx)("span", {
-							className: WorkflowRunPanel_module_css_default.phaseCount,
-							"data-phase-count": true,
-							children: memberCount(phase.members.length, t)
+							className: SkillRow_module_css_default.visuallyHidden,
+							children: props.t("row.preparing")
 						}),
-						(0, react_jsx_runtime.jsx)("span", {
-							className: WorkflowRunPanel_module_css_default.phaseStatus,
-							"data-phase-status-text": true,
-							children: phaseStatusSummary(phase.members, t)
+						(0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.TextShimmer, {
+							active: true,
+							className: SkillRow_module_css_default.title,
+							children: props.t("row.title")
 						})
-					] }),
-					children: (0, react_jsx_runtime.jsx)("div", {
-						ref: contentRef,
-						className: WorkflowRunPanel_module_css_default.members,
-						onBlur: onContentBlur,
-						children: phase.members.map((member) => (0, react_jsx_runtime.jsx)(MemberRow, {
-							member,
-							navigable: navigable.includes(member.childId),
-							openSession,
-							parentSessionId,
-							t
-						}, member.seq))
-					})
+					]
 				})
 			});
+			return (0, react_jsx_runtime.jsx)(StartedSkillRow, { ...props });
 		}
-		/** Render one durable workflow run with status-driven run and phase disclosure. */
-		function WorkflowRunPanel({ node, sessionId, useSessions, useSessionStatus, openSession, t }) {
-			const phaseFacts = (0, react.useMemo)(() => node.data.phases.map((phase) => [phase.key, phaseDisclosureFacts(phase)]), [node.data.phases]);
-			const runFacts = (0, react.useMemo)(() => runDisclosureFacts(node.data.status, phaseFacts), [node.data.status, phaseFacts]);
-			const totalMembers = runFacts.activityCount;
-			const [disclosures, setDisclosures] = (0, react.useState)(() => ({
-				run: initialDisclosureState(runFacts),
-				phases: new Map(phaseFacts.map(([key, facts]) => [key, initialDisclosureState(facts)]))
-			}));
-			const runContentRef = (0, react.useRef)(null);
-			const phaseContentRefs = (0, react.useRef)(/* @__PURE__ */ new Map());
-			const statuses = useSessionStatus((value) => value);
-			const navigable = useSessions((sessions) => navigableMembers(sessions, node.data.phases, sessionId, statuses), _deepseek_ai_dsh_client_store.shallowEqual);
-			(0, react.useLayoutEffect)(() => {
-				setDisclosures((current) => {
-					const phases = /* @__PURE__ */ new Map();
-					let phasesChanged = current.phases.size !== phaseFacts.length;
-					let phaseStartedCycle = false;
-					for (const [key, facts] of phaseFacts) {
-						const previous = current.phases.get(key);
-						const next = previous === void 0 ? initialDisclosureState(facts) : advanceDisclosureState(previous, facts, focusIsWithin(phaseContentRefs.current.get(key)));
-						phases.set(key, next);
-						if (next !== previous) phasesChanged = true;
-						if (previous?.mode === "clean" && (facts.mode !== "clean" || facts.activityCount !== previous.activityCount)) phaseStartedCycle = true;
-					}
-					const advancedRun = advanceDisclosureState(current.run, runFacts, focusIsWithin(runContentRef.current));
-					const run = phaseStartedCycle && runFacts.mode !== "clean" && !advancedRun.open ? {
-						...advancedRun,
-						open: true,
-						pendingCleanCollapse: false
-					} : advancedRun;
-					return run !== current.run || phasesChanged ? {
-						run,
-						phases
-					} : current;
-				});
-			}, [
-				disclosures.run.open,
-				phaseFacts,
-				runFacts
-			]);
-			const toggleRun = () => {
-				setDisclosures((current) => ({
-					...current,
-					run: {
-						...current.run,
-						open: !current.run.open,
-						pendingCleanCollapse: false
-					}
-				}));
+		function StartedSkillRow({ block, inspect, t }) {
+			const model = skillRowModel(block);
+			const [expanded, setExpanded] = (0, react.useState)(false);
+			const expandable = model.output !== null;
+			const open = expanded && expandable;
+			const status = stateStatus(model.state, t);
+			const running = model.state === "running";
+			const summary = model.state === "stopped" ? t("row.stopped") : model.errorSummary ?? model.name;
+			const toggleExpand = () => {
+				setExpanded((value) => !value);
 			};
-			const togglePhase = (key) => {
-				setDisclosures((current) => {
-					const phases = new Map(current.phases);
-					const phase = existingPhaseState(phases, key);
-					phases.set(key, {
-						...phase,
-						open: !phase.open,
-						pendingCleanCollapse: false
-					});
-					return {
-						...current,
-						phases
-					};
-				});
+			const toggleFromKeyboard = (event) => {
+				if (!expandable || event.key !== "Enter" && event.key !== " ") return;
+				event.preventDefault();
+				toggleExpand();
 			};
-			const settleRunBlur = (event) => {
-				if (event.currentTarget.contains(event.relatedTarget)) return;
-				setDisclosures((current) => {
-					const run = collapsePending(current.run);
-					return run === current.run ? current : {
-						...current,
-						run
-					};
-				});
-			};
-			const settlePhaseBlur = (key, event) => {
-				if (event.currentTarget.contains(event.relatedTarget)) return;
-				setDisclosures((current) => {
-					const phase = existingPhaseState(current.phases, key);
-					const next = collapsePending(phase);
-					if (next === phase) return current;
-					const phases = new Map(current.phases);
-					phases.set(key, next);
-					return {
-						...current,
-						phases
-					};
-				});
-			};
-			return (0, react_jsx_runtime.jsx)("section", {
-				className: WorkflowRunPanel_module_css_default.root,
-				"data-workflow-run": true,
-				"data-run-status": node.data.status,
-				onMouseDownCapture: disclosures.run.pendingCleanCollapse ? preventPendingHeaderFocus : void 0,
-				children: (0, react_jsx_runtime.jsx)(RunHeader, {
-					count: totalMembers,
-					name: node.data.name,
-					open: disclosures.run.open,
-					onToggle: toggleRun,
-					status: node.data.status,
-					t,
-					children: (0, react_jsx_runtime.jsx)("div", {
-						ref: runContentRef,
-						className: WorkflowRunPanel_module_css_default.phaseList,
-						onBlur: settleRunBlur,
-						children: node.data.phases.length === 0 ? (0, react_jsx_runtime.jsx)("span", {
-							className: WorkflowRunPanel_module_css_default.empty,
-							children: t("run.empty")
-						}) : node.data.phases.map((phase) => {
-							const facts = phaseDisclosureFacts(phase);
-							const disclosure = disclosures.phases.get(phase.key) ?? initialDisclosureState(facts);
-							return (0, react_jsx_runtime.jsx)(PhaseSection, {
-								contentRef: (element) => {
-									if (element === null) phaseContentRefs.current.delete(phase.key);
-									else phaseContentRefs.current.set(phase.key, element);
-								},
-								onContentBlur: (event) => {
-									settlePhaseBlur(phase.key, event);
-								},
-								onToggle: () => {
-									togglePhase(phase.key);
-								},
-								open: disclosure.open,
-								pendingCleanCollapse: disclosure.pendingCleanCollapse,
-								phase,
-								navigable,
-								openSession,
-								parentSessionId: sessionId,
-								t
-							}, phase.key);
+			const disclosureProps = expandable ? {
+				role: "button",
+				tabIndex: 0,
+				"aria-expanded": open,
+				onClick: toggleExpand,
+				onKeyDown: toggleFromKeyboard
+			} : {};
+			const leading = disclosureLeading(open, expandable);
+			return (0, react_jsx_runtime.jsxs)("div", {
+				className: SkillRow_module_css_default.card,
+				"data-tool": "skill",
+				"data-state": model.state,
+				children: [(0, react_jsx_runtime.jsxs)("div", {
+					className: SkillRow_module_css_default.row,
+					"data-expandable": expandable || void 0,
+					...disclosureProps,
+					children: [
+						(0, react_jsx_runtime.jsx)("span", {
+							className: SkillRow_module_css_default.leading,
+							children: leading
+						}),
+						status !== null ? (0, react_jsx_runtime.jsx)("span", {
+							className: SkillRow_module_css_default.visuallyHidden,
+							children: status
+						}) : null,
+						(0, react_jsx_runtime.jsxs)(_deepseek_ai_dsh_client_ui_primitives.TextShimmer, {
+							active: running,
+							children: [
+								(0, react_jsx_runtime.jsx)("span", {
+									className: SkillRow_module_css_default.title,
+									children: (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.TextShimmer, { children: t("row.title") })
+								}),
+								(0, react_jsx_runtime.jsx)("span", {
+									className: SkillRow_module_css_default.separator,
+									"data-shimmer-decoration": true,
+									"aria-hidden": true
+								}),
+								(0, react_jsx_runtime.jsx)("span", {
+									className: `${SkillRow_module_css_default.summary}${model.state === "error" ? ` ${SkillRow_module_css_default.errorSummary}` : model.state === "stopped" ? ` ${SkillRow_module_css_default.stoppedSummary}` : ""}`,
+									children: (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.TextShimmer, { children: summary })
+								})
+							]
 						})
-					})
-				})
+					]
+				}), open ? (0, react_jsx_runtime.jsxs)("div", {
+					className: SkillRow_module_css_default.bodyWrap,
+					children: [(0, react_jsx_runtime.jsxs)("section", {
+						className: SkillRow_module_css_default.instructionsCard,
+						"aria-label": t("row.instructions"),
+						children: [(0, react_jsx_runtime.jsx)("div", {
+							className: SkillRow_module_css_default.instructionsHeader,
+							children: t("row.instructions")
+						}), (0, react_jsx_runtime.jsx)("pre", {
+							className: SkillRow_module_css_default.instructions,
+							"data-error": model.state === "error" || void 0,
+							children: model.output
+						})]
+					}), inspect !== void 0 ? (0, react_jsx_runtime.jsxs)("button", {
+						type: "button",
+						className: SkillRow_module_css_default.inspectButton,
+						onClick: inspect,
+						children: [(0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconInspectOutlineRegular, {}), t("row.inspect")]
+					}) : null]
+				}) : null]
 			});
 		}
 		//#endregion
 		//#region lib/types/client/locales.js
-		/** `workflowRun` namespace dictionaries. */
+		/** `skill` namespace dictionaries for the dedicated tool row. */
 		/** Dictionary namespace owned by this plugin. */
-		const NS = "workflowRun";
+		const NS = "skill";
 		/** Simplified Chinese dictionary (the key-set source of truth). */
 		const zh = {
-			"run.title": "{name}",
-			"run.members.one": "{count} 个成员",
-			"run.members.other": "{count} 个成员",
-			"run.empty": "没有启动成员",
-			"phase.unassigned": "未分阶段",
-			"phase.empty": "空阶段名",
-			"statusCount.running": "运行中 {count}",
-			"statusCount.completed": "已完成 {count}",
-			"statusCount.failed": "失败 {count}",
-			"statusCount.cancelled": "已取消 {count}",
-			"statusCount.interrupted": "已中断 {count}",
-			"member.empty": "空成员名",
-			"member.open": "打开 {name}",
-			"status.running": "运行中",
-			"status.completed": "已完成",
-			"status.failed": "失败",
-			"status.cancelled": "已取消",
-			"status.interrupted": "已中断"
+			"row.title": "加载技能",
+			"row.running": "正在加载 skill",
+			"row.preparing": "准备加载技能",
+			"row.failed": "skill 加载失败",
+			"row.stopped": "skill 加载已中止",
+			"row.instructions": "说明",
+			"row.inspect": "查看",
+			"menu.userOnly": "仅用户"
 		};
-		/** English dictionary (same key set). */
+		/** English dictionary, checked complete against the zh key set. */
 		const en = {
-			"run.title": "{name}",
-			"run.members.one": "{count} member",
-			"run.members.other": "{count} members",
-			"run.empty": "No members started",
-			"phase.unassigned": "Unphased",
-			"phase.empty": "Empty phase name",
-			"statusCount.running": "Running {count}",
-			"statusCount.completed": "Completed {count}",
-			"statusCount.failed": "Failed {count}",
-			"statusCount.cancelled": "Cancelled {count}",
-			"statusCount.interrupted": "Interrupted {count}",
-			"member.empty": "Empty member name",
-			"member.open": "Open {name}",
-			"status.running": "Running",
-			"status.completed": "Completed",
-			"status.failed": "Failed",
-			"status.cancelled": "Cancelled",
-			"status.interrupted": "Interrupted"
-		};
-		//#endregion
-		//#region lib/types/client/workflow-definition.js
-		/**
-		* Build a collision-free phase key preserving absent versus empty identity.
-		* @param phase - exact phase string, or null for an omitted field.
-		* @returns the stable renderer key for that phase identity.
-		*/
-		function workflowPhaseKey(phase) {
-			return phase === null ? "missing" : `value:${phase.length}:${phase}`;
-		}
-		function statusFromStopReason(stopReason) {
-			switch (stopReason) {
-				case "completed": return "completed";
-				case "cancelled": return "cancelled";
-				case "error": return "failed";
-				/* v8 ignore next -- WorkflowStopReason is closed and every variant is handled above. */
-				default: return stopReason;
-			}
-		}
-		function statusFromOutcome(outcome) {
-			switch (outcome) {
-				case "completed": return "completed";
-				case "cancelled": return "cancelled";
-				case "failed": return "failed";
-				/* v8 ignore next -- WorkflowAgentOutcome is closed and every variant is handled above. */
-				default: return outcome;
-			}
-		}
-		function locationClosed(location) {
-			if (location.kind === "step") return location.step.status === "closed" || location.turn.status === "closed";
-			return location.kind === "turn" && location.turn.status === "closed";
-		}
-		function projectWorkflow(context, location) {
-			const state = context.state;
-			const interrupted = state.stopReason === void 0 && locationClosed(location);
-			const phases = /* @__PURE__ */ new Map();
-			for (const member of state.members) {
-				const phase = member.phase === void 0 ? null : member.phase;
-				const key = workflowPhaseKey(phase);
-				let group = phases.get(key);
-				if (group === void 0) {
-					group = {
-						phase,
-						members: []
-					};
-					phases.set(key, group);
-				}
-				group.members.push({
-					seq: member.seq,
-					label: member.label,
-					childId: member.childId,
-					status: member.outcome === void 0 ? interrupted ? "interrupted" : "running" : statusFromOutcome(member.outcome)
-				});
-			}
-			const projectedPhases = [...phases].map(([key, phase]) => ({
-				key,
-				phase: phase.phase,
-				members: phase.members
-			}));
-			return {
-				name: state.name,
-				status: state.stopReason === void 0 ? interrupted ? "interrupted" : "running" : statusFromStopReason(state.stopReason),
-				phases: projectedPhases
-			};
-		}
-		function updateAgentStart(state, data) {
-			const member = {
-				seq: data.seq,
-				label: data.label,
-				...data.phase === void 0 ? {} : { phase: data.phase },
-				childId: data.childId
-			};
-			return {
-				...state,
-				members: [...state.members, member]
-			};
-		}
-		function updateAgentEnd(state, data) {
-			return {
-				...state,
-				members: state.members.map((member) => member.seq === data.seq ? {
-					...member,
-					outcome: data.outcome
-				} : member)
-			};
-		}
-		/** Durable workflow event family folded into one keyed Chat node. */
-		const workflowRunDefinition = {
-			kind: "workflow-run",
-			target: "chat",
-			match: (event) => {
-				if (event.type === "tool-workflow/run-start") return {
-					id: String(event.data.runId),
-					role: "start"
-				};
-				if (event.type === "tool-workflow/agent-start" || event.type === "tool-workflow/agent-end" || event.type === "tool-workflow/run-end") return {
-					id: String(event.data.runId),
-					role: "update"
-				};
-				return null;
-			},
-			start: (_context, match) => {
-				if (match.event.type !== "tool-workflow/run-start") throw new Error("workflow-run start requires tool-workflow/run-start");
-				return {
-					name: match.event.data.name,
-					members: []
-				};
-			},
-			update: (context, match) => {
-				if (match.event.type === "tool-workflow/agent-start") return updateAgentStart(context.state, match.event.data);
-				if (match.event.type === "tool-workflow/agent-end") return updateAgentEnd(context.state, match.event.data);
-				if (match.event.type === "tool-workflow/run-end") return {
-					...context.state,
-					stopReason: match.event.data.stopReason
-				};
-				return context.state;
-			},
-			buildViewNode: (context) => {
-				if (context.start === void 0) return null;
-				const data = projectWorkflow(context, context.start.location);
-				return {
-					key: context.key,
-					kind: "workflow-run",
-					id: context.id,
-					target: "chat",
-					anchorSeq: context.start.event.seq,
-					location: context.start.location,
-					visibility: "visible",
-					data
-				};
-			}
+			"row.title": "Skill",
+			"row.running": "Loading skill",
+			"row.preparing": "Preparing to load a skill",
+			"row.failed": "Skill load failed",
+			"row.stopped": "Skill load stopped",
+			"row.instructions": "Instructions",
+			"row.inspect": "Inspect",
+			"menu.userOnly": "user-only"
 		};
 		//#endregion
 		//#region lib/types/client/index.js
-		/** Browser plugin for durable workflow-run Conversation Nodes. */
-		/** Required services for Definition, keyed renderer, navigation, and copy. */
+		/** Required services: reference source faces plus the tool-row and locale registries. */
 		const inject = [
-			"uiConversation",
-			"uiWorkspace",
-			"slots",
+			"inputTriggers",
 			"sessions",
-			"locale"
+			"slots",
+			"locale",
+			"remote",
+			"remote.skills",
+			"sidebarRight"
 		];
-		/** Register the workflow Definition, dictionary, and keyed Chat renderer. */
+		/**
+		* Client plugin body: register the '/' source, dictionaries, and keyed tool row.
+		* @param ctx - client root context.
+		*/
 		function apply(ctx) {
-			ctx.uiConversation.events.register(workflowRunDefinition);
 			ctx.effect(() => ctx.locale.register(NS, {
 				zh,
 				en
-			}), "ui-workflow-run: dictionaries");
-			ctx.slots.inject("conversation.chat.node", () => ctx.slots.register({
-				name: "conversation.chat.node",
-				key: "workflow-run",
-				locale: NS,
-				inject: () => ({ openSession: (target) => {
-					ctx.uiWorkspace.openSession(target);
-				} })
-			}, WorkflowRunPanel));
+			}), "ui-skill: dictionaries");
+			ctx.slots.inject("tool.call.toolview", () => ctx.slots.register({
+				name: "tool.call.toolview",
+				key: "skill",
+				locale: NS
+			}, SkillRow));
+			const skills = ctx.remote.skills;
+			const sessions = ctx.sessions;
+			const fetches = /* @__PURE__ */ new Map();
+			const lexiconListeners = /* @__PURE__ */ new Map();
+			const notifyLexicon = (sessionId) => {
+				for (const listener of [...lexiconListeners.get(sessionId) ?? []]) try {
+					listener();
+				} catch (error) {
+					console.error("[ui-skill] lexicon listener failed:", error);
+				}
+			};
+			const fetchCatalog = (sessionId) => {
+				const existing = fetches.get(sessionId);
+				if (existing !== void 0) return existing;
+				const abort = new AbortController();
+				const promise = (async () => {
+					if (sessions.binding(sessionId) === void 0) throw new Error(`skill catalog requires a retained session "${sessionId}"`);
+					return sessions.using(sessionId, {
+						source: "skillCatalog",
+						signal: abort.signal
+					}, async (reference) => {
+						abort.signal.throwIfAborted();
+						const state = reference.binding.session.getSnapshot();
+						if (state.openState !== "open") throw state.openError ?? /* @__PURE__ */ new Error(`session "${sessionId}" is not open`);
+						const result = await skills.list({ sessionId }, abort.signal);
+						abort.signal.throwIfAborted();
+						if (!result.ok) throw new Error(`skills/list failed: ${result.error.code}: ${result.error.message}`);
+						return result.value.skills;
+					});
+				})();
+				const entry = {
+					promise,
+					abort
+				};
+				fetches.set(sessionId, entry);
+				promise.then((skills) => {
+					entry.settled = skills;
+					notifyLexicon(sessionId);
+				}, () => {
+					if (fetches.get(sessionId) === entry) fetches.delete(sessionId);
+				});
+				return entry;
+			};
+			const invalidate = (key) => {
+				const entry = fetches.get(key);
+				if (entry === void 0) return;
+				fetches.delete(key);
+				entry.abort.abort();
+				notifyLexicon(key);
+			};
+			const clearAll = () => {
+				for (const key of [...fetches.keys()]) invalidate(key);
+			};
+			const t = ctx.locale.bind(NS);
+			const source = {
+				trigger: "/",
+				name: "skill",
+				order: 2,
+				async candidates(session, { query, signal }) {
+					if (sessions.subagentAddress(session.sessionId) !== void 0) return [];
+					const skills = await fetchCatalog(session.sessionId).promise;
+					if (signal.aborted) return [];
+					return (0, _deepseek_ai_dsh_client_ui_primitives.rankByName)(skills, query).map((skill) => ({
+						name: skill.name,
+						description: skill.modelInvocable ? skill.description : `${t("menu.userOnly")} · ${skill.description}`
+					}));
+				},
+				warm(session) {
+					if (sessions.subagentAddress(session.sessionId) !== void 0) return;
+					fetchCatalog(session.sessionId).promise.catch(() => {});
+				},
+				lexicon(session) {
+					return fetches.get(session.sessionId)?.settled?.map((skill) => skill.name);
+				},
+				subscribeLexicon(session, listener) {
+					const key = session.sessionId;
+					const listeners = lexiconListeners.get(key) ?? /* @__PURE__ */ new Set();
+					listeners.add(listener);
+					lexiconListeners.set(key, listeners);
+					return () => {
+						listeners.delete(listener);
+						if (listeners.size === 0) lexiconListeners.delete(key);
+					};
+				},
+				openReference(session, { ref }) {
+					if (sessions.subagentAddress(session.sessionId) !== void 0) return false;
+					const cwd = sessions.list.getSnapshot().byId[session.sessionId]?.cwd;
+					const open = (catalog) => {
+						const path = catalog.find((skill) => `/${skill.name}` === ref)?.path;
+						if (path === void 0) return false;
+						ctx.sidebarRight.openResource(fileAddressFor(session.sessionId, cwd, path));
+						return true;
+					};
+					const settled = fetches.get(session.sessionId)?.settled;
+					if (settled !== void 0) return open(settled);
+					const entry = fetchCatalog(session.sessionId);
+					entry.promise.then((catalog) => {
+						if (!entry.abort.signal.aborted) open(catalog);
+					}).catch((error) => {
+						if (!entry.abort.signal.aborted) console.error("[ui-skill] reference preview failed:", error);
+					});
+					return true;
+				},
+				onPick({ candidate }) {
+					return { text: `/${candidate.name} ` };
+				}
+			};
+			const inputTriggers = ctx.get("inputTriggers");
+			ctx.remote.$on("agent-preset/selected", invalidate);
+			ctx.on("connection/reset", clearAll);
+			ctx.effect(() => {
+				const unregister = inputTriggers.registerSource(source);
+				return () => {
+					unregister();
+					clearAll();
+				};
+			}, "ui-skill: source");
 		}
 		//#endregion
 		exports.apply = apply;
@@ -660,4 +443,4 @@ window.__ModuleLoader__.load({
 	}
 });
 ;
-//# sourceMappingURL=??@deepseek-ai/dsh-client-ui-workflow-run/client.js.map&rev=c3df3d6e9ec4
+//# sourceMappingURL=??@deepseek-ai/dsh-client-ui-skill/client.js.map&rev=098deb08e804

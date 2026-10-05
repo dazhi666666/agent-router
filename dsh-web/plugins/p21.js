@@ -1,535 +1,492 @@
 window.__ModuleLoader__.load({
-	id: "@deepseek-ai/dsh-client-ui-sidebar",
+	id: "@deepseek-ai/dsh-client-ui-sidebar-terminal",
 	factory: (require) => {
 		var module = { exports: {} };
 		var exports = module.exports;
 		Object.defineProperty(exports, Symbol.toStringTag, { value: "Module" });
-		let _deepseek_ai_dsh_client_store = require("@deepseek-ai/dsh-client-store");
-		let _deepseek_ai_dsh_client_ui_slots = require("@deepseek-ai/dsh-client-ui-slots");
-		let react_jsx_runtime = require("react/jsx-runtime");
 		let _deepseek_ai_dsh_client_ui_primitives = require("@deepseek-ai/dsh-client-ui-primitives");
+		let react_jsx_runtime = require("react/jsx-runtime");
 		let react = require("react");
-		//#region \0dsh-css:D:\deepseek-harness\packages\client\ui-sidebar\src\client\HeaderLeadingControls.module.css.mjs
-		const css$1 = ".v3EIUW_controls{align-items:center;gap:8px;display:flex}.v3EIUW_iconButton{border-radius:var(--dsw-radius-sm);width:28px;height:28px;color:var(--dsw-alias-label-secondary);cursor:pointer;background:0 0;border:none;flex:none;justify-content:center;align-items:center;padding:0;display:inline-flex}.v3EIUW_iconButton:hover{background:var(--dsw-alias-interactive-bg-hover)}";
-		const tagId$1 = "@deepseek-ai/dsh-client-ui-sidebar/HeaderLeadingControls.module.css";
+		//#region \0dsh-css:D:\deepseek-harness\packages\client\ui-sidebar-terminal\src\client\TerminalGuide.module.css.mjs
+		const css$1 = ".dSHOaa_entry{box-sizing:border-box;border:.5px solid var(--dsw-alias-border-l3);border-radius:var(--dsl-guide-entry-radius);background:var(--dsw-alias-bg-layer-1);align-items:center;gap:14px;width:100%;min-height:56px;padding:14px 20px;display:flex;position:relative;overflow:hidden}.dSHOaa_main{border-radius:0;width:100%;height:100%;position:absolute;inset:0}.dSHOaa_main:focus-visible{outline-offset:-2px}.dSHOaa_icon{width:26px;height:26px;color:var(--dsw-alias-label-secondary);pointer-events:none;flex:none;justify-content:center;align-items:center;display:flex;position:relative}.dSHOaa_text{pointer-events:none;flex-direction:column;flex:1;gap:3px;min-width:0;display:flex;position:relative}.dSHOaa_titleRow{align-items:center;gap:4px;min-width:0;display:flex}.dSHOaa_title{color:var(--dsw-alias-label-primary);white-space:nowrap;text-overflow:ellipsis;font-size:14px;line-height:1.4;overflow:hidden}.dSHOaa_description{color:var(--dsw-alias-label-tertiary);white-space:nowrap;text-overflow:ellipsis;font-size:11px;line-height:1.4;overflow:hidden}.dSHOaa_trigger{border-radius:4px;flex:none;width:20px;height:20px;padding:0}.dSHOaa_trigger svg{width:14px;height:14px;color:var(--dsw-alias-label-tertiary)}.dSHOaa_menu{pointer-events:auto;flex:none;display:flex}.dSHOaa_shortcut{pointer-events:none;position:relative}";
+		const tagId$1 = "@deepseek-ai/dsh-client-ui-sidebar-terminal/TerminalGuide.module.css";
 		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId$1) + "]") === null) {
 			const tag = document.createElement("style");
-			tag.dataset.plugin = "@deepseek-ai/dsh-client-ui-sidebar";
+			tag.dataset.plugin = "@deepseek-ai/dsh-client-ui-sidebar-terminal";
 			tag.dataset.pluginCss = tagId$1;
 			tag.textContent = css$1;
 			document.head.appendChild(tag);
 		}
-		var HeaderLeadingControls_module_css_default = {
-			"controls": "v3EIUW_controls",
-			"iconButton": "v3EIUW_iconButton"
+		var TerminalGuide_module_css_default = {
+			"description": "dSHOaa_description",
+			"entry": "dSHOaa_entry",
+			"icon": "dSHOaa_icon",
+			"main": "dSHOaa_main",
+			"menu": "dSHOaa_menu",
+			"shortcut": "dSHOaa_shortcut",
+			"text": "dSHOaa_text",
+			"title": "dSHOaa_title",
+			"titleRow": "dSHOaa_titleRow",
+			"trigger": "dSHOaa_trigger"
 		};
 		//#endregion
-		//#region lib/types/client/HeaderLeadingControls.js
-		/** Window-chrome controls for the fully hidden sidebar (frame shell.leading seat). */
+		//#region lib/types/client/TerminalGuide.js
+		/** Shell launch menu owned by the terminal provider's guide entry. */
 		/**
-		* Sidebar-open and New Session controls in the frame's window-chrome seat.
-		* On macOS desktop a collapsed sidebar hides entirely (no rail), taking both
-		* controls off screen; this occupant puts them back beside the traffic
-		* lights. The frame mounts the seat only in that state and owns its
-		* placement, so the occupant renders unconditionally.
-		* @param props - Injected sidebar actions plus the sidebar locale seat.
-		* @returns the two window-chrome controls.
+		* Open the remembered shell from the card or choose another shell from its menu.
+		* The card displays its effective shortcut; the shell menu sits beside the title.
+		* @param props - guide copy, enclosing tab actions and cancellable discovery.
+		* @returns separate launch and menu buttons within one guide card.
 		*/
-		function HeaderLeadingControls({ toggleSidebar, startSession, useShortcuts, t }) {
-			const shortcut = useShortcuts((rows) => rows.find((row) => row.id === "sidebar.left.toggle"));
-			const newShortcut = useShortcuts((rows) => rows.find((row) => row.id === "session.new"));
+		function TerminalGuide({ title, description, kind, useTabInfo, loadShells, selectShell, t, useShortcuts }) {
+			const shortcut = useShortcuts((entries) => entries.find((entry) => entry.id === "terminal.new"));
+			const { tab } = useTabInfo();
+			const [open, setOpen] = (0, react.useState)(false);
+			const [attempt, setAttempt] = (0, react.useState)(0);
+			const [state, setState] = (0, react.useState)({ phase: "loading" });
+			(0, react.useEffect)(() => {
+				if (!open) return;
+				const lifetime = new AbortController();
+				loadShells(lifetime.signal).then((choices) => {
+					if (!lifetime.signal.aborted) setState({
+						phase: "ready",
+						choices
+					});
+				}, (error) => {
+					if (!lifetime.signal.aborted) setState({
+						phase: "failed",
+						message: error instanceof Error ? error.message : String(error)
+					});
+				});
+				return () => {
+					lifetime.abort();
+				};
+			}, [
+				open,
+				attempt,
+				loadShells
+			]);
+			const items = state.phase === "ready" ? state.choices.shells.map((shell) => ({
+				id: shell.path,
+				label: shell.name
+			})) : state.phase === "loading" ? [{
+				id: "loading",
+				label: t("shellLoading"),
+				disabled: true
+			}] : [{
+				id: "error",
+				label: t("failed", { message: state.message }),
+				disabled: true
+			}, {
+				id: "retry",
+				label: t("retry")
+			}];
 			return (0, react_jsx_runtime.jsxs)("div", {
-				className: HeaderLeadingControls_module_css_default.controls,
-				children: [(0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Tooltip, {
-					label: t("toggle.open"),
-					shortcutKeys: shortcut?.keys,
-					delayMs: 500,
-					children: (0, react_jsx_runtime.jsx)("button", {
-						type: "button",
-						className: HeaderLeadingControls_module_css_default.iconButton,
-						"aria-label": t("toggle.open"),
+				className: TerminalGuide_module_css_default.entry,
+				"data-sidebar-right-guide-entry": kind,
+				children: [
+					(0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
+						variant: "ghost",
+						className: TerminalGuide_module_css_default.main,
+						"aria-label": description === void 0 ? title : `${title} ${description}`,
 						"aria-keyshortcuts": shortcut?.aria,
 						onClick: () => {
-							toggleSidebar();
-						},
-						children: (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconPanelLeftOutlineRegular, { size: 16 })
-					})
-				}), (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Tooltip, {
-					label: t("session.new.label"),
-					shortcutKeys: newShortcut?.keys,
-					delayMs: 500,
-					children: (0, react_jsx_runtime.jsx)("button", {
-						type: "button",
-						className: HeaderLeadingControls_module_css_default.iconButton,
-						"aria-label": t("session.new.label"),
-						"aria-keyshortcuts": newShortcut?.aria,
-						onClick: () => {
-							startSession();
-						},
-						children: (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconNewChatOutlineRegular, { size: 16 })
-					})
-				})]
-			});
-		}
-		//#endregion
-		//#region ../../../node_modules/.pnpm/clsx@2.1.1/node_modules/clsx/dist/clsx.mjs
-		function r(e) {
-			var t, f, n = "";
-			if ("string" == typeof e || "number" == typeof e) n += e;
-			else if ("object" == typeof e) if (Array.isArray(e)) {
-				var o = e.length;
-				for (t = 0; t < o; t++) e[t] && (f = r(e[t])) && (n && (n += " "), n += f);
-			} else for (f in e) e[f] && (n && (n += " "), n += f);
-			return n;
-		}
-		function clsx() {
-			for (var e, t, f = 0, n = "", o = arguments.length; f < o; f++) (e = arguments[f]) && (t = r(e)) && (n && (n += " "), n += t);
-			return n;
-		}
-		//#endregion
-		//#region \0dsh-css:D:\deepseek-harness\packages\client\ui-sidebar\src\client\SidebarRoot.module.css.mjs
-		const css = ".P3I26W_root{--dsh-sidebar-inline-padding:12px;height:100%;padding:6px var(--dsh-sidebar-inline-padding);box-sizing:border-box;background:var(--dsw-specific-sidebar-fill);color:var(--dsw-alias-label-primary);--dsh-scrollbar-thumb:var(--dsw-alias-scrollbar-bg-l2);--dsh-scrollbar-thumb-hover:var(--dsw-alias-scrollbar-hover-l2);flex-direction:column;font-size:14px;display:flex}[data-platform=darwin] .P3I26W_root{background:0 0}.P3I26W_root.P3I26W_collapsed{padding:18px 10px 6px}[data-windows-titlebar] .P3I26W_root .P3I26W_logoRow{height:40px;margin:0;padding:0}[data-windows-titlebar] .P3I26W_toggle{top:calc((var(--dsh-windows-titlebar-height) - 28px) / 2);z-index:30;-webkit-app-region:no-drag;position:fixed;left:12px}[data-windows-titlebar] .P3I26W_root.P3I26W_collapsed .P3I26W_logoRow{height:0}[data-windows-titlebar] .P3I26W_root:not(.P3I26W_collapsed) .P3I26W_brand{padding-left:4px}[data-windows-titlebar] .P3I26W_brandIdentity{transform:translateY(1px)}[data-windows-titlebar] .P3I26W_brandMark{transform:translate(1px)}[data-windows-titlebar] .P3I26W_brandName{font-weight:400}[data-windows-titlebar] .P3I26W_root.P3I26W_collapsed{padding:0}[data-windows-titlebar] .P3I26W_root:not(.P3I26W_collapsed) .P3I26W_newSession{margin-top:8px;margin-left:0}[data-windows-titlebar] .P3I26W_collapsed .P3I26W_panelList,[data-windows-titlebar] .P3I26W_collapsed .P3I26W_regionArea,[data-windows-titlebar] .P3I26W_collapsed .P3I26W_footArea{display:none}html[data-windows-titlebar]:has([data-sidebar-collapsed=true]){--dsh-windows-menu-start:84px}[data-windows-titlebar] .P3I26W_collapsed .P3I26W_newSession{top:calc((var(--dsh-windows-titlebar-height) - 28px) / 2);z-index:30;-webkit-app-region:no-drag;border:none;margin:0;padding:0;position:fixed;left:48px}[data-windows-titlebar] .P3I26W_railIn .P3I26W_iconButton,[data-windows-titlebar] .P3I26W_railIn .P3I26W_newSession{animation:none}[data-windows-titlebar] .P3I26W_collapsed .P3I26W_toggle,[data-windows-titlebar] .P3I26W_collapsed .P3I26W_newSession{corner-shape:round;width:28px;height:28px;color:var(--dsw-alias-label-secondary);border-radius:50%}[data-windows-titlebar] .P3I26W_collapsed .P3I26W_toggle .P3I26W_panelIcon{display:inline}.P3I26W_root.P3I26W_quietBars{--dsh-scrollbar-thumb:transparent;--dsh-scrollbar-thumb-hover:transparent}.P3I26W_fading>*{opacity:0;transition:opacity .15s var(--ds-ease-in-out)}.P3I26W_wide{animation:P3I26W_wide-in .2s var(--ds-ease-in-out)}@keyframes P3I26W_wide-in{0%{opacity:0}}.P3I26W_railIn .P3I26W_iconButton,.P3I26W_railIn .P3I26W_newSession,.P3I26W_railIn .P3I26W_panelList,.P3I26W_railIn .P3I26W_regionArea{animation:P3I26W_rail-in .15s var(--ds-ease-in-out) backwards}.P3I26W_railIn .P3I26W_footArea{animation:P3I26W_rail-fade-in .15s var(--ds-ease-in-out) backwards}@keyframes P3I26W_rail-in{0%{opacity:0;transform:translate(49px)}}@keyframes P3I26W_rail-fade-in{0%{opacity:0}}.P3I26W_topStrip{box-sizing:border-box;height:52px;margin:-6px calc(-1 * var(--dsh-sidebar-inline-padding)) 0;flex:none;justify-content:flex-end;align-items:center;padding:0 12px 2px;display:flex}[data-fullscreen] .P3I26W_topStrip{justify-content:flex-start}.P3I26W_topStrip+.P3I26W_logoRow{margin-top:-12px}.P3I26W_logoRow{box-sizing:border-box;flex:none;justify-content:flex-end;align-items:center;gap:8px;height:60px;margin-bottom:4px;padding:8px 0 8px 4px;display:flex;overflow:hidden}.P3I26W_collapsed .P3I26W_logoRow{justify-content:flex-start;height:36px;margin-bottom:12px;padding:0;overflow:visible}.P3I26W_brand{min-width:0;color:inherit;cursor:pointer;background:0 0;border:none;flex:1;align-items:center;padding:0;display:inline-flex;overflow:hidden}[data-platform=darwin] .P3I26W_brand{cursor:default}.P3I26W_brandIdentity{align-items:center;gap:8px;min-width:0;height:24px;display:inline-flex}.P3I26W_brandMark{flex:none;justify-content:center;align-items:center;display:inline-flex}.P3I26W_brandName{letter-spacing:.04em;align-items:center;gap:6px;min-width:0;height:24px;font-size:18px;font-weight:600;line-height:24px;display:inline-flex}.P3I26W_fallbackBrandName{letter-spacing:0;white-space:nowrap;font-size:17px}.P3I26W_localBuildBrand{white-space:nowrap;flex-direction:column;flex:none;justify-content:center;align-items:flex-start;gap:1px;height:24px;display:inline-flex}.P3I26W_localBuildTitle{letter-spacing:0;font-size:12px;line-height:13px}.P3I26W_iconButton{border-radius:var(--dsw-radius-sm);cursor:pointer;width:28px;height:28px;color:var(--dsw-alias-label-secondary);background:0 0;border:none;flex:none;justify-content:center;align-items:center;padding:0;display:inline-flex;position:relative}.P3I26W_iconButton:hover{background:var(--dsw-alias-interactive-bg-hover)}.P3I26W_iconButton.P3I26W_toggle:focus-visible{outline:var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color,var(--dsw-alias-state-business-primary));outline-offset:-2px}.P3I26W_collapsed .P3I26W_iconButton{border-radius:var(--dsw-radius-md);width:36px;height:36px}.P3I26W_collapsed .P3I26W_toggle .P3I26W_panelIcon{display:none}.P3I26W_collapsed .P3I26W_toggle:hover .P3I26W_panelIcon{display:inline}.P3I26W_collapsed .P3I26W_toggle:hover .P3I26W_railMark{display:none}.P3I26W_railMark{justify-content:center;align-items:center;display:inline-flex}.P3I26W_collapsed .P3I26W_iconButton{color:var(--dsw-alias-label-primary)}.P3I26W_buildVersion{height:10px;color:var(--dsw-alias-label-primary-inverted);background:var(--dsw-alias-label-primary);font-family:var(--ds-font-family-code);white-space:nowrap;border-radius:2px;flex:none;align-items:center;padding:0 3px;font-size:6px;font-weight:500;line-height:10px;display:inline-flex}.P3I26W_newSession{box-sizing:border-box;border:.5px solid var(--dsw-alias-border-l3);border-radius:var(--dsw-radius-md);background:var(--dsw-alias-button-elevated-fill);height:38px;color:var(--dsw-alias-label-primary);cursor:pointer;flex:none;justify-content:center;align-items:center;gap:0;margin:0 2px 12px;padding:8px 12px;font-size:14px;font-weight:500;line-height:22px;display:flex;position:relative;overflow:hidden;container-type:inline-size}.P3I26W_newSession:hover{background:var(--dsw-alias-button-floating-hover)}[data-platform=darwin] .P3I26W_newSession{background:#ffffff8c}[data-platform=darwin] .P3I26W_newSession:hover{background:#ffffff4d}[data-platform=darwin] [data-ds-dark-theme] .P3I26W_newSession{background:#ffffff26}[data-platform=darwin] [data-ds-dark-theme] .P3I26W_newSession:hover{background:#fff3}.P3I26W_collapsed .P3I26W_newSession{background:0 0;border-color:#0000;align-self:flex-start;gap:0;width:36px;height:36px;margin:0 0 12px;padding:0}.P3I26W_collapsed .P3I26W_newSession:hover{background:var(--dsw-alias-interactive-bg-hover)}.P3I26W_newSessionLabel{white-space:nowrap;max-width:200px;overflow:hidden}.P3I26W_collapsed .P3I26W_newSessionLabel{max-width:0}.P3I26W_newSessionLabelMask{flex:1;min-width:0}.P3I26W_newSession:is(:hover,:focus-visible) .P3I26W_newSessionLabelMask:has(+.P3I26W_newSessionShortcut){overflow:hidden;mask-image:linear-gradient(90deg,#000 calc(100% - 16px),#0000)}.P3I26W_newSessionContent{justify-content:center;align-items:center;gap:6px;width:100cqw;display:flex}.P3I26W_newSessionContent>svg{flex:none}.P3I26W_newSessionShortcut{opacity:0;pointer-events:none;flex:none;font-weight:400;display:inline-flex}.P3I26W_newSession:is(:hover,:focus-visible) .P3I26W_newSessionShortcut{opacity:1}.P3I26W_panelList{flex-direction:column;flex:none;gap:4px;margin-bottom:8px;display:flex}.P3I26W_panelRow{box-sizing:border-box;border-radius:var(--dsw-radius-md);min-height:36px;color:var(--dsw-alias-label-primary);font:inherit;text-align:left;cursor:pointer;background:0 0;border:none;align-items:center;gap:8px;margin:0 2px;padding:7px 8px;line-height:22px;display:flex}.P3I26W_panelRow:hover{background:var(--dsw-alias-interactive-bg-hover)}.P3I26W_panelRow.P3I26W_panelActive{background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-primary)}.P3I26W_panelRow:focus-visible{outline:var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color,var(--dsw-alias-state-business-primary));outline-offset:-2px}.P3I26W_panelGlyph{flex:none;justify-content:center;align-items:center;display:inline-flex}.P3I26W_panelTitle{text-overflow:ellipsis;white-space:nowrap;min-width:0;overflow:hidden}.P3I26W_collapsed .P3I26W_panelList{gap:12px;margin-bottom:12px}.P3I26W_collapsed .P3I26W_panelRow{width:36px;height:36px;color:var(--dsw-alias-label-primary);justify-content:center;margin:0;padding:0}.P3I26W_regionArea{min-height:0;margin-left:-4px;margin-right:calc(-1 * var(--dsh-sidebar-inline-padding));flex-direction:column;flex:1;padding-left:4px;display:flex;overflow:hidden}.P3I26W_collapsed .P3I26W_regionArea{margin-left:0;margin-right:0;padding-left:0}.P3I26W_footArea{flex-direction:column;flex:none;display:flex}.P3I26W_settingsArea,.P3I26W_footerActions{flex:none;width:100%;min-width:0}.P3I26W_footerActions{display:flex}.P3I26W_collapsed .P3I26W_footArea{align-items:center}.P3I26W_collapsed .P3I26W_settingsArea,.P3I26W_collapsed .P3I26W_footerActions{justify-content:center;width:auto;display:flex}@media (prefers-reduced-motion:reduce){.P3I26W_wide,.P3I26W_fading>*,.P3I26W_railIn .P3I26W_iconButton,.P3I26W_railIn .P3I26W_newSession,.P3I26W_railIn .P3I26W_panelList,.P3I26W_railIn .P3I26W_footArea,.P3I26W_railIn .P3I26W_regionArea{transition:none;animation:none}}";
-		const tagId = "@deepseek-ai/dsh-client-ui-sidebar/SidebarRoot.module.css";
-		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId) + "]") === null) {
-			const tag = document.createElement("style");
-			tag.dataset.plugin = "@deepseek-ai/dsh-client-ui-sidebar";
-			tag.dataset.pluginCss = tagId;
-			tag.textContent = css;
-			document.head.appendChild(tag);
-		}
-		var SidebarRoot_module_css_default = {
-			"brand": "P3I26W_brand",
-			"brandIdentity": "P3I26W_brandIdentity",
-			"brandMark": "P3I26W_brandMark",
-			"brandName": "P3I26W_brandName",
-			"buildVersion": "P3I26W_buildVersion",
-			"collapsed": "P3I26W_collapsed",
-			"fading": "P3I26W_fading",
-			"fallbackBrandName": "P3I26W_fallbackBrandName",
-			"footArea": "P3I26W_footArea",
-			"footerActions": "P3I26W_footerActions",
-			"iconButton": "P3I26W_iconButton",
-			"localBuildBrand": "P3I26W_localBuildBrand",
-			"localBuildTitle": "P3I26W_localBuildTitle",
-			"logoRow": "P3I26W_logoRow",
-			"newSession": "P3I26W_newSession",
-			"newSessionContent": "P3I26W_newSessionContent",
-			"newSessionLabel": "P3I26W_newSessionLabel",
-			"newSessionLabelMask": "P3I26W_newSessionLabelMask",
-			"newSessionShortcut": "P3I26W_newSessionShortcut",
-			"panelActive": "P3I26W_panelActive",
-			"panelGlyph": "P3I26W_panelGlyph",
-			"panelIcon": "P3I26W_panelIcon",
-			"panelList": "P3I26W_panelList",
-			"panelRow": "P3I26W_panelRow",
-			"panelTitle": "P3I26W_panelTitle",
-			"quietBars": "P3I26W_quietBars",
-			"rail-fade-in": "P3I26W_rail-fade-in",
-			"rail-in": "P3I26W_rail-in",
-			"railIn": "P3I26W_railIn",
-			"railMark": "P3I26W_railMark",
-			"regionArea": "P3I26W_regionArea",
-			"root": "P3I26W_root",
-			"settingsArea": "P3I26W_settingsArea",
-			"toggle": "P3I26W_toggle",
-			"topStrip": "P3I26W_topStrip",
-			"wide": "P3I26W_wide",
-			"wide-in": "P3I26W_wide-in"
-		};
-		//#endregion
-		//#region lib/types/client/SidebarRoot.js
-		/**
-		* Sidebar shell: column geometry and global panel navigation.
-		* Collapse is a slide plus crossfade:
-		* content freezes at its expanded width (inline style) and fades out in place
-		* while the sliding column (AppFrame grid tracks) clips it — nothing reflows
-		* mid-slide. At settle the wide-only content unmounts and the upper
-		* controls enter the 56px rail from the same horizontal offset (one icon each,
-		* same top-down order) on one fade that ends with the slide. The bottom-pinned
-		* settings control only fades. The workspace/session browsing region between
-		* global panel rows and the foot is the `sidebar.workspaces` registrant's,
-		* and the foot holds `sidebar.settings` plus `sidebar.footer.action`; the shell
-		* hands them the wide flag (plus an expand request callback for the browser).
-		*
-		* The column also owns whether the scroll regions nested in it draw a
-		* scrollbar at all: the shell tracks the pointer and rebinds ui-theme's
-		* scrollbar indirection away while it is elsewhere, so a list the user is not
-		* pointing at carries no bar.
-		*/
-		/** Wide-content unmount delay; matches the 150ms wide-content fade-out. */
-		const COLLAPSE_SETTLE_MS = 150;
-		/**
-		* How long the column's scrollbars stay drawn after the pointer leaves it.
-		* The bar is a pointer affordance here, and hiding it on the leave event
-		* itself makes it blink out while the pointer is only crossing the column's
-		* edge — on the way to the conversation, or around a portalled menu.
-		*/
-		const SCROLLBAR_LINGER_MS = 2e3;
-		/** Format complete-build metadata for the local brand badge. */
-		function localBuildVersion() {
-			return `0.2.0-rc.1-4878cda-dirty`;
-		}
-		/** Each panel row subscribes only to its own selection state. */
-		function PanelRow({ id, label, wide, usePanelInfo, selectPanel, renderSlot }) {
-			const active = usePanelInfo((info) => info.activePanelId === id);
-			return (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Tooltip, {
-				label,
-				delayMs: 500,
-				disabled: wide,
-				children: (0, react_jsx_runtime.jsxs)("button", {
-					type: "button",
-					className: clsx(SidebarRoot_module_css_default.panelRow, active && SidebarRoot_module_css_default.panelActive),
-					"aria-label": label,
-					"aria-current": active ? "page" : void 0,
-					onClick: () => {
-						selectPanel(id);
-					},
-					children: [(0, react_jsx_runtime.jsx)("span", {
-						className: SidebarRoot_module_css_default.panelGlyph,
+							tab.actions.openTab("terminal", { replaceTab: true });
+						}
+					}),
+					(0, react_jsx_runtime.jsx)("span", {
+						className: TerminalGuide_module_css_default.icon,
 						"aria-hidden": "true",
-						children: renderSlot("sidebar.panellist", {
-							size: wide ? 16 : 18,
-							active
-						}, { only: id })
-					}), wide && (0, react_jsx_runtime.jsx)("span", {
-						className: clsx(SidebarRoot_module_css_default.panelTitle, SidebarRoot_module_css_default.wide),
-						children: label
-					})]
-				})
-			});
-		}
-		/**
-		* Render the sidebar column shell.
-		* @param props - composed slot props (runtime share + injected callbacks, contract/slots.ts).
-		* @returns the sidebar element tree.
-		*/
-		function SidebarRoot({ collapsed, width, startSession, toggleSidebar, selectPanel, usePanels, useShortcuts, usePanelInfo, t, renderSlot }) {
-			const panels = usePanels((snapshot) => snapshot);
-			const shortcut = useShortcuts((rows) => rows.find((row) => row.id === "sidebar.left.toggle"));
-			const newShortcut = useShortcuts((rows) => rows.find((row) => row.id === "session.new"));
-			const toggleLabel = collapsed ? t("toggle.open") : t("toggle.collapse");
-			const [settled, setSettled] = (0, react.useState)(collapsed);
-			(0, react.useEffect)(() => {
-				if (!collapsed) {
-					setSettled(false);
-					return;
-				}
-				const timer = window.setTimeout(() => {
-					setSettled(true);
-				}, COLLAPSE_SETTLE_MS);
-				return () => {
-					window.clearTimeout(timer);
-				};
-			}, [collapsed]);
-			const windowsTitlebar = document.documentElement.hasAttribute("data-windows-titlebar");
-			const wide = windowsTitlebar ? !collapsed : !collapsed || !settled;
-			const captionTooltipSide = windowsTitlebar ? "bottom" : "right";
-			const lastWideWidth = (0, react.useRef)(width);
-			if (!collapsed) lastWideWidth.current = width;
-			const everWide = (0, react.useRef)(!collapsed);
-			if (!collapsed) everWide.current = true;
-			const column = (0, react.useRef)(null);
-			const [pointerInside, setPointerInside] = (0, react.useState)(false);
-			const lingerTimer = (0, react.useRef)(void 0);
-			const armLinger = () => {
-				if (lingerTimer.current !== void 0) return;
-				lingerTimer.current = window.setTimeout(() => {
-					lingerTimer.current = void 0;
-					setPointerInside(false);
-				}, SCROLLBAR_LINGER_MS);
-			};
-			const cancelLinger = () => {
-				window.clearTimeout(lingerTimer.current);
-				lingerTimer.current = void 0;
-			};
-			(0, react.useEffect)(() => {
-				if (!pointerInside) return;
-				const onMove = (event) => {
-					const rect = column.current?.getBoundingClientRect();
-					/* v8 ignore next -- the listener only exists while the column is mounted and revealed. */
-					if (rect === void 0) return;
-					if (event.clientX >= rect.left && event.clientX < rect.right && event.clientY >= rect.top && event.clientY < rect.bottom) cancelLinger();
-					else armLinger();
-				};
-				document.addEventListener("pointermove", onMove);
-				return () => {
-					document.removeEventListener("pointermove", onMove);
-					cancelLinger();
-				};
-			}, [pointerInside]);
-			const buildVersion = localBuildVersion();
-			const darwinDesktop = (0, _deepseek_ai_dsh_client_ui_primitives.isDarwinDesktop)();
-			const toggle = (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Tooltip, {
-				label: toggleLabel,
-				shortcutKeys: shortcut?.keys,
-				delayMs: 500,
-				side: captionTooltipSide,
-				children: (0, react_jsx_runtime.jsxs)("button", {
-					type: "button",
-					className: clsx(SidebarRoot_module_css_default.iconButton, SidebarRoot_module_css_default.toggle),
-					"aria-label": toggleLabel,
-					"aria-keyshortcuts": shortcut?.aria,
-					onClick: () => {
-						toggleSidebar();
-					},
-					children: [
-						!wide && !windowsTitlebar && (0, react_jsx_runtime.jsx)("span", {
-							className: SidebarRoot_module_css_default.railMark,
-							"aria-hidden": "true",
-							children: renderSlot("sidebar.brand.mark", { size: 24 }, { fallback: (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.FishLogo, { size: 24 }) })
-						}),
-						(0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconPanelLeftOutlineRegular, {
-							className: SidebarRoot_module_css_default.panelIcon,
-							size: wide || windowsTitlebar ? 16 : 18
-						}),
-						!wide && renderSlot("sidebar.toggle.badge", {})
-					]
-				})
-			});
-			return (0, react_jsx_runtime.jsxs)("div", {
-				ref: column,
-				className: clsx(SidebarRoot_module_css_default.root, !wide && SidebarRoot_module_css_default.collapsed, !wide && everWide.current && SidebarRoot_module_css_default.railIn, collapsed && wide && SidebarRoot_module_css_default.fading, !pointerInside && SidebarRoot_module_css_default.quietBars),
-				style: wide ? { width: collapsed ? lastWideWidth.current : width } : void 0,
-				onPointerEnter: () => {
-					cancelLinger();
-					setPointerInside(true);
-				},
-				onPointerLeave: () => {
-					armLinger();
-				},
-				children: [
-					darwinDesktop && (0, react_jsx_runtime.jsx)("div", {
-						className: SidebarRoot_module_css_default.topStrip,
-						"data-window-drag": true,
-						children: toggle
+						children: (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.PluginArtworkTerminal, { size: description === void 0 ? 22 : 26 })
 					}),
-					(0, react_jsx_runtime.jsxs)("div", {
-						className: SidebarRoot_module_css_default.logoRow,
-						"data-window-drag": true,
-						children: [wide && (() => {
-							const identity = (0, react_jsx_runtime.jsxs)("span", {
-								className: SidebarRoot_module_css_default.brandIdentity,
-								"aria-hidden": "true",
-								children: [(0, react_jsx_runtime.jsx)("span", {
-									className: SidebarRoot_module_css_default.brandMark,
-									children: renderSlot("sidebar.brand.mark", { size: 24 }, { fallback: (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.FishLogo, { size: 24 }) })
-								}), (0, react_jsx_runtime.jsx)("span", {
-									className: SidebarRoot_module_css_default.brandName,
-									children: renderSlot("sidebar.brand.name", {}, { fallback: buildVersion === void 0 ? (0, react_jsx_runtime.jsx)("span", {
-										className: SidebarRoot_module_css_default.fallbackBrandName,
-										children: t("brand.localBuild")
-									}) : (0, react_jsx_runtime.jsxs)("span", {
-										className: SidebarRoot_module_css_default.localBuildBrand,
-										children: [(0, react_jsx_runtime.jsx)("span", {
-											className: SidebarRoot_module_css_default.localBuildTitle,
-											children: t("brand.localBuild")
-										}), (0, react_jsx_runtime.jsx)("span", {
-											className: SidebarRoot_module_css_default.buildVersion,
-											children: buildVersion
-										})]
-									}) })
-								})]
-							});
-							return darwinDesktop ? (0, react_jsx_runtime.jsx)("span", {
-								className: clsx(SidebarRoot_module_css_default.brand, SidebarRoot_module_css_default.wide),
-								children: identity
-							}) : (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Tooltip, {
-								label: t("session.new.label"),
-								shortcutKeys: newShortcut?.keys,
-								delayMs: 500,
-								children: (0, react_jsx_runtime.jsx)("button", {
-									type: "button",
-									className: clsx(SidebarRoot_module_css_default.brand, SidebarRoot_module_css_default.wide),
-									"aria-label": t("session.new.label"),
-									"aria-keyshortcuts": newShortcut?.aria,
-									onClick: () => {
-										startSession();
-									},
-									children: identity
-								})
-							});
-						})(), !darwinDesktop && toggle]
-					}),
-					(0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Tooltip, {
-						label: t("session.new.label"),
-						shortcutKeys: newShortcut?.keys,
-						delayMs: 500,
-						side: captionTooltipSide,
-						disabled: wide,
-						children: (0, react_jsx_runtime.jsxs)("button", {
-							type: "button",
-							className: SidebarRoot_module_css_default.newSession,
-							"aria-label": t("session.new.label"),
-							"aria-keyshortcuts": newShortcut?.aria,
-							onClick: () => {
-								startSession();
-							},
+					(0, react_jsx_runtime.jsxs)("span", {
+						className: TerminalGuide_module_css_default.text,
+						children: [(0, react_jsx_runtime.jsxs)("span", {
+							className: TerminalGuide_module_css_default.titleRow,
 							children: [(0, react_jsx_runtime.jsx)("span", {
-								className: SidebarRoot_module_css_default.newSessionLabelMask,
-								children: (0, react_jsx_runtime.jsxs)("span", {
-									className: SidebarRoot_module_css_default.newSessionContent,
-									children: [wide ? (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconNewChatOutlineMedium, { size: 14 }) : (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconNewChatOutlineRegular, { size: windowsTitlebar ? 16 : 18 }), wide && (0, react_jsx_runtime.jsx)("span", {
-										className: clsx(SidebarRoot_module_css_default.newSessionLabel, SidebarRoot_module_css_default.wide),
-										children: t("session.new")
-									})]
-								})
-							}), wide && newShortcut !== void 0 && newShortcut.keys.length > 0 && (0, react_jsx_runtime.jsx)("span", {
-								className: SidebarRoot_module_css_default.newSessionShortcut,
+								className: TerminalGuide_module_css_default.title,
 								"aria-hidden": "true",
-								children: (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.ShortcutKeys, { keys: newShortcut.keys })
+								children: title
+							}), (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Menu, {
+								open,
+								portal: true,
+								autoFocus: true,
+								align: "end",
+								className: TerminalGuide_module_css_default.menu,
+								items: items.length === 0 ? [{
+									id: "empty",
+									label: t("shellEmpty"),
+									disabled: true
+								}] : items,
+								selectedId: state.phase === "ready" ? state.choices.selectedShell : void 0,
+								onClose: () => {
+									setOpen(false);
+								},
+								onSelect: (path) => {
+									if (state.phase === "failed") {
+										setState({ phase: "loading" });
+										setAttempt((value) => value + 1);
+										return;
+									}
+									selectShell(path);
+									setOpen(false);
+									tab.actions.openTab("terminal", {
+										replaceTab: true,
+										params: { shellPath: path }
+									});
+								},
+								anchor: (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
+									variant: "ghost",
+									className: TerminalGuide_module_css_default.trigger,
+									"aria-label": t("shell"),
+									"aria-haspopup": "menu",
+									"aria-expanded": open,
+									onClick: () => {
+										setState({ phase: "loading" });
+										setOpen((value) => !value);
+									},
+									children: (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconChevronDownOutlineRegular, {})
+								})
 							})]
-						})
-					}),
-					panels.length > 0 && (0, react_jsx_runtime.jsx)("nav", {
-						className: SidebarRoot_module_css_default.panelList,
-						"aria-label": t("panels.label"),
-						children: panels.map(({ id, label }) => (0, react_jsx_runtime.jsx)(PanelRow, {
-							id,
-							label,
-							wide,
-							usePanelInfo,
-							selectPanel,
-							renderSlot
-						}, id))
-					}),
-					(0, react_jsx_runtime.jsx)("div", {
-						className: SidebarRoot_module_css_default.regionArea,
-						children: renderSlot("sidebar.workspaces", {
-							wide,
-							expandSidebar: () => {
-								if (collapsed) toggleSidebar();
-							}
-						})
-					}),
-					(0, react_jsx_runtime.jsxs)("div", {
-						className: SidebarRoot_module_css_default.footArea,
-						children: [(0, react_jsx_runtime.jsx)("div", {
-							className: SidebarRoot_module_css_default.footerActions,
-							children: renderSlot("sidebar.footer.action", { wide })
-						}), (0, react_jsx_runtime.jsx)("div", {
-							className: SidebarRoot_module_css_default.settingsArea,
-							children: renderSlot("sidebar.settings", { wide })
+						}), description !== void 0 && (0, react_jsx_runtime.jsx)("span", {
+							className: TerminalGuide_module_css_default.description,
+							"aria-hidden": "true",
+							children: description
 						})]
+					}),
+					shortcut !== void 0 && shortcut.keys.length > 0 && (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.ShortcutKeys, {
+						keys: shortcut.keys,
+						className: TerminalGuide_module_css_default.shortcut
 					})
 				]
 			});
 		}
 		//#endregion
-		//#region lib/types/client/locales.js
-		/** `sidebar` namespace dictionaries for shell controls and global panels. */
-		/** Simplified Chinese dictionary (the key-set source of truth). */
-		const zh = {
-			"session.new": "新会话",
-			"session.new.label": "新建会话",
-			"toggle.open": "打开侧边栏",
-			"toggle.collapse": "收起侧边栏",
-			"panels.label": "全局面板"
+		//#region lib/types/client/LazyTerminalBody.js
+		/** Load xterm only after a terminal body is mounted. */
+		const LoadedTerminalBody = (0, react.lazy)(async () => ({ default: (await require.async("./client.terminal.js")).TerminalBody }));
+		/**
+		* Suspend while the package-local terminal chunk arrives.
+		* @param props - Terminal body props supplied by the sidebar slot.
+		* @returns the deferred terminal renderer.
+		*/
+		function LazyTerminalBody(props) {
+			return (0, react_jsx_runtime.jsx)(react.Suspense, {
+				fallback: null,
+				children: (0, react_jsx_runtime.jsx)(LoadedTerminalBody, { ...props })
+			});
+		}
+		//#endregion
+		//#region lib/types/client/TerminalIcon.js
+		/**
+		* Render the tab title's terminal prompt in the surrounding text color.
+		* @returns a decorative sixteen-pixel line glyph.
+		*/
+		function TerminalIcon() {
+			return (0, react_jsx_runtime.jsxs)("svg", {
+				width: "16",
+				height: "16",
+				viewBox: "0 0 16 16",
+				fill: "none",
+				"aria-hidden": "true",
+				children: [(0, react_jsx_runtime.jsx)("path", {
+					d: "M3 4L7 8L3 12",
+					stroke: "currentColor"
+				}), (0, react_jsx_runtime.jsx)("path", {
+					d: "M9 12H13",
+					stroke: "currentColor"
+				})]
+			});
+		}
+		//#endregion
+		//#region \0dsh-css:D:\deepseek-harness\packages\client\ui-sidebar-terminal\src\client\TerminalTitle.module.css.mjs
+		const css = ".jr-URW_title{text-overflow:ellipsis;white-space:nowrap;min-width:0;overflow:hidden}.jr-URW_name{width:120px;min-width:48px;max-width:100%;color:inherit;font:inherit;background:var(--dsw-alias-bg-l1);border:.5px solid var(--dsw-alias-border-l3);border-radius:var(--dsw-radius-sm);outline:none;padding:0 4px}";
+		const tagId = "@deepseek-ai/dsh-client-ui-sidebar-terminal/TerminalTitle.module.css";
+		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId) + "]") === null) {
+			const tag = document.createElement("style");
+			tag.dataset.plugin = "@deepseek-ai/dsh-client-ui-sidebar-terminal";
+			tag.dataset.pluginCss = tagId;
+			tag.textContent = css;
+			document.head.appendChild(tag);
+		}
+		var TerminalTitle_module_css_default = {
+			"name": "jr-URW_name",
+			"title": "jr-URW_title"
 		};
-		/** English dictionary, checked complete against the zh key set. */
+		//#endregion
+		//#region lib/types/client/TerminalTitle.js
+		/** Live terminal names in docked and floating tab chrome. */
+		/**
+		* Render the terminal name, editable in place on double-click.
+		* @param props - sidebar occurrence, terminal model and localized copy.
+		* @returns the terminal icon and current name or its editor.
+		*/
+		function TerminalTitle({ useTabInfo, useTerminal, view, t }) {
+			const { tab } = useTabInfo();
+			const title = useTerminal(tab.id, (state) => state?.info?.title ?? state?.title) ?? tab.title;
+			const [editing, setEditing] = (0, react.useState)(false);
+			const input = (0, react.useRef)(null);
+			const label = (0, react.useRef)(null);
+			const cancelled = (0, react.useRef)(false);
+			(0, react.useLayoutEffect)(() => {
+				if (editing) return;
+				const chip = label.current?.closest("[data-dockkit-tab], [data-dockkit-float-grip]");
+				const rename = (event) => {
+					event.stopPropagation();
+					cancelled.current = false;
+					setEditing(true);
+				};
+				chip?.addEventListener("dblclick", rename);
+				return () => {
+					chip?.removeEventListener("dblclick", rename);
+				};
+			}, [editing]);
+			(0, react.useLayoutEffect)(() => {
+				if (!editing) return;
+				input.current?.focus();
+				input.current?.select();
+			}, [editing]);
+			return (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [(0, react_jsx_runtime.jsx)(TerminalIcon, {}), editing ? (0, react_jsx_runtime.jsx)("input", {
+				ref: input,
+				className: TerminalTitle_module_css_default.name,
+				defaultValue: title,
+				maxLength: 120,
+				"aria-label": t("rename"),
+				onPointerDown: (event) => {
+					event.stopPropagation();
+				},
+				onClick: (event) => {
+					event.stopPropagation();
+				},
+				onDoubleClick: (event) => {
+					event.stopPropagation();
+				},
+				onBlur: (event) => {
+					setEditing(false);
+					const next = event.currentTarget.value.trim();
+					if (!cancelled.current && next !== "" && next !== title) view(tab.id).rename(next);
+				},
+				onKeyDown: (event) => {
+					event.stopPropagation();
+					if (event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229) return;
+					if (event.key === "Escape") {
+						cancelled.current = true;
+						event.currentTarget.blur();
+					} else if (event.key === "Enter") event.currentTarget.blur();
+				}
+			}) : (0, react_jsx_runtime.jsx)("span", {
+				ref: label,
+				className: TerminalTitle_module_css_default.title,
+				children: title
+			})] });
+		}
+		//#endregion
+		//#region lib/types/client/locales.js
+		/** Simplified Chinese terminal copy. */
+		const zh = {
+			"shortcut.noSession": "请先选择会话",
+			recoveryFailed: "恢复终端失败：{message}",
+			retryRecovery: "重试恢复终端",
+			shell: "选择 Shell",
+			shellLoading: "正在读取 Shell…",
+			shellEmpty: "没有可用的 Shell",
+			description: "在会话工作区运行命令",
+			title: "终端",
+			new: "新建终端",
+			loading: "正在读取终端环境…",
+			creating: "正在启动…",
+			connecting: "正在连接…",
+			disconnected: "连接已断开。",
+			reconnect: "重新连接",
+			readonly: "此页面当前只读。",
+			control: "接管输入",
+			closed: "终端已关闭。",
+			exited: "进程已退出（{code}）",
+			failed: "终端错误：{message}",
+			rename: "终端名称",
+			unavailable: "不可用",
+			retry: "重试",
+			cleanupFailed: "终端「{title}」未能结束：{message}",
+			missingTerminal: "此终端已不存在，请新建终端。",
+			inputFull: "输入缓冲区已满，请重新连接后重试。",
+			attachmentEnded: "终端连接已结束，请重新连接。",
+			invalidOutput: "终端画面传输异常，请重新连接。",
+			terminalLimit: "终端数量已达上限，请关闭不用的终端后重试。已退出的终端也计入数量。"
+		};
+		/** English terminal copy. */
 		const en = {
-			"session.new": "New Session",
-			"session.new.label": "New session",
-			"toggle.open": "Open sidebar",
-			"toggle.collapse": "Collapse sidebar",
-			"panels.label": "Global panels"
+			"shortcut.noSession": "Select a session first",
+			recoveryFailed: "Terminal recovery failed: {message}",
+			retryRecovery: "Retry terminal recovery",
+			shell: "Choose shell",
+			shellLoading: "Loading shells…",
+			shellEmpty: "No shells available",
+			description: "Run commands in the Session workspace",
+			title: "Terminal",
+			new: "New terminal",
+			loading: "Reading terminal environment…",
+			creating: "Starting…",
+			connecting: "Connecting…",
+			disconnected: "Disconnected.",
+			reconnect: "Reconnect",
+			readonly: "This view is read-only.",
+			control: "Take control",
+			closed: "Terminal closed.",
+			exited: "Process exited ({code})",
+			failed: "Terminal error: {message}",
+			rename: "Terminal name",
+			unavailable: "Unavailable",
+			retry: "Retry",
+			cleanupFailed: "Terminal “{title}” could not be ended: {message}",
+			missingTerminal: "This terminal no longer exists. Open a new terminal.",
+			inputFull: "The input buffer is full. Reconnect and try again.",
+			attachmentEnded: "The terminal connection ended. Reconnect to continue.",
+			invalidOutput: "The terminal screen could not be received. Reconnect to recover it.",
+			terminalLimit: "The terminal limit has been reached. Close unused terminals and try again. Exited terminals also count toward the limit."
 		};
 		//#endregion
 		//#region lib/types/client/index.js
-		/** Dictionary namespace owned by this plugin. */
-		const NS = "sidebar";
-		/** Services required by the sidebar plugin. */
+		/** Services needed by the terminal's two sidebar seats. */
 		const inject = [
 			"slots",
-			"layout",
-			"uiWorkspace",
 			"locale",
+			"sidebarRight",
+			"sidebarRightTabs",
+			"webTerminals",
+			"theme",
 			"shortcuts"
 		];
-		/** Registers the sidebar shell and its service callbacks.
-		* @param ctx - Client root context.
+		/**
+		* Register the terminal type, observable views and background process cleanup.
+		* @param ctx - Client root Context with sidebar and terminal services.
 		*/
 		function apply(ctx) {
-			const workspaceNavigation = ctx.get("uiWorkspace");
-			ctx.effect(() => ctx.locale.register(NS, {
-				zh,
-				en
-			}), "ui-sidebar: dictionaries");
-			const panels = (0, _deepseek_ai_dsh_client_store.createSnapshotStore)([]);
-			const syncPanels = () => {
-				const next = ctx.slots.entriesOfSlot("sidebar.panellist").map(({ options }) => {
-					const id = options.id;
-					return {
-						id,
-						order: options.order ?? 0,
-						label: (0, _deepseek_ai_dsh_client_ui_slots.resolveSlotLabel)(options.label) ?? id
-					};
-				}).sort((a, b) => a.order - b.order);
-				const previous = panels.getSnapshot();
-				if (previous.length === next.length && previous.every((panel, index) => {
-					const candidate = next[index];
-					return panel.id === candidate.id && panel.order === candidate.order && panel.label === candidate.label;
-				})) return;
-				panels.set(next);
+			ctx.effect(() => {
+				const sync = () => {
+					ctx.webTerminals.retainTabs(ctx.sidebarRight.openTabs.getSnapshot().filter((tab) => tab.kind === "terminal"));
+				};
+				const unsubscribe = ctx.sidebarRight.openTabs.subscribe(sync);
+				sync();
+				return () => {
+					unsubscribe();
+					ctx.webTerminals.retainTabs([]);
+				};
+			}, "ui-sidebar-terminal.window-holds");
+			const target = (sessionId, key) => ctx.sidebarRight.tabDomain.occurrence(sessionId, { id: key }).navigation.getSnapshot().params;
+			const terminalId = (sessionId, key) => {
+				const params = target(sessionId, key);
+				return params !== void 0 && "terminalId" in params ? params.terminalId : void 0;
 			};
-			ctx.effect(() => ctx.slots.subscribe("sidebar.panellist", syncPanels), "ui-sidebar: panel entries");
-			ctx.effect(() => ctx.locale.subscribe(syncPanels), "ui-sidebar: panel labels");
-			const injectProps = () => ({
-				startSession: (workspaceId) => {
-					workspaceNavigation.startSession(workspaceId);
-				},
-				toggleSidebar: () => {
-					ctx.layout.toggleSidebar();
-				},
-				selectPanel: (id) => {
-					if (id === "plugins" || id === "schedules") ctx.get("productAnalytics")?.track("sidebar_menu_click", { menu_name: id === "plugins" ? "plugin" : "cron" });
-					ctx.layout.selectPanel(id);
-				},
-				hooks: {
-					panels,
-					shortcuts: ctx.shortcuts.catalog
-				}
-			});
-			ctx.slots.inject("sidebar", () => ctx.slots.register({
-				name: "sidebar",
-				locale: NS,
-				children: {
-					"sidebar.brand.mark": {
-						kind: "single",
-						scope: "root"
+			const view = (sessionId, key) => {
+				const params = target(sessionId, key);
+				const contentId = ctx.sidebarRight.tabDomain.occurrence(sessionId, { id: key }).navigation.getSnapshot().address;
+				return ctx.webTerminals.view(sessionId, key, contentId, terminalId(sessionId, key), params !== void 0 && "shellPath" in params ? params.shellPath : void 0);
+			};
+			const namespace = "sidebarTerminal";
+			const id = "@deepseek-ai/dsh-client-ui-sidebar-terminal";
+			const t = ctx.locale.bind(namespace);
+			ctx.effect(() => ctx.shortcuts.register({
+				id: "terminal.new",
+				label: () => t("new"),
+				aliases: ["new terminal", "shell"],
+				defaults: {
+					"desktop:macos": {
+						code: "Backquote",
+						modifiers: ["control"]
 					},
-					"sidebar.brand.name": {
-						kind: "single",
-						scope: "root"
+					"desktop:windows": {
+						code: "Backquote",
+						modifiers: ["control"]
 					},
-					"sidebar.toggle.badge": {
-						kind: "single",
-						scope: "root"
+					"desktop:linux": {
+						code: "Backquote",
+						modifiers: ["control"]
 					},
-					"sidebar.panellist": {
-						kind: "list",
-						scope: "root"
+					"web:macos": {
+						code: "Backquote",
+						modifiers: ["control"]
 					},
-					"sidebar.workspaces": {
-						kind: "single",
-						scope: "root"
-					},
-					"sidebar.settings": {
-						kind: "single",
-						scope: "root"
-					},
-					"sidebar.footer.action": {
-						kind: "list",
-						scope: "root"
+					"web:windows": {
+						code: "Backquote",
+						modifiers: ["control"]
 					}
 				},
-				inject: injectProps
-			}, SidebarRoot));
-			ctx.slots.inject("shell.leading", () => ctx.slots.register({
-				name: "shell.leading",
-				locale: NS,
-				inject: injectProps
-			}, HeaderLeadingControls));
-			syncPanels();
+				regions: [
+					"page",
+					"editable",
+					"terminal"
+				],
+				modals: [],
+				resolve: ({ target: element }) => {
+					const target = ctx.sidebarRight.commandTarget(element);
+					if (target === void 0) return {
+						status: "blocked",
+						reason: t("shortcut.noSession")
+					};
+					return {
+						status: "handled",
+						run: () => {
+							ctx.sidebarRight.openTabFromTarget("terminal", target);
+						}
+					};
+				}
+			}), "ui-sidebar-terminal: shortcut");
+			ctx.effect(() => ctx.locale.register(namespace, {
+				zh,
+				en
+			}), "ui-sidebar-terminal.copy");
+			ctx.effect(() => ctx.sidebarRightTabs.register({
+				id,
+				kind: "terminal",
+				multiple: true,
+				priority: "builtin",
+				title: () => t("title"),
+				guide: [{
+					id: "new",
+					order: 20,
+					title: () => t("new"),
+					description: () => t("description"),
+					icon: _deepseek_ai_dsh_client_ui_primitives.PluginArtworkTerminal
+				}]
+			}), "ui-sidebar-terminal.type");
+			ctx.effect(() => ctx.sidebarRight.registerCloseHandler("terminal", (sessionId, tab) => {
+				ctx.webTerminals.close(sessionId, tab.id, tab.contentId, terminalId(sessionId, tab.id));
+			}), "ui-sidebar-terminal.close");
+			const inject = (sessionId) => ({
+				view: (key) => view(sessionId, key),
+				keyedHooks: { terminal: (key) => view(sessionId, key).state }
+			});
+			const theme = {
+				getSnapshot: () => ctx.theme.getTheme(),
+				subscribe: (listener) => ctx.on("theme/change", listener)
+			};
+			ctx.effect(() => ctx.slots.inject("sidebar.right.tab.guide.entry", () => ctx.slots.register({
+				name: "sidebar.right.tab.guide.entry",
+				key: id,
+				locale: namespace,
+				inject: (sessionId) => ({
+					hooks: { shortcuts: ctx.shortcuts.catalog },
+					loadShells: (signal) => ctx.webTerminals.launchShells(sessionId, signal),
+					selectShell: (path) => {
+						ctx.webTerminals.selectShell(path);
+					}
+				})
+			}, TerminalGuide)), "ui-sidebar-terminal.guide");
+			ctx.effect(() => ctx.slots.inject("sidebar.right.pane.tab", () => ctx.slots.register({
+				name: "sidebar.right.pane.tab",
+				key: id,
+				locale: namespace,
+				inject: (sessionId) => ({
+					...inject(sessionId),
+					hooks: { theme }
+				})
+			}, LazyTerminalBody)), "ui-sidebar-terminal.body");
+			ctx.effect(() => ctx.slots.inject("sidebar.right.pane.tab.title", () => ctx.slots.register({
+				name: "sidebar.right.pane.tab.title",
+				key: id,
+				locale: namespace,
+				inject
+			}, TerminalTitle)), "ui-sidebar-terminal.title");
 		}
 		//#endregion
 		exports.apply = apply;
@@ -538,4 +495,4 @@ window.__ModuleLoader__.load({
 	}
 });
 ;
-//# sourceMappingURL=??@deepseek-ai/dsh-client-ui-sidebar/client.js.map&rev=69adb64243ea
+//# sourceMappingURL=??@deepseek-ai/dsh-client-ui-sidebar-terminal/client.js.map&rev=4aec884ea591

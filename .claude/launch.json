@@ -1,0 +1,14 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "agent-router-web",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "web/server.mjs"
+      ],
+      "port": 2288,
+      "autoPort": true
+    }
+  ]
+}

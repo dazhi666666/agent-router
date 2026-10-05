@@ -1,2006 +1,1859 @@
 window.__ModuleLoader__.load({
-	id: "@deepseek-ai/dsh-client-shortcuts",
+	id: "@deepseek-ai/dsh-client-ui-renderer",
 	factory: (require) => {
 		var module = { exports: {} };
-		module.exports;
+		var exports = module.exports;
+		Object.defineProperty(exports, Symbol.toStringTag, { value: "Module" });
+		//#region \0rolldown/runtime.js
+		var __commonJSMin = (cb, mod) => () => (mod || (cb((mod = { exports: {} }).exports, mod), cb = null), mod.exports);
+		//#endregion
+		let react = require("react");
+		let react_dom = require("react-dom");
+		let react_dom_client = require("react-dom/client");
+		let react_jsx_runtime = require("react/jsx-runtime");
+		let _deepseek_ai_dsh_client_ui_slots = require("@deepseek-ai/dsh-client-ui-slots");
 		let _deepseek_ai_cordis = require("@deepseek-ai/cordis");
-		let _deepseek_ai_dsh_client_store = require("@deepseek-ai/dsh-client-store");
-		let _deepseek_ai_dsh_client_ui_primitives = require("@deepseek-ai/dsh-client-ui-primitives");
-		//#region lib/types/binding.js
-		const keyNames = {
-			Slash: "/",
-			Comma: ",",
-			Period: ".",
-			Backslash: "\\",
-			Backquote: "`",
-			Minus: "-",
-			Equal: "=",
-			BracketLeft: "[",
-			BracketRight: "]",
-			Semicolon: ";",
-			Quote: "'",
-			Enter: "Enter",
-			Escape: "Esc",
-			Space: "Space",
-			Tab: "Tab",
-			Backspace: "Backspace",
-			Delete: "Delete",
-			ArrowUp: "↑",
-			ArrowDown: "↓",
-			ArrowLeft: "←",
-			ArrowRight: "→"
-		};
-		const modifierOrder = [
-			"control",
-			"alt",
-			"shift",
-			"meta"
-		];
+		//#region ../../../node_modules/.pnpm/use-sync-external-store@1.2.0_react@18.3.1/node_modules/use-sync-external-store/cjs/use-sync-external-store-shim.production.min.js
 		/**
-		* Expand logical modifiers, deduplicate, and validate the physical code.
-		* @param binding - declared binding.
-		* @param platform - receiving device platform.
-		* @returns canonical binding; unsupported codes throw during registration.
+		* @license React
+		* use-sync-external-store-shim.production.min.js
+		*
+		* Copyright (c) Facebook, Inc. and its affiliates.
+		*
+		* This source code is licensed under the MIT license found in the
+		* LICENSE file in the root directory of this source tree.
 		*/
-		function normalizeBinding(binding, platform) {
-			const codes = [binding.code, ...binding.secondCode === void 0 ? [] : [binding.secondCode]];
-			codes.sort();
-			for (const code of codes) if (!/^(Key[A-Z]|Digit[0-9]|F([1-9]|1[0-9]|2[0-4]))$/u.test(code) && !Object.hasOwn(keyNames, code)) throw new Error(`Unsupported shortcut code: ${code}`);
-			if (codes.length === 2 && codes[0] === codes[1]) throw new Error("Shortcut keys must be distinct");
-			const modifiers = new Set(binding.modifiers.map((value) => value === "primary" ? platform === "macos" ? "meta" : "control" : value));
-			return {
-				code: codes[0],
-				...codes[1] === void 0 ? {} : { secondCode: codes[1] },
-				modifiers: modifierOrder.filter((value) => modifiers.has(value))
-			};
-		}
-		/**
-		* Produce an exact-match index from a normalized binding.
-		* @param binding - normalized physical key and modifiers.
-		* @returns stable index used for both matching and conflict checks.
-		*/
-		function bindingKey(binding) {
-			const codes = binding.secondCode === void 0 ? [binding.code] : [binding.code, binding.secondCode].sort();
-			return [...binding.modifiers, ...codes].join("+");
-		}
-		/**
-		* Format keycaps and ARIA; Windows separates modifiers with plus signs, while chord keys remain adjacent.
-		* @param binding - normalized binding, or null for an unbound command.
-		* @param platform - receiving device platform.
-		* @returns visible keycaps; two-key chords omit ARIA shortcuts, which only support one non-modifier key.
-		*/
-		function presentBinding(binding, platform) {
-			if (binding === null) return {
-				keys: [],
-				aria: void 0
-			};
-			const key = keyNames[binding.code] ?? binding.code.replace(/^(Key|Digit)/u, "");
-			const symbols = platform === "macos" ? {
-				control: "⌃",
-				alt: "⌥",
-				shift: "⇧",
-				meta: "⌘"
-			} : {
-				control: "Ctrl",
-				alt: "Alt",
-				shift: "Shift",
-				meta: "Meta"
-			};
-			const ariaNames = {
-				control: "Control",
-				alt: "Alt",
-				shift: "Shift",
-				meta: "Meta"
-			};
-			const ariaKey = binding.code === "Space" ? "Space" : binding.code === "Escape" ? "Escape" : binding.code.startsWith("Arrow") ? binding.code : key;
-			const second = binding.secondCode === void 0 ? [] : [keyNames[binding.secondCode] ?? binding.secondCode.replace(/^(Key|Digit)/u, "")];
-			const keys = [...binding.modifiers.map((value) => symbols[value]), key];
-			return {
-				keys: [...platform === "windows" ? keys.flatMap((label, index) => index === 0 ? [label] : ["+", label]) : keys, ...second],
-				aria: binding.secondCode === void 0 ? [...binding.modifiers.map((value) => ariaNames[value]), ariaKey].join("+") : void 0
-			};
-		}
-		/**
-		* Check Web combinations: Windows and macOS also admit any three or four modifiers; Linux retains the limited set.
-		* @param binding - normalized candidate.
-		* @param platform - receiving device platform.
-		* @returns whether this combination is admitted; admission does not guarantee browser or system delivery.
-		*/
-		function isWebBindingAllowed(binding, platform) {
-			if (binding.secondCode !== void 0) return false;
-			if (platform === "windows" || platform === "macos") {
-				if (binding.modifiers.length >= 3) return true;
-				const primary = platform === "macos" ? "meta" : "control";
-				if (binding.modifiers.length === 1 && (["Comma", "Backslash"].includes(binding.code) && binding.modifiers[0] === primary || binding.code === "Backquote" && binding.modifiers[0] === "control")) return true;
-				if (binding.modifiers.length === 2 && binding.modifiers.includes(primary) && (binding.modifiers.includes("alt") || binding.modifiers.includes("shift"))) return true;
+		var require_use_sync_external_store_shim_production_min = /* @__PURE__ */ __commonJSMin(((exports) => {
+			var e = require("react");
+			function h(a, b) {
+				return a === b && (0 !== a || 1 / a === 1 / b) || a !== a && b !== b;
 			}
-			return [
-				{
-					code: "Slash",
-					modifiers: ["primary"]
-				},
-				{
-					code: "Comma",
-					modifiers: ["primary", "shift"]
-				},
-				{
-					code: "Period",
-					modifiers: ["primary", "shift"]
+			var k = "function" === typeof Object.is ? Object.is : h, l = e.useState, m = e.useEffect, n = e.useLayoutEffect, p = e.useDebugValue;
+			function q(a, b) {
+				var d = b(), f = l({ inst: {
+					value: d,
+					getSnapshot: b
+				} }), c = f[0].inst, g = f[1];
+				n(function() {
+					c.value = d;
+					c.getSnapshot = b;
+					r(c) && g({ inst: c });
+				}, [
+					a,
+					d,
+					b
+				]);
+				m(function() {
+					r(c) && g({ inst: c });
+					return a(function() {
+						r(c) && g({ inst: c });
+					});
+				}, [a]);
+				p(d);
+				return d;
+			}
+			function r(a) {
+				var b = a.getSnapshot;
+				a = a.value;
+				try {
+					var d = b();
+					return !k(a, d);
+				} catch (f) {
+					return !0;
 				}
-			].some((candidate) => bindingKey(binding) === bindingKey(normalizeBinding(candidate, platform)));
-		}
+			}
+			function t(a, b) {
+				return b();
+			}
+			var u = "undefined" === typeof window || "undefined" === typeof window.document || "undefined" === typeof window.document.createElement ? t : q;
+			exports.useSyncExternalStore = void 0 !== e.useSyncExternalStore ? e.useSyncExternalStore : u;
+		}));
 		//#endregion
-		//#region ../../util/values/lib/index.js
-		/** Duplicate-install-safe JSON and immutable-value helpers. @module @deepseek-ai/dsh-util-values */
-		/**
-		* Mark an unreachable closed-union branch.
-		* @param value - impossible value; an unhandled typed variant fails at the call site.
-		* @param context - optional switch-site label included in the failure message.
-		* @returns never; a runtime value that escaped its type always throws.
-		*/
-		function assertNever(value, context) {
-			const rendered = JSON.stringify(value) ?? String(value);
-			throw new Error(`unreachable variant${context ? ` in ${context}` : ""}: ${rendered}`);
-		}
+		//#region ../../../node_modules/.pnpm/use-sync-external-store@1.2.0_react@18.3.1/node_modules/use-sync-external-store/shim/index.js
+		var require_shim = /* @__PURE__ */ __commonJSMin(((exports, module) => {
+			module.exports = require_use_sync_external_store_shim_production_min();
+		}));
 		//#endregion
-		//#region lib/types/configuration.js
-		/** Validated preference documents and deterministic conflict resolution, without browser dependencies. */
-		const record = (value) => typeof value === "object" && value !== null && !Array.isArray(value);
-		const commandPattern = /^[a-z][a-zA-Z0-9-]*(?:\.[a-zA-Z][a-zA-Z0-9-]*)+$/u;
+		//#region ../../../node_modules/.pnpm/use-sync-external-store@1.2.0_react@18.3.1/node_modules/use-sync-external-store/cjs/use-sync-external-store-shim/with-selector.production.min.js
 		/**
-		* Validate JSON binding fields before normalization; unknown fields are rejected to prevent lossy rewrites.
-		* @param value - file or IPC input.
-		* @returns a binding with a supported physical code, or null for explicit removal.
+		* @license React
+		* use-sync-external-store-shim/with-selector.production.min.js
+		*
+		* Copyright (c) Facebook, Inc. and its affiliates.
+		*
+		* This source code is licensed under the MIT license found in the
+		* LICENSE file in the root directory of this source tree.
 		*/
-		function parseBinding(value) {
-			if (value === null) return null;
-			if (!record(value) || Object.keys(value).some((key) => key !== "code" && key !== "secondCode" && key !== "modifiers") || typeof value.code !== "string" || !Array.isArray(value.modifiers) || Object.hasOwn(value, "secondCode") && typeof value.secondCode !== "string" || !value.modifiers.every((modifier) => typeof modifier === "string" && [
-				"primary",
-				"control",
-				"alt",
-				"shift",
-				"meta"
-			].includes(modifier))) throw new Error("Invalid shortcut binding");
-			const binding = {
-				code: value.code,
-				modifiers: value.modifiers,
-				...typeof value.secondCode === "string" ? { secondCode: value.secondCode } : {}
+		var require_with_selector_production_min = /* @__PURE__ */ __commonJSMin(((exports) => {
+			var h = require("react"), n = require_shim();
+			function p(a, b) {
+				return a === b && (0 !== a || 1 / a === 1 / b) || a !== a && b !== b;
+			}
+			var q = "function" === typeof Object.is ? Object.is : p, r = n.useSyncExternalStore, t = h.useRef, u = h.useEffect, v = h.useMemo, w = h.useDebugValue;
+			exports.useSyncExternalStoreWithSelector = function(a, b, e, l, g) {
+				var c = t(null);
+				if (null === c.current) {
+					var f = {
+						hasValue: !1,
+						value: null
+					};
+					c.current = f;
+				} else f = c.current;
+				c = v(function() {
+					function a(a) {
+						if (!c) {
+							c = !0;
+							d = a;
+							a = l(a);
+							if (void 0 !== g && f.hasValue) {
+								var b = f.value;
+								if (g(b, a)) return k = b;
+							}
+							return k = a;
+						}
+						b = k;
+						if (q(d, a)) return b;
+						var e = l(a);
+						if (void 0 !== g && g(b, e)) return b;
+						d = a;
+						return k = e;
+					}
+					var c = !1, d, k, m = void 0 === e ? null : e;
+					return [function() {
+						return a(b());
+					}, null === m ? void 0 : function() {
+						return a(m());
+					}];
+				}, [
+					b,
+					e,
+					l,
+					g
+				]);
+				var d = r(a, c[0], c[1]);
+				u(function() {
+					f.hasValue = !0;
+					f.value = d;
+				}, [d]);
+				w(d);
+				return d;
 			};
-			normalizeBinding(binding, "windows");
+		}));
+		//#endregion
+		//#region lib/types/client/bind.js
+		var import_with_selector = (/* @__PURE__ */ __commonJSMin(((exports, module) => {
+			module.exports = require_with_selector_production_min();
+		})))();
+		/**
+		* Bind a bare observable source to a typed uSES selector hook.
+		* subscribe/getSnapshot are captured once per source into stable closures
+		* (also re-binds `this` for method-based sources), so components never
+		* resubscribe across renders. Equality defaults to Object.is.
+		* @param w - snapshot source (engine store, Session object, store instance).
+		* @returns the selector hook.
+		*/
+		function bindSnapshotSelector(w) {
+			const subscribe = (fn) => w.subscribe(fn);
+			const getSnapshot = () => w.getSnapshot();
+			return function useSelector(sel, eq) {
+				return (0, import_with_selector.useSyncExternalStoreWithSelector)(subscribe, getSnapshot, void 0, sel, eq);
+			};
+		}
+		//#endregion
+		//#region lib/types/client/errors.js
+		/** Shared renderer failure categories. @module */
+		/** Renderer assembly failures that must escape component error boundaries. */
+		var SlotAssemblyError = class extends Error {};
+		//#endregion
+		//#region lib/types/client/bindings.js
+		/** Internal React bindings for renderer hosts and standard-source scopes. */
+		/** In-package renderer host context. */
+		const HostContext = (0, react.createContext)(null);
+		/**
+		* Read the installed renderer host.
+		* @returns the host API.
+		*/
+		function useHost() {
+			const host = (0, react.useContext)(HostContext);
+			if (host === null) throw new SlotAssemblyError("slot machinery rendered outside the installed renderer tree");
+			return host;
+		}
+		const RootBindingContext = (0, react.createContext)(null);
+		const ScopeBindingContext = (0, react.createContext)(null);
+		/**
+		* Read the root standard-source binding.
+		* @returns the current root binding.
+		*/
+		function useRootBinding() {
+			const binding = (0, react.useContext)(RootBindingContext);
+			if (binding === null) throw new SlotAssemblyError("slot rendered outside the root standard-source provider");
 			return binding;
 		}
 		/**
-		* Decode the complete document while preserving dormant command overrides.
-		* @param raw - stored JSON, or null for a missing document.
-		* @returns the accepted document or a classified read failure.
+		* Read the current-session-optional binding.
+		* @returns a binding whose key is absent when no Session is selected.
 		*/
-		function parseShortcutDocument(raw) {
-			if (raw === null) return {
-				schemaVersion: 1,
-				profiles: {}
-			};
-			try {
-				const value = JSON.parse(raw);
-				if (!record(value)) return "invalid";
-				if (typeof value.schemaVersion === "number" && value.schemaVersion > 2) return "future";
-				if (value.schemaVersion !== 1 && value.schemaVersion !== 2 || !record(value.profiles) || Object.keys(value).some((key) => key !== "schemaVersion" && key !== "profiles")) return "invalid";
-				const profiles = {};
-				for (const [profile, overrides] of Object.entries(value.profiles)) {
-					if (!/^(desktop|web):(macos|windows|linux)$/u.test(profile) || !record(overrides)) return "invalid";
-					const bindings = {};
-					for (const [id, binding] of Object.entries(overrides)) {
-						if (!commandPattern.test(id)) return "invalid";
-						const parsed = parseBinding(binding);
-						if (value.schemaVersion === 1 && parsed?.secondCode !== void 0) return "invalid";
-						bindings[id] = parsed;
-					}
-					profiles[profile] = bindings;
-				}
-				return {
-					schemaVersion: value.schemaVersion,
-					profiles
-				};
-			} catch (_error) {
-				return "invalid";
-			}
+		function useScopeBinding() {
+			const binding = (0, react.useContext)(ScopeBindingContext);
+			if (binding === null) throw new SlotAssemblyError("scoped slot rendered outside its scope provider");
+			return binding;
 		}
 		/**
-		* Check system, editor, and browser reservations using expanded physical modifiers.
-		* @param binding - normalized candidate.
-		* @param runtime - receiving application shell.
-		* @param platform - receiving device.
-		* @returns the rejection reason, or null when this combination is allowed.
+		* Publish one resolved scope binding to a renderer subtree.
+		* @param props - provider inputs.
+		* @param props.binding - binding exposed to scoped entries.
+		* @param props.children - subtree that inherits the binding.
+		* @returns the scoped React provider.
 		*/
-		function bindingIssue(binding, runtime, platform) {
-			const { code, modifiers } = binding;
-			if (runtime === "desktop" && (platform === "windows" || platform === "macos")) return null;
-			if (binding.secondCode !== void 0) return "unsupported-key";
-			if (modifiers.length === 0 || modifiers.every((modifier) => modifier === "shift")) return "modifier-required";
-			if ((platform === "windows" || platform === "macos") && modifiers.length >= 3) return null;
-			if (runtime === "web" && (platform === "windows" || platform === "macos") && isWebBindingAllowed(binding, platform)) return null;
-			const primary = modifiers.includes(platform === "macos" ? "meta" : "control");
-			if ([
-				"Escape",
-				"Tab",
-				"Space",
-				"Backspace",
-				"Delete",
-				"ArrowUp",
-				"ArrowDown",
-				"ArrowLeft",
-				"ArrowRight"
-			].includes(code) || code === "Enter" && !modifiers.includes("alt") || primary && [
-				"KeyC",
-				"KeyV",
-				"KeyX",
-				"KeyZ",
-				"KeyY",
-				"KeyQ",
-				"KeyH"
-			].includes(code) || primary && code === "KeyA" && !modifiers.includes("shift") || platform !== "macos" && (modifiers.includes("meta") || modifiers.includes("alt") && ["F4", "F2"].includes(code)) || platform === "macos" && modifiers.includes("control") && modifiers.includes("meta") || platform === "macos" && modifiers.includes("alt") && !primary) return "reserved";
-			if (runtime === "web" && !isWebBindingAllowed(binding, platform)) return "unsupported-browser";
-			return null;
-		}
-		/**
-		* Select the command owner's explicit default for one device profile.
-		* @param definition - command identity and per-profile defaults.
-		* @param runtime - receiving shell.
-		* @param platform - receiving device.
-		* @returns the declared physical binding, or undefined for an unbound action.
-		*/
-		function resolveShortcutDefault(definition, runtime, platform) {
-			return definition.defaults[`${runtime}:${platform}`];
-		}
-		/**
-		* Resolve overrides and conflicts independently of registration order. Explicit overrides displace defaults.
-		* @param definitions - active commands.
-		* @param document - accepted preferences.
-		* @param runtime - receiving shell.
-		* @param platform - receiving device.
-		* @returns every active command, including unavailable conflicting bindings.
-		*/
-		function effectiveShortcuts(definitions, document, runtime, platform) {
-			const overrides = document.profiles[`${runtime}:${platform}`] ?? {};
-			const fixed = definitions.flatMap((row) => row.fixed?.map((binding) => ({
-				id: row.id,
-				binding: normalizeBinding(binding, platform)
-			})) ?? []);
-			const rows = definitions.filter((row) => row.fixed === void 0).map(({ id, defaults }) => {
-				const modified = Object.hasOwn(overrides, id);
-				const candidate = modified ? overrides[id] : resolveShortcutDefault({
-					id,
-					defaults
-				}, runtime, platform);
-				const binding = candidate == null ? null : normalizeBinding(candidate, platform);
-				return {
-					id,
-					binding,
-					modified,
-					issue: binding === null ? null : bindingIssue(binding, runtime, platform)
-				};
-			});
-			return rows.map((row) => {
-				const binding = row.binding;
-				return {
-					...row,
-					conflicts: binding === null ? [] : [...new Set([...rows.filter((other) => other.id !== row.id && other.binding !== null && other.issue === null && overlappingBindings(other.binding, binding) && (!row.modified || other.modified)).map((other) => other.id), ...fixed.filter((other) => overlappingBindings(other.binding, binding)).map((other) => other.id)])]
-				};
+		function ScopeBindingProvider({ binding, children }) {
+			return (0, react_jsx_runtime.jsx)(ScopeBindingContext.Provider, {
+				value: binding,
+				children
 			});
 		}
 		/**
-		* Detect identical combinations or a single key contained in a two-key chord.
-		* @param left - normalized candidate.
-		* @param right - normalized occupied binding.
-		* @returns whether both bindings require the same modifiers and overlap.
+		* Bind one observable source to an identity-stable selector Hook.
+		* @param source - observable source.
+		* @returns cached selector Hook.
 		*/
-		function overlappingBindings(left, right) {
-			if (left.modifiers.join("+") !== right.modifiers.join("+")) return false;
-			if (left.secondCode !== void 0 && right.secondCode !== void 0) return bindingKey(left) === bindingKey(right);
-			return [left.code, left.secondCode].some((code) => code !== void 0 && (code === right.code || code === right.secondCode));
+		function observableHook(source) {
+			let hook = hookCache.get(source);
+			if (hook === void 0) {
+				hook = bindSnapshotSelector(source);
+				hookCache.set(source, hook);
+			}
+			return hook;
+		}
+		const hookCache = /* @__PURE__ */ new WeakMap();
+		const absentSource = {
+			getSnapshot: () => void 0,
+			subscribe: () => () => {}
+		};
+		/**
+		* Bind an optional source without changing Hook call order.
+		* @param source - current source, or absence.
+		* @returns selector Hook returning `undefined` while absent.
+		*/
+		function maybeObservableHook(source) {
+			if (source !== void 0) return observableHook(source);
+			return useAbsentSnapshot;
+		}
+		function useAbsentSnapshot(_selector, _equal) {
+			observableHook(absentSource)(() => void 0);
 		}
 		/**
-		* Apply an edit without modifying other profiles or dormant overrides.
-		* @param document - accepted document.
-		* @param edit - validated operation.
-		* @param runtime - current shell.
-		* @param platform - current device.
-		* @returns the candidate document, pending conflict checks and durable storage.
+		* Bind an open-key source family.
+		* @param source - keyed resolver, or absence for an optional scope.
+		* @returns cached keyed selector Hook.
 		*/
-		function editShortcutDocument(document, edit, runtime, platform) {
-			const schemaVersion = runtime === "desktop" && (platform === "macos" || platform === "windows") ? 2 : document.schemaVersion;
-			const profile = `${runtime}:${platform}`;
-			let overrides = { ...document.profiles[profile] };
-			switch (edit.type) {
-				case "set":
-					overrides[edit.id] = edit.binding;
-					break;
-				case "reset": {
-					const { [edit.id]: _removed, ...remaining } = overrides;
-					overrides = remaining;
-					break;
-				}
-				case "reset-all":
-					overrides = {};
-					break;
-				/* v8 ignore next -- parseShortcutEdit validates this closed union before persistence. */
-				default: return assertNever(edit, "shortcut edit");
+		function keyedObservableHook(source, defaultKey) {
+			if (source === void 0) return absentKeyedHook;
+			let hooks = keyedHookCache.get(source);
+			if (hooks === void 0) {
+				hooks = /* @__PURE__ */ new Map();
+				keyedHookCache.set(source, hooks);
 			}
-			return {
-				schemaVersion,
-				profiles: {
-					...document.profiles,
-					[profile]: overrides
-				}
-			};
-		}
-		//#endregion
-		//#region ../../util/crypto/lib/index.js
-		/**
-		* Random v4 UUID, minted from `crypto.getRandomValues`.
-		* @returns the UUID string.
-		*/
-		function randomUUID() {
-			const bytes = globalThis.crypto.getRandomValues(new Uint8Array(16));
-			const hex = Array.from(bytes, (byte, index) => {
-				return (index === 6 ? byte & 15 | 64 : index === 8 ? byte & 63 | 128 : byte).toString(16).padStart(2, "0");
-			}).join("");
-			return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
-		}
-		//#endregion
-		//#region lib/types/persistence.js
-		/** Serialized preference transactions; storage owners publish only accepted writes or read diagnostics. */
-		/**
-		* Create a disabled initial snapshot for asynchronous adapter startup.
-		* @returns a fresh configuration with no accepted persisted state.
-		*/
-		function initialShortcutConfig() {
-			return {
-				revision: randomUUID(),
-				sequence: 0,
-				document: {
-					schemaVersion: 1,
-					profiles: {}
-				},
-				status: "loading",
-				error: null,
-				usingDefaults: true
-			};
-		}
-		/** Single-writer coordinator shared by localStorage and Electron's atomic file adapter. */
-		var ShortcutPersistence = class {
-			storage;
-			runtime;
-			platform;
-			rereadBeforeWrite;
-			publish;
-			snapshot = initialShortcutConfig();
-			raw;
-			queue = Promise.resolve();
-			definitions = null;
-			active = true;
-			constructor(storage, runtime, platform, rereadBeforeWrite, publish) {
-				this.storage = storage;
-				this.runtime = runtime;
-				this.platform = platform;
-				this.rereadBeforeWrite = rereadBeforeWrite;
-				this.publish = publish;
-			}
-			/**
-			* Install or revoke a product catalog and invalidate drafts from its previous lifetime.
-			* @param definitions - current trusted definitions, or null while the product is not ready.
-			*/
-			setDefinitions(definitions) {
-				this.definitions = definitions;
-				this.accept({ ...this.snapshot });
-			}
-			/** Stop accepting edits or publishing late completions. */
-			dispose() {
-				this.active = false;
-			}
-			/**
-			* Read the current file; failures retain the last accepted document and disable ordinary writes.
-			* @returns the accepted snapshot or diagnostic snapshot.
-			*/
-			readCurrent() {
-				return this.serialize(() => this.read());
-			}
-			/**
-			* Compare the draft revision, validate the complete candidate, then persist before publishing.
-			* @param edit - constrained preference operation.
-			* @param revision - state against which the user reviewed the edit.
-			* @returns a classified outcome and the currently accepted snapshot.
-			*/
-			edit(edit, revision) {
-				return this.serialize(async () => {
-					if (this.rereadBeforeWrite) await this.read();
-					const result = (status) => ({
-						status,
-						snapshot: this.snapshot
-					});
-					if (!this.active || this.definitions === null || this.snapshot.status === "loading") return result("not-ready");
-					if (revision !== this.snapshot.revision) return result("stale");
-					if (this.snapshot.status === "unreadable") return result("unreadable");
-					if ((edit.type === "set" || edit.type === "reset") && !this.definitions.some((row) => row.id === edit.id && row.fixed === void 0)) return result("not-ready");
-					const document = editShortcutDocument(this.snapshot.document, edit, this.runtime, this.platform);
-					const rows = effectiveShortcuts(this.definitions, document, this.runtime, this.platform);
-					const invalid = rows.find((row) => (edit.type === "reset-all" || row.id === edit.id) && (row.issue !== null || row.conflicts.length > 0));
-					const displaced = edit.type === "set" ? rows.find((row) => row.conflicts.includes(edit.id)) : void 0;
-					if (invalid !== void 0 || displaced !== void 0) return {
-						...result("conflict"),
-						...invalid?.issue ? { issue: invalid.issue } : {},
-						conflicts: invalid?.conflicts.length ? invalid.conflicts : displaced === void 0 ? [] : [displaced.id]
-					};
-					try {
-						const raw = `${JSON.stringify(document, null, 2)}\n`;
-						await this.storage.write(raw);
-						this.raw = raw;
-						this.accept({
-							...this.snapshot,
-							document,
-							status: "ready",
-							error: null,
-							usingDefaults: false
-						});
-						return result("saved");
-					} catch (_error) {
-						return result("write-failed");
-					}
-				});
-			}
-			serialize(operation) {
-				const next = this.queue.then(operation);
-				this.queue = next.catch(() => void 0);
-				return next;
-			}
-			accept(snapshot) {
-				this.snapshot = {
-					...snapshot,
-					sequence: this.snapshot.sequence + 1,
-					revision: randomUUID()
+			const cacheKey = defaultKey ?? NO_DEFAULT_KEY;
+			let hook = hooks.get(cacheKey);
+			if (hook === void 0) {
+				hook = (keyOrSelector, selectorOrEqual, equal) => {
+					const keyed = typeof keyOrSelector === "string";
+					const key = keyed ? keyOrSelector : defaultKey;
+					const selector = keyed ? selectorOrEqual : keyOrSelector;
+					const comparison = keyed ? equal : selectorOrEqual;
+					return observableHook(key === void 0 ? absentSource : source(key) ?? absentSource)(selector ?? identity, comparison);
 				};
-				if (!this.active) return;
-				try {
-					this.publish(this.snapshot);
-				} catch (error) {
-					console.error("Shortcut configuration subscriber failed:", error);
-				}
+				hooks.set(cacheKey, hook);
 			}
-			async read() {
-				let raw;
-				try {
-					raw = await this.storage.read();
-				} catch (_error) {
-					if (this.snapshot.error !== "read") this.accept({
-						...this.snapshot,
-						status: "unreadable",
-						error: "read"
+			return hook;
+		}
+		const NO_DEFAULT_KEY = Symbol("no default key");
+		const keyedHookCache = /* @__PURE__ */ new WeakMap();
+		const identity = (value) => value;
+		const absentKeyedHook = (keyOrSelector, selectorOrEqual, equal) => {
+			const keyed = typeof keyOrSelector === "string";
+			const selector = keyed ? selectorOrEqual : keyOrSelector;
+			const comparison = keyed ? equal : selectorOrEqual;
+			return observableHook(absentSource)(selector ?? identity, comparison);
+		};
+		/** Subscribe the tree to the atomically assembled root standard-source roster. */
+		function RootStandardProvider({ children }) {
+			const binding = observableHook(useHost().root)((value) => value);
+			return (0, react_jsx_runtime.jsx)(RootBindingContext.Provider, {
+				value: binding,
+				children
+			});
+		}
+		/** Subscribe to the scope roster before resolving and binding its current adapter. */
+		function ScopeProvider({ scope, children }) {
+			const host = useHost();
+			observableHook(host.scopeRevision)((value) => value);
+			const adapter = host.scope(scope);
+			if (adapter === void 0) throw new SlotAssemblyError(`scope '${scope}' rendered without an installed adapter`);
+			const binding = observableHook(adapter.current)((value) => value);
+			return (0, react_jsx_runtime.jsx)(ScopeBindingContext.Provider, {
+				value: binding,
+				children
+			});
+		}
+		//#endregion
+		//#region lib/types/client/scoped-slots.js
+		/**
+		* React renderer for declarative slots. Per-entry bindings enforce child
+		* authorization, and entry boundaries contain registrant failures.
+		*/
+		const factoryRenderCache = /* @__PURE__ */ new WeakMap();
+		function boundRenderFactorySlot(caller) {
+			let render = factoryRenderCache.get(caller);
+			if (render !== void 0) return render;
+			render = ((name, props, options) => (0, react_jsx_runtime.jsx)(FactoryOutlet, {
+				name,
+				inputProps: props,
+				slots: options?.slots,
+				fallback: options?.fallback,
+				caller
+			}));
+			factoryRenderCache.set(caller, render);
+			return render;
+		}
+		/**
+		* Per-entry renderSlot bindings. The binding is identity-stable per entry
+		* (memoized components must not resubscribe on unrelated re-renders) and dies
+		* with the entry: a retained closure calling after the entry's disposal hits
+		* the in-ledger check and throws.
+		*/
+		const renderSlotCache = /* @__PURE__ */ new WeakMap();
+		function boundRenderSlot(host, entry) {
+			let binding = renderSlotCache.get(entry);
+			if (!binding) {
+				binding = (key, owner, opts) => {
+					if (!host.isLive(entry)) throw new _deepseek_ai_dsh_client_ui_slots.StaleAuthorizationError(`renderSlot('${key}') from a disposed registration`);
+					const declared = entry.children?.[key];
+					if (declared === void 0) throw new _deepseek_ai_dsh_client_ui_slots.SlotOwnershipError(`slot '${key}' is not declared by this entry's children`);
+					if (declared.kind === "chain") throw new _deepseek_ai_dsh_client_ui_slots.SlotOwnershipError(`slot '${key}' is declared 'chain' — use renderSlotChain`);
+					return (0, react_jsx_runtime.jsx)(SlotOutlet, {
+						slotKey: key,
+						ownerProps: owner,
+						opts
 					});
-					return this.snapshot;
-				}
-				if (raw === this.raw && this.snapshot.error !== "read") return this.snapshot;
-				this.raw = raw;
-				const document = parseShortcutDocument(raw);
-				if (typeof document === "string") this.accept({
-					...this.snapshot,
-					status: "unreadable",
-					error: document
+				};
+				renderSlotCache.set(entry, binding);
+			}
+			return binding;
+		}
+		/**
+		* Per-entry renderSlotChain bindings: identity-stable per entry (same cache
+		* axis as renderSlot — a per-frame dispatch must not rebuild the binding) and
+		* dead with the entry. The chain-kind check is the plain-JS backstop twin of
+		* the declaration check; typed callers are narrowed to chain keys.
+		*/
+		const renderSlotChainCache = /* @__PURE__ */ new WeakMap();
+		function boundRenderSlotChain(host, entry) {
+			let binding = renderSlotChainCache.get(entry);
+			if (!binding) {
+				binding = (key, owner, opts) => {
+					if (!host.isLive(entry)) throw new _deepseek_ai_dsh_client_ui_slots.StaleAuthorizationError(`renderSlotChain('${key}') from a disposed registration`);
+					const declared = entry.children?.[key];
+					if (declared === void 0) throw new _deepseek_ai_dsh_client_ui_slots.SlotOwnershipError(`slot '${key}' is not declared by this entry's children`);
+					if (declared.kind !== "chain") throw new _deepseek_ai_dsh_client_ui_slots.SlotOwnershipError(`slot '${key}' is declared '${declared.kind}', not 'chain' — use renderSlot`);
+					return (0, react_jsx_runtime.jsx)(SlotOutlet, {
+						slotKey: key,
+						ownerProps: owner,
+						opts
+					});
+				};
+				renderSlotChainCache.set(entry, binding);
+			}
+			return binding;
+		}
+		const factoryRenderSlotCache = /* @__PURE__ */ new WeakMap();
+		const factoryRenderSlotChainCache = /* @__PURE__ */ new WeakMap();
+		function boundFactoryRenderSlot(host, definition) {
+			let binding = factoryRenderSlotCache.get(definition);
+			if (binding !== void 0) return binding;
+			binding = (key, owner, opts) => {
+				if (!host.isFactoryLive(definition)) throw new _deepseek_ai_dsh_client_ui_slots.StaleAuthorizationError(`renderSlot('${key}') from a disposed Factory`);
+				const declared = definition.children?.[key];
+				if (declared === void 0) throw new _deepseek_ai_dsh_client_ui_slots.SlotOwnershipError(`slot '${key}' is not declared by this Factory`);
+				if (declared.kind === "chain") throw new _deepseek_ai_dsh_client_ui_slots.SlotOwnershipError(`slot '${key}' is declared 'chain' — use renderSlotChain`);
+				return (0, react_jsx_runtime.jsx)(SlotOutlet, {
+					slotKey: key,
+					ownerProps: owner,
+					opts
 				});
-				else this.accept({
-					...this.snapshot,
-					document,
-					status: "ready",
-					error: null,
-					usingDefaults: raw === null
+			};
+			factoryRenderSlotCache.set(definition, binding);
+			return binding;
+		}
+		function boundFactoryRenderSlotChain(host, definition) {
+			let binding = factoryRenderSlotChainCache.get(definition);
+			if (binding !== void 0) return binding;
+			binding = (key, owner, opts) => {
+				if (!host.isFactoryLive(definition)) throw new _deepseek_ai_dsh_client_ui_slots.StaleAuthorizationError(`renderSlotChain('${key}') from a disposed Factory`);
+				const declared = definition.children?.[key];
+				if (declared === void 0) throw new _deepseek_ai_dsh_client_ui_slots.SlotOwnershipError(`slot '${key}' is not declared by this Factory`);
+				if (declared.kind !== "chain") throw new _deepseek_ai_dsh_client_ui_slots.SlotOwnershipError(`slot '${key}' is declared '${declared.kind}', not 'chain' — use renderSlot`);
+				return (0, react_jsx_runtime.jsx)(SlotOutlet, {
+					slotKey: key,
+					ownerProps: owner,
+					opts
 				});
-				return this.snapshot;
+			};
+			factoryRenderSlotChainCache.set(definition, binding);
+			return binding;
+		}
+		/**
+		* Inject results cache: root entries per entry, session entries per
+		* (entry x scope binding). WeakMap keys are entry/binding objects (both
+		* identity-stable per registration/session scope), so cache lifetime rides
+		* the same axes as the values it memoizes.
+		*/
+		const rootInjectCache = /* @__PURE__ */ new WeakMap();
+		const sessionInjectCache = /* @__PURE__ */ new WeakMap();
+		const sessionMaybeInjectCache = /* @__PURE__ */ new WeakMap();
+		const EMPTY_INJECTED_PROPS = {};
+		function runInject(entry, binding, actions) {
+			const inject = entry.inject;
+			if (!inject) return EMPTY_INJECTED_PROPS;
+			const args = [];
+			if (binding !== void 0) args.push(binding.key);
+			if (actions !== void 0) args.push(actions);
+			return bindInjectSources(inject(...args));
+		}
+		/** Bind one entry-owned inject face on its existing cache axis. */
+		function bindInjectSources(face) {
+			const sources = face["hooks"];
+			const keyedSources = face["keyedHooks"];
+			if (sources === void 0 && keyedSources === void 0) return face;
+			const { hooks: _hooks, keyedHooks: _keyedHooks, ...rest } = face;
+			const bound = rest;
+			for (const [name, source] of Object.entries(sources ?? {})) {
+				const hookName = (0, _deepseek_ai_dsh_client_ui_slots.standardHookPropName)(name);
+				bound[hookName] = observableHook(source);
+			}
+			for (const [name, source] of Object.entries(keyedSources ?? {})) {
+				const hookName = (0, _deepseek_ai_dsh_client_ui_slots.standardHookPropName)(name);
+				bound[hookName] = keyedObservableHook(source);
+			}
+			return bound;
+		}
+		const slotInjectCache = /* @__PURE__ */ new WeakMap();
+		const EMPTY_SLOT_INJECT = { props: EMPTY_INJECTED_PROPS };
+		/** Normalize one dispatcher-owned inject face by its stable object identity. */
+		function cachedSlotInject(face) {
+			if (face === void 0) return EMPTY_SLOT_INJECT;
+			let bound = slotInjectCache.get(face);
+			if (bound !== void 0) return bound;
+			const definitions = face["hooks"];
+			if (definitions === void 0) {
+				bound = { props: face };
+				slotInjectCache.set(face, bound);
+				return bound;
+			}
+			const { hooks: _hooks, ...rest } = face;
+			const props = rest;
+			let factories;
+			for (const [name, definition] of Object.entries(definitions)) {
+				const hookName = (0, _deepseek_ai_dsh_client_ui_slots.standardHookPropName)(name);
+				if (typeof definition === "function") {
+					factories ??= {};
+					factories[name] = definition;
+				} else props[hookName] = observableHook(definition);
+			}
+			bound = factories === void 0 ? { props } : {
+				props,
+				slotHookFactories: factories
+			};
+			slotInjectCache.set(face, bound);
+			return bound;
+		}
+		/** Bind deferred slot-level factories for one stable renderSlot occurrence. */
+		function bindSlotHookFactories(factories, standard, hookContext) {
+			const hooks = {};
+			for (const [name, factory] of Object.entries(factories)) {
+				const hookName = (0, _deepseek_ai_dsh_client_ui_slots.standardHookPropName)(name);
+				hooks[hookName] = factory(standard, hookContext);
+			}
+			return hooks;
+		}
+		function cachedRootInject(entry, actions) {
+			let props = rootInjectCache.get(entry);
+			if (!props) {
+				props = runInject(entry, void 0, actions);
+				rootInjectCache.set(entry, props);
+			}
+			return props;
+		}
+		function cachedSessionInject(entry, binding, actions) {
+			let perBinding = sessionInjectCache.get(entry);
+			if (!perBinding) {
+				perBinding = /* @__PURE__ */ new WeakMap();
+				sessionInjectCache.set(entry, perBinding);
+			}
+			let props = perBinding.get(binding);
+			if (!props) {
+				props = runInject(entry, binding, actions);
+				perBinding.set(binding, props);
+			}
+			return props;
+		}
+		function cachedSessionMaybeInject(entry, binding, actions) {
+			let perBinding = sessionMaybeInjectCache.get(entry);
+			if (!perBinding) {
+				perBinding = /* @__PURE__ */ new WeakMap();
+				sessionMaybeInjectCache.set(entry, perBinding);
+			}
+			let props = perBinding.get(binding);
+			if (!props) {
+				props = runInject(entry, binding, actions);
+				perBinding.set(binding, props);
+			}
+			return props;
+		}
+		/**
+		* Locale `t` seat bindings, cached per (face, namespace, revision). The
+		* revision is part of the cache key ON PURPOSE: a locale switch mints a NEW
+		* function reference per namespace, so `React.memo` components taking `t`
+		* re-render through ordinary shallow comparison — freshness rides identity,
+		* no extra invalidation channel. Within one revision the reference is stable
+		* (memoized children do not churn on unrelated re-renders).
+		*/
+		const localeSeatCache = /* @__PURE__ */ new WeakMap();
+		function localeSeat(face, ns) {
+			let perNs = localeSeatCache.get(face);
+			if (!perNs) {
+				perNs = /* @__PURE__ */ new Map();
+				localeSeatCache.set(face, perNs);
+			}
+			const revision = face.getSnapshot().revision;
+			const cached = perNs.get(ns);
+			if (cached && cached.revision === revision) return cached.t;
+			const bound = face.bind(ns);
+			const t = (key, params) => bound(key, params);
+			perNs.set(ns, {
+				revision,
+				t
+			});
+			return t;
+		}
+		const noopSubscribe = () => () => {};
+		const zeroRevision = () => 0;
+		/**
+		* Per-face subscribe/getSnapshot closure pair. Cached by face identity: the
+		* face is one global source shared by every outlet, and uSES resubscribes
+		* whenever the subscribe reference changes — fresh closures per render would
+		* churn one unsubscribe/resubscribe pair per outlet per render.
+		*/
+		const localeSubscriptionCache = /* @__PURE__ */ new WeakMap();
+		function localeSubscription(face) {
+			let cached = localeSubscriptionCache.get(face);
+			if (!cached) {
+				cached = {
+					subscribe: (fn) => face.subscribe(fn),
+					getRevision: () => face.getSnapshot().revision
+				};
+				localeSubscriptionCache.set(face, cached);
+			}
+			return cached;
+		}
+		/**
+		* Subscribe an outlet to the installed locale face's revision (0 while none
+		* is installed — exactly one uSES call either way, keeping hook order
+		* stable). Every outlet re-renders on a locale switch; entry bodies then
+		* re-derive their `t` seat at the new revision. The face must be installed
+		* before the first render that needs it — a face appearing later has no
+		* notification channel to already-mounted outlets.
+		*/
+		function useLocaleRevision(face) {
+			const subscription = face !== void 0 ? localeSubscription(face) : void 0;
+			return (0, react.useSyncExternalStore)(subscription?.subscribe ?? noopSubscribe, subscription?.getRevision ?? zeroRevision);
+		}
+		/**
+		* Entry-identity React keys for entry boundaries. An outlet renders one
+		* winner per position (single/keyed/list cell head, chain election) through
+		* an error boundary; without a key, a boundary that failed on entry A would
+		* survive a winner change (re-election, shadowing fallback after an
+		* abdication, HMR re-registration) and keep a healthy entry B blacked out.
+		* Keying by entry identity remounts the boundary fresh whenever the winner
+		* changes (entries are identity-stable per registration, so the key is
+		* stable while the same entry stays the winner).
+		*/
+		let nextEntryKey = 0;
+		const entryKeys = /* @__PURE__ */ new WeakMap();
+		function entryKeyOf(entry) {
+			let key = entryKeys.get(entry);
+			if (key === void 0) {
+				key = nextEntryKey++;
+				entryKeys.set(entry, key);
+			}
+			return key;
+		}
+		let nextSessionGenerationKey = 0;
+		const sessionGenerationKeys = /* @__PURE__ */ new WeakMap();
+		function sessionGenerationKeyOf(binding) {
+			let key = sessionGenerationKeys.get(binding.ctx);
+			if (key === void 0) {
+				key = nextSessionGenerationKey++;
+				sessionGenerationKeys.set(binding.ctx, key);
+			}
+			return key;
+		}
+		/**
+		* Per-entry isolation: one registrant crashing (component render or inject
+		* factory) must not take down siblings. Assembly errors (missing providers)
+		* rethrow — a miswired shell must fail loud, not degrade into fallbacks.
+		* Every catch reports through `onEntryError` (the ledger's supervision
+		* seam); for shadowing kinds the report abdicates the entry, the outlet
+		* re-renders onto the cell's next survivor, and this boundary's crash face
+		* only shows until that re-render lands (permanently once the cell is dry —
+		* the outlet then owns the crash face).
+		*/
+		var SlotErrorBoundary = class extends react.Component {
+			state = { failed: false };
+			static getDerivedStateFromError(error) {
+				if (error instanceof SlotAssemblyError) throw error;
+				return { failed: true };
+			}
+			componentDidCatch(error) {
+				console.error(`slot entry crashed in '${this.props.slotKey}':`, error);
+				this.props.onEntryError(error);
+			}
+			render() {
+				if (this.state.failed) return (0, react_jsx_runtime.jsx)("div", { "data-slot-error": this.props.slotKey });
+				return this.props.children;
 			}
 		};
+		/** Contain one Factory occurrence without retiring the shared definition. */
+		var FactoryErrorBoundary = class extends react.Component {
+			state = { failed: false };
+			static getDerivedStateFromError(error) {
+				if (error instanceof SlotAssemblyError) throw error;
+				return { failed: true };
+			}
+			componentDidCatch(error) {
+				console.error(`slot factory occurrence crashed in '${this.props.name}':`, error);
+				this.props.onEntryError(error);
+			}
+			render() {
+				if (this.state.failed) return (0, react_jsx_runtime.jsx)("div", { "data-factory-error": this.props.name });
+				return this.props.children;
+			}
+		};
+		const rootStandardCache = /* @__PURE__ */ new WeakMap();
+		const sessionStandardCache = /* @__PURE__ */ new WeakMap();
+		const sessionMaybeStandardCache = /* @__PURE__ */ new WeakMap();
+		/** Materialize one binding into stable framework Hook and plain-prop seats. */
+		function materializeStandardBinding(binding, optional, defaultKey) {
+			const standard = { ...binding.props };
+			for (const [name, source] of Object.entries(binding.hooks)) {
+				if (source === void 0 && !optional) throw new SlotAssemblyError(`strict standard hook '${name}' has no source`);
+				standard[(0, _deepseek_ai_dsh_client_ui_slots.standardHookPropName)(name)] = optional ? maybeObservableHook(source) : observableHook(source);
+			}
+			for (const [name, source] of Object.entries(binding.keyedHooks)) {
+				if (source === void 0 && !optional) throw new SlotAssemblyError(`strict keyed standard hook '${name}' has no source resolver`);
+				standard[(0, _deepseek_ai_dsh_client_ui_slots.standardHookPropName)(name)] = keyedObservableHook(source, defaultKey);
+			}
+			return standard;
+		}
+		/** Stable official-props object used by contextual Hook factories. */
+		function standardProps(scope, rootBinding, scopeBinding) {
+			let root = rootStandardCache.get(rootBinding);
+			if (root === void 0) {
+				root = materializeStandardBinding(rootBinding, false);
+				rootStandardCache.set(rootBinding, root);
+			}
+			if (scope === "root") return root;
+			if (scopeBinding === void 0) throw new SlotAssemblyError(`scope '${scope}' rendered without a standard-source binding`);
+			const cache = scope === "session" ? sessionStandardCache : sessionMaybeStandardCache;
+			let perScope = cache.get(rootBinding);
+			if (perScope === void 0) {
+				perScope = /* @__PURE__ */ new WeakMap();
+				cache.set(rootBinding, perScope);
+			}
+			let standard = perScope.get(scopeBinding);
+			if (standard !== void 0) return standard;
+			standard = {
+				...materializeStandardBinding(rootBinding, false, scopeBinding.key),
+				...materializeStandardBinding(scopeBinding, scope === "session-maybe")
+			};
+			perScope.set(scopeBinding, standard);
+			return standard;
+		}
+		const scopeAreaCache = /* @__PURE__ */ new WeakMap();
+		/** Bind one domain-owned scope area renderer to the current scope binding. */
+		function scopeAreaProvider(adapter) {
+			let Provider = scopeAreaCache.get(adapter);
+			if (Provider !== void 0) return Provider;
+			if (adapter.renderArea === void 0) throw new SlotAssemblyError("scope 'session' adapter does not provide its area renderer");
+			const renderArea = adapter.renderArea.bind(adapter);
+			Provider = function ScopeAreaProvider(props) {
+				const inherited = useScopeBinding();
+				const explicit = Object.hasOwn(props, "session");
+				const source = adapter.bindingSource(props.session);
+				const resolved = (0, react.useSyncExternalStore)((listener) => source.subscribe(listener), () => source.getSnapshot(), () => source.getSnapshot());
+				const binding = explicit ? resolved : inherited;
+				return (0, react_jsx_runtime.jsx)(ScopeBindingProvider, {
+					binding,
+					children: renderArea(binding, props)
+				});
+			};
+			scopeAreaCache.set(adapter, Provider);
+			return Provider;
+		}
+		/**
+		* Standard-kit synthesis shared by both scope branches: the global
+		* useSessions/useWorkspaces hooks, the per-session provide bundle (every
+		* `hooks` source becomes a `use<Name>` selector hook — useSession is the
+		* runtime's own 'session' contribution, no special case — and `props` spread
+		* verbatim), the store pair when declared, the renderSlot binding when
+		* children are declared, and the SessionProvider seat when the children
+		* declare a session-scope slot. Hosts hand out BARE observable sources
+		* (hooks never cross the host contract); every hook is bound HERE, cached
+		* per source (observableHook), so spreading a fresh kit object per render
+		* never churns child subscriptions.
+		*/
+		function standardKit(host, entry, scope, rootBinding, scopeBinding) {
+			const standard = standardProps(scope, rootBinding, scopeBinding);
+			const kit = {
+				...standard,
+				renderFactorySlot: boundRenderFactorySlot(entry)
+			};
+			if (entry.locale !== void 0) {
+				const face = host.locale;
+				if (face === void 0) throw new SlotAssemblyError(`entry declares locale namespace '${entry.locale}' but no locale face is installed (locale plugin missing from the composition?)`);
+				kit["t"] = localeSeat(face, entry.locale);
+			}
+			const scopedStoreBinding = scopeBinding?.key === void 0 ? void 0 : scopeBinding;
+			const store = host.storeOf(entry, scopedStoreBinding);
+			if (store !== void 0) {
+				kit["useStore"] = observableHook(store);
+				kit["actions"] = store.actions;
+			}
+			if (entry.children !== void 0) {
+				kit["renderSlot"] = boundRenderSlot(host, entry);
+				if (Object.values(entry.children).some((spec) => spec.kind === "chain")) kit["renderSlotChain"] = boundRenderSlotChain(host, entry);
+				if (Object.values(entry.children).some((spec) => spec.scope !== "root")) {
+					const adapter = host.scope("session");
+					if (adapter === void 0) throw new SlotAssemblyError("entry declares a session child without an installed 'session' scope adapter");
+					kit["SessionProvider"] = scopeAreaProvider(adapter);
+				}
+			}
+			return {
+				kit,
+				standard,
+				actions: store?.actions
+			};
+		}
+		/**
+		* One rendered entry: standard kit + cached entry inject + common slot inject
+		* + owner props (owner wins). The shares are erased at this render boundary;
+		* the registration and renderSlot seams already proved their contracts.
+		*/
+		function ContextualEntry({ slotKey, Comp, kit, standard, injected, slotInjected, ownerProps, hookContext, hasHookContext }) {
+			const contextual = (0, react.useMemo)(() => {
+				if (!hasHookContext) throw new SlotAssemblyError(`slot '${slotKey}' has contextual injected Hooks but no hookContext`);
+				return bindSlotHookFactories(slotInjected.slotHookFactories, standard, hookContext);
+			}, [
+				hasHookContext,
+				hookContext,
+				slotInjected.slotHookFactories,
+				slotKey,
+				standard
+			]);
+			return (0, react_jsx_runtime.jsx)(Comp, {
+				...kit,
+				...injected,
+				...slotInjected.props,
+				...contextual,
+				...ownerProps
+			});
+		}
+		function renderEntry(slotKey, Comp, kit, standard, injected, slotInjected, ownerProps, hookContext, hasHookContext) {
+			if (slotInjected.slotHookFactories === void 0) return (0, react_jsx_runtime.jsx)(Comp, {
+				...kit,
+				...injected,
+				...slotInjected.props,
+				...ownerProps
+			});
+			return (0, react_jsx_runtime.jsx)(ContextualEntry, {
+				slotKey,
+				Comp,
+				kit,
+				standard,
+				injected,
+				slotInjected,
+				ownerProps,
+				hookContext,
+				hasHookContext
+			});
+		}
+		function SessionEntry({ entry, ownerProps, binding, slotKey, slotInjected, hookContext, hasHookContext }) {
+			const host = useHost();
+			const rootBinding = useRootBinding();
+			const Comp = entry.component;
+			const { kit, standard, actions } = standardKit(host, entry, "session", rootBinding, binding);
+			return renderEntry(slotKey, Comp, kit, standard, cachedSessionInject(entry, binding, actions), slotInjected, ownerProps, hookContext, hasHookContext);
+		}
+		function SessionMaybeEntryBody({ entry, ownerProps, binding, slotKey, slotInjected, hookContext, hasHookContext }) {
+			const host = useHost();
+			const rootBinding = useRootBinding();
+			const Comp = entry.component;
+			const { kit, standard, actions } = standardKit(host, entry, "session-maybe", rootBinding, binding);
+			return renderEntry(slotKey, Comp, kit, standard, cachedSessionMaybeInject(entry, binding, actions), slotInjected, ownerProps, hookContext, hasHookContext);
+		}
+		/**
+		* Session-maybe identity: adoption — the ONLY behavior (there is no
+		* hold-identity-forever mode). An incarnation born session-less ADOPTS the
+		* first session that arrives: identity holds across that one transition
+		* (undefined → first id), so a blank shell's DOM survives the moment a
+		* session appears. From then on the entry behaves exactly like a strict
+		* session entry: switching to a DIFFERENT session remounts (component-local
+		* state must not leak between sessions), and dropping back to no-session
+		* remounts into a fresh blank incarnation, which will adopt again.
+		* Component-local per-session state therefore clears by construction; state
+		* that must SURVIVE a switch belongs in session-bound sources (machine,
+		* store, hooks) — the existing layering rule, now load-bearing.
+		*/
+		function SessionMaybeEntry({ entry, ownerProps, slotKey, slotInjected, hookContext, hasHookContext }) {
+			const binding = useScopeBinding();
+			const epoch = useMaybeIncarnation(binding);
+			return (0, react_jsx_runtime.jsx)(SessionMaybeEntryBody, {
+				entry,
+				ownerProps,
+				binding,
+				slotKey,
+				slotInjected,
+				hookContext,
+				hasHookContext
+			}, epoch);
+		}
+		const FIRST_INCARNATION = {
+			adopted: void 0,
+			epoch: 0
+		};
+		function useMaybeIncarnation(binding) {
+			const identity = binding.key === void 0 ? void 0 : binding.ctx;
+			const [state, setState] = (0, react.useState)(FIRST_INCARNATION);
+			let { adopted, epoch } = state;
+			if (identity !== void 0 && adopted === void 0) {
+				adopted = identity;
+				setState({
+					adopted,
+					epoch
+				});
+			} else if (adopted !== void 0 && identity !== void 0 && identity !== adopted) {
+				adopted = identity;
+				epoch += 1;
+				setState({
+					adopted,
+					epoch
+				});
+			} else if (adopted !== void 0 && identity === void 0) {
+				adopted = void 0;
+				epoch += 1;
+				setState({
+					adopted,
+					epoch
+				});
+			}
+			return epoch;
+		}
+		function RootEntry({ entry, ownerProps, slotKey, slotInjected, hookContext, hasHookContext }) {
+			const host = useHost();
+			const rootBinding = useRootBinding();
+			const Comp = entry.component;
+			const { kit, standard, actions } = standardKit(host, entry, "root", rootBinding, void 0);
+			return renderEntry(slotKey, Comp, kit, standard, cachedRootInject(entry, actions), slotInjected, ownerProps, hookContext, hasHookContext);
+		}
+		const FactoryOccurrenceContext = (0, react.createContext)(null);
+		const FactoryAncestryContext = (0, react.createContext)(/* @__PURE__ */ new Set());
+		const EMPTY_FACTORY_SELECTION = {};
+		function useFactorySlotRuntime(name, fallback) {
+			const occurrence = (0, react.useContext)(FactoryOccurrenceContext);
+			if (occurrence === null) throw new SlotAssemblyError("useFactorySlot() called outside a Factory occurrence");
+			if (!occurrence.host.isFactoryLive(occurrence.definition)) throw new _deepseek_ai_dsh_client_ui_slots.StaleAuthorizationError(`useFactorySlot('${name}') from a disposed Factory`);
+			const declared = occurrence.definition.slots?.[name];
+			if (declared === void 0) throw new _deepseek_ai_dsh_client_ui_slots.SlotOwnershipError(`local slot '${name}' is not declared by factory '${occurrence.definition.name}'`);
+			const selected = occurrence.selected[name];
+			const Selected = selected ?? fallback;
+			const usesFallback = selected === void 0;
+			const { definition, host } = occurrence;
+			return (0, react.useMemo)(function bindFactoryLocalComponent() {
+				return function BoundFactoryLocalComponent(localProps) {
+					const current = (0, react.useContext)(FactoryOccurrenceContext);
+					const localScopeBinding = useScopeBinding();
+					const localMaybeEpoch = useMaybeIncarnation(localScopeBinding);
+					if (!host.isFactoryLive(definition)) throw new _deepseek_ai_dsh_client_ui_slots.StaleAuthorizationError(`local slot '${name}' from a disposed Factory`);
+					if (current === null || current.definition !== definition) throw new _deepseek_ai_dsh_client_ui_slots.SlotOwnershipError(`local slot '${name}' rendered outside factory '${definition.name}'`);
+					if (declared.scope === "session" && localScopeBinding.key === void 0) throw new SlotAssemblyError(`strict session local slot '${name}' from factory '${definition.name}' rendered without a scope binding`);
+					const localOwner = usesFallback ? definition : current.caller;
+					const localScopeIdentity = declared.scope === "root" ? "root" : declared.scope === "session" ? `session:${sessionGenerationKeyOf(localScopeBinding)}` : `session-maybe:${localMaybeEpoch}`;
+					const localStandard = standardProps(declared.scope, current.rootBinding, localScopeBinding);
+					const localRegistrationKit = {
+						...current.registrationKit,
+						renderFactorySlot: boundRenderFactorySlot(localOwner)
+					};
+					assertNoPropOverlap(`factory '${definition.name}' local slot '${name}'`, localRegistrationKit, localStandard);
+					const provided = {
+						...localRegistrationKit,
+						...localStandard
+					};
+					assertNoPropOverlap(`factory '${definition.name}' local slot '${name}'`, provided, localProps);
+					return (0, react_jsx_runtime.jsx)(FactoryErrorBoundary, {
+						name: `${definition.name}:${name}`,
+						onEntryError: (error) => {
+							host.reportFactoryError(definition.name, localOwner, error);
+						},
+						children: (0, react_jsx_runtime.jsx)(Selected, {
+							...provided,
+							...localProps
+						})
+					}, `${definition.name}:${name}:${localScopeIdentity}`);
+				};
+			}, [
+				Selected,
+				declared.scope,
+				definition,
+				host,
+				name,
+				usesFallback
+			]);
+		}
+		function assertNoPropOverlap(owner, provided, received) {
+			for (const name of Object.keys(received)) if (Object.hasOwn(provided, name)) throw new SlotAssemblyError(`${owner} received duplicate prop '${name}'`);
+		}
+		function factoryKit(host, definition, rootBinding, scopeBinding, occurrence) {
+			const standard = standardProps(definition.scope, rootBinding, scopeBinding);
+			const registrationKit = { renderFactorySlot: boundRenderFactorySlot(definition) };
+			if (definition.locale !== void 0) {
+				const face = host.locale;
+				if (face === void 0) throw new SlotAssemblyError(`factory declares locale namespace '${definition.locale}' but no locale face is installed`);
+				registrationKit["t"] = localeSeat(face, definition.locale);
+			}
+			const scoped = scopeBinding?.key === void 0 ? void 0 : scopeBinding;
+			const store = host.factoryStoreOf(definition, scoped, occurrence);
+			if (store !== void 0) {
+				registrationKit["useStore"] = observableHook(store);
+				registrationKit["actions"] = store.actions;
+			}
+			if (definition.children !== void 0) {
+				registrationKit["renderSlot"] = boundFactoryRenderSlot(host, definition);
+				if (Object.values(definition.children).some((spec) => spec.kind === "chain")) registrationKit["renderSlotChain"] = boundFactoryRenderSlotChain(host, definition);
+				if (Object.values(definition.children).some((spec) => spec.scope !== "root")) {
+					const sessionAdapter = host.scope("session");
+					if (sessionAdapter === void 0) throw new SlotAssemblyError("factory declares a session child without an installed 'session' scope adapter");
+					registrationKit["SessionProvider"] = scopeAreaProvider(sessionAdapter);
+				}
+			}
+			return {
+				kit: {
+					...standard,
+					...registrationKit
+				},
+				registrationKit,
+				actions: store?.actions
+			};
+		}
+		function FactoryOccurrence({ definition, inputProps, selected, caller, binding, maybeEpoch }) {
+			if (definition.scope === "root") return (0, react_jsx_runtime.jsx)(FactoryOccurrenceBody, {
+				definition,
+				inputProps,
+				selected,
+				caller
+			});
+			if (definition.scope === "session") {
+				if (binding.key === void 0) throw new SlotAssemblyError(`strict session factory '${definition.name}' rendered without a scope binding`);
+				return (0, react_jsx_runtime.jsx)(FactoryOccurrenceBody, {
+					definition,
+					inputProps,
+					selected,
+					caller,
+					scopeBinding: binding
+				}, sessionGenerationKeyOf(binding));
+			}
+			return (0, react_jsx_runtime.jsx)(FactoryOccurrenceBody, {
+				definition,
+				inputProps,
+				selected,
+				caller,
+				scopeBinding: binding
+			}, maybeEpoch);
+		}
+		function FactoryOccurrenceBody({ definition, inputProps, selected, caller, scopeBinding }) {
+			const host = useHost();
+			const rootBinding = useRootBinding();
+			const occurrence = (0, react.useRef)({}).current;
+			const localeRevision = useLocaleRevision(host.locale);
+			(0, react.useEffect)(() => host.retainFactoryOccurrence(definition, occurrence), [
+				definition,
+				host,
+				occurrence
+			]);
+			const { kit, registrationKit, actions } = (0, react.useMemo)(() => factoryKit(host, definition, rootBinding, scopeBinding, occurrence), [
+				definition,
+				host,
+				localeRevision,
+				occurrence,
+				rootBinding,
+				scopeBinding
+			]);
+			const injected = (0, react.useMemo)(() => runInject(definition, scopeBinding, actions), [
+				actions,
+				definition,
+				scopeBinding
+			]);
+			assertNoPropOverlap(`factory '${definition.name}' inject`, kit, injected);
+			const provided = {
+				...kit,
+				...injected,
+				useFactorySlot: useFactorySlotRuntime
+			};
+			assertNoPropOverlap(`factory '${definition.name}' occurrence`, provided, inputProps);
+			const context = (0, react.useMemo)(() => ({
+				host,
+				definition,
+				selected,
+				registrationKit: {
+					...registrationKit,
+					...injected
+				},
+				rootBinding,
+				caller
+			}), [
+				caller,
+				definition,
+				host,
+				injected,
+				registrationKit,
+				rootBinding,
+				selected
+			]);
+			const Comp = definition.component;
+			return (0, react_jsx_runtime.jsx)(FactoryOccurrenceContext.Provider, {
+				value: context,
+				children: (0, react_jsx_runtime.jsx)(Comp, {
+					...provided,
+					...inputProps
+				})
+			});
+		}
+		function FactoryOutlet({ name, inputProps, slots: selected = EMPTY_FACTORY_SELECTION, fallback, caller }) {
+			const host = useHost();
+			const ancestors = (0, react.useContext)(FactoryAncestryContext);
+			const binding = useScopeBinding();
+			const maybeEpoch = useMaybeIncarnation(binding);
+			const version = (0, react.useSyncExternalStore)((listener) => host.subscribeFactory(name, listener), () => host.getFactoryVersion(name));
+			const definition = host.factoryOf(name);
+			const nextAncestors = (0, react.useMemo)(() => new Set(ancestors).add(name), [ancestors, name]);
+			if (definition === void 0) return (0, react_jsx_runtime.jsx)(react_jsx_runtime.Fragment, { children: fallback ?? null });
+			if (ancestors.has(name)) throw new _deepseek_ai_dsh_client_ui_slots.SlotOwnershipError(`recursive render of factory '${name}'`);
+			for (const localName of Object.keys(selected)) if (definition.slots?.[localName] === void 0) throw new _deepseek_ai_dsh_client_ui_slots.SlotOwnershipError(`local slot '${localName}' is not declared by factory '${name}'`);
+			const scopeIdentity = definition.scope === "root" ? "root" : definition.scope === "session" ? binding.key === void 0 ? "session:absent" : `session:${sessionGenerationKeyOf(binding)}` : `session-maybe:${maybeEpoch}`;
+			return (0, react_jsx_runtime.jsx)(FactoryErrorBoundary, {
+				name,
+				onEntryError: (error) => {
+					host.reportFactoryError(name, definition, error);
+				},
+				children: (0, react_jsx_runtime.jsx)(FactoryAncestryContext.Provider, {
+					value: nextAncestors,
+					children: (0, react_jsx_runtime.jsx)(FactoryOccurrence, {
+						definition,
+						inputProps,
+						selected,
+						caller,
+						binding,
+						maybeEpoch
+					})
+				})
+			}, `${name}:${version}:${scopeIdentity}`);
+		}
+		function StrictSessionEntry({ slotKey, entry, ownerProps, slotInjected, hookContext, hasHookContext, onEntryError }) {
+			const binding = useScopeBinding();
+			if (binding.key === void 0) throw new SlotAssemblyError(`strict session slot '${slotKey}' rendered without a scope binding`);
+			const scopedBinding = binding;
+			return (0, react_jsx_runtime.jsx)(SlotErrorBoundary, {
+				slotKey,
+				onEntryError,
+				children: (0, react_jsx_runtime.jsx)(SessionEntry, {
+					entry,
+					ownerProps,
+					binding: scopedBinding,
+					slotKey,
+					slotInjected,
+					hookContext,
+					hasHookContext
+				})
+			}, sessionGenerationKeyOf(scopedBinding));
+		}
+		/**
+		* Anchor style shared by every outlet wrapper: `display:contents` keeps the
+		* wrapper out of layout (grid/flex parents see the slot's own children), so
+		* the anchor is purely addressable surface. Module-level constant — a stable
+		* reference so the wrapper never diffs its style prop.
+		*/
+		const ANCHOR_STYLE = { display: "contents" };
+		function SlotOutlet({ slotKey, ownerProps, opts }) {
+			const host = useHost();
+			(0, react.useSyncExternalStore)((fn) => host.subscribe(slotKey, fn), () => host.getVersion(slotKey));
+			useLocaleRevision(host.locale);
+			return (0, react_jsx_runtime.jsx)("div", {
+				"data-slot": slotKey,
+				style: ANCHOR_STYLE,
+				children: renderOutletContent(host, slotKey, ownerProps, opts, useScopeBinding())
+			});
+		}
+		/** Kind dispatch behind the outlet anchor (single/keyed/list/chain, fallbacks, crash faces). */
+		function renderOutletContent(host, slotKey, ownerProps, opts, scopeBinding) {
+			const spec = host.specOf(slotKey);
+			if (!spec) return null;
+			if (spec.kind === "chain" && opts?.fallbackOnly === true) return renderChainResult(slotKey, null, opts);
+			if (spec.scope === "session" && scopeBinding.key === void 0) throw new SlotAssemblyError(`strict session slot '${slotKey}' rendered without a scope binding`);
+			const entries = host.entriesOf(slotKey);
+			const slotInjected = cachedSlotInject(spec.inject);
+			const guarded = (entry, key, owner = ownerProps) => {
+				const hasHookContext = opts !== void 0 && Object.hasOwn(opts, "hookContext");
+				const hookContext = opts?.hookContext;
+				const onEntryError = (error) => {
+					host.reportEntryError(slotKey, entry, error, { abdicate: spec.kind !== "chain" });
+				};
+				return spec.scope === "session" ? (0, react_jsx_runtime.jsx)(StrictSessionEntry, {
+					slotKey,
+					entry,
+					ownerProps: owner,
+					slotInjected,
+					hookContext,
+					hasHookContext,
+					onEntryError
+				}, key) : (0, react_jsx_runtime.jsx)(SlotErrorBoundary, {
+					slotKey,
+					onEntryError,
+					children: spec.scope === "session-maybe" ? (0, react_jsx_runtime.jsx)(SessionMaybeEntry, {
+						entry,
+						ownerProps: owner,
+						slotKey,
+						slotInjected,
+						hookContext,
+						hasHookContext
+					}) : (0, react_jsx_runtime.jsx)(RootEntry, {
+						entry,
+						ownerProps: owner,
+						slotKey,
+						slotInjected,
+						hookContext,
+						hasHookContext
+					})
+				}, key);
+			};
+			const deadCell = () => (0, react_jsx_runtime.jsx)("div", { "data-slot-error": slotKey });
+			if (spec.kind === "single") {
+				const entry = host.entriesOfSlot(slotKey)[0];
+				if (!entry) return entries.length > 0 ? deadCell() : (0, react_jsx_runtime.jsx)(react_jsx_runtime.Fragment, { children: opts?.fallback ?? null });
+				return guarded(entry, entryKeyOf(entry));
+			}
+			if (spec.kind === "keyed") {
+				const entry = host.entriesOfSlot(slotKey).find((e) => e.options.key === opts?.entryKey);
+				if (!entry) return entries.some((e) => e.options.key === opts?.entryKey) ? deadCell() : (0, react_jsx_runtime.jsx)(react_jsx_runtime.Fragment, { children: opts?.fallback ?? null });
+				return guarded(entry, entryKeyOf(entry));
+			}
+			if (spec.kind === "chain") {
+				let elected = null;
+				for (const entry of entries) {
+					let matched;
+					try {
+						matched = entry.select(ownerProps);
+					} catch (error) {
+						console.error(`chain selector crashed in '${slotKey}' (${entry.registrant ?? "unknown registrant"}), treating as declined:`, error);
+						continue;
+					}
+					if (matched !== null) {
+						elected = guarded(entry, entryKeyOf(entry), {
+							...ownerProps,
+							matched
+						});
+						break;
+					}
+				}
+				return renderChainResult(slotKey, elected, opts);
+			}
+			const rows = host.entriesOfSlot(slotKey).map((entry) => ({
+				entry,
+				id: entry.options.id,
+				order: entry.options.order ?? 0
+			}));
+			const rowIds = new Set(rows.map((row) => row.id));
+			for (const entry of entries) {
+				if (rowIds.has(entry.options.id)) continue;
+				rowIds.add(entry.options.id);
+				rows.push({
+					entry: void 0,
+					id: entry.options.id,
+					order: entry.options.order ?? 0
+				});
+			}
+			let list = [...rows].sort((a, b) => a.order - b.order);
+			if (opts?.only !== void 0) list = list.filter((item) => item.id === opts.only);
+			if (list.length === 0) return (0, react_jsx_runtime.jsx)(react_jsx_runtime.Fragment, { children: opts?.fallback ?? null });
+			return (0, react_jsx_runtime.jsx)(react_jsx_runtime.Fragment, { children: list.map((item, i) => item.entry !== void 0 ? guarded(item.entry, `e${entryKeyOf(item.entry)}`) : (0, react_jsx_runtime.jsx)("div", { "data-slot-error": slotKey }, `x${item.id ?? i}`)) });
+		}
+		/** Render a chain election while preserving the overlay fallback's tree position. */
+		function renderChainResult(slotKey, elected, opts) {
+			if (!opts?.overlay) return elected ?? (0, react_jsx_runtime.jsx)(react_jsx_runtime.Fragment, { children: opts?.fallback ?? null });
+			return (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [(0, react_jsx_runtime.jsx)("div", {
+				"data-chain-overlay-fallback": slotKey,
+				style: { display: elected === null ? "contents" : "none" },
+				children: opts.fallback ?? null
+			}), elected] });
+		}
+		/** Root outlet: the shell's single ctx-level render entry — an unregistered 'root' is a boot-order failure, never a silent blank. */
+		function RootOutlet({ ownerProps }) {
+			const host = useHost();
+			(0, react.useSyncExternalStore)((fn) => host.subscribe("root", fn), () => host.getVersion("root"));
+			useLocaleRevision(host.locale);
+			const entry = host.entriesOfSlot("root")[0];
+			if (!entry) {
+				if (host.entriesOf("root").length > 0) return (0, react_jsx_runtime.jsx)("div", { "data-slot-error": "root" });
+				throw new SlotAssemblyError("renderSlot('root') before any 'root' registration (boot order)");
+			}
+			return (0, react_jsx_runtime.jsx)("div", {
+				"data-slot": "root",
+				style: ANCHOR_STYLE,
+				children: (0, react_jsx_runtime.jsx)(SlotErrorBoundary, {
+					slotKey: "root",
+					onEntryError: (error) => {
+						host.reportEntryError("root", entry, error, { abdicate: true });
+					},
+					children: (0, react_jsx_runtime.jsx)(RootEntry, {
+						entry,
+						ownerProps,
+						slotKey: "root",
+						slotInjected: EMPTY_SLOT_INJECT,
+						hookContext: void 0,
+						hasHookContext: false
+					})
+				}, entryKeyOf(entry))
+			});
+		}
+		/**
+		* Build the renderer installed into the `ui-renderer` SlotRegistry
+		* (ctx.slots.install(createSlotRenderer()) at boot; the service owns the
+		* install/renderSlot contract and the double-install/not-installed throws).
+		* @returns the renderer.
+		*/
+		function createSlotRenderer() {
+			return { renderRoot(host, ownerProps) {
+				return (0, react_jsx_runtime.jsx)(HostContext.Provider, {
+					value: host,
+					children: (0, react_jsx_runtime.jsx)(RootStandardProvider, { children: (0, react_jsx_runtime.jsx)(ScopeProvider, {
+						scope: "session-maybe",
+						children: (0, react_jsx_runtime.jsx)(RootOutlet, { ownerProps })
+					}) })
+				});
+			} };
+		}
+		//#endregion
+		//#region lib/types/client/app.js
+		/**
+		* Build the assembled application factory.
+		* @param deps - Active UI-renderer dependencies.
+		* @returns Factory producing the application React tree.
+		*/
+		function buildRenderApp(deps) {
+			const { ctx } = deps;
+			return () => ctx.slots.renderSlot("root", {});
+		}
 		//#endregion
 		//#region lib/types/client/registry.js
-		/** Command registration, normalized default bindings, and synchronous dispatch. */
-		/** Application command registry; adapters own event listeners, feature plugins own actions. */
-		var ShortcutRegistry = class {
-			runtime;
-			platform;
-			commands = /* @__PURE__ */ new Map();
-			fixedCommands = /* @__PURE__ */ new Map();
-			conflicts = /* @__PURE__ */ new Map();
-			bindings = /* @__PURE__ */ new Map();
-			state;
-			/** Effective localized rows derived from the accepted configuration. */
-			catalog;
-			/** Accepted preferences and visible read diagnostics. */
-			config;
-			/** Fixed local operations whose owning plugins are mounted. */
-			fixedCatalog = (0, _deepseek_ai_dsh_client_store.createSnapshotStore)([]);
-			constructor(runtime, platform, config = {
-				...initialShortcutConfig(),
-				status: "ready"
-			}) {
-				this.runtime = runtime;
-				this.platform = platform;
-				this.state = (0, _deepseek_ai_dsh_client_store.createSnapshotStore)({
-					catalog: [],
-					config
-				});
-				this.catalog = {
-					getSnapshot: () => this.state.getSnapshot().catalog,
-					subscribe: (listener) => this.state.subscribe(listener)
-				};
-				this.config = {
-					getSnapshot: () => this.state.getSnapshot().config,
-					subscribe: (listener) => this.state.subscribe(listener)
-				};
-			}
-			/**
-			* Return the serializable active catalog for storage validation.
-			* @returns definitions without callbacks or localized labels.
-			*/
-			definitions() {
-				return [...[...this.commands.values()].map(({ id, defaults }) => ({
-					id,
-					defaults
-				})), ...[...this.fixedCommands.values()].map(({ id, bindings }) => ({
-					id,
-					defaults: {},
-					fixed: bindings
-				}))];
-			}
-			/**
-			* Register a read-only input action whose keys cannot be assigned to editable commands.
-			* @param command - owner-localized action and readable sequence.
-			* @returns idempotent disposer removing its reference row.
-			*/
-			registerFixed(command) {
-				if (this.fixedCommands.has(command.id) || this.commands.has(command.id)) throw new Error(`Duplicate shortcut command: ${command.id}`);
-				for (const binding of command.bindings) normalizeBinding(binding, this.platform);
-				this.fixedCommands.set(command.id, command);
-				this.refreshLabels();
-				return () => {
-					if (this.fixedCommands.get(command.id) !== command) return;
-					this.fixedCommands.delete(command.id);
-					this.refreshLabels();
-				};
-			}
-			refreshFixedLabels() {
-				this.fixedCatalog.set([...this.fixedCommands.values()].map((command) => ({
-					id: command.id,
-					label: command.label(),
-					keys: command.keys,
-					group: command.group,
-					bindings: command.bindings.map((binding) => normalizeBinding(binding, this.platform))
-				})));
-			}
-			/**
-			* Publish accepted preferences and all derived labels atomically.
-			* @param config - storage owner's latest accepted snapshot.
-			*/
-			configure(config) {
-				const current = this.config.getSnapshot();
-				if (config.revision === current.revision && config.status === current.status && config.error === current.error) return;
-				this.refreshLabels(config);
-			}
-			/**
-			* Register atomically after checking defaults for all supported platforms and shells.
-			* @param command - feature-owned command definition.
-			* @returns idempotent disposer removing both matching and catalog entries.
-			*/
-			register(command) {
-				if (this.commands.has(command.id) || this.fixedCommands.has(command.id)) throw new Error(`Duplicate shortcut command: ${command.id}`);
-				for (const runtime of ["desktop", "web"]) for (const platform of [
-					"macos",
-					"windows",
-					"linux"
-				]) {
-					const candidate = resolveShortcutDefault(command, runtime, platform);
-					if (candidate === void 0) continue;
-					const binding = normalizeBinding(candidate, platform);
-					if (runtime === "web" && !isWebBindingAllowed(binding, platform)) throw new Error(`Unsupported Web shortcut: ${command.id}`);
-					if (bindingIssue(binding, runtime, platform) !== null) throw new Error(`Reserved shortcut default: ${command.id}`);
-					for (const existing of this.commands.values()) {
-						const other = resolveShortcutDefault(existing, runtime, platform);
-						if (other !== void 0 && overlappingBindings(binding, normalizeBinding(other, platform))) throw new Error(`Conflicting shortcut defaults: ${command.id} and ${existing.id} (${runtime}:${platform})`);
-					}
-				}
-				this.commands.set(command.id, command);
-				this.refreshLabels();
-				return () => {
-					if (this.commands.get(command.id) !== command) return;
-					this.commands.delete(command.id);
-					this.refreshLabels();
-				};
-			}
-			/**
-			* Recompute effective bindings when preferences, commands, or locale change.
-			* @param config - accepted configuration, defaulting to the current snapshot.
-			*/
-			refreshLabels(config = this.config.getSnapshot()) {
-				this.bindings.clear();
-				this.conflicts.clear();
-				const catalog = effectiveShortcuts(this.definitions(), config.document, this.runtime, this.platform).map((row) => {
-					const command = this.commands.get(row.id);
-					const enabled = config.status !== "loading" && row.issue === null && row.conflicts.length === 0;
-					if (enabled && row.binding !== null) this.bindings.set(bindingKey(row.binding), command);
-					if (config.status !== "loading" && row.issue === null && row.conflicts.length > 0 && row.binding !== null) this.conflicts.set(bindingKey(row.binding), command);
-					return {
-						...row,
-						label: command.label(),
-						aliases: command.aliases,
-						...presentBinding(row.binding, this.platform),
-						aria: enabled ? presentBinding(row.binding, this.platform).aria : void 0
-					};
-				});
-				this.state.set({
-					config,
-					catalog
-				});
-				this.refreshFixedLabels();
-			}
-			/**
-			* Invoke a native menu selection independently of its optional key binding.
-			* @param id - registered product command.
-			* @param context - live input owner and modal state.
-			*/
-			invoke(id, context) {
-				const command = this.commands.get(id);
-				if (command === void 0 || context.modal !== null && !command.modals.includes(context.modal)) return;
-				const result = command.resolve({
-					...context,
-					source: "menu"
-				});
-				if (result.status === "handled") result.run();
-			}
-			/**
-			* Windows/macOS Desktop bindings override local regions and modal controls independently of their configuration source.
-			* @param gesture - normalized DOM/native input facts.
-			* @param context - synchronous input and modal owner.
-			* @param consume - adapter's preventDefault, called before business execution.
-			* @returns handled, blocked with a reason, or pass for local/system input.
-			*/
-			dispatch(gesture, context, consume) {
-				if (gesture.defaultPrevented || gesture.composing) return { status: "pass" };
-				const modifiers = [
-					"control",
-					"alt",
-					"shift",
-					"meta"
-				].filter((value) => gesture[value]);
-				const pairKey = bindingKey({
-					code: gesture.code,
-					modifiers,
-					...gesture.secondCode === void 0 ? {} : { secondCode: gesture.secondCode }
-				});
-				const key = this.bindings.has(pairKey) || this.conflicts.has(pairKey) ? pairKey : bindingKey({
-					code: gesture.code,
-					modifiers
-				});
-				const command = this.bindings.get(key) ?? this.conflicts.get(key);
-				const priority = this.runtime === "desktop" && (this.platform === "windows" || this.platform === "macos");
-				if (command === void 0 || !priority && !command.regions.includes(context.region)) return { status: "pass" };
-				if (!priority && context.region === "terminal" && gesture.control && !gesture.meta && !gesture.alt && !gesture.shift && (gesture.code === "KeyW" || gesture.code === "KeyR")) return { status: "pass" };
-				if (!this.bindings.has(key)) {
-					consume();
-					return {
-						status: "blocked",
-						commandId: command.id,
-						reason: "conflict"
+		/**
+		* SlotRegistry: the renderer-owned Cordis service over the pure
+		* SlotCore (ui-slots owns registration semantics, the declaration ledger,
+		* the load-time validations, and the unload cascade). This layer owns what
+		* needs a live application: the 'slots/changed' event bridge, register and
+		* declaration injection through the caller's ctx.effect (fiber unload
+		* collects both), the renderer installation contract (install()/renderSlot('root') +
+		* the SlotRendererHost face), and the store INSTANCE axis — handle x scope
+		* key -> create/cache, dropped with the last holding entry, and in-memory
+		* session instances released without clearing persisted state on scope death.
+		*/
+		/** Instance key for root-scoped store records (session records key by session id, so the literal cannot collide). */
+		const ROOT_INSTANCE_KEY = "root";
+		/** cordis Service layer of the slot system; see the module doc for the split with SlotCore. */
+		var SlotRegistry = class extends _deepseek_ai_cordis.Service {
+			_core = new _deepseek_ai_dsh_client_ui_slots.SlotCore();
+			/** Store-instance axis: handle -> mounted scope, refcount, resolved instances. */
+			_stores = /* @__PURE__ */ new Map();
+			_factoryStores = /* @__PURE__ */ new Map();
+			/** Latest live Context generation for each scoped store key. */
+			_storeScopeOwners = /* @__PURE__ */ new Map();
+			_renderer;
+			_locale;
+			_host;
+			_rootContributions = [];
+			_rootListeners = /* @__PURE__ */ new Set();
+			_rootBinding = {
+				key: void 0,
+				hooks: {},
+				keyedHooks: {},
+				props: {}
+			};
+			_rootSource = {
+				getSnapshot: () => this._rootBinding,
+				subscribe: (listener) => {
+					this._rootListeners.add(listener);
+					return () => {
+						this._rootListeners.delete(listener);
 					};
 				}
-				if (!priority && context.modal !== null && !command.modals.includes(context.modal)) {
-					consume();
-					return {
-						status: "blocked",
-						commandId: command.id,
-						reason: "modal"
+			};
+			_scopes = /* @__PURE__ */ new Map();
+			_scopeRevision = 0;
+			_scopeListeners = /* @__PURE__ */ new Set();
+			_scopeRevisionSource = {
+				getSnapshot: () => this._scopeRevision,
+				subscribe: (listener) => {
+					this._scopeListeners.add(listener);
+					return () => {
+						this._scopeListeners.delete(listener);
 					};
 				}
-				const resolution = command.resolve(context);
-				if (resolution.status === "pass") return resolution;
-				consume();
-				if (resolution.status === "blocked") return {
-					...resolution,
-					commandId: command.id
-				};
-				if (!gesture.repeat) resolution.run();
-				return {
-					status: "handled",
-					commandId: command.id
-				};
-			}
-		};
-		//#endregion
-		//#region lib/types/client/dom.js
-		/** Main-document keyboard adapter; local controls arbitrate before window bubbling. */
-		/**
-		* Detect the visiting device, never the server operating system.
-		* @param document - product document, marked by Electron preload when present.
-		* @param navigator - browser device identification.
-		* @returns explicit runtime and platform for default resolution.
-		*/
-		function detectEnvironment(document, navigator) {
-			const desktop = document.documentElement.dataset.platform;
-			const device = desktop ?? navigator.platform;
-			return {
-				runtime: desktop === void 0 ? "web" : "desktop",
-				platform: /darwin|mac|iphone|ipad/iu.test(device) ? "macos" : /win/iu.test(device) ? "windows" : "linux"
 			};
-		}
-		/**
-		* Install document composition tracking and application dispatch after local handlers.
-		* @param window - input window owned by the client plugin.
-		* @param shortcuts - command registry for this window.
-		* @param fixed - optional fixed-sequence consumer after local controls.
-		* @param native - native input owns configurable bindings; DOM delivery only feeds fixed actions.
-		* @returns disposer releasing every listener.
-		*/
-		function installKeyboard(window, shortcuts, fixed, native = false) {
-			const document = window.document;
-			const composition = (0, _deepseek_ai_dsh_client_ui_primitives.observeComposition)(document);
-			let pending = false;
-			let pendingTimer;
-			const reset = () => {
-				fixed?.({ type: "reset" });
-			};
-			let deadKey = false;
-			const blur = () => {
-				deadKey = false;
-				reset();
-			};
-			const containsModal = (node) => node instanceof Element && (node.matches(_deepseek_ai_dsh_client_ui_primitives.modalSelector) || node.querySelector(_deepseek_ai_dsh_client_ui_primitives.modalSelector) !== null);
-			const changedModals = (records) => {
-				if (records.some((record) => record.type === "attributes" ? record.oldValue === "dialog" || record.oldValue === "true" || containsModal(record.target) : [...record.addedNodes, ...record.removedNodes].some(containsModal))) reset();
-			};
-			const observer = fixed === void 0 ? void 0 : new MutationObserver(changedModals);
-			observer?.observe(document.documentElement, {
-				childList: true,
-				subtree: true,
-				attributes: true,
-				attributeFilter: ["role", "aria-modal"],
-				attributeOldValue: true
-			});
-			const capture = () => {
-				if (pending) reset();
-				window.clearTimeout(pendingTimer);
-				if (observer !== void 0) changedModals(observer.takeRecords());
-				pending = true;
-				pendingTimer = window.setTimeout(() => {
-					pending = false;
-					pendingTimer = void 0;
-					reset();
-				}, 0);
-			};
-			const keydown = (event) => {
-				window.clearTimeout(pendingTimer);
-				pendingTimer = void 0;
-				pending = false;
-				const target = event.composedPath().find((value) => value instanceof Element);
-				const element = target instanceof Element ? target : document.activeElement;
-				const region = element?.closest(".xterm") ? "terminal" : element?.closest("input, textarea, select, [contenteditable=\"true\"], [contenteditable=\"\"]") ? "editable" : "page";
-				const top = [...document.querySelectorAll(_deepseek_ai_dsh_client_ui_primitives.modalSelector)].at(-1);
-				const context = {
-					region,
-					modal: top === void 0 ? null : top.dataset.shortcutModal ?? "other",
-					target: element
-				};
-				const guarded = composition.guards(event) || deadKey || event.getModifierState("AltGraph");
-				const isDead = event.key === "Dead";
-				const commandDeadKey = isDead && shortcuts.runtime === "web" && shortcuts.platform === "macos" && event.code === "KeyN" && event.metaKey && event.altKey && !event.ctrlKey && !event.shiftKey;
-				deadKey = isDead;
-				const gesture = {
-					code: event.code,
-					control: event.ctrlKey,
-					alt: event.altKey,
-					shift: event.shiftKey,
-					meta: event.metaKey,
-					repeat: event.repeat,
-					composing: guarded || isDead,
-					defaultPrevented: event.defaultPrevented
-				};
-				const consume = () => {
-					event.preventDefault();
-					if (commandDeadKey) deadKey = false;
-				};
-				fixed?.({
-					type: "keydown",
-					gesture,
-					context,
-					consume
+			/**
+			* @param ctx - owning root context.
+			*/
+			constructor(ctx) {
+				super(ctx, "slots");
+				this._core.onMutate((key) => {
+					ctx.emit("slots/changed", key);
 				});
-				if (native) return;
-				shortcuts.dispatch({
-					...gesture,
-					composing: guarded || isDead && !commandDeadKey,
-					defaultPrevented: event.defaultPrevented
-				}, context, consume);
-			};
-			document.addEventListener("compositionstart", reset, true);
-			document.addEventListener("compositionend", reset, true);
-			document.addEventListener("focusin", reset, true);
-			document.addEventListener("pointerdown", reset, true);
-			window.addEventListener("keydown", capture, true);
-			window.addEventListener("keydown", keydown);
-			window.addEventListener("blur", blur);
-			return () => {
-				pending = false;
-				window.clearTimeout(pendingTimer);
-				observer?.disconnect();
-				composition.dispose();
-				document.removeEventListener("compositionstart", reset, true);
-				document.removeEventListener("compositionend", reset, true);
-				document.removeEventListener("focusin", reset, true);
-				document.removeEventListener("pointerdown", reset, true);
-				window.removeEventListener("keydown", capture, true);
-				window.removeEventListener("keydown", keydown);
-				window.removeEventListener("blur", blur);
-			};
-		}
-		//#endregion
-		//#region lib/types/client/storage.js
-		/** Explicit browser and Desktop preference adapters; Desktop never falls back to browser storage. */
-		/** Browser-profile and origin-local preference key. */
-		const SHORTCUT_STORAGE_KEY = "dsh.keybindings.v1";
-		/**
-		* Connect localStorage and same-origin external updates to the shared transaction coordinator.
-		* @param window - owning browser window.
-		* @param platform - visiting device platform.
-		* @param publish - accepts complete configuration snapshots.
-		* @returns adapter and lifecycle disposal.
-		*/
-		function webShortcutStorage(window, platform, publish) {
-			const persistence = new ShortcutPersistence({
-				read: () => window.localStorage.getItem(SHORTCUT_STORAGE_KEY),
-				write: (raw) => {
-					window.localStorage.setItem(SHORTCUT_STORAGE_KEY, raw);
-				}
-			}, "web", platform, true, publish);
-			const changed = (event) => {
-				if (event.key === null || event.key === "dsh.keybindings.v1") persistence.readCurrent();
-			};
-			window.addEventListener("storage", changed);
-			return {
-				get: (definitions) => {
-					persistence.setDefinitions(definitions);
-					return persistence.readCurrent();
-				},
-				edit: (edit, revision) => persistence.edit(edit, revision),
-				subscribe: () => () => {},
-				recording: async () => {},
-				dispose: () => {
-					window.removeEventListener("storage", changed);
-					persistence.dispose();
-				}
-			};
-		}
-		/**
-		* Read the origin-scoped preload capability; a missing bridge is an explicit configuration failure.
-		* @param window - product window.
-		* @returns the restricted Desktop API, or undefined while the preload is unavailable.
-		*/
-		function desktopShortcutStorage(window) {
-			return window.dshDesktop?.shortcuts;
-		}
-		//#endregion
-		//#region lib/types/client/native.js
-		/** Desktop gestures use live focus, modal state, and verified embedding ownership. */
-		/**
-		* Route native menu, main-frame, and embedded-frame input through the shared command registry.
-		* @param window - trusted product document.
-		* @param keyboard - top-frame preload capability.
-		* @param registry - window-local command owner.
-		* @param snapshot - latest accepted configuration.
-		* @param reset - clears pending fixed sequences when native input bypasses DOM delivery.
-		* @returns disposer releasing native input.
-		*/
-		function installNativeKeyboard(window, keyboard, registry, snapshot, reset) {
-			return keyboard.subscribe((input) => {
-				if (input.revision !== snapshot().revision) return;
-				reset?.();
-				let target = window.document.activeElement;
-				while (target?.shadowRoot?.activeElement != null && !target.matches("webview[data-sidebar-browser-frame]")) target = target.shadowRoot.activeElement;
-				const top = [...window.document.querySelectorAll(_deepseek_ai_dsh_client_ui_primitives.modalSelector)].at(-1);
-				const region = target?.closest(".xterm") ? "terminal" : target?.matches("input, textarea, select, [contenteditable=\"true\"], [contenteditable=\"\"]") ? "editable" : "page";
-				const context = {
-					target,
-					region,
-					modal: top?.dataset.shortcutModal ?? (top === void 0 ? null : "other")
-				};
-				if (input.kind === "menu") {
-					registry.invoke(input.commandId, context);
-					return;
-				}
-				if (input.kind === "keyboard") {
-					registry.dispatch({
-						...input,
-						composing: false,
-						defaultPrevented: false
-					}, context, () => {});
-					return;
-				}
-				if (input.kind === "webview") {
-					if (target?.matches("webview[data-sidebar-browser-frame]") !== true || !target.isConnected || input.frameName === "" || target.getAttribute("name") !== input.frameName) return;
-					registry.dispatch({
-						...input,
-						composing: false,
-						defaultPrevented: false
-					}, {
-						...context,
-						source: "webview"
-					}, () => {});
-					return;
-				}
-				if (!(target instanceof HTMLIFrameElement) || !target.isConnected || !target.matches("iframe[data-sidebar-browser-frame], iframe[data-html-preview]") || input.frameName === "" || target.name !== input.frameName) return;
-				registry.dispatch({
-					...input,
-					composing: false,
-					defaultPrevented: false
-				}, {
-					...context,
-					source: "iframe"
-				}, () => {});
-			});
-		}
-		//#endregion
-		//#region ../../../vendor/cosmokit/lib/index.js
-		/** Return true when a value is `null` or `undefined`. */
-		function isNullable(value) {
-			return value === null || value === void 0;
-		}
-		/** Return true for non-array object values. */
-		function isPlainObject(data) {
-			return data && typeof data === "object" && !Array.isArray(data);
-		}
-		/** Filter object entries and return a new object. */
-		function filterKeys(object, filter) {
-			return Object.fromEntries(Object.entries(object).filter(([key, value]) => filter(key, value)));
-		}
-		/** Map object values while preserving the original key set. */
-		function mapValues(object, transform) {
-			return Object.fromEntries(Object.entries(object).map(([key, value]) => [key, transform(value, key)]));
-		}
-		/** Pick selected keys from an object, optionally including `undefined` values. */
-		function pick(source, keys, forced) {
-			if (!keys) return { ...source };
-			const result = {};
-			for (const key of keys) if (forced || source[key] !== void 0) result[key] = source[key];
-			return result;
-		}
-		/** Shared config references used by schema validators and plugin runtimes. */
-		const write = Symbol.for("cosmokit.volatile.write");
-		function snapshot(value, ancestors = /* @__PURE__ */ new Set()) {
-			if (typeof value === "function") throw new TypeError("volatile config cannot contain functions");
-			if (value === null || typeof value !== "object") return value;
-			if (ancestors.has(value)) throw new TypeError("volatile config cannot contain cycles");
-			ancestors.add(value);
-			try {
-				if (Array.isArray(value)) return Object.freeze(value.map((item) => snapshot(item, ancestors)));
-				if (Object.getPrototypeOf(value) !== Object.prototype && Object.getPrototypeOf(value) !== null) throw new TypeError("volatile config objects must be plain objects or arrays");
-				return Object.freeze(Object.fromEntries(Object.entries(value).map(([key, item]) => [key, snapshot(item, ancestors)])));
-			} finally {
-				ancestors.delete(value);
 			}
-		}
-		/**
-		* Create a detached reference containing an immutable copy of the supplied data.
-		* @param value - validated config data; class instances and functions are unsupported.
-		* @returns a reference whose value is updated only by its owning runtime.
-		*/
-		function createVolatile(value) {
-			let current = snapshot(value);
-			return Object.freeze({
-				get: () => current,
-				[write]: (value) => {
-					current = value;
-				}
-			});
-		}
-		/**
-		* Identify references across ESM/CJS copies of the shared library.
-		* @param value - a parsed config value.
-		* @returns whether the value implements the shared reference protocol.
-		*/
-		function isVolatile(value) {
-			return typeof value === "object" && value !== null && write in value;
-		}
-		/** Test values using `instanceof` with a `toStringTag` fallback. */
-		function is(type, value) {
-			if (arguments.length === 1) return (value) => is(type, value);
-			return type in globalThis && value instanceof globalThis[type] || Object.prototype.toString.call(value).slice(8, -1) === type;
-		}
-		function isArrayBufferLike(value) {
-			return is("ArrayBuffer", value) || is("SharedArrayBuffer", value);
-		}
-		function isArrayBufferSource(value) {
-			return isArrayBufferLike(value) || ArrayBuffer.isView(value);
-		}
-		/** Binary source detection and base64/hex conversion helpers. */
-		var Binary;
-		(function(Binary) {
-			Binary.is = isArrayBufferLike;
-			Binary.isSource = isArrayBufferSource;
-			function fromSource(source) {
-				if (ArrayBuffer.isView(source)) return source.buffer.slice(source.byteOffset, source.byteOffset + source.byteLength);
-				else return source;
-			}
-			Binary.fromSource = fromSource;
-			function toBase64(source) {
-				source = fromSource(source);
-				if (typeof Buffer !== "undefined") return Buffer.from(source).toString("base64");
-				let binary = "";
-				const bytes = new Uint8Array(source);
-				for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
-				return btoa(binary);
-			}
-			Binary.toBase64 = toBase64;
-			function fromBase64(source) {
-				if (typeof Buffer !== "undefined") return fromSource(Buffer.from(source, "base64"));
-				return Uint8Array.from(atob(source), (c) => c.charCodeAt(0));
-			}
-			Binary.fromBase64 = fromBase64;
-			function toHex(source) {
-				source = fromSource(source);
-				if (typeof Buffer !== "undefined") return Buffer.from(source).toString("hex");
-				return Array.from(new Uint8Array(source), (byte) => byte.toString(16).padStart(2, "0")).join("");
-			}
-			Binary.toHex = toHex;
-			function fromHex(source) {
-				if (typeof Buffer !== "undefined") return fromSource(Buffer.from(source, "hex"));
-				const hex = source.length % 2 === 0 ? source : source.slice(0, source.length - 1);
-				const buffer = [];
-				for (let i = 0; i < hex.length; i += 2) buffer.push(parseInt(`${hex[i]}${hex[i + 1]}`, 16));
-				return Uint8Array.from(buffer).buffer;
-			}
-			Binary.fromHex = fromHex;
-		})(Binary || (Binary = {}));
-		Binary.fromBase64;
-		Binary.toBase64;
-		Binary.fromHex;
-		Binary.toHex;
-		/** Deep-clone common JavaScript values while preserving prototypes and cycles. */
-		function clone(source, refs = /* @__PURE__ */ new Map()) {
-			if (!source || typeof source !== "object") return source;
-			if (is("Date", source)) return new Date(source.valueOf());
-			if (is("RegExp", source)) return new RegExp(source.source, source.flags);
-			if (isArrayBufferLike(source)) return source.slice(0);
-			if (ArrayBuffer.isView(source)) return source.buffer.slice(source.byteOffset, source.byteOffset + source.byteLength);
-			const cached = refs.get(source);
-			if (cached) return cached;
-			if (Array.isArray(source)) {
-				const result = [];
-				refs.set(source, result);
-				source.forEach((value, index) => {
-					result[index] = Reflect.apply(clone, null, [value, refs]);
-				});
-				return result;
-			}
-			const result = Object.create(Object.getPrototypeOf(source));
-			refs.set(source, result);
-			for (const key of Reflect.ownKeys(source)) {
-				const descriptor = { ...Reflect.getOwnPropertyDescriptor(source, key) };
-				if ("value" in descriptor) descriptor.value = Reflect.apply(clone, null, [descriptor.value, refs]);
-				Reflect.defineProperty(result, key, descriptor);
-			}
-			return result;
-		}
-		/**
-		* Compare values recursively, treating two volatile references as equal regardless of value.
-		* Strict comparison distinguishes null/undefined, treats opaque objects by identity,
-		* compares URLs by normalized href, treats array holes as undefined, and considers distinct cyclic structures unequal.
-		* @param a - first value.
-		* @param b - second value.
-		* @param strict - whether to require strict data equality outside volatile references.
-		* @returns whether the values compare equal.
-		*/
-		function deepEqual(a, b, strict) {
-			const ancestors = /* @__PURE__ */ new Set();
-			function compare(a, b) {
-				if (a === b) return true;
-				if (isVolatile(a) || isVolatile(b)) return isVolatile(a) && isVolatile(b);
-				if (!strict && isNullable(a) && isNullable(b)) return true;
-				if (typeof a !== typeof b || typeof a !== "object" || !a || !b) return false;
-				if (ancestors.has(a)) return false;
-				function check(test, then) {
-					return test(a) ? test(b) ? then(a, b) : false : test(b) ? false : void 0;
-				}
-				ancestors.add(a);
-				try {
-					return check(Array.isArray, (a, b) => {
-						if (a.length !== b.length) return false;
-						for (let index = 0; index < a.length; index++) if (!compare(a[index], b[index])) return false;
-						return true;
-					}) ?? check(is("Date"), (a, b) => a.valueOf() === b.valueOf()) ?? check(is("URL"), (a, b) => a.href === b.href) ?? check(is("RegExp"), (a, b) => a.source === b.source && a.flags === b.flags) ?? check(isArrayBufferLike, (a, b) => {
-						if (a.byteLength !== b.byteLength) return false;
-						const viewA = new Uint8Array(a);
-						const viewB = new Uint8Array(b);
-						for (let i = 0; i < viewA.length; i++) if (viewA[i] !== viewB[i]) return false;
-						return true;
-					}) ?? ((!strict || [a, b].every((value) => Object.getPrototypeOf(value) === Object.prototype || Object.getPrototypeOf(value) === null)) && Object.keys({
-						...a,
-						...b
-					}).every((key) => compare(a[key], b[key])));
-				} finally {
-					ancestors.delete(a);
-				}
-			}
-			return compare(a, b);
-		}
-		/** Time constants plus parsing and formatting helpers. */
-		var Time;
-		(function(Time) {
-			Time.millisecond = 1;
-			Time.second = 1e3;
-			Time.minute = Time.second * 60;
-			Time.hour = Time.minute * 60;
-			Time.day = Time.hour * 24;
-			Time.week = Time.day * 7;
-			let timezoneOffset = (/* @__PURE__ */ new Date()).getTimezoneOffset();
-			function setTimezoneOffset(offset) {
-				timezoneOffset = offset;
-			}
-			Time.setTimezoneOffset = setTimezoneOffset;
-			function getTimezoneOffset() {
-				return timezoneOffset;
-			}
-			Time.getTimezoneOffset = getTimezoneOffset;
-			function getDateNumber(date = /* @__PURE__ */ new Date(), offset) {
-				if (typeof date === "number") date = new Date(date);
-				if (offset === void 0) offset = timezoneOffset;
-				return Math.floor((date.valueOf() / Time.minute - offset) / 1440);
-			}
-			Time.getDateNumber = getDateNumber;
-			function fromDateNumber(value, offset) {
-				const date = new Date(value * Time.day);
-				if (offset === void 0) offset = timezoneOffset;
-				return new Date(+date + offset * Time.minute);
-			}
-			Time.fromDateNumber = fromDateNumber;
-			const numeric = /\d+(?:\.\d+)?/.source;
-			const timeRegExp = new RegExp(`^${[
-				"w(?:eek(?:s)?)?",
-				"d(?:ay(?:s)?)?",
-				"h(?:our(?:s)?)?",
-				"m(?:in(?:ute)?(?:s)?)?",
-				"s(?:ec(?:ond)?(?:s)?)?"
-			].map((unit) => `(${numeric}${unit})?`).join("")}$`);
-			function parseTime(source) {
-				const capture = timeRegExp.exec(source);
-				if (!capture) return 0;
-				return (parseFloat(capture[1]) * Time.week || 0) + (parseFloat(capture[2]) * Time.day || 0) + (parseFloat(capture[3]) * Time.hour || 0) + (parseFloat(capture[4]) * Time.minute || 0) + (parseFloat(capture[5]) * Time.second || 0);
-			}
-			Time.parseTime = parseTime;
-			function parseDate(date) {
-				const parsed = parseTime(date);
-				if (parsed) date = Date.now() + parsed;
-				else if (/^\d{1,2}(:\d{1,2}){1,2}$/.test(date)) date = `${(/* @__PURE__ */ new Date()).toLocaleDateString()}-${date}`;
-				else if (/^\d{1,2}-\d{1,2}-\d{1,2}(:\d{1,2}){1,2}$/.test(date)) date = `${(/* @__PURE__ */ new Date()).getFullYear()}-${date}`;
-				return date ? new Date(date) : /* @__PURE__ */ new Date();
-			}
-			Time.parseDate = parseDate;
-			function format(ms) {
-				const abs = Math.abs(ms);
-				if (abs >= Time.day - Time.hour / 2) return Math.round(ms / Time.day) + "d";
-				else if (abs >= Time.hour - Time.minute / 2) return Math.round(ms / Time.hour) + "h";
-				else if (abs >= Time.minute - Time.second / 2) return Math.round(ms / Time.minute) + "m";
-				else if (abs >= Time.second) return Math.round(ms / Time.second) + "s";
-				return ms + "ms";
-			}
-			Time.format = format;
-			function toDigits(source, length = 2) {
-				return source.toString().padStart(length, "0");
-			}
-			Time.toDigits = toDigits;
-			function template(template, time = /* @__PURE__ */ new Date()) {
-				return template.replace("yyyy", time.getFullYear().toString()).replace("yy", time.getFullYear().toString().slice(2)).replace("MM", toDigits(time.getMonth() + 1)).replace("dd", toDigits(time.getDate())).replace("hh", toDigits(time.getHours())).replace("mm", toDigits(time.getMinutes())).replace("ss", toDigits(time.getSeconds())).replace("SSS", toDigits(time.getMilliseconds(), 3));
-			}
-			Time.template = template;
-		})(Time || (Time = {}));
-		//#endregion
-		//#region ../../../vendor/schemastery/lib/index.mjs
-		const kSchema = Symbol.for("schemastery");
-		const kValidationError = Symbol.for("ValidationError");
-		globalThis.__schemastery_index__ ??= 0;
-		globalThis.__schemastery_refs__ = void 0;
-		var ValidationError = class extends TypeError {
-			options;
-			name = "ValidationError";
-			constructor(message, options) {
-				let prefix = "$";
-				for (const segment of options.path || []) if (typeof segment === "string") prefix += "." + segment;
-				else if (typeof segment === "number") prefix += "[" + segment + "]";
-				else if (typeof segment === "symbol") prefix += `[Symbol(${segment.toString()})]`;
-				if (prefix.startsWith(".")) prefix = prefix.slice(1);
-				super((prefix === "$" ? "" : `${prefix} `) + message);
-				this.options = options;
-			}
-			static is(error) {
-				return !!error?.[kValidationError];
-			}
-		};
-		Object.defineProperty(ValidationError.prototype, kValidationError, { value: true });
-		const Schema = function(options) {
-			const schema = function(data, options = {}) {
-				return Schema.resolve(data, schema, options)[0];
-			};
-			if (options.refs) {
-				const refs = mapValues(options.refs, (options) => new Schema(options));
-				const getRef = (uid) => refs[uid];
-				for (const key in refs) {
-					const options = refs[key];
-					options.sKey = getRef(options.sKey);
-					options.inner = getRef(options.inner);
-					options.list = options.list && options.list.map(getRef);
-					options.dict = options.dict && mapValues(options.dict, getRef);
-				}
-				return refs[options.uid];
-			}
-			Object.assign(schema, options);
-			if (typeof schema.callback === "string") try {
-				schema.callback = new Function("return " + schema.callback)();
-			} catch {}
-			Object.defineProperty(schema, "uid", { value: globalThis.__schemastery_index__++ });
-			Object.setPrototypeOf(schema, Schema.prototype);
-			schema.meta ||= {};
-			schema.toString = schema.toString.bind(schema);
-			return schema;
-		};
-		Schema.prototype = Object.create(Function.prototype);
-		Schema.prototype[kSchema] = true;
-		Object.defineProperty(Schema.prototype, "~standard", { get() {
-			return {
-				version: 1,
-				vendor: "schemastery",
-				validate: (value) => {
+			/**
+			* Install an effect for each declaration lifetime of a slot. The callback
+			* runs synchronously when the declaration already exists; otherwise it runs
+			* inside the declaring `register()` call after the declaration is committed.
+			* Collapse disposes the effect and a later declaration runs it again.
+			* Callback effects are synchronous disposers; iterable effects install
+			* transactionally and dispose in reverse order. The controller belongs to
+			* the caller's fiber, so plugin unload cancels a pending wait and removes any
+			* active contribution.
+			*
+			* @param key - declared SlotMap key to depend on.
+			* @param callback - creates one disposer or an iterable of disposers.
+			* @returns idempotent disposer for the wait and active effect.
+			* @throws callback setup failures synchronously when the slot is already declared.
+			*/
+			inject(key, callback) {
+				const ctx = this.ctx;
+				const disposeController = ctx.effect(() => {
+					let active;
+					let activeEpoch;
+					let stopped = false;
+					let unsubscribe = () => {};
+					const stop = () => {
+						if (stopped) return;
+						stopped = true;
+						unsubscribe();
+						const dispose = active;
+						active = void 0;
+						activeEpoch = void 0;
+						dispose?.();
+					};
+					const reconcile = () => {
+						if (stopped) return;
+						const spec = this._core.specDynamic(key);
+						const epoch = this._core.declarationEpoch(key);
+						if (active !== void 0 && activeEpoch === epoch) return;
+						const dispose = active;
+						active = void 0;
+						activeEpoch = void 0;
+						dispose?.();
+						if (spec === void 0) return;
+						const disposeEffect = ctx.effect(callback, `slots.inject(${JSON.stringify(key)}): declaration`);
+						active = () => {
+							disposeEffect();
+						};
+						activeEpoch = epoch;
+					};
+					const changed = () => {
+						try {
+							reconcile();
+						} catch (error) {
+							if (error?.code === "INACTIVE_EFFECT") {
+								stop();
+								return;
+							}
+							stop();
+							const failure = error instanceof Error ? error : new Error(String(error));
+							queueMicrotask(() => {
+								throw failure;
+							});
+						}
+					};
+					unsubscribe = this._core.subscribeDeclaration(key, changed);
 					try {
-						return { value: Schema.resolve(value, this, {})[0] };
+						reconcile();
 					} catch (error) {
-						if (ValidationError.is(error)) return { issues: [{
-							message: error.message,
-							path: error.options.path
-						}] };
+						stop();
 						throw error;
 					}
-				}
-			};
-		} });
-		Schema.ValidationError = ValidationError;
-		Schema.prototype.toJSON = function toJSON() {
-			if (globalThis.__schemastery_refs__) {
-				globalThis.__schemastery_refs__[this.uid] ??= JSON.parse(JSON.stringify({ ...this }));
-				return this.uid;
-			}
-			globalThis.__schemastery_refs__ = { [this.uid]: { ...this } };
-			globalThis.__schemastery_refs__[this.uid] = JSON.parse(JSON.stringify({ ...this }));
-			const result = {
-				uid: this.uid,
-				refs: globalThis.__schemastery_refs__
-			};
-			globalThis.__schemastery_refs__ = void 0;
-			return result;
-		};
-		Schema.prototype.set = function set(key, value) {
-			this.dict[key] = value;
-			return this;
-		};
-		Schema.prototype.push = function push(value) {
-			this.list.push(value);
-			return this;
-		};
-		function mergeDesc(original, messages) {
-			const result = typeof original === "string" ? { "": original } : { ...original };
-			for (const locale in messages) {
-				const value = messages[locale];
-				if (value?.$description || value?.$desc) result[locale] = value.$description || value.$desc;
-				else if (typeof value === "string") result[locale] = value;
-			}
-			return result;
-		}
-		function getInner(value) {
-			return value?.$value ?? value?.$inner;
-		}
-		function extractKeys(data) {
-			return filterKeys(data ?? {}, (key) => !key.startsWith("$"));
-		}
-		Schema.prototype.i18n = function i18n(messages) {
-			const schema = Schema(this);
-			const desc = mergeDesc(schema.meta.description, messages);
-			if (Object.keys(desc).length) schema.meta.description = desc;
-			if (schema.dict) schema.dict = mapValues(schema.dict, (inner, key) => {
-				return inner.i18n(mapValues(messages, (data) => getInner(data)?.[key] ?? data?.[key]));
-			});
-			if (schema.list) schema.list = schema.list.map((inner, index) => {
-				return inner.i18n(mapValues(messages, (data = {}) => {
-					if (Array.isArray(getInner(data))) return getInner(data)[index];
-					if (Array.isArray(data)) return data[index];
-					return extractKeys(data);
-				}));
-			});
-			if (schema.inner) schema.inner = schema.inner.i18n(mapValues(messages, (data) => {
-				if (getInner(data)) return getInner(data);
-				return extractKeys(data);
-			}));
-			if (schema.sKey) schema.sKey = schema.sKey.i18n(mapValues(messages, (data) => data?.$key));
-			return schema;
-		};
-		Schema.prototype.extra = function extra(key, value) {
-			const schema = Schema(this);
-			schema.meta = {
-				...schema.meta,
-				[key]: value
-			};
-			return schema;
-		};
-		for (const key of [
-			"required",
-			"disabled",
-			"collapse",
-			"hidden",
-			"loose"
-		]) Object.assign(Schema.prototype, { [key](value = true) {
-			const schema = Schema(this);
-			schema.meta = {
-				...schema.meta,
-				[key]: value
-			};
-			return schema;
-		} });
-		Schema.prototype.deprecated = function deprecated() {
-			const schema = Schema(this);
-			schema.meta.badges ||= [];
-			schema.meta.badges.push({
-				text: "deprecated",
-				type: "danger"
-			});
-			return schema;
-		};
-		Schema.prototype.experimental = function experimental() {
-			const schema = Schema(this);
-			schema.meta.badges ||= [];
-			schema.meta.badges.push({
-				text: "experimental",
-				type: "warning"
-			});
-			return schema;
-		};
-		Schema.prototype.pattern = function pattern(regexp) {
-			const schema = Schema(this);
-			const pattern = pick(regexp, ["source", "flags"]);
-			schema.meta = {
-				...schema.meta,
-				pattern
-			};
-			return schema;
-		};
-		Schema.prototype.simplify = function simplify(value) {
-			if (isVolatile(value)) value = value.get();
-			if (deepEqual(value, this.meta.default, this.type === "dict")) return null;
-			if (isNullable(value)) return value;
-			if (this.type === "object" || this.type === "dict") {
-				const result = {};
-				for (const key in value) {
-					const item = (this.type === "object" ? this.dict[key] : this.inner)?.simplify(value[key]);
-					if (this.type === "dict" || !isNullable(item)) result[key] = item;
-				}
-				if (deepEqual(result, this.meta.default, this.type === "dict")) return null;
-				return result;
-			} else if (this.type === "array" || this.type === "tuple") {
-				const result = [];
-				value.forEach((value, index) => {
-					const schema = this.type === "array" ? this.inner : this.list[index];
-					const item = schema ? schema.simplify(value) : value;
-					result.push(item);
-				});
-				return result;
-			} else if (this.type === "intersect") {
-				const result = {};
-				for (const item of this.list) Object.assign(result, item.simplify(value));
-				return result;
-			} else if (this.type === "union") for (const schema of this.list) try {
-				Schema.resolve(value, schema, {});
-				return schema.simplify(value);
-			} catch {}
-			return value;
-		};
-		Schema.prototype.toString = function toString(inline) {
-			return formatters[this.type]?.(this, inline) ?? `Schema<${this.type}>`;
-		};
-		Schema.prototype.role = function role(role, extra) {
-			const schema = Schema(this);
-			schema.meta = {
-				...schema.meta,
-				role,
-				extra
-			};
-			return schema;
-		};
-		for (const key of [
-			"default",
-			"link",
-			"comment",
-			"description",
-			"max",
-			"min",
-			"step"
-		]) Object.assign(Schema.prototype, { [key](value) {
-			const schema = Schema(this);
-			schema.meta = {
-				...schema.meta,
-				[key]: value
-			};
-			return schema;
-		} });
-		Schema.prototype.volatile = function volatile() {
-			if (this.meta.volatile) throw new TypeError("volatile schema is already wrapped");
-			return this.extra("volatile", true);
-		};
-		const resolvers = {};
-		const checkedVolatile = Symbol("checked-volatile-schema");
-		function validateVolatileSchema(schema, path = [], blocked = false, seen = /* @__PURE__ */ new Map()) {
-			const states = seen.get(schema) ?? /* @__PURE__ */ new Set();
-			if (states.has(blocked)) return;
-			states.add(blocked);
-			seen.set(schema, states);
-			if (schema.meta?.volatile && blocked) throw new ValidationError("volatile fields require a fixed object path without an enclosing volatile field", { path });
-			const nested = blocked || !!schema.meta?.volatile;
-			if (schema.dict) for (const [key, child] of Object.entries(schema.dict)) validateVolatileSchema(child, [...path, key], nested, seen);
-			if (schema.sKey) validateVolatileSchema(schema.sKey, [...path, "<key>"], true, seen);
-			if (schema.inner && (schema.type !== "lazy" || schema.inner[kSchema])) validateVolatileSchema(schema.inner, [...path, "*"], true, seen);
-			if (schema.list) for (let index = 0; index < schema.list.length; index++) validateVolatileSchema(schema.list[index], [...path, String(index)], true, seen);
-		}
-		Schema.extend = function extend(type, resolve) {
-			resolvers[type] = resolve;
-		};
-		Schema.resolve = function resolve(data, schema, options = {}, strict = false) {
-			if (!schema) return [data];
-			if (!options[checkedVolatile]) {
-				validateVolatileSchema(schema, options.path);
-				options = {
-					...options,
-					[checkedVolatile]: true
-				};
-			}
-			if (schema.meta?.volatile) {
-				const inner = Schema(schema);
-				inner.meta = {
-					...schema.meta,
-					volatile: false
-				};
-				const [value, adapted] = Schema.resolve(data, inner, options, strict);
-				try {
-					return [createVolatile(value), adapted];
-				} catch (error) {
-					throw new ValidationError(error instanceof Error ? error.message : String(error), options);
-				}
-			}
-			if (options.ignore?.(data, schema)) return [data];
-			if (isNullable(data) && schema.type !== "lazy") {
-				if (schema.meta.required) throw new ValidationError(`missing required value`, options);
-				let current = schema;
-				let fallback = schema.meta.default;
-				while (current?.type === "intersect" && isNullable(fallback)) {
-					current = current.list[0];
-					fallback = current?.meta.default;
-				}
-				if (isNullable(fallback)) return [data];
-				data = clone(fallback);
-			}
-			const callback = resolvers[schema.type];
-			if (!callback) throw new ValidationError(`unsupported type "${schema.type}"`, options);
-			try {
-				return callback(data, schema, options, strict);
-			} catch (error) {
-				if (!schema.meta.loose) throw error;
-				return [schema.meta.default];
-			}
-		};
-		Schema.from = function from(source) {
-			if (isNullable(source)) return Schema.any();
-			else if ([
-				"string",
-				"number",
-				"boolean"
-			].includes(typeof source)) return Schema.const(source).required();
-			else if (source[kSchema]) return source;
-			else if (typeof source === "function") switch (source) {
-				case String: return Schema.string().required();
-				case Number: return Schema.number().required();
-				case Boolean: return Schema.boolean().required();
-				case Function: return Schema.function().required();
-				default: return Schema.is(source).required();
-			}
-			else throw new TypeError(`cannot infer schema from ${source}`);
-		};
-		Schema.lazy = function lazy(builder) {
-			const toJSON = () => {
-				if (!schema.inner[kSchema]) {
-					schema.inner = schema.builder();
-					schema.inner.meta = {
-						...schema.meta,
-						...schema.inner.meta
-					};
-				}
-				return schema.inner.toJSON();
-			};
-			const schema = new Schema({
-				type: "lazy",
-				builder,
-				inner: { toJSON }
-			});
-			return schema;
-		};
-		Schema.natural = function natural() {
-			return Schema.number().step(1).min(0);
-		};
-		Schema.percent = function percent() {
-			return Schema.number().step(.01).min(0).max(1).role("slider");
-		};
-		Schema.date = function date() {
-			return Schema.union([Schema.is(Date), Schema.transform(Schema.string().role("datetime"), (value, options) => {
-				const date = new Date(value);
-				if (isNaN(+date)) throw new ValidationError(`invalid date "${value}"`, options);
-				return date;
-			}, true)]);
-		};
-		Schema.regExp = function regExp(flag = "") {
-			return Schema.union([Schema.is(RegExp), Schema.transform(Schema.string().role("regexp", { flag }), (value, options) => {
-				try {
-					return new RegExp(value, flag);
-				} catch (e) {
-					throw new ValidationError(e.message, options);
-				}
-			}, true)]);
-		};
-		Schema.arrayBuffer = function arrayBuffer(encoding) {
-			return Schema.union([
-				Schema.is(ArrayBuffer),
-				Schema.is(SharedArrayBuffer),
-				Schema.transform(Schema.any(), (value, options) => {
-					if (Binary.isSource(value)) return Binary.fromSource(value);
-					throw new ValidationError(`expected ArrayBufferSource but got ${value}`, options);
-				}, true),
-				...encoding ? [Schema.transform(Schema.string(), (value, options) => {
-					try {
-						return encoding === "base64" ? Binary.fromBase64(value) : Binary.fromHex(value);
-					} catch (e) {
-						throw new ValidationError(e.message, options);
-					}
-				}, true)] : []
-			]);
-		};
-		Schema.extend("lazy", (data, schema, options, strict) => {
-			if (!schema.inner[kSchema]) {
-				schema.inner = schema.builder();
-				schema.inner.meta = {
-					...schema.meta,
-					...schema.inner.meta
-				};
-				validateVolatileSchema(schema.inner, options.path, true);
-			}
-			return Schema.resolve(data, schema.inner, options, strict);
-		});
-		Schema.extend("any", (data) => {
-			return [data];
-		});
-		Schema.extend("never", (data, _, options) => {
-			throw new ValidationError(`expected nullable but got ${data}`, options);
-		});
-		Schema.extend("const", (data, { value }, options) => {
-			if (deepEqual(data, value)) return [value];
-			throw new ValidationError(`expected ${value} but got ${data}`, options);
-		});
-		function checkWithinRange(data, meta, description, options, skipMin = false) {
-			const { max = Infinity, min = -Infinity } = meta;
-			if (data > max) throw new ValidationError(`expected ${description} <= ${max} but got ${data}`, options);
-			if (data < min && !skipMin) throw new ValidationError(`expected ${description} >= ${min} but got ${data}`, options);
-		}
-		Schema.extend("string", (data, { meta }, options) => {
-			if (typeof data !== "string") throw new ValidationError(`expected string but got ${data}`, options);
-			if (meta.pattern) {
-				const regexp = new RegExp(meta.pattern.source, meta.pattern.flags);
-				if (!regexp.test(data)) throw new ValidationError(`expect string to match regexp ${regexp}`, options);
-			}
-			checkWithinRange(data.length, meta, "string length", options);
-			return [data];
-		});
-		function decimalShift(data, digits) {
-			const str = data.toString();
-			if (str.includes("e")) return data * Math.pow(10, digits);
-			const index = str.indexOf(".");
-			if (index === -1) return data * Math.pow(10, digits);
-			const frac = str.slice(index + 1);
-			const integer = str.slice(0, index);
-			if (frac.length <= digits) return +(integer + frac.padEnd(digits, "0"));
-			return +(integer + frac.slice(0, digits) + "." + frac.slice(digits));
-		}
-		function isMultipleOf(data, min, step) {
-			step = Math.abs(step);
-			if (!/^\d+\.\d+$/.test(step.toString())) return (data - min) % step === 0;
-			const index = step.toString().indexOf(".");
-			const digits = step.toString().slice(index + 1).length;
-			return Math.abs(decimalShift(data, digits) - decimalShift(min, digits)) % decimalShift(step, digits) === 0;
-		}
-		Schema.extend("number", (data, { meta }, options) => {
-			if (typeof data !== "number") throw new ValidationError(`expected number but got ${data}`, options);
-			checkWithinRange(data, meta, "number", options);
-			const { step } = meta;
-			if (step && !isMultipleOf(data, meta.min ?? 0, step)) throw new ValidationError(`expected number multiple of ${step} but got ${data}`, options);
-			return [data];
-		});
-		Schema.extend("boolean", (data, _, options) => {
-			if (typeof data === "boolean") return [data];
-			throw new ValidationError(`expected boolean but got ${data}`, options);
-		});
-		Schema.extend("bitset", (data, { bits, meta }, options) => {
-			let value = 0, keys = [];
-			if (typeof data === "number") {
-				value = data;
-				for (const key in bits) if (data & bits[key]) keys.push(key);
-			} else if (Array.isArray(data)) {
-				keys = data;
-				for (const key of keys) {
-					if (typeof key !== "string") throw new ValidationError(`expected string but got ${key}`, options);
-					if (key in bits) value |= bits[key];
-				}
-			} else throw new ValidationError(`expected number or array but got ${data}`, options);
-			if (value === meta.default) return [value];
-			return [value, keys];
-		});
-		Schema.extend("function", (data, _, options) => {
-			if (typeof data === "function") return [data];
-			throw new ValidationError(`expected function but got ${data}`, options);
-		});
-		Schema.extend("is", (data, { constructor }, options) => {
-			if (typeof constructor === "function") {
-				if (data instanceof constructor) return [data];
-				throw new ValidationError(`expected ${constructor.name} but got ${data}`, options);
-			} else {
-				if (isNullable(data)) throw new ValidationError(`expected ${constructor} but got ${data}`, options);
-				let prototype = Object.getPrototypeOf(data);
-				while (prototype) {
-					if (prototype.constructor?.name === constructor) return [data];
-					prototype = Object.getPrototypeOf(prototype);
-				}
-				throw new ValidationError(`expected ${constructor} but got ${data}`, options);
-			}
-		});
-		function property(data, key, schema, options) {
-			try {
-				const [value, adapted] = Schema.resolve(data[key], schema, {
-					...options,
-					path: [...options.path || [], key]
-				});
-				if (adapted !== void 0) data[key] = adapted;
-				return value;
-			} catch (e) {
-				if (!options?.autofix) throw e;
-				delete data[key];
-				return schema.meta.volatile ? createVolatile(schema.meta.default) : schema.meta.default;
-			}
-		}
-		Schema.extend("array", (data, { inner, meta }, options) => {
-			if (!Array.isArray(data)) throw new ValidationError(`expected array but got ${data}`, options);
-			checkWithinRange(data.length, meta, "array length", options, !isNullable(inner.meta.default));
-			return [data.map((_, index) => property(data, index, inner, options))];
-		});
-		Schema.extend("dict", (data, { inner, sKey }, options, strict) => {
-			if (!isPlainObject(data)) throw new ValidationError(`expected object but got ${data}`, options);
-			const result = {};
-			for (const key in data) {
-				let rKey;
-				try {
-					rKey = Schema.resolve(key, sKey, options)[0];
-				} catch (error) {
-					if (strict) continue;
-					throw error;
-				}
-				result[rKey] = property(data, key, inner, options);
-				data[rKey] = data[key];
-				if (key !== rKey) delete data[key];
-			}
-			return [result];
-		});
-		Schema.extend("tuple", (data, { list }, options, strict) => {
-			if (!Array.isArray(data)) throw new ValidationError(`expected array but got ${data}`, options);
-			const result = list.map((inner, index) => property(data, index, inner, options));
-			if (strict) return [result];
-			result.push(...data.slice(list.length));
-			return [result];
-		});
-		function merge(result, data) {
-			for (const key in data) {
-				if (key in result) continue;
-				result[key] = data[key];
-			}
-		}
-		Schema.extend("object", (data, { dict }, options, strict) => {
-			if (!isPlainObject(data)) throw new ValidationError(`expected object but got ${data}`, options);
-			const result = {};
-			for (const key in dict) {
-				const value = property(data, key, dict[key], options);
-				if (!isNullable(value) || key in data) result[key] = value;
-			}
-			if (!strict) merge(result, data);
-			return [result];
-		});
-		Schema.extend("union", (data, { list, toString }, options, strict) => {
-			const messages = [];
-			for (const inner of list) try {
-				return Schema.resolve(data, inner, options, strict);
-			} catch (error) {
-				messages.push(error);
-			}
-			throw new ValidationError(`expected ${toString()} but got ${JSON.stringify(data)}`, options);
-		});
-		Schema.extend("intersect", (data, { list, toString }, options, strict) => {
-			if (!list.length) return [data];
-			let result;
-			for (const inner of list) {
-				const value = Schema.resolve(data, inner, options, true)[0];
-				if (isNullable(value)) continue;
-				if (isNullable(result)) result = value;
-				else if (typeof result !== typeof value) throw new ValidationError(`expected ${toString()} but got ${JSON.stringify(data)}`, options);
-				else if (typeof value === "object") merge(result ??= {}, value);
-				else if (result !== value) throw new ValidationError(`expected ${toString()} but got ${JSON.stringify(data)}`, options);
-			}
-			if (!strict && isPlainObject(data)) merge(result, data);
-			return [result];
-		});
-		Schema.extend("transform", (data, { inner, callback, preserve }, options) => {
-			const [result, adapted = data] = Schema.resolve(data, inner, options, true);
-			if (preserve) return [callback(result)];
-			else return [callback(result), callback(adapted)];
-		});
-		const formatters = {};
-		function defineMethod(name, keys, format) {
-			formatters[name] = format;
-			Object.assign(Schema, { [name](...args) {
-				const schema = new Schema({ type: name });
-				keys.forEach((key, index) => {
-					switch (key) {
-						case "sKey":
-							schema.sKey = args[index] ?? Schema.string();
-							break;
-						case "inner":
-							schema.inner = Schema.from(args[index]);
-							break;
-						case "list":
-							schema.list = args[index].map(Schema.from);
-							break;
-						case "dict":
-							schema.dict = mapValues(args[index], Schema.from);
-							break;
-						case "bits":
-							schema.bits = {};
-							for (const key in args[index]) {
-								if (typeof args[index][key] !== "number") continue;
-								schema.bits[key] = args[index][key];
-							}
-							break;
-						case "callback": {
-							const callback = schema.callback = args[index];
-							callback["toJSON"] ||= () => callback.toString();
-							break;
-						}
-						case "constructor": {
-							const constructor = schema.constructor = args[index];
-							if (typeof constructor === "function") constructor["toJSON"] ||= () => constructor["name"];
-							break;
-						}
-						default: schema[key] = args[index];
-					}
-				});
-				if (name === "object" || name === "dict") schema.meta.default = {};
-				else if (name === "array" || name === "tuple") schema.meta.default = [];
-				else if (name === "bitset") schema.meta.default = 0;
-				return schema;
-			} });
-		}
-		defineMethod("is", ["constructor"], ({ constructor }) => {
-			if (typeof constructor === "function") return constructor.name;
-			else return constructor;
-		});
-		defineMethod("any", [], () => "any");
-		defineMethod("never", [], () => "never");
-		defineMethod("const", ["value"], ({ value }) => typeof value === "string" ? JSON.stringify(value) : value);
-		defineMethod("string", [], () => "string");
-		defineMethod("number", [], () => "number");
-		defineMethod("boolean", [], () => "boolean");
-		defineMethod("bitset", ["bits"], () => "bitset");
-		defineMethod("function", [], () => "function");
-		defineMethod("array", ["inner"], ({ inner }) => `${inner.toString(true)}[]`);
-		defineMethod("dict", ["inner", "sKey"], ({ inner, sKey }) => `{ [key: ${sKey.toString()}]: ${inner.toString()} }`);
-		defineMethod("tuple", ["list"], ({ list }) => `[${list.map((inner) => inner.toString()).join(", ")}]`);
-		defineMethod("object", ["dict"], ({ dict }) => {
-			if (Object.keys(dict).length === 0) return "{}";
-			return `{ ${Object.entries(dict).map(([key, inner]) => {
-				return `${key}${inner.meta.required ? "" : "?"}: ${inner.toString()}`;
-			}).join(", ")} }`;
-		});
-		defineMethod("union", ["list"], ({ list }, inline) => {
-			const result = list.map(({ toString: format }) => format()).join(" | ");
-			return inline ? `(${result})` : result;
-		});
-		defineMethod("intersect", ["list"], ({ list }) => {
-			return `${list.map((inner) => inner.toString(true)).join(" & ")}`;
-		});
-		defineMethod("transform", [
-			"inner",
-			"callback",
-			"preserve"
-		], ({ inner }, isInner) => inner.toString(isInner));
-		//#endregion
-		//#region lib/types/config.js
-		/** Window-local timing accepted by the Host and browser keyboard service. */
-		/** Validated deployment settings for fixed keyboard sequences. */
-		const Config = Schema.object({ stopSequenceMs: Schema.natural().min(1).max(2147483646).default(500) });
-		//#endregion
-		//#region lib/types/client/index.js
-		/** Browser command service, with one keyboard adapter per plugin lifetime. */
-		/** Cordis keyboard provider; Desktop startup requires its native keyboard bridge. */
-		var ShortcutsService = class extends _deepseek_ai_cordis.Service {
-			static inject = ["locale"];
-			runtime;
-			platform;
-			catalog;
-			config;
-			fixedCatalog;
-			stopSequenceMs;
-			fixedListeners = /* @__PURE__ */ new Set();
-			adapter;
-			keyboard;
-			active = true;
-			connected = false;
-			registry;
-			constructor(ctx) {
-				const environment = detectEnvironment(document, navigator);
-				const keyboard = environment.runtime === "desktop" ? window.dshDesktop?.keyboard : void 0;
-				if (environment.runtime === "desktop" && keyboard === void 0) throw new Error("Desktop keyboard bridge unavailable");
-				super(ctx, "shortcuts");
-				this.keyboard = keyboard;
-				this.runtime = environment.runtime;
-				this.platform = environment.platform;
-				const config = Config(globalThis.__DSH_SHORTCUTS_CONFIG__ ?? {});
-				this.stopSequenceMs = config.stopSequenceMs;
-				this.registry = new ShortcutRegistry(this.runtime, this.platform, initialShortcutConfig());
-				this.catalog = this.registry.catalog;
-				this.config = this.registry.config;
-				this.fixedCatalog = this.registry.fixedCatalog;
-				const publish = (snapshot) => {
-					if (this.active && this.connected && snapshot.sequence >= this.config.getSnapshot().sequence) this.registry.configure(snapshot);
-				};
-				const web = this.runtime === "web" ? webShortcutStorage(window, this.platform, publish) : void 0;
-				this.adapter = web ?? desktopShortcutStorage(window);
-				if (keyboard !== void 0) ctx.effect(() => installNativeKeyboard(window, keyboard, this.registry, () => this.config.getSnapshot(), () => {
-					this.fixedInput({ type: "reset" });
-				}), "shortcuts: native keyboard");
-				ctx.effect(() => {
-					const off = this.adapter?.subscribe(publish);
-					return () => {
-						this.active = false;
-						off?.();
-						web?.dispose();
-					};
-				}, "shortcuts: preferences");
-				this.syncDefinitions();
-				ctx.effect(() => {
-					const off = installKeyboard(window, this.registry, (input) => {
-						this.fixedInput(input);
-					}, keyboard !== void 0 && (this.platform === "macos" || this.platform === "windows"));
-					return () => {
-						off();
-						this.fixedListeners.clear();
-					};
-				}, "shortcuts: keyboard");
-				ctx.effect(() => ctx.locale.subscribe(() => {
-					this.registry.refreshLabels();
-				}), "shortcuts: locale");
-			}
-			register(command) {
-				const off = this.registry.register(command);
-				this.syncDefinitions();
+					return stop;
+				}, `slots.inject(${JSON.stringify(key)})`);
 				return () => {
-					off();
-					this.syncDefinitions();
+					disposeController();
 				};
-			}
-			registerFixed(command) {
-				const off = this.registry.registerFixed(command);
-				this.syncDefinitions();
-				return () => {
-					off();
-					this.syncDefinitions();
-				};
-			}
-			observeFixedInput(listener) {
-				this.fixedListeners.add(listener);
-				return () => {
-					this.fixedListeners.delete(listener);
-				};
-			}
-			fixedInput(input) {
-				let consumed = false;
-				for (const listener of [...this.fixedListeners]) {
-					if (!this.fixedListeners.has(listener)) continue;
-					try {
-						listener(input.type === "reset" ? input : {
-							...input,
-							gesture: {
-								...input.gesture,
-								defaultPrevented: input.gesture.defaultPrevented || consumed
-							},
-							consume: () => {
-								consumed = true;
-								input.consume();
-							}
-						});
-					} catch (error) {
-						console.error("Fixed shortcut handler failed", error);
-					}
-				}
-			}
-			describeBinding(binding) {
-				const normalized = binding === null ? null : normalizeBinding(binding, this.platform);
-				return {
-					binding: normalized,
-					keys: presentBinding(normalized, this.platform).keys,
-					issue: normalized === null ? null : bindingIssue(normalized, this.runtime, this.platform),
-					conflicts: normalized === null ? [] : [...this.catalog.getSnapshot().filter((row) => row.binding !== null && overlappingBindings(row.binding, normalized)).map((row) => row.id), ...this.fixedCatalog.getSnapshot().filter((row) => row.bindings.some((binding) => overlappingBindings(binding, normalized))).map((row) => row.id)]
-				};
-			}
-			syncDefinitions() {
-				if (!this.active) return;
-				if (this.adapter === void 0) {
-					this.failRead();
-					return;
-				}
-				this.adapter.get(this.registry.definitions()).then((snapshot) => {
-					this.connected = true;
-					if (this.active && snapshot.sequence >= this.config.getSnapshot().sequence) this.registry.configure(snapshot);
-				}, () => {
-					this.failRead();
-				});
-			}
-			failRead() {
-				if (this.active) this.registry.configure({
-					...this.config.getSnapshot(),
-					status: "unreadable",
-					error: "read"
-				});
 			}
 			/**
-			* Persist one reviewed operation while retaining accepted bindings on failure.
-			* @param args - edit and expected revision supplied by the editor.
-			* @returns classified save outcome and accepted snapshot.
+			* Install the shell's renderer (ui-renderer's createSlotRenderer product).
+			* Boot-once: a second install throws. Runs through the caller's ctx.effect,
+			* so shell fiber unload uninstalls the renderer.
+			* @param renderer - the outlet machinery implementing SlotRenderer.
 			*/
-			async edit(...args) {
-				if (this.adapter === void 0) return {
-					status: "unreadable",
-					snapshot: this.config.getSnapshot()
-				};
-				let result;
-				try {
-					result = await this.adapter.edit(...args);
-				} catch (error) {
-					if (this.active) console.error("Shortcut preference save failed", error);
-					return {
-						status: "write-failed",
-						snapshot: this.config.getSnapshot()
+			install(renderer) {
+				if (this._renderer !== void 0) throw new Error("slot renderer already installed (install() is boot-once)");
+				this.ctx.effect(() => {
+					this._renderer = renderer;
+					return () => {
+						if (this._renderer === renderer) this._renderer = void 0;
 					};
+				}, "slots.install()");
+			}
+			/**
+			* Install the locale face backing the `t` standard seat (the locale
+			* plugin's product; same boot-once discipline as the renderer install).
+			* Runs through the caller's ctx.effect, so the installing fiber's unload
+			* uninstalls the face.
+			* @param face - namespace binder + revision observable.
+			*/
+			installLocale(face) {
+				if (this._locale !== void 0) throw new Error("locale face already installed (installLocale() is boot-once)");
+				this.ctx.effect(() => {
+					this._locale = face;
+					return () => {
+						if (this._locale === face) this._locale = void 0;
+					};
+				}, "slots.installLocale()");
+			}
+			/**
+			* Contribute domain-owned root data. Hook names must be globally unique;
+			* registration and disposal republish one atomic root binding.
+			* @param contribution - bare sources and stable props.
+			* @returns disposer owned by the caller's Cordis fiber.
+			*/
+			provideRoot(contribution) {
+				const dispose = this.ctx.effect(() => {
+					this._rootContributions.push(contribution);
+					try {
+						this.rebuildRootBinding();
+					} catch (error) {
+						this._rootContributions.pop();
+						throw error;
+					}
+					return () => {
+						const index = this._rootContributions.indexOf(contribution);
+						if (index === -1) return;
+						this._rootContributions.splice(index, 1);
+						this.rebuildRootBinding();
+					};
+				}, "slots.provideRoot()");
+				return () => {
+					dispose();
+				};
+			}
+			/**
+			* Install the owner adapter for one strict scope. Its optional counterpart
+			* resolves through the same adapter.
+			* @param scope - strict scope name.
+			* @param adapter - current/resolved binding source and release notifications.
+			*/
+			installScope(scope, adapter) {
+				if (this._scopes.has(scope)) throw new Error(`slot scope '${scope}' already has an adapter`);
+				this.ctx.effect(() => {
+					this._scopes.set(scope, adapter);
+					this.publishScopeRevision();
+					return () => {
+						if (this._scopes.get(scope) === adapter) {
+							this._scopes.delete(scope);
+							this.publishScopeRevision();
+						}
+					};
+				}, `slots.installScope(${JSON.stringify(scope)})`);
+			}
+			/**
+			* Bind scoped Store instances to one Context generation. Rebinding the key
+			* drops the previous generation's memory instances before the new owner can
+			* resolve them. Cleanup never clears persisted state, which belongs to the
+			* durable scope key, or drops a replacement generation's instances.
+			*
+			* @param binding - materialized scope identity and its owning Context.
+			*/
+			bindStoreScope(binding) {
+				const current = this._storeScopeOwners.get(binding.key);
+				if (current === binding.ctx) return;
+				if (current !== void 0) this.releaseStoreScope(binding.key);
+				this._storeScopeOwners.set(binding.key, binding.ctx);
+				binding.ctx.effect(() => () => {
+					if (this._storeScopeOwners.get(binding.key) !== binding.ctx) return;
+					this._storeScopeOwners.delete(binding.key);
+					this.releaseStoreScope(binding.key);
+				}, `slots: store scope ${binding.key}`);
+			}
+			/**
+			* The single ctx-level render entry: the shell renders 'root'; every other
+			* key renders inside components through the props renderSlot face. All
+			* three guards are fail-loud boot-order checks, no fallback.
+			* @param key - must be 'root' (runtime-enforced for dynamically composed callers).
+			* @param owner - owner share for the root entry (the shell supplies {}).
+			* @returns the rendered root tree.
+			*/
+			renderSlot(key, owner) {
+				if (key !== "root") throw new Error(`ctx-level renderSlot only renders 'root' (got "${key}"); child slots render through the component props face`);
+				if (this._renderer === void 0) throw new Error("slot renderer not installed — boot must call ctx.slots.install(createSlotRenderer()) before rendering 'root'");
+				if (this._core.entries("root").length === 0) throw new Error("'root' has no registration — a layout entry must register into 'root' before the shell renders it");
+				return this._renderer.renderRoot(this.hostFace(), owner);
+			}
+			/**
+			* Snapshot entries for a key (render-erased view; stable reference between mutations).
+			* @param key - SlotMap key.
+			* @returns registered entries.
+			*/
+			entries(key) {
+				return this._core.entries(key);
+			}
+			/**
+			* Shadowing winners per cell for a key: the first live (non-abdicated)
+			* entry of each cell in priority order — what outlets render; chain keys
+			* pass through unchanged (election consumes every entry). The raw
+			* {@link SlotRegistry.entries} view stays the inspection surface. Fresh
+			* array per call, not a uSES getSnapshot source.
+			* @param key - SlotMap key.
+			* @returns the winning entry per occupied cell.
+			*/
+			entriesOfSlot(key) {
+				return this._core.entriesOfSlot(key);
+			}
+			/**
+			* Export the current JSON-safe Slot and Factory declaration trees for read-only inspection.
+			* @param root - exact live Slot key or `factory:<name>`; omitted returns all roots.
+			* @returns selected composition trees.
+			*/
+			snapshot(root) {
+				return this._core.snapshot(root);
+			}
+			/**
+			* Observe ordinary entry and Factory occurrence crashes through one
+			* supervision channel. Fires synchronously after any ordinary-entry
+			* abdication mutation. Callers own the disposer (wire it through ctx.effect
+			* for fiber-lifetime cleanup, as with {@link SlotRegistry.subscribe}).
+			* @param fn - called with the Slot or `factory:<name>` key, crashed
+			* registration, cause, and whether an ordinary entry was retired.
+			* @returns unsubscribe.
+			*/
+			onEntryError(fn) {
+				return this._core.onEntryError(fn);
+			}
+			/**
+			* Look up a declared spec (register-declared or the built-in 'root').
+			* @param key - SlotMap key.
+			* @returns spec or undefined.
+			*/
+			spec(key) {
+				return this._core.spec(key);
+			}
+			/**
+			* Subscribe to a key's registration changes (microtask-batched).
+			* @param key - SlotMap key.
+			* @param fn - change callback.
+			* @returns unsubscribe.
+			*/
+			subscribe(key, fn) {
+				return this._core.subscribe(key, fn);
+			}
+			/**
+			* Version counter for uSES pairing.
+			* @param key - SlotMap key.
+			* @returns current version.
+			*/
+			getVersion(key) {
+				return this._core.getVersion(key);
+			}
+			/** Delegating registration path: factory minting + registrant stamp + core write + instance-axis bookkeeping. */
+			_register(options, component) {
+				const store = typeof options.store === "function" ? options.store() : options.store;
+				const registrant = options.registrant ?? this.ctx.fiber?.name;
+				const erased = {
+					...options,
+					...store !== void 0 ? { store } : {},
+					...registrant !== void 0 ? { registrant } : {}
+				};
+				const dispose = this._core.register(erased, component);
+				if (store !== void 0) {
+					const scope = this._core.specDynamic(options.name).scope;
+					this._acquire(store, scope);
 				}
-				if (this.active && result.snapshot.sequence >= this.config.getSnapshot().sequence) this.registry.configure(result.snapshot);
-				return result;
+				let disposed = false;
+				return () => {
+					if (disposed) return;
+					disposed = true;
+					dispose();
+					if (store !== void 0) this._release(store);
+				};
 			}
-			async recording(active) {
-				if (this.adapter === void 0) throw new Error("Desktop shortcuts bridge unavailable");
-				await this.adapter.recording(active);
+			_registerFactory(options, component) {
+				const registrant = this.ctx.fiber?.name;
+				const erased = {
+					...options,
+					...registrant === void 0 ? {} : { registrant }
+				};
+				const dispose = this._core.registerFactory(erased, component);
+				const definition = this._core.factory(options.name);
+				if (definition === void 0) throw new Error(`slot factory "${options.name}" disappeared during registration`);
+				if (definition.store !== void 0 && typeof definition.store !== "function") this._acquire(definition.store, definition.scope);
+				else if (typeof definition.store === "function") this._factoryStores.set(definition, {
+					occurrences: /* @__PURE__ */ new WeakMap(),
+					mounted: /* @__PURE__ */ new Map()
+				});
+				let disposed = false;
+				return () => {
+					if (disposed) return;
+					disposed = true;
+					dispose();
+					this._factoryStores.delete(definition);
+					if (definition.store !== void 0 && typeof definition.store !== "function") this._release(definition.store);
+				};
 			}
-			async closeWindow() {
-				if (this.keyboard === void 0) throw new Error("Desktop keyboard bridge unavailable");
-				await this.keyboard.closeWindow(this.config.getSnapshot().revision);
+			/** Build the domain-neutral host face once; installed adapters remain live through getters. */
+			hostFace() {
+				if (this._host !== void 0) return this._host;
+				const service = this;
+				this._host = {
+					subscribe: (key, fn) => this._core.subscribe(key, fn),
+					getVersion: (key) => this._core.getVersion(key),
+					entriesOf: (key) => this._core.entries(key),
+					entriesOfSlot: (key) => this._core.entriesOfSlot(key),
+					reportEntryError: (key, entry, error, info) => {
+						this._core.reportEntryError(key, entry, error, info);
+					},
+					reportFactoryError: (name, registration, error) => {
+						this._core.reportFactoryError(name, registration, error);
+					},
+					specOf: (key) => this._core.specDynamic(key),
+					isLive: (entry) => this._core.isLive(entry),
+					storeOf: (entry, scopeBinding) => entry.store === void 0 ? void 0 : this.resolveStore(entry.store, scopeBinding),
+					factoryStoreOf: (definition, scopeBinding, occurrence) => this.resolveFactoryStore(definition, scopeBinding, occurrence),
+					retainFactoryOccurrence: (definition, occurrence) => this.retainFactoryOccurrence(definition, occurrence),
+					subscribeFactory: (name, fn) => this._core.subscribeFactory(name, fn),
+					getFactoryVersion: (name) => this._core.factoryVersion(name),
+					factoryOf: (name) => this._core.factory(name),
+					isFactoryLive: (definition) => this._core.isFactoryLive(definition),
+					root: this._rootSource,
+					scopeRevision: this._scopeRevisionSource,
+					scope: (scope) => service._scopes.get(scope === "session-maybe" ? "session" : scope),
+					get locale() {
+						return service._locale;
+					}
+				};
+				return this._host;
+			}
+			/** Validate and atomically publish the current root contribution roster. */
+			rebuildRootBinding() {
+				const hooks = {};
+				const keyedHooks = {};
+				const props = {};
+				const finalProps = /* @__PURE__ */ new Set();
+				for (const contribution of this._rootContributions) {
+					copyUnique("hook", hooks, contribution.hooks, finalProps, _deepseek_ai_dsh_client_ui_slots.standardHookPropName);
+					copyUnique("keyed hook", keyedHooks, contribution.keyedHooks, finalProps, _deepseek_ai_dsh_client_ui_slots.standardHookPropName);
+					copyUnique("prop", props, contribution.props, finalProps, (name) => name);
+				}
+				this._rootBinding = {
+					key: void 0,
+					hooks,
+					keyedHooks,
+					props
+				};
+				for (const listener of [...this._rootListeners]) try {
+					listener();
+				} catch (error) {
+					console.error("root standard-source subscriber failed:", error);
+				}
+			}
+			/** Publish one installed-scope roster transition after the map is authoritative. */
+			publishScopeRevision() {
+				this._scopeRevision += 1;
+				for (const listener of [...this._scopeListeners]) try {
+					listener();
+				} catch (error) {
+					console.error("scope-adapter subscriber failed:", error);
+				}
+			}
+			/** Resolve (create or reuse) the store instance for a registered handle under a scope key. */
+			resolveStore(handle, scopeBinding) {
+				const record = this._stores.get(handle);
+				if (record === void 0) throw new Error("store handle is not registered (entry unloaded, or the handle never went through register)");
+				let key;
+				if (record.scope === "root") key = ROOT_INSTANCE_KEY;
+				else {
+					if (scopeBinding === void 0) throw new Error(`${record.scope} store resolution requires a session id`);
+					key = scopeBinding.key;
+					this.bindStoreScope(scopeBinding);
+				}
+				let instance = record.instances.get(key);
+				if (instance === void 0) {
+					instance = record.scope === "root" ? handle.create() : handle.create(key);
+					record.instances.set(key, instance);
+				}
+				return instance;
+			}
+			resolveFactoryStore(definition, scopeBinding, occurrence) {
+				if (!this._core.isFactoryLive(definition)) throw new _deepseek_ai_dsh_client_ui_slots.StaleAuthorizationError(`slot factory "${definition.name}" is not registered`);
+				const declaration = definition.store;
+				if (declaration === void 0) return void 0;
+				if (typeof declaration !== "function") return this.resolveStore(declaration, scopeBinding);
+				const axis = this._factoryStores.get(definition);
+				const scopeKey = definition.scope === "root" ? ROOT_INSTANCE_KEY : requireScopeKey(definition, scopeBinding);
+				if (scopeBinding !== void 0 && definition.scope !== "root") this.bindStoreScope(scopeBinding);
+				let record = axis.occurrences.get(occurrence);
+				if (record === void 0) {
+					const handle = declaration();
+					if (handle.spec.persist !== void 0) throw new SlotAssemblyError(`exclusive store for factory "${definition.name}" cannot declare persistence`);
+					record = {
+						handle,
+						instances: /* @__PURE__ */ new Map(),
+						retainers: 0
+					};
+					axis.occurrences.set(occurrence, record);
+				}
+				const existing = record.instances.get(scopeKey);
+				if (existing !== void 0) return existing;
+				const instance = definition.scope === "root" || scopeBinding === void 0 ? record.handle.create() : record.handle.create(scopeBinding.key);
+				record.instances.set(scopeKey, instance);
+				return instance;
+			}
+			retainFactoryOccurrence(definition, occurrence) {
+				if (!this._core.isFactoryLive(definition)) return () => {};
+				if (typeof definition.store !== "function") return () => {};
+				const axis = this._factoryStores.get(definition);
+				const record = axis.occurrences.get(occurrence);
+				record.retainers += 1;
+				axis.mounted.set(occurrence, record);
+				let released = false;
+				return () => {
+					if (released) return;
+					released = true;
+					record.retainers -= 1;
+					if (record.retainers !== 0) return;
+					axis.mounted.delete(occurrence);
+				};
+			}
+			/** Drop every materialized non-root Store instance for one ended Context generation. */
+			releaseStoreScope(key) {
+				for (const record of this._stores.values()) {
+					if (record.scope === "root") continue;
+					record.instances.delete(key);
+				}
+				for (const axis of this._factoryStores.values()) for (const record of axis.mounted.values()) record.instances.delete(key);
+			}
+			/** Bind (or re-reference) a handle on the axis; cross-scope conflicts already threw in the core. */
+			_acquire(handle, scope) {
+				const record = this._stores.get(handle);
+				if (record === void 0) {
+					this._stores.set(handle, {
+						scope,
+						refs: 1,
+						instances: /* @__PURE__ */ new Map()
+					});
+					return;
+				}
+				record.refs += 1;
+			}
+			/** Drop one reference; the last holder's unload drops the record (instances go with it — engine stores need no explicit dispose). */
+			_release(handle) {
+				const record = this._stores.get(handle);
+				/* v8 ignore next -- defensive: release only runs from a disposer whose
+				* register acquired the same handle, so the record must exist; kept so a
+				* future call site cannot underflow the axis. */
+				if (record === void 0) return;
+				record.refs -= 1;
+				if (record.refs !== 0) return;
+				this._stores.delete(handle);
 			}
 		};
+		function copyUnique(kind, target, values, finalProps, propNameOf) {
+			if (values === void 0) return;
+			for (const [name, value] of Object.entries(values)) {
+				const propName = propNameOf(name);
+				if (finalProps.has(propName)) throw new Error(`duplicate root standard ${kind} '${name}' at prop '${propName}'`);
+				finalProps.add(propName);
+				target[name] = value;
+			}
+		}
+		SlotRegistry.prototype.register = function register(rawOptions, component) {
+			const options = rawOptions;
+			return this.ctx.effect(() => this["_register"](options, component), "slots.register()");
+		};
+		SlotRegistry.prototype.registerFactory = function registerFactory(rawOptions, component) {
+			const options = rawOptions;
+			return this.ctx.effect(() => this["_registerFactory"](options, component), "slots.registerFactory()");
+		};
+		function requireScopeKey(definition, binding) {
+			if (binding === void 0) throw new Error(`${definition.scope} factory store resolution requires a session id`);
+			return binding.key;
+		}
 		//#endregion
-		module.exports = ShortcutsService;
+		//#region lib/types/client/index.js
+		/**
+		* Browser UI renderer. It installs the slot renderer after its Cordis
+		* dependencies activate and exposes the mount operation used by the web boot
+		* kernel after the complete client roster settles.
+		*/
+		/** Services required before application assembly. */
+		const inject = [];
+		/** Hydrate the kernel-owned loading DOM before replacing it with the application. */
+		function BootHandoff(props) {
+			const [ready, setReady] = (0, react.useState)(false);
+			(0, react.useLayoutEffect)(() => {
+				setReady(true);
+			}, []);
+			if (ready) return props.app();
+			return (0, react.createElement)("div", {
+				className: props.boot.className,
+				"data-dsh-boot": "",
+				dangerouslySetInnerHTML: { __html: props.boot.html }
+			});
+		}
+		/** Mount React while preserving the framework-free boot DOM through hydration. */
+		function mountApp(container, app) {
+			const boot = container.querySelector(":scope > [data-dsh-boot]");
+			if (boot !== null) return (0, react_dom_client.hydrateRoot)(container, (0, react.createElement)(BootHandoff, {
+				app,
+				boot: {
+					className: boot.className,
+					html: boot.innerHTML
+				}
+			}));
+			const root = (0, react_dom_client.createRoot)(container);
+			(0, react_dom.flushSync)(() => {
+				root.render(app());
+			});
+			return root;
+		}
+		/**
+		* Install the slot renderer and provide the application mount face.
+		* @param ctx - Plugin context.
+		*/
+		function apply(ctx) {
+			new SlotRegistry(ctx).install(createSlotRenderer());
+			ctx.reflect.provide("uiRenderer", { mount: (container) => {
+				const root = mountApp(container, buildRenderApp({ ctx }));
+				return () => {
+					root.unmount();
+				};
+			} });
+		}
+		//#endregion
+		exports.SlotRegistry = SlotRegistry;
+		exports.apply = apply;
+		exports.inject = inject;
 		return module.exports;
 	}
 });
 ;
-//# sourceMappingURL=??@deepseek-ai/dsh-client-shortcuts/client.js.map&rev=60f683b8e434
+//# sourceMappingURL=??@deepseek-ai/dsh-client-ui-renderer/client.js.map&rev=15c9933f1238
