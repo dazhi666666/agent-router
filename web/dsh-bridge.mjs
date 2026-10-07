@@ -122,6 +122,10 @@ export function synthesizeSessionEvents(entries, take = null, state = null) {
   const assistantTexts = new Set();
   let seq = -1;
   let step = 1, open = true;
+  // 思考（thought）与它后面的正文同属一次模型尝试：合并成同一条 assistant/message 的
+  // reasoning 块。拆成两条会让客户端在流式期间把思考消息扣在 pending 里无法结算，
+  // 下一次 start 帧就会触发 rebaseline（表现即运行中内容顺序错乱/闪烁）
+  let pendingThought = null;
   const time0 = Date.parse(entries[0].ts) || Date.now();
   const push = (type, data, extra) => { seq += 1; events.push({ type, seq, time: time0, data, ...extra }); };
   const openStep = () => { if (!open) { push('step/start', { turn: 1, step }); open = true; } };
@@ -132,11 +136,18 @@ export function synthesizeSessionEvents(entries, take = null, state = null) {
     const d = e.data || {};
     const time = Date.parse(e.ts) || time0;
     const emit = (type, data, extra) => { seq += 1; events.push({ type, seq, time, data, ...extra }); };
+    if (e.kind === 'thought') {
+      const t = String(d.text ?? '');
+      pendingThought = pendingThought ? `${pendingThought}\n\n${t}` : t;
+      continue;
+    }
     if (e.kind === 'assistant') {
       const text = String(d.text ?? '');
       assistantTexts.add(text);
       openStep();
-      emit('assistant/message', { turn: 1, step, message: assistantMessage(`m${seq}`, text), stream: [] }, { surfaceOp: 'append' });
+      const content = pendingThought ? [{ type: 'reasoning', text: pendingThought }, { type: 'text', text }] : [{ type: 'text', text }];
+      pendingThought = null;
+      emit('assistant/message', { turn: 1, step, message: { ...assistantMessage(`m${seq}`, ''), content }, stream: [] }, { surfaceOp: 'append' });
       closeStep();
       continue;
     }
@@ -144,7 +155,14 @@ export function synthesizeSessionEvents(entries, take = null, state = null) {
       const text = String(d.text || '');
       if (!text || !assistantTexts.has(text)) {
         openStep();
-        emit('assistant/message', { turn: 1, step, message: assistantMessage(`m${seq}`, text), stream: [] }, { surfaceOp: 'append' });
+        const content = pendingThought ? [{ type: 'reasoning', text: pendingThought }, { type: 'text', text }] : [{ type: 'text', text }];
+        pendingThought = null;
+        emit('assistant/message', { turn: 1, step, message: { ...assistantMessage(`m${seq}`, ''), content }, stream: [] }, { surfaceOp: 'append' });
+      } else if (pendingThought) {
+        // 思考没有等到正文就遇到回合结束：单独下发一条 reasoning 消息，避免丢失
+        openStep();
+        emit('assistant/message', { turn: 1, step, message: { ...assistantMessage(`m${seq}`, ''), content: [{ type: 'reasoning', text: pendingThought }] }, stream: [] }, { surfaceOp: 'append' });
+        pendingThought = null;
       }
       closeStep();
       emit('turn/end', { turn: 1, reason: d.isError ? { kind: 'error', error: { message: text.slice(0, 200) || '会话失败', code: 'UNKNOWN' } } : { kind: 'completed' } });
@@ -157,8 +175,6 @@ export function synthesizeSessionEvents(entries, take = null, state = null) {
       // Router 注入的 [事件] / [信箱] 仍按用户消息下发（dsh 会把回合中的注入上下文整个隐藏），页面上由 board-embed.js 改成提示条样式；
       // take 命中的那条带上 prompt 的 requestId：客户端凭它回收乐观气泡，缺了同一条消息会渲染两遍
       emit('user/message', userMessage(`m${seq}`, d.text, take?.(e)), { surfaceOp: 'append' });
-    } else if (e.kind === 'thought') {
-      emit('assistant/message', { turn: 1, step, message: { ...assistantMessage(`m${seq}`, ''), content: [{ type: 'reasoning', text: String(d.text ?? '') }] }, stream: [] }, { surfaceOp: 'append' });
     } else if (e.kind === 'tool_use') {
       emit('tool/call', { turn: 1, step, callId: String(d.id || `call-${seq}`), name: String(d.name || 'tool'), arguments: JSON.stringify(d.input ?? d.raw ?? {}) });
     } else if (e.kind === 'tool_result') {
@@ -339,9 +355,17 @@ export function createBridge({ sessions, runs }) {
       //    revision 与 chunk.index 逐帧严格 +1；日志 assistant/message 事件先到，
       //    end 帧用其 seq 结算，且必须赶在该消息的 step/end 之前（否则保留态卡死）
       let rev = 0, streamLines = null, attempt = null;
+      // 扣住的 step/end：协议要求 end 帧先于它（客户端靠 step/end 退休流式残留），
+      // end 帧发不出的批次里先扣住，结算后补发
+      let deferredStepEnd = null;
       const asFrame = f => { rev += 1; send({ type: 'assistant-stream', frame: { revision: rev, ...f } }); };
-      const streamPath = s.runId && s.thread ? path.join(runs.dir(s.runId), 'threads', `${s.thread}.stream.jsonl`) : null;
+      // 运行绑定可能晚于 follow 打开（新会话先开面板再发首条消息），所以每次泵都重新解析流文件路径
+      const streamPathFor = () => {
+        const cur = sessions.resolve(id);
+        return cur?.runId ? path.join(runs.dir(cur.runId), 'threads', `${cur.thread}.stream.jsonl`) : null;
+      };
       const pumpStream = () => {
+        const streamPath = streamPathFor();
         if (!streamPath) return;
         let lines;
         try { lines = fs.readFileSync(streamPath, 'utf8').split('\n'); } catch { return; }
@@ -373,22 +397,29 @@ export function createBridge({ sessions, runs }) {
           const events = synthesizeSessionEvents(entries(get(id)), echoTagger(id), state);
           const fresh = events.slice(count);
           count = events.length;
-          let settleSeq = -1, settled = false;
+          let settleSeq = -1, settled = false, endSent = false;
           if (attempt?.pendingEnd) {
-            const m = events.find(e => e.type === 'assistant/message' && e.seq > attempt.startedAfterSeq && e.data.turn === attempt.turn && e.data.step === attempt.step && e.data.message?.content?.[0]?.type === 'text');
+            // 结算目标是含正文块的 assistant/message（思考已并入同一条消息的 reasoning 块）
+            const m = events.find(e => e.type === 'assistant/message' && e.seq > attempt.startedAfterSeq && e.data.turn === attempt.turn && e.data.step === attempt.step && e.data.message?.content?.some?.(b => b?.type === 'text'));
             if (m) { settleSeq = m.seq; settled = true; }
           }
-          for (const event of fresh) {
-            send({ type: 'event', event });
-            if (settled && event.seq === settleSeq) {
-              asFrame({ type: 'end', attemptId: attempt.id, index: attempt.nextIndex, outcome: { kind: 'completed', seq: settleSeq, eventType: 'assistant/message' } });
-              attempt = null;
-            }
-          }
-          if (settled && !fresh.some(e => e.seq === settleSeq)) {
-            // 结算事件在更早批次已发：end 帧此刻补发（该消息的 step/end 尚未发出，顺序仍正确）
+          const sendEnd = () => {
             asFrame({ type: 'end', attemptId: attempt.id, index: attempt.nextIndex, outcome: { kind: 'completed', seq: settleSeq, eventType: 'assistant/message' } });
-            attempt = null;
+            attempt = null; endSent = true;
+            if (deferredStepEnd) { send({ type: 'event', event: deferredStepEnd }); deferredStepEnd = null; }
+          };
+          for (const event of fresh) {
+            // 该消息的 step/end 必须排在 end 帧之后；end 帧发不出的批次里先扣住
+            if (event.type === 'step/end' && attempt && !endSent && event.data.turn === attempt.turn && event.data.step === attempt.step) {
+              deferredStepEnd = event;
+              continue;
+            }
+            send({ type: 'event', event });
+            if (settled && !endSent && event.seq === settleSeq) sendEnd();
+          }
+          if (settled && !endSent) {
+            // 结算事件在更早批次已发：end 帧此刻补发
+            sendEnd();
           }
         } catch (e) { send({ type: 'error', error: { code: 'router/read-failed', message: e.message } }); }
       };
