@@ -16,8 +16,16 @@ const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const ROSTER = [{ name: 'manager', description: 'm' }, { name: 'claude', description: 'c' }, { name: 'zcode', description: 'z' }];
 function tmp(t) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ar-core-'));
-  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 }));
   return dir;
+}
+/** Kill a spawned router and everything it started (Codex, MCP servers), and wait for it to exit */
+async function killTree(child) {
+  if (child.exitCode !== null) return;
+  const closed = new Promise(r => child.once('close', r));
+  if (process.platform === 'win32') spawnSync('taskkill', ['/PID', String(child.pid), '/T', '/F'], { windowsHide: true });
+  else child.kill('SIGKILL');
+  await closed;
 }
 const tick = (ms = 10) => new Promise(r => setTimeout(r, ms));
 async function until(fn, ms = 3000) {
@@ -225,7 +233,10 @@ test('router end-to-end with fake agents: dispatch, report injection, follow-up 
   await until(() => JSON.parse(fs.readFileSync(path.join(data, 'status.json'), 'utf8')).main === 'zcode', 5000);
 });
 
-test('router with a chat-only main agent: text tool calls, read-only fs tools, consult for subagents', async t => {
+const CODEX_EXE = path.join(process.env.APPDATA || '', 'npm', 'node_modules', '@openai', 'codex', 'node_modules', '@openai', 'codex-win32-x64', 'vendor', 'x86_64-pc-windows-msvc', 'bin', 'codex.exe');
+const hasCodex = !!process.env.AGENT_ROUTER_CODEX_EXE || fs.existsSync(CODEX_EXE);
+
+test('router with a chat-only model as main agent: Codex drives it through the gateway; subagents can consult it', { skip: !hasCodex && 'Codex CLI not installed', timeout: 120000 }, async t => {
   const dir = tmp(t);
   const repo = path.join(dir, 'repo'); fs.mkdirSync(repo);
   fs.writeFileSync(path.join(repo, 'README.md'), 'HELLO README');
@@ -235,17 +246,18 @@ test('router with a chat-only main agent: text tool calls, read-only fs tools, c
   const child = spawn(process.execPath, [path.join(ROOT, 'router.mjs'), 'design it', '--chat', '--main', 'brain', '--repo', repo, '--agents', 'claude', '--data', data],
     { env: { ...process.env, AGENT_ROUTER_TEST_AGENTS: path.join(ROOT, 'core', 'test-fake-agents.mjs'), AGENT_ROUTER_RUN_CONFIG: runConfig }, windowsHide: true });
   let out = ''; child.stdout.on('data', d => out += d); child.stderr.on('data', d => out += d);
-  t.after(() => { try { child.kill(); } catch {} });
   const thread = () => { try { return fs.readFileSync(path.join(data, 'threads', 'manager.jsonl'), 'utf8'); } catch { return ''; } };
-  await until(() => /FINAL: chat main got/.test(thread()), 15000).catch(e => { throw new Error(`${e.message}\n${out}\n${thread()}`); });
+  await until(() => /FINAL: chat main got/.test(thread()), 90000).catch(async e => { await killTree(child); throw new Error(`${e.message}\n${out}\n${thread()}`); });
   assert.match(thread(), /FINAL: chat main got the consult answer/);
+  // Codex 自己的工具执行了命令，任务经 board MCP 派出
   const entries = thread().split('\n').filter(Boolean).map(l => JSON.parse(l));
-  assert.match(entries[0].data.text, /cannot edit files or run commands yourself[\s\S]*<tool_call>[\s\S]*## create_task[\s\S]*## read_file/);
-  assert.doesNotMatch(entries[0].data.text, /## consult/);  // 主代理自己就是顾问模型
-  assert.deepEqual(entries.filter(e => e.kind === 'tool_use').map(e => e.data.name), ['read_file', 'create_task']);
+  const tools = entries.filter(e => e.kind === 'tool_use').map(e => e.data.name);
+  assert.ok(tools.includes('shell') && tools.includes('board.create_task'), tools.join(','));
   const board = JSON.parse(fs.readFileSync(path.join(data, 'board.json'), 'utf8'));
   assert.equal(board.tasks[0].result, 'report from claude for T1; consulted: ADVICE-42');
   const status = JSON.parse(fs.readFileSync(path.join(data, 'status.json'), 'utf8'));
   assert.equal(status.main, 'brain');
-  assert.ok(fs.existsSync(path.join(data, 'chat-sessions', `${status.sessionId}.json`)));
+  assert.ok(status.sessionId);
+  assert.ok(fs.existsSync(path.join(data, 'codex-home', 'catalog.json')));
+  await killTree(child); // 先停掉 Router 和它启动的 Codex，临时目录才能删除
 });

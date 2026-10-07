@@ -17,9 +17,12 @@ const DSH = path.join(ROOT, 'dsh-web');
 const MIME = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.json': 'application/json', '.webmanifest': 'application/manifest+json', '.woff': 'font/woff', '.woff2': 'font/woff2', '.ttf': 'font/ttf', '.map': 'application/json' };
 const PLUGINS = readJson(path.join(DSH, 'plugins', 'map.json'), {});
 // 首页是 dsh 界面（dsh-web/ 为 deepseek-harness 的本地构建），注入 Agent Router 的样式、顶栏与面板；构建缺失时首页转到经典控制台
+// AR_STREAM_PORT 告诉前端把常驻会话流指到独立端口：dsh 固定开 5 条长流，加上运行中的 SSE 正好占满
+// 浏览器对单域名的 6 连接上限，普通接口请求会永远排队，面板就会"加载不出来"
+const STREAM_PORT = Number(process.env.PORT || 2288) + 1;
 const INDEX = (() => {
   try {
-    return fs.readFileSync(path.join(DSH, 'index.html'), 'utf8').replace('<title>DSH Local Build</title>', '<title>Agent Router · 协作空间</title>').replace('</head>', '<link rel="stylesheet" href="/router-ui.css"><script src="/router-transport.js" defer></script></head>').replace('</body>', '<script src="/board-embed.js" defer></script></body>');
+    return fs.readFileSync(path.join(DSH, 'index.html'), 'utf8').replace('<title>DSH Local Build</title>', '<title>Agent Router · 协作空间</title>').replace('</head>', `<script>window.AR_STREAM_PORT=${STREAM_PORT}</script><link rel="stylesheet" href="/router-ui.css"><script src="/router-transport.js" defer></script></head>`).replace('</body>', '<script src="/board-embed.js" defer></script></body>');
   } catch {
     return null;
   }
@@ -57,25 +60,40 @@ function listDirs(dir) {
   const parent = path.dirname(target);
   return { path: target, parent: parent === target ? null : parent, dirs, home, roots, isGit: fs.existsSync(path.join(target, '.git')) };
 }
-// 示例项目随仓库分发；新 clone 下它没有自己的 .git，会被当成 Agent Router 仓库的一部分（任务提交会落进本仓库）。首次启动时给它单独初始化一个仓库
-function ensureDemoRepo(dir) {
-  if (!fs.existsSync(dir) || fs.existsSync(path.join(dir, '.git'))) return;
+// 示例项目 demo/todo-cli 只作模板：首次启动时复制到数据目录（已被 .gitignore）并单独初始化仓库，
+// 任务的改动和提交都落在副本里，不会弄脏 Agent Router 自己的工作区
+function ensureDemoRepo(template, dir) {
+  if (!fs.existsSync(dir)) {
+    if (!fs.existsSync(template)) return template;
+    fs.cpSync(template, dir, { recursive: true, filter: src => path.basename(src) !== '.git' });
+  }
   const git = (...args) => spawnSync('git', ['-C', dir, '-c', 'user.name=Agent Router', '-c', 'user.email=agent-router@localhost', ...args], { encoding: 'utf8', windowsHide: true });
-  if (git('init', '-q').status !== 0) return;
-  git('add', '-A'); git('commit', '-q', '-m', 'demo: initial snapshot');
+  // 已是独立仓库（顶层就是它自己）则跳过；残缺的 .git 目录也会被重新初始化
+  const top = git('rev-parse', '--show-toplevel').stdout.trim();
+  if (top && path.resolve(top) === path.resolve(dir)) return dir;
+  if (git('init', '-q').status === 0) { git('add', '-A'); git('commit', '-q', '-m', 'demo: initial snapshot'); }
+  return dir;
 }
 export function createApp({ dataDir = process.env.AGENT_ROUTER_DATA_DIR || path.join(ROOT, 'data'), launch, kill } = {}) {
   dataDir = path.resolve(dataDir);
   const runs = new Runs({ root: ROOT, dataDir, launch, kill });
-  ensureDemoRepo(path.join(ROOT, 'demo', 'todo-cli'));
-  const sessions = new Sessions(dataDir, path.join(ROOT, 'demo', 'todo-cli'));
+  const demo = ensureDemoRepo(path.join(ROOT, 'demo', 'todo-cli'), path.join(dataDir, 'demo', 'todo-cli'));
+  const sessions = new Sessions(dataDir, demo);
   const bridge = createBridge({ runs, sessions });
   // 预热可选模型清单（首个 CLI 扫描要数秒，避免第一个打开设置面板的请求卡顿）
   setTimeout(() => { try { modelCatalog(); } catch {} }, 500).unref();
-  const server = http.createServer(async (req, res) => {
+  const server = http.createServer(handler);
+  return { server, handler, runs, sessions, bridge };
+  async function handler(req, res) {
     try {
       const u = new URL(req.url, 'http://127.0.0.1');
       const parts = u.pathname.split('/').filter(Boolean).map(decodeURIComponent);
+      // 流端口与主端口是不同源：预检放行；流应答带 CORS，但只放行同主机名的页面（防任意网站跨站读取）
+      const originHost = (() => { try { return new URL(req.headers.origin || 'x://x').hostname; } catch { return null; } })();
+      const cors = originHost && originHost === (req.headers.host || '').split(':')[0]
+        ? { 'Access-Control-Allow-Origin': req.headers.origin, 'Access-Control-Allow-Headers': 'Content-Type', 'Access-Control-Allow-Methods': 'POST', Vary: 'Origin' }
+        : {};
+      if (req.method === 'OPTIONS') { res.writeHead(204, cors); return res.end(); }
       if (parts[0] === 'dsh-api' || parts[0] === 'dsh-api-stream') {
         const endpoint = parts.slice(1).join('/');
         if (req.method !== 'POST') return json(res, 405, { error: 'POST required' });
@@ -84,7 +102,7 @@ export function createApp({ dataDir = process.env.AGENT_ROUTER_DATA_DIR || path.
           try { return json(res, 200, bridge.unary(endpoint, payload)); }
           catch (e) { return json(res, 200, { ok: false, error: { code: 'router/request-failed', message: e.message, details: {} } }); }
         }
-        res.writeHead(200, { 'Content-Type': 'application/x-ndjson', 'Cache-Control': 'no-store', Connection: 'keep-alive' });
+        res.writeHead(200, { 'Content-Type': 'application/x-ndjson', 'Cache-Control': 'no-store', Connection: 'keep-alive', ...cors });
         let closed = false;
         const send = frame => { if (!closed) res.write(JSON.stringify(frame) + '\n'); };
         let cleanup = () => {};
@@ -94,7 +112,8 @@ export function createApp({ dataDir = process.env.AGENT_ROUTER_DATA_DIR || path.
       }
       if (u.pathname === '/api/health') {
         const cfg = loadConfig(), catalog = modelCatalog(), activeRuns = runs.list().filter(r => r.live);
-        return json(res, 200, { claude: fs.existsSync(cfg.claude.exe), zcode: fs.existsSync(cfg.zcode.entry), devin: fs.existsSync(cfg.devin.exe), codex: codexAvailable(), opencode: fs.existsSync(cfg.opencode.exe), antigravity: fs.existsSync(cfg.antigravity.exe), checks: { claude: '仅检测 CLI 路径，未验证登录', zcode: '仅检测 CLI 路径，未验证登录', devin: '仅检测 CLI 路径，未验证登录', codex: '检测 codex --version 可执行（未验证登录）', opencode: '仅检测 CLI 路径，未验证登录', antigravity: '仅检测 CLI 路径，未验证登录（密钥环静默登录，生成接口走本地代理）' }, models: Object.fromEntries(Object.entries(catalog).map(([k, v]) => [k, v.default || '客户端默认'])), paths: { claude: cfg.claude.exe, zcode: cfg.zcode.entry, devin: cfg.devin.exe, codex: cfg.codex.exe, opencode: cfg.opencode.exe, antigravity: cfg.antigravity.exe }, llm: Object.fromEntries(Object.entries(cfg.llm).map(([k, v]) => [k, { label: v.label || v.model || k, model: v.model || (v.module ? 'custom module' : null), ready: providerReady(v), apiKeyEnv: v.apiKeyEnv || null }])), consult: cfg.llm[cfg.consult] ? cfg.consult : null, busy: activeRuns.length > 0, activeRuns, activeRun: activeRuns[0] || null });
+        const codexOk = codexAvailable(); // 对话模型由 Codex 经 gateway 驱动
+        return json(res, 200, { claude: fs.existsSync(cfg.claude.exe), zcode: fs.existsSync(cfg.zcode.entry), devin: fs.existsSync(cfg.devin.exe), codex: codexOk, opencode: fs.existsSync(cfg.opencode.exe), antigravity: fs.existsSync(cfg.antigravity.exe), checks: { claude: '仅检测 CLI 路径，未验证登录', zcode: '仅检测 CLI 路径，未验证登录', devin: '仅检测 CLI 路径，未验证登录', codex: '检测 codex --version 可执行（未验证登录）', opencode: '仅检测 CLI 路径，未验证登录', antigravity: '仅检测 CLI 路径，未验证登录（密钥环静默登录，生成接口走本地代理）' }, models: Object.fromEntries(Object.entries(catalog).map(([k, v]) => [k, v.default || '客户端默认'])), paths: { claude: cfg.claude.exe, zcode: cfg.zcode.entry, devin: cfg.devin.exe, codex: cfg.codex.exe, opencode: cfg.opencode.exe, antigravity: cfg.antigravity.exe }, llm: Object.fromEntries(Object.entries(cfg.llm).map(([k, v]) => [k, { label: v.label || v.model || k, model: v.model || (v.module ? 'custom module' : null), ready: providerReady(v) && codexOk, codex: codexOk, apiKeyEnv: v.apiKeyEnv || null }])), consult: cfg.llm[cfg.consult] ? cfg.consult : null, busy: activeRuns.length > 0, activeRuns, activeRun: activeRuns[0] || null });
       }
       if (u.pathname === '/api/fs/dirs') return json(res, 200, listDirs(u.searchParams.get('path')));
       if (u.pathname === '/api/models') return json(res, 200, modelCatalog());
@@ -153,10 +172,14 @@ export function createApp({ dataDir = process.env.AGENT_ROUTER_DATA_DIR || path.
       if (u.pathname === '/console') { res.writeHead(302, { Location: '/console/' }); return res.end(); }
       return file(res, PUBLIC, parts[0] === 'console' ? parts.slice(1).join('/') || 'index.html' : parts.join('/'));
     } catch (e) { if (res.headersSent) return res.end(); json(res, e.code === 'ENOENT' ? 404 : 400, { error: e.message }); }
-  });
-  return { server, runs, sessions, bridge };
+  }
 }
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  const { server } = createApp(); const port = Number(process.env.PORT || 2288);
+  const { server, handler } = createApp(); const port = Number(process.env.PORT || 2288);
   server.listen(port, '127.0.0.1', () => console.log(`Agent Router: http://127.0.0.1:${server.address().port}`));
+  // 常驻会话流单独一个端口：流各占一条连接且永不结束，混在主端口会把浏览器同域 6 连接占满，
+  // 面板的普通请求就永远排队。独立端口有自己的连接池；起不来时前端自动回退同源（回到旧行为）
+  const streams = http.createServer(handler);
+  streams.on('error', e => console.error(`会话流端口 ${port + 1} 不可用（${e.message}），前端将回退同源流`));
+  streams.listen(port + 1, '127.0.0.1', () => console.log(`Agent Router 会话流: http://127.0.0.1:${streams.address().port}`));
 }

@@ -7,8 +7,9 @@ import { runtimeConfig, validateModels } from './models.mjs';
 import { loadConfig } from '../lib/config.mjs';
 
 const CLI_AGENTS = ['claude', 'zcode', 'devin', 'codex', 'opencode', 'antigravity'];
-// 主代理可以是 CLI，也可以是 router.config.json 里 llm 下配置的对话模型（chat-agent/）
-const validMain = main => CLI_AGENTS.includes(main) || Object.hasOwn(loadConfig().llm, main);
+// 成员可以是 CLI，也可以是 router.config.json 里 llm 下配置的对话模型（经 Codex + chat-agent gateway 运行）
+const validAgent = name => CLI_AGENTS.includes(name) || Object.hasOwn(loadConfig().llm, name);
+const validMain = validAgent;
 
 // CLI 启动的运行没有 run.json：从主代理线程首条消息（goalMessage 的「## 总目标」段）取目标
 function goalFromThread(dir) {
@@ -42,7 +43,7 @@ export class Runs {
     const repo = fs.realpathSync(path.resolve(input.repo || path.join(this.root, 'demo', 'todo-cli')));
     if (!fs.statSync(repo).isDirectory()) throw new Error('工作目录必须是文件夹');
     const agents = input.agents ?? ['claude', 'zcode'];
-    if (!Array.isArray(agents) || !agents.length || agents.some(a => !CLI_AGENTS.includes(a))) throw new Error('请选择有效执行成员');
+    if (!Array.isArray(agents) || !agents.length || agents.some(a => !validAgent(a))) throw new Error('请选择有效执行成员');
     const main = input.main ?? 'claude';
     if (!validMain(main)) throw new Error('请选择有效主代理');
     const timeout = Number(input.timeout ?? 900);

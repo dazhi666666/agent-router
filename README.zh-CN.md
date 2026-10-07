@@ -29,7 +29,7 @@
 
 - **生命周期由 Router 掌管**：子代理会话启动即 `in_progress`，正常结束即 `done`，**最终回复就是报告**。子代理只在需要报告失败时调用 `update_task(status="failed")`，不会再因为漏调工具把已完成的工作判成失败。
 - **完整报告回传主代理**：任务完成时，报告（最多 4000 字，全文保留在任务板上）和收割备注作为 `[事件]` 注入主会话。只有完成、失败、依赖受阻、子代理留言会唤醒主代理，不再发"已排队/已开始"这类白白消耗一个回合的通知。
-- **并发**：每个 agent 最多同时执行 `maxConcurrent` 个任务（`router.config.json`；默认 claude/codex/opencode/devin 为 2，zcode/antigravity 为 1，因为它们把 MCP 配置写在工作目录里）。带 `blocked_by` 的任务在依赖完成后开始；依赖失败时主代理会收到"受阻"通知。
+- **并发**：每个 agent 同时执行的任务数默认不限；需要限制某家时在 `router.config.json` 里配 `maxConcurrent`（如 `{"zcode": {"maxConcurrent": 2}}`）。带 `blocked_by` 的任务在依赖完成后开始；依赖失败时主代理会收到"受阻"通知。
 - **直通模式（默认）**：子代理在共享工作目录里干活，并只提交自己改过的文件。Router 不再替它们 `git add -A`：只有在该目录没有其他任务进行时才兜底提交遗留改动，否则原样保留并在完成通知里说明，改动不会被记到错误的任务名下。
 - **隔离任务**：`create_task(isolated: true)` 或 `--worktree` 让任务在独立 `git worktree` 中执行；成功则 `--no-ff` 合并（没有代码改动的任务也算成功），失败或合并冲突时保留 worktree 与分支供检查。
 - **续派**：`followup_task(task_id, message)` 在工作目录不变且 CLI 支持时 resume 子代理的原会话（claude、codex、opencode、zcode）；否则开新会话并注入原任务说明与上一轮报告。
@@ -149,12 +149,12 @@ node router.mjs "<总目标>" [选项]           # 目标模式：拆解目标�
 
 ### 只能对话的模型（不能用工具）
 
-只能对话的模型（DeepSeek、Kimi、本地模型，或任何你能包装成接口的 AI）有两种接入方式。代码在独立模块 [`chat-agent/`](chat-agent/README.md) 里。
+只能对话的模型（DeepSeek、Kimi、本地模型，或任何你能包装成接口的 AI）**跑在 Codex 里**，就成了完整的编程代理。Codex 仍然是 agent：shell、`apply_patch`、沙箱、上下文压缩和任务板 MCP 工具都是 Codex 自己的。Router 会启动一个本地 Responses gateway（独立模块 [`chat-agent/`](chat-agent/README.md)），Codex 把它当作模型提供方。gateway 把 Codex 的工具渲染成文本给模型，再把模型写的 `<tool_call>` 块转回真正的工具调用。因此需要安装 Codex CLI。
 
-- **当主代理**：Router 代它执行文本工具协议。模型在回复里写 `<tool_call>{"name": …, "arguments": …}</tool_call>`，Router 执行这些调用，并把结果放进下一条消息传回。可用的工具是任务板工具，加上工作目录内只读的 `read_file` / `list_files` / `search`。它自己不能改代码、不能跑命令，所以负责规划，把所有改动派给子代理，再审阅它们的报告。对话记录存在 `data/<run>/chat-sessions/`，`--resume` 和切换主代理照常可用。
-- **当 consult 顾问工具**：所有 agent（主代理和子代理）都能调用 `consult(question, context?, files?)` 向它请教。Router 会把列出的文件内容附上。
+- **当主代理或子代理**：`llm` 下的每个名字都和 CLI 一样是团队成员，可以用 `--main deepseek`、`--agents claude,deepseek`，或在设置面板的「对话模型」里选。会话就是 Codex 会话，`--resume`、续派和切换主代理照常可用。Codex 使用专用的 `CODEX_HOME`（`data/<run>/codex-home/`），里面描述了这个模型，并关掉了对话模型用不上的功能（Codex 自带的子代理、目标、图片、联网搜索、应用）。
+- **当 consult 顾问工具**：所有 agent 都能调用 `consult(question, context?, files?)` 向它请教。Router 会把列出的文件内容附上。
 
-在 `router.config.json` 里配置。`llm` 下的每个名字都可以作为主代理，用 `--main deepseek` 指定，或者在主代理选择器的「对话模型」分组里选：
+在 `router.config.json` 里配置：
 
 ```json
 {
@@ -165,7 +165,7 @@ node router.mjs "<总目标>" [选项]           # 目标模式：拆解目标�
 }
 ```
 
-任何 OpenAI 兼容接口都可以直接用，需要代理时加 `"proxy": "http://127.0.0.1:10808"`。其他接入方式可以用 `"module"` 指向一个 JS 文件，导出 `{ complete(messages) → { text } }` 即可。
+任何 OpenAI 兼容接口都可以直接用。需要代理时加 `"proxy": "http://127.0.0.1:10808"`；`"contextWindow"`（token 数，默认 128000）让 Codex 及时压缩上下文；`"maxConcurrent"` 限制并行的子代理任务数。其他接入方式可以用 `"module"` 指向一个 JS 文件，导出 `{ complete(messages) → { text } }` 即可。
 
 ### 提示词在哪看
 
@@ -184,7 +184,7 @@ data/<run>/
 ├── commands.jsonl       # Web → Router 命令通道（消息、取消、重试、切换模型）
 ├── logs/                # 每个会话的原始输出、manager 的完整事件流（manager-stream.log）
 ├── threads/             # 每个会话的事件线程；system 条目 = 实际发送给 AI 的系统提示词
-├── chat-sessions/       # 对话模型主代理（chat-agent/）的消息历史，每个会话 id 一个文件
+├── codex-home/          # 对话模型经 gateway 运行时的 CODEX_HOME（模型目录、配置、Codex 会话）
 └── worktrees/           # 仅 --worktree 或 isolated 任务使用（合并成功后自动删除）
 ```
 

@@ -1,59 +1,33 @@
 # chat-agent
 
-Plug a **chat-only model** (strong reasoning, no native tool calling) into an agent system. Zero dependencies, Node ≥ 18. Nothing in this directory imports from the rest of Agent Router. The router uses it through `index.mjs`.
+Connect **chat-only models** (strong reasoning, no native tool calling) to coding agents. Zero dependencies, Node ≥ 18. Nothing in this directory imports from the rest of Agent Router.
+
+The agent itself is [Codex](https://github.com/openai/codex), unchanged. Its own tools, sandbox, `apply_patch`, compaction and MCP support all apply. Codex talks to custom model providers only over the OpenAI Responses API, so this module provides a **Responses gateway**. It translates between Codex and a model that can only produce text.
+
+```
+Codex CLI ── Responses API ──▶ gateway ── chat messages ──▶ chat-only model
+   ▲          (tools, input items)        (tools as text, <tool_call> blocks)   │
+   └──── function_call / custom_tool_call items ◀── parsed from the reply ──────┘
+```
 
 | File | What it does |
 |---|---|
-| `provider.mjs` | `createProvider(cfg)`: calls any OpenAI-compatible `/chat/completions` endpoint (streamed, optional HTTP proxy, no idle timeouts), or loads a custom module |
-| `protocol.mjs` | the text tool-calling protocol: `protocolPrompt(tools)` renders the tools for the system prompt, `parseReply(text)` extracts `<tool_call>` blocks, `formatResults()` builds `<tool_result>` blocks |
-| `session.mjs` | `ChatAgentSession`: a persistent agent session that loops (model → tool calls → results → model) until a reply has no calls; queues messages that arrive mid-turn, trims old history, retries failed calls, and saves history per session id so it can be resumed |
-| `fs-tools.mjs` | `createFsTools(root)`: read-only `read_file` / `list_files` / `search`, confined to `root` |
-| `consult.mjs` | `createConsult({ provider, root })`: an "ask the expert" tool. The host attaches the files the caller lists, and the model answers in one shot |
+| `gateway.mjs` | `startGateway()` serves `POST /v1/responses` (SSE) and `GET /v1/models`. It renders Codex's tools (function, custom/freeform, namespaced MCP tools) into the text protocol and earlier calls and outputs back into `<tool_call>` / `<tool_result>` text. It parses the reply into `function_call` / `custom_tool_call` items, and bounces malformed or unknown calls back to the model before answering Codex. `codexModelInfo()` describes a chat model to Codex: freeform `apply_patch`, text-only input, Codex's base instructions. `codexProviderArgs()` gives the `-c` overrides that select it |
+| `codex-home.mjs` | `prepareCodexHome()` writes a dedicated `CODEX_HOME`: a model catalog plus a minimal feature set (no Codex sub-agents, goals, images, web search, apps or skills), so the user's own Codex setup stays out |
+| `protocol.mjs` | The text tool-calling protocol. JSON calls look like `<tool_call>{"name": …, "arguments": …}</tool_call>`. Freeform calls such as a patch use `<tool_call name="apply_patch">raw text</tool_call>` |
+| `provider.mjs` | `createProvider(cfg)` calls any OpenAI-compatible `/chat/completions` endpoint (streamed, optional HTTP proxy), or loads a custom module that exports `complete(messages)` |
+| `consult.mjs` | `createConsult()` is an "ask the expert" tool other agents can call. The listed files are attached and the model answers in one shot |
+| `codex/base_instructions.md` | Codex's default base instructions, copied from openai/codex (Apache-2.0, see `codex/README.md`) |
 
-## Protocol
-
-The model is told to write:
-
-```
-<tool_call>
-{"name": "create_task", "arguments": {"title": "...", "spec": "...", "assignee": "claude"}}
-</tool_call>
-```
-
-The host runs each call in order and replies in the next user message with `<tool_result name="create_task">…</tool_result>`. A reply with no calls ends the turn, and its text is the answer to the user.
-
-The tags are XML-style, not markdown fences, so specs that contain code blocks survive intact. The parser also tolerates a `json` fence inside the tag and an unterminated last block. It drops any `<tool_result>` blocks the model invents itself.
-
-## Providers
-
-```jsonc
-// OpenAI-compatible endpoint
-{ "label": "DeepSeek", "baseUrl": "https://api.deepseek.com/v1", "model": "deepseek-reasoner",
-  "apiKeyEnv": "DEEPSEEK_API_KEY", "params": { "temperature": 0.3 }, "proxy": null, "timeoutSec": 600 }
-
-// anything else: a module whose default export is a provider or a factory (cfg) => provider
-{ "label": "My bridge", "module": "./my-provider.mjs" }
-```
-
-A provider is `{ complete(messages, { signal }) → Promise<{ text, reasoning? }> }`. A reasoning trace (such as DeepSeek's `reasoning_content`) is recorded as a `thought` entry and never sent back to the model.
-
-## Minimal use
+## Run Codex on a chat model
 
 ```js
-import { ChatAgentSession, createProvider, createFsTools } from './chat-agent/index.mjs';
+import { startGateway, prepareCodexHome, codexProviderArgs, createProvider } from './chat-agent/index.mjs';
 
-const fsTools = createFsTools(process.cwd());
-const session = new ChatAgentSession({
-  provider: await createProvider({ baseUrl, model, apiKeyEnv: 'MY_KEY' }),
-  systemPrompt: 'You help with this repository.',
-  tools: fsTools.tools,
-  invoke: (name, args) => fsTools.invoke(name, args),
-  stateDir: './.chat-sessions',
-  onText: text => console.log(text),
-  onTurnEnd: () => console.log('-- turn done --')
-});
-session.start();
-session.send('What does src/index.js do?');
+const model = await createProvider({ baseUrl: 'https://api.deepseek.com/v1', model: 'deepseek-reasoner', apiKeyEnv: 'DEEPSEEK_API_KEY' });
+const gw = await startGateway({ models: async name => name === 'deepseek' ? model : null });
+const home = prepareCodexHome({ dir: './.codex-gateway', models: [{ name: 'deepseek', label: 'DeepSeek', contextWindow: 128000 }] });
+// CODEX_HOME=<home> CHAT_GATEWAY_TOKEN=<gw.token> codex exec ...codexProviderArgs({ url: gw.url, model: 'deepseek', tokenEnv: 'CHAT_GATEWAY_TOKEN' }) "task"
 ```
 
-Tests: `node --test chat-agent/test.mjs`.
+Tests: `node --test chat-agent/test.mjs`. The last test drives the real Codex CLI and is skipped when Codex is not installed.

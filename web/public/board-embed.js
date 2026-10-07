@@ -138,10 +138,10 @@
       ${h.paths?.[k] ? `<span class="ar-mono" title="${esc(h.paths[k])}">${esc(h.paths[k])}</span>` : ''}</span></div>`).join('');
     const chats = Object.entries(h.llm || {}).map(([k, v]) => `<div class="ar-row" style="cursor:default;align-items:flex-start">${avatar(k)}<span class="ar-row-text">
       <span class="ar-row-main">${esc(v.label)}<span class="ar-badge ${v.ready ? 'ok' : 'bad'}">${v.ready ? '已配置' : '缺少密钥'}</span></span>
-      <span class="ar-row-sub">对话模型 · ${esc(v.model || '')}${h.consult === k ? ' · 提供 consult 顾问工具' : ''}</span>
+      <span class="ar-row-sub">对话模型 · ${esc(v.model || '')}${v.codex ? '' : ' · 需要安装 Codex CLI'}${h.consult === k ? ' · 提供 consult 顾问工具' : ''}</span>
       ${v.ready ? '' : `<span class="ar-row-sub">设置环境变量 <code>${esc(v.apiKeyEnv || 'apiKey')}</code> 后重启服务</span>`}</span></div>`).join('');
     pane.innerHTML = `<section class="ar-section"><h3>编程代理（可当主代理或子代理）</h3><div class="ar-card">${rows}</div></section>
-      ${chats ? `<section class="ar-section"><h3>对话模型（只能当主代理）</h3><div class="ar-card">${chats}</div></section>` : ''}
+      ${chats ? `<section class="ar-section"><h3>对话模型（经 Codex 运行，可当主代理或子代理）</h3><div class="ar-card">${chats}</div></section>` : ''}
       <p class="ar-note">只检测了可执行文件是否存在，未验证登录状态。装在非默认位置时，在项目根目录的 <code>router.config.json</code> 里指定 <code>exe</code> 路径；需要代理的网络可以设置 <code>proxy</code>。</p>
       <div class="ar-footer"><button class="outline" id="ar-recheck">重新检测</button></div>`;
     $('#ar-recheck').onclick = () => renderEnv(true);
@@ -154,7 +154,7 @@
       return `<button type="button" class="ar-row${a === current ? ' on' : ''}" data-main="${esc(a)}" ${ok ? '' : 'disabled'}>${avatar(a)}<span class="ar-row-text"><span class="ar-row-main">${esc(agentName(a))}</span><span class="ar-row-sub">${esc(sub(ok))}</span></span>${a === current ? '<span class="ar-check">✓</span>' : ''}</button>`;
     };
     return `<div class="ar-card">${KEYS.map(a => row(a, ok => ok ? AGENTS[a].mode : '未安装 · 见环境检查')).join('')}</div>
-      ${chats.length ? `<p class="ar-help" style="margin:12px 0 6px">对话模型：只规划、派活和审阅，改代码全部交给子代理</p><div class="ar-card">${chats.map(a => row(a, ok => ok ? llm()[a].model || '' : `未配置 API Key${llm()[a].apiKeyEnv ? `（${llm()[a].apiKeyEnv}）` : ''}`)).join('')}</div>` : ''}`;
+      ${chats.length ? `<p class="ar-help" style="margin:12px 0 6px">对话模型：由 Codex 驱动，使用 Codex 的全部工具</p><div class="ar-card">${chats.map(a => row(a, ok => ok ? llm()[a].model || '' : (llm()[a].codex ? `未配置 API Key${llm()[a].apiKeyEnv ? `（${llm()[a].apiKeyEnv}）` : ''}` : '需要安装 Codex CLI'))).join('')}</div>` : ''}`;
   }
   function modelField(k, catalog, current) {
     const c = catalog[k] || {}, val = current[k] || '', def = c.default ? `默认（${c.default}）` : '客户端默认';
@@ -189,7 +189,7 @@
       </section>
       <section class="ar-section"><h3>主代理 <span style="font-weight:400">· 和你对话，决定自己做还是派给子代理</span></h3>${mainRows(s.main, chats)}</section>
       <section class="ar-section"><h3>子代理 <span style="font-weight:400">· 主代理可以把任务派给它们并行执行</span></h3>
-        <div class="ar-card">${KEYS.map(a => `<label class="ar-row${health[a] ? '' : ' disabled'}"><input type="checkbox" name="agents" value="${a}" ${s.agents.includes(a) ? 'checked' : ''} ${health[a] ? '' : 'disabled'}>${avatar(a)}<span class="ar-row-text"><span class="ar-row-main">${AGENTS[a].name}</span><span class="ar-row-sub">${health[a] ? esc(s.models?.[a] || health.models?.[a] || '客户端默认') : '未安装 · 见环境检查'}</span></span></label>`).join('')}</div>
+        <div class="ar-card">${KEYS.map(a => `<label class="ar-row${health[a] ? '' : ' disabled'}"><input type="checkbox" name="agents" value="${a}" ${s.agents.includes(a) ? 'checked' : ''} ${health[a] ? '' : 'disabled'}>${avatar(a)}<span class="ar-row-text"><span class="ar-row-main">${AGENTS[a].name}</span><span class="ar-row-sub">${health[a] ? esc(s.models?.[a] || health.models?.[a] || '客户端默认') : '未安装 · 见环境检查'}</span></span></label>`).join('')}${chats.map(a => `<label class="ar-row${mainReady(a) ? '' : ' disabled'}"><input type="checkbox" name="agents" value="${esc(a)}" ${s.agents.includes(a) ? 'checked' : ''} ${mainReady(a) ? '' : 'disabled'}>${avatar(a)}<span class="ar-row-text"><span class="ar-row-main">${esc(agentName(a))}</span><span class="ar-row-sub">对话模型 · 经 Codex 运行</span></span></label>`).join('')}</div>
       </section>
       <section class="ar-section"><h3>执行方式</h3>
         <div class="ar-seg"><button type="button" data-wt="false" class="${s.worktree ? '' : 'on'}">直通模式<small>子代理直接在工作目录里并行修改，最快</small></button><button type="button" data-wt="true" class="${s.worktree ? 'on' : ''}">隔离模式<small>每个任务一个 git worktree，完成后合并</small></button></div>

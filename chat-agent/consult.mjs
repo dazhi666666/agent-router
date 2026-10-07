@@ -2,7 +2,14 @@
 // The model sees only the request, so the host inlines the files the caller lists.
 import fs from 'node:fs';
 import path from 'node:path';
-import { resolveInside } from './fs-tools.mjs';
+
+/** Resolve a caller-supplied path inside root, or throw. */
+function resolveInside(root, p = '.') {
+  const abs = path.resolve(root, String(p || '.'));
+  const rel = path.relative(root, abs);
+  if (rel.startsWith('..') || path.isAbsolute(rel)) throw new Error(`path is outside the working directory: ${p}`);
+  return abs;
+}
 
 const FILE_LIMIT = 100000;   // chars per attached file
 const TOTAL_LIMIT = 400000;  // chars across all attached files

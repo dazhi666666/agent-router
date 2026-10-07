@@ -56,7 +56,7 @@ function threadsDir(runDir) {
 export function listThreadFiles(runDir) {
   try {
     return fs.readdirSync(threadsDir(runDir))
-      .filter(f => f.endsWith('.jsonl'))
+      .filter(f => f.endsWith('.jsonl') && !f.endsWith('.stream.jsonl'))
       .map(f => {
         const st = fs.statSync(path.join(threadsDir(runDir), f));
         return { file: f, name: f.replace(/\.jsonl$/, ''), size: st.size, mtimeMs: st.mtimeMs };
@@ -80,8 +80,8 @@ function readThreadEntries(runDir, name) {
 function ok(value) { return { ok: true, value }; }
 function fail(code, message) { return { ok: false, error: { code, message, details: {} } }; }
 
-function userMessage(id, text) {
-  return { id, role: 'user', source: { kind: 'user' }, content: [{ type: 'text', text: String(text ?? '') }] };
+function userMessage(id, text, rpcId) {
+  return { id, role: 'user', source: { kind: 'user', ...(rpcId ? { rpcId } : {}) }, content: [{ type: 'text', text: String(text ?? '') }] };
 }
 
 /** 非用户输入（source.kind 不是 user）在 dsh 里显示为注入上下文，kind 即标签 */
@@ -108,68 +108,84 @@ function toolResultMessage(id, callId, text, isError) {
 }
 
 /**
- * 单条线程条目 → 若干 SessionEvent(不带 turn 包装)。
- * seq 从 seqStart 连续编号;返回 { events, nextSeq }。
+ * 整个线程 → 完整 SessionEvent 日志。
+ * 每条 assistant 消息独占一个 step（消息后立即 step/end）：assistant 流式协议要求
+ * 上一消息的 step/end 到位后才能开始下一条的流式 attempt，否则客户端判定协议违规。
+ * seq 从 0 开始：dsh 游标协议是「cursor=最后一条事件的 seq，空日志为 -1」。
+ * take(entry) 命中 prompt 回显时给用户消息带 rpcId（见 createBridge.pendingEcho）；
+ * state 可选，回填合成结束时的 turn/step/stepOpen，供流式 attempt 定位下一消息的落点。
  */
-function synthesizeEntry(e, seqStart, assistantTexts) {
-  const events = [];
-  let seq = seqStart;
-  const push = (type, data, extra) => {
-    seq += 1;
-    events.push({ type, seq, time: Date.parse(e.ts) || Date.now(), data, ...extra });
-  };
-  const d = e.data || {};
-  if (e.kind === 'system') {
-    push('user/message', contextMessage(`m${seq}`, '系统提示词', d.text), { surfaceOp: 'append' });
-  } else if (e.kind === 'user') {
-    // Router 注入的 [事件] / [信箱] 仍按用户消息下发（dsh 会把回合中的注入上下文整个隐藏），页面上由 board-embed.js 改成提示条样式
-    push('user/message', userMessage(`m${seq}`, d.text), { surfaceOp: 'append' });
-  } else if (e.kind === 'assistant') {
-    const text = String(d.text ?? '');
-    assistantTexts.add(text);
-    push('assistant/message', { turn: 1, step: 1, message: assistantMessage(`m${seq}`, text), stream: [] }, { surfaceOp: 'append' });
-  } else if (e.kind === 'thought') {
-    push('assistant/message', { turn: 1, step: 1, message: { ...assistantMessage(`m${seq}`, ''), content: [{ type: 'reasoning', text: String(d.text ?? '') }] }, stream: [] }, { surfaceOp: 'append' });
-  } else if (e.kind === 'tool_use') {
-    push('tool/call', { turn: 1, step: 1, callId: String(d.id || `call-${seq}`), name: String(d.name || 'tool'), arguments: JSON.stringify(d.input ?? d.raw ?? {}) });
-  } else if (e.kind === 'tool_result') {
-    push('tool/result', {
-      turn: 1, step: 1,
-      message: toolResultMessage(`m${seq}`, String(d.id || ''), String(d.text || '').slice(0, 20000), d.isError === true),
-    }, { surfaceOp: 'append' });
-  } else if (e.kind === 'result') {
-    const text = String(d.text || '');
-    if (!text || !assistantTexts.has(text)) {
-      push('assistant/message', { turn: 1, step: 1, message: assistantMessage(`m${seq}`, text), stream: [] }, { surfaceOp: 'append' });
-    }
-    push('step/end', { turn: 1, step: 1 });
-    push('turn/end', { turn: 1, reason: d.isError ? { kind: 'error', error: { message: text.slice(0, 200) || '会话失败', code: 'UNKNOWN' } } : { kind: 'completed' } });
-  }
-  return { events, nextSeq: seq };
-}
-
-/** 整个线程 → 完整 SessionEvent 日志(turn 包装 + 全部条目) */
-export function synthesizeSessionEvents(entries) {
+export function synthesizeSessionEvents(entries, take = null, state = null) {
+  if (state) Object.assign(state, { turn: 1, step: 1, open: false });
   if (!entries.length) return [];
   const events = [];
   const assistantTexts = new Set();
-  let seq = 0;
-  const wrap = (type, data) => {
-    seq += 1;
-    events.push({ type, seq, time: entries[0] ? Date.parse(entries[0].ts) || Date.now() : Date.now(), data });
-  };
-  wrap('turn/start', { turn: 1 });
-  wrap('step/start', { turn: 1, step: 1 });
+  let seq = -1;
+  let step = 1, open = true;
+  const time0 = Date.parse(entries[0].ts) || Date.now();
+  const push = (type, data, extra) => { seq += 1; events.push({ type, seq, time: time0, data, ...extra }); };
+  const openStep = () => { if (!open) { push('step/start', { turn: 1, step }); open = true; } };
+  const closeStep = () => { if (open) { push('step/end', { turn: 1, step }); open = false; step += 1; } };
+  push('turn/start', { turn: 1 });
+  push('step/start', { turn: 1, step });
   for (const e of entries) {
-    const r = synthesizeEntry(e, seq, assistantTexts);
-    events.push(...r.events);
-    seq = r.nextSeq;
+    const d = e.data || {};
+    const time = Date.parse(e.ts) || time0;
+    const emit = (type, data, extra) => { seq += 1; events.push({ type, seq, time, data, ...extra }); };
+    if (e.kind === 'assistant') {
+      const text = String(d.text ?? '');
+      assistantTexts.add(text);
+      openStep();
+      emit('assistant/message', { turn: 1, step, message: assistantMessage(`m${seq}`, text), stream: [] }, { surfaceOp: 'append' });
+      closeStep();
+      continue;
+    }
+    if (e.kind === 'result') {
+      const text = String(d.text || '');
+      if (!text || !assistantTexts.has(text)) {
+        openStep();
+        emit('assistant/message', { turn: 1, step, message: assistantMessage(`m${seq}`, text), stream: [] }, { surfaceOp: 'append' });
+      }
+      closeStep();
+      emit('turn/end', { turn: 1, reason: d.isError ? { kind: 'error', error: { message: text.slice(0, 200) || '会话失败', code: 'UNKNOWN' } } : { kind: 'completed' } });
+      continue;
+    }
+    openStep();
+    if (e.kind === 'system') {
+      emit('user/message', contextMessage(`m${seq}`, '系统提示词', d.text), { surfaceOp: 'append' });
+    } else if (e.kind === 'user') {
+      // Router 注入的 [事件] / [信箱] 仍按用户消息下发（dsh 会把回合中的注入上下文整个隐藏），页面上由 board-embed.js 改成提示条样式；
+      // take 命中的那条带上 prompt 的 requestId：客户端凭它回收乐观气泡，缺了同一条消息会渲染两遍
+      emit('user/message', userMessage(`m${seq}`, d.text, take?.(e)), { surfaceOp: 'append' });
+    } else if (e.kind === 'thought') {
+      emit('assistant/message', { turn: 1, step, message: { ...assistantMessage(`m${seq}`, ''), content: [{ type: 'reasoning', text: String(d.text ?? '') }] }, stream: [] }, { surfaceOp: 'append' });
+    } else if (e.kind === 'tool_use') {
+      emit('tool/call', { turn: 1, step, callId: String(d.id || `call-${seq}`), name: String(d.name || 'tool'), arguments: JSON.stringify(d.input ?? d.raw ?? {}) });
+    } else if (e.kind === 'tool_result') {
+      emit('tool/result', { turn: 1, step, message: toolResultMessage(`m${seq}`, String(d.id || ''), String(d.text || '').slice(0, 20000), d.isError === true) }, { surfaceOp: 'append' });
+    }
   }
+  if (state) Object.assign(state, { turn: 1, step, open });
   return events;
 }
 
 /** Run-aware bridge. Every open stream resolves its own persistent session binding. */
 export function createBridge({ sessions, runs }) {
+  // prompt 的 requestId → 目标用户消息应带的 rpcId。dsh 客户端发出消息时先渲染乐观气泡，
+  // 凭日志消息上的 source.rpcId 匹配后回收；不回填这个 id，同一条消息就会渲染两遍。
+  // plainUsers 是 prompt 时线程里已有的“普通用户消息”（排除 [事件]/[信箱] 注入）条数，
+  // 目标 = 之后出现的第一条普通用户消息（目标消息与它的文本一致）。
+  const pendingEcho = new Map(); // sessionId -> { requestId, plainUsers }
+  const isPlainUser = e => e.kind === 'user' && !/^\s*\[(事件|信箱)\]/.test(String(e.data?.text || ''));
+  const echoTagger = id => {
+    const pending = pendingEcho.get(id);
+    if (!pending) return null;
+    let seen = 0;
+    return e => {
+      if (!isPlainUser(e)) return null;
+      return seen++ === pending.plainUsers ? (pendingEcho.delete(id), pending.requestId) : null;
+    };
+  };
   // 负载形如 { args: { request } } / { args: [...] }（位置参数，如 interruptByParent(child, parent, mode)）/ 直接对象
   const unpack = p => {
     const a = p?.args ?? p ?? {};
@@ -220,7 +236,7 @@ export function createBridge({ sessions, runs }) {
     if (endpoint === 'session/create') return ok({ sessionId: sessions.create(id).id });
     if (endpoint === 'session/list') return ok({ items: all() });
     if (endpoint === 'session/page') {
-      const events = synthesizeSessionEvents(entries(get(id))).filter(e => e.seq <= (p.throughSeq ?? Infinity) && e.seq < (p.beforeSeq ?? Infinity));
+      const events = synthesizeSessionEvents(entries(get(id)), echoTagger(id)).filter(e => e.seq <= (p.throughSeq ?? Infinity) && e.seq < (p.beforeSeq ?? Infinity));
       return ok({ records: events.map(event => ({ type: 'event', event })), hasMore: false });
     }
     if (endpoint === 'session/search') {
@@ -235,22 +251,27 @@ export function createBridge({ sessions, runs }) {
     if (endpoint === 'session/prompt') {
       const s = get(id), text = (p.content || []).filter(c => c.type === 'text').map(c => c.text).join('\n').trim();
       if (!text) throw new Error('消息不能为空');
+      const plainUsers = entries(s).filter(isPlainUser).length;
       if (!s.runId) {
         const run = runs.start({ ...s.settings, goal: text }); sessions.bind(s.id, run.id);
+        if (p.requestId) pendingEcho.set(id, { requestId: p.requestId, plainUsers });
         return ok({ accepted: true });
       }
       const ctx = context(id);
       if (!ctx.capabilities.send) throw new Error('该会话已结束，请新建运行');
       const task = ctx.agent === 'manager' ? null : ctx.thread.split('-')[0];
       const result = runs.message(s.runId, { text, to: ctx.agent, task_id: task });
+      if (p.requestId) pendingEcho.set(id, { requestId: p.requestId, plainUsers });
       return ok({ accepted: true, ...result });
     }
-    if (endpoint === 'session/projections') return ok({ asOfSeq: 0, values: projectionValues(id) });
+    if (endpoint === 'session/projections') return ok({ asOfSeq: -1, values: projectionValues(id) });
     if (endpoint === 'subagents/prompt') {
       const ctx = context(id), text = (p.content || []).filter(c => c.type === 'text').map(c => c.text).join('\n').trim();
       if (!text) throw new Error('消息不能为空');
       if (!ctx.capabilities.send || ctx.agent === 'manager') throw new Error('该子代理所在的运行已结束');
+      const plainUsers = entries(sessions.resolve(id)).filter(isPlainUser).length;
       runs.message(ctx.runId, { text, to: ctx.agent, task_id: ctx.thread.split('-')[0] });
+      if (p.requestId) pendingEcho.set(id, { requestId: p.requestId, plainUsers });
       return ok({ accepted: true });
     }
     if (endpoint === 'subagents/interruptByParent') {
@@ -267,8 +288,8 @@ export function createBridge({ sessions, runs }) {
     return dshUnary(s?.runId ? runs.dir(s.runId) : runs.dataDir, endpoint, raw);
   };
   const stream = (endpoint, raw, send) => {
-    const p = unpack(raw); let timer;
-    const cleanup = () => clearInterval(timer);
+    const p = unpack(raw); let timer, streamTimer;
+    const cleanup = () => { clearInterval(timer); clearInterval(streamTimer); };
     if (endpoint === 'workspace/follow') {
       // 单一「Agent Router」工作区：首帧 baseline，之后会话增减用 upsert（dsh 只在重连时接受 baseline）
       let previous = '';
@@ -285,7 +306,7 @@ export function createBridge({ sessions, runs }) {
       const projections = {}, last = new Map();
       for (const item of all()) {
         const values = projectionValues(item.sessionId);
-        projections[item.sessionId] = { asOfSeq: 0, values };
+        projections[item.sessionId] = { asOfSeq: -1, values };
         if (values.subagentCatalog) last.set(item.sessionId, JSON.stringify(values.subagentCatalog));
       }
       send({ type: 'baseline', value: { projections } });
@@ -307,15 +328,72 @@ export function createBridge({ sessions, runs }) {
     if (endpoint === 'session/follow') {
       const id = addressId(p);
       const s = get(id); let count = 0;
-      const initial = synthesizeSessionEvents(entries(s)); count = initial.length;
-      send({ type: 'snapshot', header: sessionHeader(id, s.createdAt || initial[0]?.time || Date.now()), cursor: count, records: initial.map(event => ({ type: 'event', event })), hasMore: false, projections: { asOfSeq: count, values: projectionValues(id) }, assistantStream: { revision: 0 } });
-      timer = setInterval(() => {
+      const state = {};
+      const take = echoTagger(id);
+      const initial = synthesizeSessionEvents(entries(s), take, state); count = initial.length;
+      // dsh 协议：cursor 是最后一条事件的 seq（空日志为 -1），不是事件条数
+      const head = initial.length ? initial[initial.length - 1].seq : -1;
+      send({ type: 'snapshot', header: sessionHeader(id, s.createdAt || initial[0]?.time || Date.now()), cursor: head, records: initial.map(event => ({ type: 'event', event })), hasMore: false, projections: { asOfSeq: head, values: projectionValues(id) }, assistantStream: { revision: 0 } });
+      // —— 逐字流式：跟随运行器写的 <thread>.stream.jsonl（text_delta 增量），
+      //    以 assistant-stream 帧下发。协议约束（客户端强校验，违者断流）：
+      //    revision 与 chunk.index 逐帧严格 +1；日志 assistant/message 事件先到，
+      //    end 帧用其 seq 结算，且必须赶在该消息的 step/end 之前（否则保留态卡死）
+      let rev = 0, streamLines = null, attempt = null;
+      const asFrame = f => { rev += 1; send({ type: 'assistant-stream', frame: { revision: rev, ...f } }); };
+      const streamPath = s.runId && s.thread ? path.join(runs.dir(s.runId), 'threads', `${s.thread}.stream.jsonl`) : null;
+      const pumpStream = () => {
+        if (!streamPath) return;
+        let lines;
+        try { lines = fs.readFileSync(streamPath, 'utf8').split('\n'); } catch { return; }
+        const total = lines.length - 1;
+        if (streamLines === null) {
+          // 首次跟随：跳过已完成（有 done 行）的 attempt，只跟随尾部仍在进行的
+          let skip = 0;
+          for (let i = 0; i < total; i++) if (/"done"\s*:/.test(lines[i])) skip = i + 1;
+          streamLines = skip;
+        } else if (total < streamLines) {
+          streamLines = 0; // 运行器每回合截断重写
+        }
+        for (let i = streamLines; i < total; i++) {
+          streamLines = i + 1;
+          let rec; try { rec = JSON.parse(lines[i]); } catch { continue; }
+          if (!rec.id) continue;
+          if (!attempt || attempt.id !== rec.id) {
+            attempt = { id: rec.id, startedAfterSeq: count - 1, turn: state.turn, step: state.step, nextIndex: 0, pendingEnd: false };
+            asFrame({ type: 'start', attemptId: attempt.id, startedAfterSeq: attempt.startedAfterSeq, turn: attempt.turn, step: attempt.step });
+          }
+          if (rec.done) { attempt.pendingEnd = true; continue; }
+          if (typeof rec.text === 'string' && rec.text) {
+            asFrame({ type: 'chunk', attemptId: attempt.id, index: attempt.nextIndex++, time: Number(rec.t) || Date.now(), chunk: { type: 'text-delta', index: 0, text: rec.text } });
+          }
+        }
+      };
+      const journalPoll = () => {
         try {
-          const events = synthesizeSessionEvents(entries(get(id)));
-          for (const event of events.slice(count)) send({ type: 'event', event });
+          const events = synthesizeSessionEvents(entries(get(id)), echoTagger(id), state);
+          const fresh = events.slice(count);
           count = events.length;
+          let settleSeq = -1, settled = false;
+          if (attempt?.pendingEnd) {
+            const m = events.find(e => e.type === 'assistant/message' && e.seq > attempt.startedAfterSeq && e.data.turn === attempt.turn && e.data.step === attempt.step && e.data.message?.content?.[0]?.type === 'text');
+            if (m) { settleSeq = m.seq; settled = true; }
+          }
+          for (const event of fresh) {
+            send({ type: 'event', event });
+            if (settled && event.seq === settleSeq) {
+              asFrame({ type: 'end', attemptId: attempt.id, index: attempt.nextIndex, outcome: { kind: 'completed', seq: settleSeq, eventType: 'assistant/message' } });
+              attempt = null;
+            }
+          }
+          if (settled && !fresh.some(e => e.seq === settleSeq)) {
+            // 结算事件在更早批次已发：end 帧此刻补发（该消息的 step/end 尚未发出，顺序仍正确）
+            asFrame({ type: 'end', attemptId: attempt.id, index: attempt.nextIndex, outcome: { kind: 'completed', seq: settleSeq, eventType: 'assistant/message' } });
+            attempt = null;
+          }
         } catch (e) { send({ type: 'error', error: { code: 'router/read-failed', message: e.message } }); }
-      }, 1000);
+      };
+      timer = setInterval(journalPoll, 1000);
+      streamTimer = setInterval(() => { try { pumpStream(); } catch {} }, 250);
       return cleanup;
     }
     return dshStream(runs.dataDir, endpoint, raw, send);
@@ -379,7 +457,7 @@ export function dshUnary(runDir, endpoint, rawPayload) {
       return ok({ records: events.map(event => ({ type: 'event', event })), hasMore: false });
     }
     case 'session/projections': {
-      return ok({ asOfSeq: 0, values: {} });
+      return ok({ asOfSeq: -1, values: {} });
     }
     // ---- 客户端首屏可降级端点的默认应答(抄 remote-default-responses) ----
     case 'workspace/initializeDefault': return ok(undefined);
@@ -458,7 +536,7 @@ export function dshStream(runDir, endpoint, rawPayload, send) {
   if (endpoint === 'session/control') {
     // 控制流 baseline:为每个已知会话播种 modelSelection 投影
     const projections = {};
-    try { for (const item of all()) projections[item.sessionId] = { asOfSeq: 0, values: modelSelectionValues() }; } catch {}
+    try { for (const item of all()) projections[item.sessionId] = { asOfSeq: -1, values: modelSelectionValues() }; } catch {}
     send({ type: 'baseline', value: { projections } });
     return stop;
   }
@@ -501,30 +579,22 @@ export function dshStream(runDir, endpoint, rawPayload, send) {
     }
     if (!entries && dshAliases.has(sessionId)) {
       // 别名会话：对应运行还没产生主线程。先回空快照让客户端进入会话，
-      // 之后每秒检查 manager 线程文件，把新条目逐条合成 append 帧
+      // 之后每秒重合成 manager 线程，按 seq 续发新事件
       send({
         type: 'snapshot',
         header: sessionHeader(sessionId, Date.now()),
-        cursor: 0,
+        cursor: -1,
         records: [],
         hasMore: false,
-        projections: { asOfSeq: 0, values: {} },
+        projections: { asOfSeq: -1, values: {} },
         assistantStream: { revision: 0 },
       });
-      let lastCount = 0;
-      let lastSeq = 0;
+      let lastSeq = -1;
       timers.push(setInterval(() => {
         try {
-          const all = readThreadEntries(runDir, 'manager') || [];
-          if (all.length === lastCount) return;
-          const fresh = all.slice(lastCount);
-          lastCount = all.length;
-          const assistantTexts = entriesTexts(all.slice(0, all.length - fresh.length));
-          for (const e of fresh) {
-            const r = synthesizeEntry(e, lastSeq, assistantTexts);
-            lastSeq = r.nextSeq;
-            for (const event of r.events) send({ type: 'event', event });
-          }
+          const events = synthesizeSessionEvents(readThreadEntries(runDir, 'manager') || []);
+          for (const event of events.slice(lastSeq + 1)) send({ type: 'event', event });
+          lastSeq = events.length - 1;
         } catch {}
       }, 1000));
       return stop;
@@ -535,40 +605,27 @@ export function dshStream(runDir, endpoint, rawPayload, send) {
     }
     const events = synthesizeSessionEvents(entries);
     const createdAt = entries[0] ? Date.parse(entries[0].ts) || Date.now() : Date.now();
+    const head = events.length ? events[events.length - 1].seq : -1;
     send({
       type: 'snapshot',
       header: sessionHeader(sessionId, createdAt),
-      cursor: events.length,
+      cursor: head,
       records: events.map(event => ({ type: 'event', event })),
       hasMore: false,
-      projections: { asOfSeq: events.length, values: {} },
+      projections: { asOfSeq: head, values: {} },
       assistantStream: { revision: 0 },
     });
-    // 增量:轮询线程文件,把新条目逐条合成 append 帧(seq 必须严格 +1 递增)
-    let lastSeq = events.length;
-    let lastEntryCount = entries.length;
+    // 增量:轮询线程文件整段重合成，按 seq 续发新事件（前缀合成稳定，seq 即游标）
+    let lastSeq = head;
     timers.push(setInterval(() => {
       try {
-        const all = readThreadEntries(runDir, threadName) || [];
-        if (all.length === lastEntryCount) return;
-        const fresh = all.slice(lastEntryCount);
-        lastEntryCount = all.length;
-        const assistantTexts = new Set(entriesTexts(all.slice(0, all.length - fresh.length)));
-        for (const e of fresh) {
-          const r = synthesizeEntry(e, lastSeq, assistantTexts);
-          lastSeq = r.nextSeq;
-          for (const event of r.events) send({ type: 'event', event });
-        }
+        const fresh = synthesizeSessionEvents(readThreadEntries(runDir, threadName) || []);
+        for (const event of fresh.slice(lastSeq + 1)) send({ type: 'event', event });
+        lastSeq = fresh.length - 1;
       } catch {}
     }, 1000));
     return stop;
   }
   // 未知流:保持打开但不发数据,客户端按业务超时自行降级
   return stop;
-}
-
-function entriesTexts(entries) {
-  const set = new Set();
-  for (const e of entries) if (e.kind === 'assistant') set.add(String(e.data?.text ?? ''));
-  return set;
 }

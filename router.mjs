@@ -6,7 +6,8 @@
 //   core/rpc.mjs        本地 RPC 端点；各 agent 的 board MCP 代理（lib/board-server.mjs）把工具调用转发到这里
 //   core/scheduler.mjs  事件驱动的派发：依赖、每 agent 并发上限、续派、取消
 //   core/workspace.mjs  任务工作区：直通 / 独立 worktree 的准备与收割
-//   chat-agent/         只能对话的模型（无原生工具调用）：作为主代理（文本工具协议）或 consult 顾问工具
+//   chat-agent/         只能对话的模型（无原生工具调用）：经 Responses gateway 由 Codex 驱动（Codex 是 agent，
+//                       模型只负责思考），可当主代理或子代理；也可作为 consult 顾问工具
 //   本文件              参数、主代理会话、子代理会话执行、事件注入、Web 命令通道
 //
 // 主代理（--main，默认 claude）常驻：它用 create_task 派活（非阻塞），子代理完成/失败时
@@ -37,8 +38,7 @@ import { AgyMainSession } from './lib/agy-main.mjs';
 import { createThreadWriter } from './lib/thread.mjs';
 import { managerMainPrompt, managerChatPrompt, goalMessage, handoffMessage, subagentPrompt, subagentFollowupPrompt, subagentResumePrompt } from './lib/prompts.mjs';
 import { hasPendingChanges, protectLocalExcludes } from './lib/worktree.mjs';
-import { toolsFor, callTool } from './core/tools.mjs';
-import { ChatAgentSession, createProvider, createFsTools, createConsult, consultSchema } from './chat-agent/index.mjs';
+import { startGateway, codexProviderArgs, prepareCodexHome, createProvider, createConsult, consultSchema } from './chat-agent/index.mjs';
 
 const PROJECT_ROOT = path.dirname(fileURLToPath(import.meta.url));
 const CHAT_IDLE_EXIT_MIN = 30;   // 对话模式：无任务在跑且主代理空闲这么久后，进程退出休眠（下条消息 --resume 恢复）
@@ -114,18 +114,27 @@ if (process.env.AGENT_ROUTER_TEST_AGENTS) {
   TestMainSession = fake.MainSession;
 }
 const CFG = loadConfig();
-// 只能对话的模型（chat-agent/）：只能当主代理或 consult 顾问，不能当子代理
-const isChatModel = name => !RUNNERS[name] && !!CFG.llm[name];
-const isMainAgent = name => !!RUNNERS[name] || isChatModel(name);
-const agentLabel = name => RUNNERS[name]?.label || CFG.llm[name]?.label || CFG.llm[name]?.model || name;
+// 只能对话的模型（router.config.json 的 llm）：Codex 经本地 Responses gateway 用它当模型——工具、沙箱、apply_patch、
+// 上下文压缩都是 Codex 自己的；gateway 把工具调用翻译成文本协议。主代理和子代理都可以用。
+const GATEWAY_TOKEN_ENV = 'AGENT_ROUTER_GATEWAY_TOKEN';
+let chatGateway = null; // { url, token, home }，main() 里启动
+const gatewayOptions = name => ({
+  args: codexProviderArgs({ url: chatGateway.url, model: name, tokenEnv: GATEWAY_TOKEN_ENV }),
+  env: { CODEX_HOME: chatGateway.home, [GATEWAY_TOKEN_ENV]: chatGateway.token }
+});
+const CHAT_MODELS = Object.keys(CFG.llm).filter(n => !RUNNERS[n]);
+for (const n of CHAT_MODELS) {
+  RUNNERS[n] = { run: opts => runCodex({ ...opts, gateway: gatewayOptions(n) }), label: CFG.llm[n].label || CFG.llm[n].model || n, resumable: true, chat: true };
+}
+const isChatModel = name => !!RUNNERS[name]?.chat;
+const isMainAgent = name => !!RUNNERS[name];
+const agentLabel = name => RUNNERS[name]?.label || name;
 const agentNames = [...new Set(args.agents.split(',').map(s => s.trim()).filter(Boolean))];
 for (const name of agentNames) {
   if (!RUNNERS[name]) { console.error(`未知子代理: ${name}（可选: ${Object.keys(RUNNERS).join(', ')}）`); process.exit(2); }
 }
-if (!isMainAgent(args.main)) { console.error(`未知主代理: ${args.main}（可选: ${[...Object.keys(RUNNERS), ...Object.keys(CFG.llm)].join(', ')}）`); process.exit(2); }
-const managerDescription = main => isChatModel(main)
-  ? `Main agent (${agentLabel(main)}, chat model): talks to the user, plans, delegates and reviews; it cannot edit files or run commands itself.`
-  : `Main agent (${agentLabel(main)}): talks to the user, delegates and coordinates tasks, and does tasks assigned to "manager" itself.`;
+if (!isMainAgent(args.main)) { console.error(`未知主代理: ${args.main}（可选: ${Object.keys(RUNNERS).join(', ')}）`); process.exit(2); }
+const managerDescription = main => `Main agent (${agentLabel(main)}${isChatModel(main) ? ' via Codex' : ''}): talks to the user, delegates and coordinates tasks, and does tasks assigned to "manager" itself.`;
 const ROSTER = [
   { name: 'manager', description: managerDescription(args.main) },
   ...agentNames.map(n => ({ name: n, description: `Subagent (${RUNNERS[n].label}): implements a task spec in the working directory, verifies it, and reports back.` }))
@@ -230,7 +239,9 @@ async function runTask(task, agentName, { followup, round, handle }) {
   else pushEvent(`[事件] 任务 ${task.id}「${task.title}」（${agentName}）失败。\n\n${report}${notes}`);
 }
 
-const concurrency = Object.fromEntries(agentNames.map(n => [n, CFG[n]?.maxConcurrent ?? 1]));
+// 各 agent 的并发上限：router.config.json 的 maxConcurrent 可单独限制某家；缺省不限
+const concurrency = Object.fromEntries(agentNames.map(n => [n, (isChatModel(n) ? CFG.llm[n] : CFG[n])?.maxConcurrent ?? Infinity]));
+const capLabel = v => Number.isFinite(v) ? v : '∞';
 const scheduler = new Scheduler({ board, agents: agentNames, concurrency, run: runTask });
 scheduler.on('started', (t, f) => { noteActivity(); if (!f) log(`  ↳ ${t.id}「${t.title}」开始执行（${t.assignee}）`); });
 scheduler.on('queued', t => log(C.dim(`  … ${t.id} 排队：${t.assignee} 已达并发上限 ${concurrency[t.assignee]}`)));
@@ -331,32 +342,12 @@ function printSummary() {
 
 // ---------- 主代理 ----------
 const managerThread = path.join(runDir, 'threads', 'manager.jsonl');
-let rpcCtx = null; // 任务板工具上下文（main() 里建立）：RPC 端点与对话模型主代理共用
-
-/** 对话模型主代理：Router 代它执行文本协议里的工具调用（任务板工具 + 只读文件工具） */
-function createChatMain(opts) {
-  const name = args.main;
-  const fsTools = createFsTools(repo);
-  const thread = createThreadWriter(managerThread);
-  return new ChatAgentSession({
-    provider: () => createProvider(loadConfig().llm[name], { baseDir: PROJECT_ROOT }), // 每回合重读配置
-    systemPrompt: opts.systemPrompt,
-    tools: [...toolsFor('manager', rpcCtx), ...fsTools.tools],
-    invoke: (tool, input) => {
-      rpcCtx.onCall('manager', tool, input);
-      return fsTools.has(tool) ? fsTools.invoke(tool, input) : callTool(board, 'manager', tool, input, rpcCtx);
-    },
-    stateDir: path.join(runDir, 'chat-sessions'),
-    resumeId: opts.resumeId,
-    onEntry: (kind, data) => thread.add(kind, data),
-    onText: opts.onText, onTool: opts.onTool, onTurnEnd: opts.onTurnEnd, onNotice: opts.onNotice
-  });
-}
+let rpcCtx = null; // 任务板工具上下文（main() 里建立）
 
 function createMainSession(resumeId = null) {
   const opts = {
     resumeId, cwd: repo, agentName: 'manager', roster: ROSTER, dataFile: board.file, logDir, threadPath: managerThread,
-    systemPrompt: (args.chat ? managerChatPrompt : managerMainPrompt)({ roster: ROSTER, repo, directMode: !args.worktree, gitMode: workspace.git, readOnly: isChatModel(args.main) }),
+    systemPrompt: (args.chat ? managerChatPrompt : managerMainPrompt)({ roster: ROSTER, repo, directMode: !args.worktree, gitMode: workspace.git }),
     onText: t => { noteActivity(); runStatus.session = 'online'; runStatus.busy = true; writeStatus(); log(C.cyan(`[manager] ${oneLine(t, 400)}`)); },
     onTool: name => { noteActivity(); runStatus.busy = true; runStatus.currentTool = name; writeStatus(); },
     onTurnEnd: ev => {
@@ -374,7 +365,7 @@ function createMainSession(resumeId = null) {
       writeStatus();
     }
   };
-  if (isChatModel(args.main)) return createChatMain(opts);
+  if (isChatModel(args.main)) return new OneShotMainSession({ kind: 'codex', runnerOptions: { gateway: gatewayOptions(args.main) }, ...opts });
   if (TestMainSession) return new TestMainSession(opts);
   if (args.main === 'claude') return new MainSession(opts);
   if (args.main === 'devin') return new AcpMainSession(opts);
@@ -412,16 +403,24 @@ function trySwitchMain() {
 
 async function main() {
   log(C.b(`Agent Router（${args.chat ? '对话模式' : '目标模式'}）`), C.dim(`${args.chat ? '消息' : '目标'}: ${oneLine(args.goal, 200)}`));
-  log(C.dim(`工作目录: ${repo} · 主代理: ${agentLabel(args.main)} · 子代理: ${agentNames.map(n => `${n}×${concurrency[n]}`).join(', ') || '(无)'} · ${args.worktree ? '全部隔离（worktree）' : `直通${workspace.git ? '（git）' : '（非 git 目录）'}`} · 数据: ${runDir}`));
+  log(C.dim(`工作目录: ${repo} · 主代理: ${agentLabel(args.main)} · 子代理: ${agentNames.map(n => `${n}×${capLabel(concurrency[n])}`).join(', ') || '(无)'} · ${args.worktree ? '全部隔离（worktree）' : `直通${workspace.git ? '（git）' : '（非 git 目录）'}`} · 数据: ${runDir}`));
   if (workspace.git && hasPendingChanges(repo)) log(C.yellow('  ⚠ 工作目录有未提交改动：子代理只提交自己改的文件，这些改动会保留原样。'));
 
   // consult：所有 agent 都能向配置的对话模型请教（主代理就是该模型时不提供给主代理）
   const extra = {};
   if (CFG.consult && CFG.llm[CFG.consult]) {
     const consult = createConsult({ provider: () => createProvider(loadConfig().llm[CFG.consult], { baseDir: PROJECT_ROOT }), root: repo });
-    extra.consult = { ...consultSchema(agentLabel(CFG.consult)), for: caller => !(caller === 'manager' && args.main === CFG.consult), call: (caller, input) => consult(input, caller) };
+    extra.consult = { ...consultSchema(agentLabel(CFG.consult)), for: caller => caller !== CFG.consult && !(caller === 'manager' && args.main === CFG.consult), call: (caller, input) => consult(input, caller) };
     log(C.dim(`consult 顾问: ${agentLabel(CFG.consult)}`));
   } else if (CFG.consult) log(C.yellow(`  ⚠ consult 指向的对话模型 "${CFG.consult}" 未在 llm 中配置，已忽略`));
+  if (CHAT_MODELS.length) {
+    const home = prepareCodexHome({ dir: path.join(runDir, 'codex-home'), models: CHAT_MODELS.map(n => ({ name: n, label: agentLabel(n), contextWindow: CFG.llm[n].contextWindow })) });
+    const gw = await startGateway({
+      models: async name => isChatModel(name) ? createProvider(loadConfig().llm[name], { baseDir: PROJECT_ROOT }) : null, // 每次请求重读配置
+      log: m => log(C.dim(`  [gateway] ${oneLine(m, 300)}`))
+    });
+    chatGateway = { ...gw, home };
+  }
   rpcCtx = {
     board, roster: ROSTER, chat: args.chat, extra,
     cancel: (id, reason) => scheduler.cancel(id, reason),

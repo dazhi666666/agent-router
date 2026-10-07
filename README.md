@@ -29,7 +29,7 @@ you ──message──▶ main agent session (persistent: claude / antigravity 
 
 - **Router-owned lifecycle**: a task is `in_progress` as soon as its session starts and `done` when the session ends normally; the subagent's **final reply is its report**. Subagents only call `update_task(status="failed")` to report failure, so a forgotten tool call can no longer turn finished work into a failure.
 - **Full reports back to the main agent**: when a task finishes, its report (up to 4,000 characters; the full text stays on the board) and the harvest notes are injected as a `[事件]` message. Only completion, failure, blocked-dependency and subagent-message events wake the main agent; there are no "queued/started" notifications that cost a turn.
-- **Concurrency**: each agent runs up to `maxConcurrent` tasks at once (`router.config.json`; defaults: claude/codex/opencode/devin 2, zcode/antigravity 1 because they write their MCP config into the working directory). Tasks with `blocked_by` start when their dependencies are done; if a dependency fails, the main agent is told the task is blocked.
+- **Concurrency**: each agent runs as many tasks in parallel as it can by default; cap a specific agent with the optional `maxConcurrent` key in `router.config.json` (e.g. `{"zcode": {"maxConcurrent": 2}}`). Tasks with `blocked_by` start when their dependencies are done; if a dependency fails, the main agent is told the task is blocked.
 - **Direct mode (default)**: subagents work in the shared working directory and commit exactly the files they changed. The Router never runs `git add -A` for them: it commits leftover changes only when no other task is running in that directory; otherwise it leaves them uncommitted and says so in the completion message, so changes are never attributed to the wrong task.
 - **Isolated tasks**: `create_task(isolated: true)` or `--worktree` runs a task in its own `git worktree`. On success the branch is merged `--no-ff` (tasks without code changes are fine); on failure or a merge conflict the worktree and branch are kept for inspection.
 - **Follow-ups**: `followup_task(task_id, message)` resumes the subagent's original session when the working directory is unchanged and the CLI supports it (claude, codex, opencode, zcode); otherwise a new session gets the original spec and previous report injected.
@@ -151,12 +151,12 @@ The main agent doesn't have to be Claude — any of the six CLIs can take the ro
 
 ### Chat-only models (no tool use)
 
-A model that can only chat (DeepSeek, Kimi, a local model, or anything you can wrap) can join in two ways. The code lives in the standalone [`chat-agent/`](chat-agent/README.md) module.
+A model that can only chat (DeepSeek, Kimi, a local model, or anything you can wrap) becomes a full coding agent by running **inside Codex**. Codex stays the agent: its own shell, `apply_patch`, sandbox, context compaction and the board MCP tools all apply. The Router starts a local Responses gateway (the standalone [`chat-agent/`](chat-agent/README.md) module) that Codex uses as its model provider. The gateway renders Codex's tools as text for the model and turns the `<tool_call>` blocks the model writes back into real tool calls. So the Codex CLI must be installed.
 
-- **As the main agent.** The Router runs a text tool-calling protocol on its behalf: the model writes `<tool_call>{"name": …, "arguments": …}</tool_call>` blocks, the Router runs them (the board tools plus read-only `read_file` / `list_files` / `search` in the working directory), and the results go back in the next message. The model cannot edit or run anything itself, so it plans, delegates every change to subagents, and reviews their reports. History is saved under `data/<run>/chat-sessions/`, so `--resume` and switching main agents work as usual.
-- **As a `consult` tool.** Every agent (the main agent and subagents) gets a `consult(question, context?, files?)` tool that asks the model for a second opinion. The Router attaches the listed files.
+- **As the main agent or a subagent.** Each name under `llm` is a team member like any CLI: `--main deepseek`, `--agents claude,deepseek`, or the "对话模型" entries in the settings panel. Sessions are Codex sessions, so `--resume`, follow-ups and switching main agents work as usual. Codex runs with a dedicated `CODEX_HOME` (`data/<run>/codex-home/`) that describes the model and turns off features a chat model cannot use (Codex's own sub-agents, goals, images, web search, apps).
+- **As a `consult` tool.** Every agent gets a `consult(question, context?, files?)` tool that asks the model for a second opinion. The Router attaches the listed files.
 
-Configure models in `router.config.json`. Each name under `llm` becomes a main-agent choice (`--main deepseek`, or the "对话模型" section of the picker):
+Configure models in `router.config.json`:
 
 ```json
 {
@@ -167,7 +167,7 @@ Configure models in `router.config.json`. Each name under `llm` becomes a main-a
 }
 ```
 
-Any OpenAI-compatible endpoint works; add `"proxy": "http://127.0.0.1:10808"` if needed. For anything else, point `"module"` at a JS file that exports `{ complete(messages) → { text } }`.
+Any OpenAI-compatible endpoint works; add `"proxy": "http://127.0.0.1:10808"` if needed, `"contextWindow"` (tokens, default 128000) so Codex compacts in time, and `"maxConcurrent"` to limit parallel subagent tasks. For anything else, point `"module"` at a JS file that exports `{ complete(messages) → { text } }`.
 
 ### Where to see the prompts
 
@@ -186,7 +186,7 @@ data/<run>/
 ├── commands.jsonl       # web → Router channel (messages, cancel, retry, model changes)
 ├── logs/                # raw output per session; the manager's full event stream (manager-stream.log)
 ├── threads/             # event thread per session; system entries = the actual system prompt sent to the AI
-├── chat-sessions/       # message history of a chat-model main agent (chat-agent/), one file per session id
+├── codex-home/          # CODEX_HOME for chat models run through the gateway (model catalog, config, Codex sessions)
 └── worktrees/           # only for --worktree or isolated tasks (auto-removed after a successful merge)
 ```
 

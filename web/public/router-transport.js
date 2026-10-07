@@ -20,7 +20,13 @@
     return result;
   };
   api.stream = async function* (_, endpoint, payload, signal) {
-    const res = await fetch('/dsh-api-stream/' + endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload ?? {}), signal });
+    const init = { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload ?? {}), signal };
+    // 会话流是永不结束的常驻连接，dsh 一开就是 5 条，混在同域会把浏览器的 6 连接上限占满，
+    // 面板的普通请求就永远排队。流走独立端口（自带连接池）；独立端口不可用时回退同源
+    const remote = window.AR_STREAM_PORT ? `${location.protocol}//${location.hostname}:${window.AR_STREAM_PORT}/dsh-api-stream/` : null;
+    let res = null;
+    try { if (remote) res = await fetch(remote + endpoint, init); } catch (e) { if (signal?.aborted) throw e; res = null; }
+    if (!res || !res.ok || !res.body) res = await fetch('/dsh-api-stream/' + endpoint, init);
     if (!res.ok || !res.body) throw new Error('无法连接会话流');
     const reader = res.body.getReader(), decoder = new TextDecoder(); let buffer = '';
     try {
