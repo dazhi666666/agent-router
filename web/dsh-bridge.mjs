@@ -8,36 +8,74 @@
 //   packages/test-support/client-runtime/src/assembly/remote-default-responses.ts (首屏默认应答)
 import fs from 'node:fs';
 import path from 'node:path';
+import { spawn } from 'node:child_process';
 import { threadSessionId } from './sessions.mjs';
+import { UiState } from './uistate.mjs';
+import { Attachments } from './attachments.mjs';
 
 const FORMAT_VERSION = 4;
 
-// ui-settings-general 命名空间:预置 welcomeNoticeVersion,让"预览版说明"弹窗视为已确认。
-// WELCOME_NOTICE_VERSION 随 dsh 版本变化,mutate 请求会写入新值,这里同时保留进程内可变值。
-const GENERAL_SCHEMA = { uid: 2, refs: { '1': { type: 'string', meta: { volatile: true } }, '2': { type: 'object', meta: { default: {} }, dict: { welcomeNoticeVersion: 1 } } } };
-const generalValue = { welcomeNoticeVersion: '2026-09-28.1' };
-let generalRevision = 1;
-const generalNamespace = () => ({
-  autoGenerate: true,
-  ns: 'ui-settings-general',
-  schema: GENERAL_SCHEMA,
-  value: { ...generalValue },
-  applies: 'live',
-  secrets: [],
-  revision: generalRevision,
-});
-// 应用一次 settings/mutate 的 set/unset 操作,返回写后的命名空间视图
-function applyGeneralMutate(rawPayload) {
-  const outer = rawPayload?.args ?? rawPayload ?? {};
-  const payload = outer.request ?? outer;
-  const ops = Array.isArray(payload?.ops) ? payload.ops : Array.isArray(payload?.args?.ops) ? payload.args.ops : [];
-  for (const op of ops) {
-    if (!Array.isArray(op?.path) || op.path.length !== 1) continue;
-    if (op.op === 'set') generalValue[op.path[0]] = op.value;
-    else if (op.op === 'unset') delete generalValue[op.path[0]];
+// 设置命名空间：客户端经 settings/describe 读取、settings/mutate|update 写入。
+// - ui-settings-general：预置 welcomeNoticeVersion，让"预览版说明"弹窗视为已确认
+// - ui-settings：developerTools（显示代码工作视图）默认开启 —— dsh 默认 false，
+//   「本轮代码差异」卡片、轨迹等编码视图全靠这个开关点亮
+// - ui-chat：会话视图偏好（transcriptView/performanceUsage），给 onboarding 写入兜底
+const NAMESPACES = {
+  'ui-settings-general': {
+    schema: { uid: 2, refs: { '1': { type: 'string', meta: { volatile: true } }, '2': { type: 'object', meta: { default: {} }, dict: { welcomeNoticeVersion: 1 } } } },
+    value: { welcomeNoticeVersion: '2026-09-28.1' },
+  },
+  'ui-settings': {
+    // 注意字段名是 enabled（DeveloperToolsPreference 读 value.enabled），不是 developerTools
+    schema: { uid: 3, refs: { '1': { type: 'boolean', meta: { default: false } }, '3': { type: 'object', meta: { default: {} }, dict: { enabled: 1 } } } },
+    value: { enabled: true },
+  },
+  'ui-chat': {
+    schema: { uid: 4, refs: { '1': { type: 'string', meta: { default: 'standard' } }, '2': { type: 'string', meta: { default: 'compact' } }, '4': { type: 'object', meta: { default: {} }, dict: { transcriptView: 1, performanceUsage: 2 } } } },
+    value: { transcriptView: 'standard', performanceUsage: 'compact' },
+  },
+};
+const revisions = { 'ui-settings-general': 1, 'ui-settings': 1, 'ui-chat': 1 };
+let unknownUid = 10;
+function ensureNamespace(ns) {
+  if (!NAMESPACES[ns]) {
+    const uid = ++unknownUid;
+    NAMESPACES[ns] = { schema: { uid, refs: { [String(uid)]: { type: 'object', meta: { default: {} }, dict: {} } } }, value: {} };
+    revisions[ns] = 1;
   }
-  generalRevision += 1;
-  return ok(generalNamespace());
+  return NAMESPACES[ns];
+}
+function setPath(obj, p, v) {
+  let t = obj;
+  for (let i = 0; i < p.length - 1; i++) {
+    if (typeof t[p[i]] !== 'object' || t[p[i]] === null) t[p[i]] = {};
+    t = t[p[i]];
+  }
+  if (v === undefined) delete t[p[p.length - 1]];
+  else t[p[p.length - 1]] = v;
+}
+const settingsView = ns => {
+  const store = ensureNamespace(ns);
+  return { autoGenerate: false, ns, schema: store.schema, value: JSON.parse(JSON.stringify(store.value)), applies: 'live', secrets: [], revision: revisions[ns] };
+};
+function settingsMutate(ns, ops) {
+  for (const op of Array.isArray(ops) ? ops : []) {
+    if (!Array.isArray(op?.path) || !op.path.length) continue;
+    if (op.op === 'set') setPath(ensureNamespace(ns).value, op.path, op.value);
+    else if (op.op === 'unset') setPath(ensureNamespace(ns).value, op.path, undefined);
+  }
+  revisions[ns] += 1;
+  return ok(settingsView(ns));
+}
+function settingsUpdate(ns, patch) {
+  Object.assign(ensureNamespace(ns).value, patch ?? {});
+  revisions[ns] += 1;
+  return ok(settingsView(ns));
+}
+function settingsReplace(ns, section) {
+  Object.assign(ensureNamespace(ns).value, section ?? {});
+  revisions[ns] += 1;
+  return ok(settingsView(ns));
 }
 
 // 会话的 modelSelection 投影:0.2 的模型选择器等待该投影就绪后才显示当前模型
@@ -80,8 +118,8 @@ function readThreadEntries(runDir, name) {
 function ok(value) { return { ok: true, value }; }
 function fail(code, message) { return { ok: false, error: { code, message, details: {} } }; }
 
-function userMessage(id, text, rpcId) {
-  return { id, role: 'user', source: { kind: 'user', ...(rpcId ? { rpcId } : {}) }, content: [{ type: 'text', text: String(text ?? '') }] };
+function userMessage(id, text, rpcId, blocks = []) {
+  return { id, role: 'user', source: { kind: 'user', ...(rpcId ? { rpcId } : {}) }, content: [{ type: 'text', text: String(text ?? '') }, ...blocks] };
 }
 
 /** 非用户输入（source.kind 不是 user）在 dsh 里显示为注入上下文，kind 即标签 */
@@ -165,6 +203,9 @@ export function synthesizeSessionEvents(entries, take = null, state = null) {
         pendingThought = null;
       }
       closeStep();
+      // 回合收尾前声明一次工作区改动（回合关闭后客户端不再把事件归集进该回合）：
+      // 右侧改动审查面板凭该事件（data 只需 {turn}）拉取 /api/changes.summary；汇总为空时不渲染卡片
+      emit('workspace/changes', { turn: 1 });
       emit('turn/end', { turn: 1, reason: d.isError ? { kind: 'error', error: { message: text.slice(0, 200) || '会话失败', code: 'UNKNOWN' } } : { kind: 'completed' } });
       continue;
     }
@@ -173,8 +214,10 @@ export function synthesizeSessionEvents(entries, take = null, state = null) {
       emit('user/message', contextMessage(`m${seq}`, '系统提示词', d.text), { surfaceOp: 'append' });
     } else if (e.kind === 'user') {
       // Router 注入的 [事件] / [信箱] 仍按用户消息下发（dsh 会把回合中的注入上下文整个隐藏），页面上由 board-embed.js 改成提示条样式；
-      // take 命中的那条带上 prompt 的 requestId：客户端凭它回收乐观气泡，缺了同一条消息会渲染两遍
-      emit('user/message', userMessage(`m${seq}`, d.text, take?.(e)), { surfaceOp: 'append' });
+      // take 命中的那条带上 prompt 的 requestId（客户端凭它回收乐观气泡，缺了同一条消息会渲染两遍）
+      // 和消息里图片附件的引用块（乐观气泡里有内联图片，回填后凭 attachment 走 session/attachment 取回）
+      const tag = take?.(e);
+      emit('user/message', userMessage(`m${seq}`, d.text, tag?.requestId, tag?.blocks), { surfaceOp: 'append' });
     } else if (e.kind === 'tool_use') {
       emit('tool/call', { turn: 1, step, callId: String(d.id || `call-${seq}`), name: String(d.name || 'tool'), arguments: JSON.stringify(d.input ?? d.raw ?? {}) });
     } else if (e.kind === 'tool_result') {
@@ -187,11 +230,13 @@ export function synthesizeSessionEvents(entries, take = null, state = null) {
 
 /** Run-aware bridge. Every open stream resolves its own persistent session binding. */
 export function createBridge({ sessions, runs }) {
-  // prompt 的 requestId → 目标用户消息应带的 rpcId。dsh 客户端发出消息时先渲染乐观气泡，
+  const uiState = new UiState(runs.dataDir);
+  const attachments = new Attachments(runs.dataDir);
+  // prompt 的 requestId → 目标用户消息应带的 rpcId 与附件引用块。dsh 客户端发出消息时先渲染乐观气泡，
   // 凭日志消息上的 source.rpcId 匹配后回收；不回填这个 id，同一条消息就会渲染两遍。
   // plainUsers 是 prompt 时线程里已有的“普通用户消息”（排除 [事件]/[信箱] 注入）条数，
   // 目标 = 之后出现的第一条普通用户消息（目标消息与它的文本一致）。
-  const pendingEcho = new Map(); // sessionId -> { requestId, plainUsers }
+  const pendingEcho = new Map(); // sessionId -> { requestId, plainUsers, blocks }
   const isPlainUser = e => e.kind === 'user' && !/^\s*\[(事件|信箱)\]/.test(String(e.data?.text || ''));
   const echoTagger = id => {
     const pending = pendingEcho.get(id);
@@ -199,8 +244,23 @@ export function createBridge({ sessions, runs }) {
     let seen = 0;
     return e => {
       if (!isPlainUser(e)) return null;
-      return seen++ === pending.plainUsers ? (pendingEcho.delete(id), pending.requestId) : null;
+      return seen++ === pending.plainUsers ? (pendingEcho.delete(id), pending) : null;
     };
+  };
+  // prompt 内容块：图片内联 base64 → 存成附件（日志里以 attachment 引用块下发）；
+  // 文件回执 → 变成「已保存到磁盘路径」注记，CLI 代理按路径自行读取
+  const materialize = parts => {
+    const notes = [], blocks = [];
+    for (const c of Array.isArray(parts) ? parts : []) {
+      if (c?.type === 'image' && typeof c.data === 'string' && c.data) {
+        const meta = attachments.save(Buffer.from(c.data, 'base64'), c.name || 'image.png');
+        blocks.push({ type: 'image', attachment: { attachmentId: meta.attachmentId, mediaType: meta.mediaType, bytes: meta.bytes, width: meta.width, height: meta.height, ...(c.name ? { name: c.name } : {}) } });
+      } else if (c?.type === 'file' && c.receiptId) {
+        const meta = attachments.byReceipt(c.receiptId);
+        if (meta) notes.push(`[附件] ${meta.name} 已保存到：${meta.file}`);
+      }
+    }
+    return { notes, blocks };
   };
   // 负载形如 { args: { request } } / { args: [...] }（位置参数，如 interruptByParent(child, parent, mode)）/ 直接对象
   const unpack = p => {
@@ -212,18 +272,21 @@ export function createBridge({ sessions, runs }) {
   const get = id => { const s = sessions.resolve(id); if (!s) throw new Error('会话不存在，请新建会话'); return s; };
   const entries = s => s.runId ? readThreadEntries(runs.dir(s.runId), s.thread) || [] : [];
   const all = () => {
-    const items = Object.values(sessions.items).filter(s => !s.runId).map(s => ({ sessionId: s.id, updatedAt: s.createdAt, running: false, blank: true, cwd: s.settings.repo, agentAvailable: true }));
+    const items = Object.values(sessions.items).filter(s => !s.runId).map(s => ({ sessionId: s.id, ...(uiState.title(s.id) ? { title: uiState.title(s.id) } : {}), updatedAt: s.createdAt, running: false, blank: true, cwd: s.settings.repo, agentAvailable: true }));
     for (const run of runs.list()) {
       const dir = runs.dir(run.id), board = readJson(path.join(dir, 'board.json')), status = readJson(path.join(dir, 'status.json'));
       const threads = listThreadFiles(dir);
       if (!threads.some(t => t.name === 'manager')) threads.unshift({ name: 'manager', mtimeMs: run.mtime });
-      for (const t of threads) items.push({
-        sessionId: t.name === 'manager' ? sessions.managerId(run.id) : threadSessionId(run.id, t.name),
-        title: threadTitle(t.name, run, board),
-        updatedAt: Math.round(t.mtimeMs),
-        running: runs.running(run.id) && threadRunning(t.name, board, status),
-        blank: false, cwd: run.settings?.repo || dir, agentAvailable: true
-      });
+      for (const t of threads) {
+        const sessionId = t.name === 'manager' ? sessions.managerId(run.id) : threadSessionId(run.id, t.name);
+        items.push({
+          sessionId,
+          title: uiState.title(sessionId) || threadTitle(t.name, run, board),
+          updatedAt: Math.round(t.mtimeMs),
+          running: runs.running(run.id) && threadRunning(t.name, board, status),
+          blank: false, cwd: run.settings?.repo || dir, agentAvailable: true
+        });
+      }
     }
     return items;
   };
@@ -249,8 +312,25 @@ export function createBridge({ sessions, runs }) {
     const resumable = !!run && !running && run.mode === 'chat' && s.thread === 'manager';
     return { sessionId: id, runId: s.runId, thread: s.thread, agent: agent || null, settings: run?.settings || s.settings, run, managerSessionId: s.runId ? sessions.managerId(s.runId) : id, capabilities: { configure: !s.runId, send: !s.runId || ((running || resumable) && !!agent), stop: running && s.thread === 'manager', models: running && s.thread === 'manager' } };
   };
+  // 会话工作目录与路径安全：workspaceFiles/@文件引用 都以会话绑定的仓库为根
+  const repoOf = id => get(id).settings?.repo || runs.root;
+  const safePath = (repo, rel) => {
+    const full = path.resolve(repo, String(rel || ''));
+    if (full !== repo && !full.startsWith(repo + path.sep)) throw new Error('路径越界');
+    return full;
+  };
+  const workspaceView = () => ({
+    workspaceId: 'agent-router', path: runs.root, title: uiState.workspaceTitle,
+    sessionIds: all().map(i => i.sessionId).filter(sid => !uiState.archived.includes(sid)),
+    createdAt: '2026-01-01T00:00:00Z', updatedAt: new Date().toISOString(),
+  });
+  // 本地部署没有账号体系：恒为未登录（客户端只显示菜单项，不弹横幅）
+  const ACCOUNT_VIEW = { status: 'signed-out', links: { usageUrl: '', topUpUrl: '' }, attempt: null };
   const unary = (endpoint, raw) => {
     const p = unpack(raw), id = addressId(p), s = id ? sessions.resolve(id) : null;
+    // 代理作用域（agent-scoped）端点按位置传参：(agent, ...) —— descriptor 的 parameters 是位置参数
+    const pos = Array.isArray(raw?.args) ? raw.args : null;
+    const posArg = (i, name) => (pos ? pos[i] : p?.[name]);
     if (endpoint === 'health') return ok({ ready: true });
     if (endpoint === 'session/create') return ok({ sessionId: sessions.create(id).id });
     if (endpoint === 'session/list') return ok({ items: all() });
@@ -268,29 +348,35 @@ export function createBridge({ sessions, runs }) {
       }).slice(0, 50), hasMore: false });
     }
     if (endpoint === 'session/prompt') {
-      const s = get(id), text = (p.content || []).filter(c => c.type === 'text').map(c => c.text).join('\n').trim();
+      const s = get(id);
+      const parts = Array.isArray(p.content) ? p.content : [];
+      const { notes, blocks } = materialize(parts);
+      const text = [parts.filter(c => c.type === 'text').map(c => c.text).join('\n').trim(), ...notes].filter(Boolean).join('\n\n');
       if (!text) throw new Error('消息不能为空');
       const plainUsers = entries(s).filter(isPlainUser).length;
       if (!s.runId) {
         const run = runs.start({ ...s.settings, goal: text }); sessions.bind(s.id, run.id);
-        if (p.requestId) pendingEcho.set(id, { requestId: p.requestId, plainUsers });
+        if (p.requestId) pendingEcho.set(id, { requestId: p.requestId, plainUsers, blocks });
         return ok({ accepted: true });
       }
       const ctx = context(id);
       if (!ctx.capabilities.send) throw new Error('该会话已结束，请新建运行');
       const task = ctx.agent === 'manager' ? null : ctx.thread.split('-')[0];
       const result = runs.message(s.runId, { text, to: ctx.agent, task_id: task });
-      if (p.requestId) pendingEcho.set(id, { requestId: p.requestId, plainUsers });
+      if (p.requestId) pendingEcho.set(id, { requestId: p.requestId, plainUsers, blocks });
       return ok({ accepted: true, ...result });
     }
     if (endpoint === 'session/projections') return ok({ asOfSeq: -1, values: projectionValues(id) });
     if (endpoint === 'subagents/prompt') {
-      const ctx = context(id), text = (p.content || []).filter(c => c.type === 'text').map(c => c.text).join('\n').trim();
-      if (!text) throw new Error('消息不能为空');
+      const ctx = context(id);
       if (!ctx.capabilities.send || ctx.agent === 'manager') throw new Error('该子代理所在的运行已结束');
+      const parts = Array.isArray(p.content) ? p.content : [];
+      const { notes } = materialize(parts);
+      const text = [parts.filter(c => c.type === 'text').map(c => c.text).join('\n').trim(), ...notes].filter(Boolean).join('\n\n');
+      if (!text) throw new Error('消息不能为空');
       const plainUsers = entries(sessions.resolve(id)).filter(isPlainUser).length;
       runs.message(ctx.runId, { text, to: ctx.agent, task_id: ctx.thread.split('-')[0] });
-      if (p.requestId) pendingEcho.set(id, { requestId: p.requestId, plainUsers });
+      if (p.requestId) pendingEcho.set(id, { requestId: p.requestId, plainUsers, blocks: [] });
       return ok({ accepted: true });
     }
     if (endpoint === 'subagents/interruptByParent') {
@@ -304,19 +390,173 @@ export function createBridge({ sessions, runs }) {
       if (!ctx.capabilities.stop) throw new Error('只有本次运行的主代理会话可停止运行');
       runs.stop(ctx.runId); return ok({ accepted: true });
     }
+
+    // ---- 设置：通用命名空间存储（describe/mutate/update/replace） ----
+    if (endpoint === 'settings/describe') return ok({ writable: true, hasDocument: false, namespaces: Object.keys(NAMESPACES).map(settingsView) });
+    if (endpoint === 'settings/mutate') return settingsMutate(p.ns ?? 'ui-settings-general', p.ops);
+    if (endpoint === 'settings/update') return settingsUpdate(p.ns, p.patch);
+    if (endpoint === 'settings/replace') return settingsReplace(p.ns, p.section);
+    if (endpoint === 'settings/openSettingsDocument') return ok({ opened: true });
+
+    // ---- 会话管理 ----
+    if (endpoint === 'session/rename') { uiState.rename(id, p.title); return ok({ title: p.title, seq: 0 }); }
+    if (endpoint === 'session/fork') return fail('session/fork-unavailable', '会话由运行线程承载，暂不支持分叉');
+    if (endpoint === 'session/updateQueue') return ok({ accepted: true });
+    if (endpoint === 'session/attachment') {
+      const hit = attachments.get(p.attachmentId);
+      if (!hit) return fail('session/attachment-not-found', '附件不存在或已清理');
+      return ok({ attachment: { attachmentId: hit.meta.attachmentId, mediaType: hit.meta.mediaType, bytes: hit.meta.bytes, width: hit.meta.width, height: hit.meta.height, name: hit.meta.name }, data: hit.buf.toString('base64') });
+    }
+    if (endpoint === 'session/initializeDefaultModel') return ok(undefined);
+    if (endpoint === 'sessionFeedback/record') return ok({ ok: true, value: { recorded: true } });
+    if (endpoint === 'sessionReferenceResolver/candidates') {
+      const query = String(posArg(1, 'query') || '').trim().toLowerCase();
+      const items = all().filter(i => !query || String(i.title || '').toLowerCase().includes(query))
+        .sort((a, b) => (b.updatedAt - a.updatedAt) || (b.title ? 1 : 0) - (a.title ? 1 : 0))
+        .slice(0, 8)
+        .map(i => ({ mention: String(i.title || `会话 ${i.sessionId.slice(0, 8)}`), sessionId: i.sessionId, label: String(i.title || '未命名会话'), sameWorkspace: true, createdAt: i.updatedAt }));
+      return ok(items);
+    }
+    if (endpoint === 'fileReferences/list') {
+      const query = String(posArg(1, 'query') || '').trim().toLowerCase();
+      const out = [];
+      const walk = (dir, rel, depth) => {
+        if (out.length >= 20 || depth > 2) return;
+        let names = [];
+        try { names = fs.readdirSync(dir, { withFileTypes: true }); } catch { return; }
+        for (const e of names) {
+          if (e.name.startsWith('.') || e.name === 'node_modules') continue;
+          const r = rel ? `${rel}/${e.name}` : e.name;
+          if (!query || e.name.toLowerCase().includes(query)) out.push({ path: r, kind: e.isDirectory() ? 'directory' : 'file' });
+          if (e.isDirectory()) walk(path.join(dir, e.name), r, depth + 1);
+        }
+      };
+      walk(repoOf(id), '', 0);
+      return ok(out.slice(0, 20));
+    }
+    // 桌面打开能力：Windows 下用资源管理器打开/定位，其余平台如实报告不可用
+    if (endpoint === 'session/canOpenWorkspacePath') return ok(process.platform === 'win32');
+    if (endpoint === 'session/workspacePathApplications') return ok([]);
+    if (endpoint === 'session/openWorkspacePath') {
+      if (process.platform !== 'win32') return fail('host/unavailable', '仅支持 Windows 桌面');
+      const full = safePath(repoOf(id), p.path);
+      if (p.action === 'reveal') spawn('explorer', [`/select,${full}`], { detached: true, windowsHide: true }).unref();
+      else spawn('cmd', ['/c', 'start', '', full], { detached: true, windowsHide: true }).unref();
+      return ok({ opened: true });
+    }
+
+    // ---- 工作区组织（单工作区模型：归档/置顶/改名落 ui-state） ----
+    if (endpoint === 'workspace/pinSession') { uiState.pin(p.sessionId); return ok({ pinnedSessionIds: [...uiState.pinned] }); }
+    if (endpoint === 'workspace/unpinSession') { uiState.unpin(p.sessionId); return ok({ pinnedSessionIds: [...uiState.pinned] }); }
+    if (endpoint === 'workspace/archiveSession') {
+      const target = get(p.sessionId);
+      if (target.runId && runs.running(target.runId) && !p.stopActivity) return fail('workspace/session-active', '会话仍在运行中，请先停止');
+      if (target.runId && runs.running(target.runId)) { try { runs.stop(target.runId); } catch {} }
+      uiState.archive(p.sessionId);
+      return ok({ archivedSessionIds: [...uiState.archived] });
+    }
+    if (endpoint === 'workspace/unarchiveSession') { uiState.unarchive(p.sessionId); return ok({ archivedSessionIds: [...uiState.archived] }); }
+    if (endpoint === 'workspace/rename') { uiState.renameWorkspace(p.title); return ok({ workspace: workspaceView() }); }
+    if (endpoint === 'workspace/delete') { uiState.deleteWorkspace(); return ok({ deleted: true }); }
+    if (endpoint === 'workspace/create') { uiState.restoreWorkspace(); return ok({ workspace: workspaceView(), created: false }); }
+    if (endpoint === 'workspace/insertBefore') return ok({ workspaceIds: ['agent-router'] });
+    if (endpoint === 'workspace/insertSessionBefore') return ok({ workspace: workspaceView() });
+
+    // ---- 工作区文件浏览（以会话绑定的仓库为根） ----
+    if (endpoint === 'workspaceFiles/list') {
+      const dir = safePath(repoOf(id), posArg(1, 'path'));
+      if (!fs.statSync(dir).isDirectory()) throw new Error('不是文件夹');
+      const names = fs.readdirSync(dir, { withFileTypes: true }).filter(e => !e.name.startsWith('.'));
+      const entries = names.slice(0, 500).map(e => {
+        let size;
+        if (e.isFile()) { try { size = fs.statSync(path.join(dir, e.name)).size; } catch {} }
+        return { name: e.name, type: e.isDirectory() ? 'directory' : e.isFile() ? 'file' : 'other', ...(size !== undefined ? { size } : {}) };
+      });
+      return ok({ path: String(posArg(1, 'path') || ''), entries, truncated: names.length > 500 });
+    }
+    if (endpoint === 'workspaceFiles/read') {
+      // offset 是 1 起始的行号（客户端下一页 = offset + lines），limit 不传时一次最多 2000 行
+      const full = safePath(repoOf(id), posArg(1, 'path'));
+      const opts = posArg(2, 'options') || {};
+      const text = fs.readFileSync(full, 'utf8');
+      const lines = text.split('\n');
+      if (lines.at(-1) === '') lines.pop();
+      const offset = Math.max(1, Number(opts.offset) || 1);
+      const slice = lines.slice(offset - 1, offset - 1 + 2000);
+      return ok({ offset, text: slice.join('\n'), lines: slice.length, eof: offset - 1 + slice.length >= lines.length, absolutePath: full, version: String(fs.statSync(full).mtimeMs), bytes: Buffer.byteLength(text) });
+    }
+    if (endpoint === 'workspaceFiles/stat') {
+      const full = safePath(repoOf(id), posArg(1, 'path'));
+      const st = fs.statSync(full);
+      return ok({ absolutePath: full, version: String(st.mtimeMs), ...(st.isFile() ? { bytes: st.size } : {}) });
+    }
+
+    // ---- 其余端点：映射或优雅降级（空清单/无操作），避免客户端报"未实现" ----
+    if (endpoint === 'fileUploads/upload') {
+      const meta = attachments.save(Buffer.from(String(p.data || ''), 'base64'), p.name || 'file');
+      return ok({ receiptId: meta.receiptId, file: { attachmentId: meta.attachmentId, name: meta.name, bytes: meta.bytes } });
+    }
+    if (endpoint === 'commands/list') return ok([]);
+    if (endpoint === 'commands/execute') return ok(undefined);
+    if (endpoint === 'skills/list') return ok({ skills: [] });
+    if (endpoint === 'schedule/list') return ok([]);
+    if (endpoint.startsWith('goals/')) return ok(undefined);
+    if (endpoint === 'terminal/shells') return ok([]);
+    if (endpoint === 'terminal/list') return ok([]);
+    if (endpoint === 'terminal/environment') return ok({ cwd: repoOf(id), maxInputBytes: 131072, maxCols: 500, maxRows: 200, scrollback: 5000 });
+    if (endpoint === 'llm/listProviders' || endpoint === 'llm/listConfigurableProviders' || endpoint === 'llm/discoverModels') return ok([]);
+    if (endpoint === 'credentials/set' || endpoint === 'credentials/unset') return ok(undefined);
+    if (endpoint === 'permissionPresets/catalog') return ok({ options: [], defaultOptions: [], defaultPreset: '' });
+    if (endpoint === 'pluginManager/listPlugins') return ok([]);
+    if (endpoint === 'pluginInventory/list') return ok({ entries: [] });
+    if (endpoint === 'productAnalytics/enabled') return ok(false);
+    if (endpoint === 'productAnalytics/report') return ok(undefined);
+    if (endpoint === 'directoryPicker/pick') return ok(null);
+    if (endpoint === 'agentPresets/select') return ok(undefined);
+    if (endpoint === 'account/getState' || endpoint === 'account/startSignIn' || endpoint === 'account/signOut' || endpoint === 'account/cancelSignIn') return ok(ACCOUNT_VIEW);
+    if (endpoint === 'account/hasRunningAccountTasks') return ok(false);
     return dshUnary(s?.runId ? runs.dir(s.runId) : runs.dataDir, endpoint, raw);
   };
   const stream = (endpoint, raw, send) => {
     const p = unpack(raw); let timer, streamTimer;
     const cleanup = () => { clearInterval(timer); clearInterval(streamTimer); };
+    const pos = Array.isArray(raw?.args) ? raw.args : null;
+    const posArg = (i, name) => (pos ? pos[i] : p?.[name]);
+    if (endpoint === 'job/list') {
+      // 后台任务面板：本地没有 dsh 的后台 shell 作业，恒为空清单
+      send({ type: 'rows', jobs: [] });
+      return cleanup;
+    }
+    if (endpoint === 'productAnalytics/watchPolicy') {
+      send(false); // 遥测恒关
+      return cleanup;
+    }
+    if (endpoint === 'workspaceFiles/changes') {
+      // 单文件变更监听（文档预览用）：mtime 即 version，删除则报 absent
+      const repoOfStream = id => sessions.resolve(id)?.settings?.repo || runs.root;
+      const full = path.resolve(repoOfStream(posArg(0, 'sessionId')), String(posArg(1, 'path') || ''));
+      send({ kind: 'ready' });
+      let version = null;
+      streamTimer = setInterval(() => {
+        try {
+          const v = String(fs.statSync(full).mtimeMs);
+          if (version === null) { version = v; return; }
+          if (v !== version) { version = v; send({ kind: 'change', change: { absolutePath: full, version: v } }); }
+        } catch {
+          if (version !== null) { version = null; send({ kind: 'change', change: { absolutePath: full, absent: true } }); }
+        }
+      }, 1500);
+      return cleanup;
+    }
     if (endpoint === 'workspace/follow') {
       // 单一「Agent Router」工作区：首帧 baseline，之后会话增减用 upsert（dsh 只在重连时接受 baseline）
       let previous = '';
       const push = () => {
-        const ids = all().map(s => s.sessionId), signature = JSON.stringify(ids);
+        const ids = all().map(s => s.sessionId).filter(sid => !uiState.archived.includes(sid)), signature = JSON.stringify([ids, uiState.workspaceTitle, uiState.archived, uiState.pinned]);
         if (signature === previous) return;
-        const workspace = { workspaceId: 'agent-router', path: runs.root, title: 'Agent Router', sessionIds: ids, createdAt: '2026-01-01T00:00:00Z', updatedAt: new Date().toISOString() };
-        send(previous ? { type: 'upsert', workspace } : { type: 'baseline', value: { items: [workspace], archivedSessionIds: [], pinnedSessionIds: [] } });
+        const workspace = { workspaceId: 'agent-router', path: runs.root, title: uiState.workspaceTitle, sessionIds: ids, createdAt: '2026-01-01T00:00:00Z', updatedAt: new Date().toISOString() };
+        const value = { items: uiState.data.workspaceDeleted ? [] : [workspace], archivedSessionIds: [...uiState.archived], pinnedSessionIds: [...uiState.pinned] };
+        send(previous ? { type: 'upsert', workspace } : { type: 'baseline', value });
         previous = signature;
       };
       push(); timer = setInterval(push, 1500); return cleanup;
@@ -495,8 +735,6 @@ export function dshUnary(runDir, endpoint, rawPayload) {
     }
     // ---- 客户端首屏可降级端点的默认应答(抄 remote-default-responses) ----
     case 'workspace/initializeDefault': return ok(undefined);
-    case 'settings/describe': return ok({ writable: true, hasDocument: false, namespaces: [generalNamespace()] });
-    case 'settings/mutate': return applyGeneralMutate(rawPayload);
     case 'session/search': {
       // 在线程名与会话内容里找匹配，供侧栏"搜索会话"使用
       const q = String(payload?.query ?? '').trim().toLowerCase();
@@ -535,12 +773,10 @@ export function dshUnary(runDir, endpoint, rawPayload) {
     case 'dynamicCordisRunner/syncInspectManifest': return ok(null);
     case 'dynamicCordisRunner/inventory': return ok([]);
     case 'credentials/describe': return ok({});
-    case 'permissionPresets/catalog': return ok({ options: [] });
     case 'account/getProfile': return ok(null);
     case 'account/getBalance': return ok(null);
     case 'account/getUnnotifiedBonuses': return ok(null);
     case 'account/ackBonusNotified': return ok(true);
-    case 'job/list': return ok({ items: [] });
     default:
       return fail('gateway/not-implemented', `Agent Router 桥未实现端点 ${endpoint}`);
   }
@@ -575,7 +811,9 @@ export function dshStream(runDir, endpoint, rawPayload, send) {
     return stop;
   }
   if (endpoint === 'settings/mutate') {
-    send(applyGeneralMutate(raw));
+    const outer2 = rawPayload?.args ?? rawPayload ?? {};
+    const payload2 = outer2.request ?? outer2;
+    send(settingsMutate(payload2?.ns ?? 'ui-settings-general', payload2?.ops));
     return stop;
   }
   if (endpoint === 'workspace/follow') {

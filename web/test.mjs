@@ -5,9 +5,10 @@ import os from 'node:os';
 import path from 'node:path';
 import { EventEmitter } from 'node:events';
 import { PassThrough } from 'node:stream';
-import { spawn } from 'node:child_process';
+import { spawn, execFileSync } from 'node:child_process';
 import { createApp } from './server.mjs';
 import { Sessions, threadSessionId, writeJson } from './sessions.mjs';
+import { UiState } from './uistate.mjs';
 import { mutate, read } from '../lib/store.mjs';
 import { loadConfig } from '../lib/config.mjs';
 
@@ -197,4 +198,80 @@ test('routes, validation, and interruption reporting',async t=>{
   const a=f.runs.start({goal:'A',repo:f.repoA});
   f.runs.active.delete(a.id);assert.equal(f.runs.detail(a.id).status,'interrupted');
   clearInterval([...f.launches].length&&undefined);
+});
+test('dsh 前端补全端点：改名/归档/置顶、工作区文件、附件、改动审查、优雅降级', async t => {
+  const f = await httpFixture(t);
+  // repoA 初始化为真实 git 仓库并制造未提交改动
+  const git = (...args) => execFileSync('git', ['-C', f.repoA, '-c', 'user.name=t', '-c', 'user.email=t@t', ...args], { encoding: 'utf8' });
+  fs.writeFileSync(path.join(f.repoA, 'app.py'), 'print(1)\nprint(2)\n');
+  git('init', '-q'); git('add', '-A'); git('commit', '-q', '-m', 'init');
+  fs.writeFileSync(path.join(f.repoA, 'app.py'), 'print(1)\nprint(2 changed)\nprint(3)\n');
+  fs.writeFileSync(path.join(f.repoA, 'new.txt'), 'hello\n');
+  const sid = f.bridge.unary('session/create', {}).value.sessionId;
+  await f.call(`/api/sessions/${sid}/settings`, 'PATCH', { repo: f.repoA, agents: ['claude'] });
+
+  // 会话改名：结果即时生效、落 ui-state、session/list 可见
+  assert.equal(f.bridge.unary('session/rename', { sessionId: sid, title: '我的会话' }).value.title, '我的会话');
+  assert.equal(new UiState(f.dataDir).title(sid), '我的会话');
+  assert.equal(f.bridge.unary('session/list', {}).value.items.find(i => i.sessionId === sid).title, '我的会话');
+
+  // 归档/置顶：workspace/follow 基线反映，归档会话移出工作区
+  f.bridge.unary('workspace/pinSession', { sessionId: sid });
+  f.bridge.unary('workspace/archiveSession', { sessionId: sid });
+  const frames = []; const stop = f.bridge.stream('workspace/follow', {}, x => frames.push(x)); t.after(stop);
+  await new Promise(r => setTimeout(r, 100));
+  assert.ok(frames[0].value.pinnedSessionIds.includes(sid));
+  assert.ok(frames[0].value.archivedSessionIds.includes(sid));
+  assert.ok(!frames[0].value.items[0].sessionIds.includes(sid));
+  f.bridge.unary('workspace/unarchiveSession', { sessionId: sid });
+
+  // 工作区文件浏览：list/read(1 起始行号分页)/stat 与路径越界
+  const list = f.bridge.unary('workspaceFiles/list', { sessionId: sid, path: '' }).value;
+  assert.ok(list.entries.some(e => e.name === 'app.py' && e.type === 'file'));
+  const read1 = f.bridge.unary('workspaceFiles/read', { sessionId: sid, path: 'app.py', options: { offset: 1 } }).value;
+  assert.equal(read1.offset, 1); assert.equal(read1.lines, 3); assert.equal(read1.eof, true);
+  assert.match(f.bridge.unary('workspaceFiles/read', { sessionId: sid, path: 'app.py', options: { offset: 2 } }).value.text, /changed/);
+  const stat = f.bridge.unary('workspaceFiles/stat', { sessionId: sid, path: 'app.py' }).value;
+  assert.ok(stat.bytes > 0 && stat.absolutePath.endsWith('app.py'));
+  assert.throws(() => f.bridge.unary('workspaceFiles/read', { sessionId: sid, path: '../outside' }), /越界/);
+
+  // 附件：上传 PNG → 回执 → session/attachment 取回字节；文件回执在消息里变成磁盘路径注记
+  const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64');
+  const up = f.bridge.unary('fileUploads/upload', { data: png.toString('base64'), name: 'dot.png' }).value;
+  assert.equal(up.file.bytes, png.length);
+  const att = f.bridge.unary('session/attachment', { sessionId: sid, attachmentId: up.file.attachmentId }).value;
+  assert.equal(att.attachment.mediaType, 'image/png'); assert.equal(att.attachment.width, 1);
+  assert.equal(Buffer.from(att.data, 'base64').length, png.length);
+  const up2 = f.bridge.unary('fileUploads/upload', { data: Buffer.from('data').toString('base64'), name: 'notes.txt' }).value;
+  f.bridge.unary('session/prompt', { sessionId: sid, requestId: 'rpc-1', content: [{ type: 'text', text: '看看这个文件' }, { type: 'file', receiptId: up2.receiptId }] });
+  assert.equal(f.launches.length, 1);
+  assert.match(f.launches[0].args[0], /notes\.txt 已保存到/);
+
+  // 改动审查：summary 覆盖已修改与未跟踪文件；diff 区分新建（before=false）与修改
+  const sum = (await f.call(`/api/changes.summary?sessionId=${sid}&seq=5`)).data;
+  assert.equal(sum.turn, 5);
+  assert.deepEqual(sum.files.map(x => x.path).sort(), ['app.py', 'new.txt']);
+  const diff = (await f.call(`/api/changes.diff?sessionId=${sid}&seq=5&index=${sum.files.findIndex(x => x.path === 'app.py')}`)).data;
+  assert.equal(diff.kind, 'text'); assert.equal(diff.before, true); assert.equal(diff.after, true);
+  assert.ok(diff.hunks.length >= 1 && diff.hunks.some(h => h.lines.some(l => l.startsWith('+'))));
+  const diffNew = (await f.call(`/api/changes.diff?sessionId=${sid}&seq=5&index=${sum.files.findIndex(x => x.path === 'new.txt')}`)).data;
+  assert.equal(diffNew.before, false);
+  assert.ok(diffNew.hunks.length >= 1 && diffNew.hunks.every(h => h.lines.every(l => l.startsWith('+'))));
+
+  // 设置命名空间：ui-settings.developerTools 默认开启（改动卡片靠它），mutate 带 revision 递增
+  const ui = f.bridge.unary('settings/describe', {}).value.namespaces.find(n => n.ns === 'ui-settings');
+  assert.equal(ui.value.enabled, true);
+  const after = f.bridge.unary('settings/mutate', { ns: 'ui-settings', ops: [{ op: 'set', path: ['enabled'], value: false }] }).value;
+  assert.equal(after.value.enabled, false); assert.equal(after.revision, ui.revision + 1);
+
+  // 流端点与降级：job/list 是流（rows 帧）、遥测恒关、其余端点返回空清单/无操作
+  const jobFrames = []; const stopJob = f.bridge.stream('job/list', {}, x => jobFrames.push(x)); t.after(stopJob);
+  assert.deepEqual(jobFrames, [{ type: 'rows', jobs: [] }]);
+  const pol = []; const stopPol = f.bridge.stream('productAnalytics/watchPolicy', {}, x => pol.push(x)); t.after(stopPol);
+  assert.deepEqual(pol, [false]);
+  assert.equal(f.bridge.unary('session/canOpenWorkspacePath', {}).value, process.platform === 'win32');
+  assert.deepEqual(f.bridge.unary('skills/list', { sessionId: sid }).value, { skills: [] });
+  assert.deepEqual(f.bridge.unary('commands/list', { sessionId: sid }).value, []);
+  assert.equal(f.bridge.unary('sessionFeedback/record', { sessionId: sid }).value.value.recorded, true);
+  assert.deepEqual(f.bridge.unary('permissionPresets/catalog', {}).value, { options: [], defaultOptions: [], defaultPreset: '' });
 });

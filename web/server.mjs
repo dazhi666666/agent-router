@@ -2,7 +2,7 @@ import http from 'node:http';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { loadConfig } from '../lib/config.mjs';
 import { createBridge } from './dsh-bridge.mjs';
@@ -10,6 +10,8 @@ import { Sessions, readJson, safeId } from './sessions.mjs';
 import { Runs } from './runs.mjs';
 import { modelCatalog } from './models.mjs';
 import { providerReady } from '../chat-agent/provider.mjs';
+import { changesSummary, changesDiff } from './changes.mjs';
+import { Attachments } from './attachments.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const PUBLIC = path.join(ROOT, 'web', 'public');
@@ -29,6 +31,21 @@ const INDEX = (() => {
 })();
 function json(res, status, value) { res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' }); res.end(JSON.stringify(value)); }
 async function body(req) { let value = ''; for await (const c of req) { value += c; if (value.length > 2e6) throw new Error('请求内容过长'); } return JSON.parse(value || '{}'); }
+async function rawBody(req, limit = 5e7) {
+  const chunks = []; let size = 0;
+  for await (const c of req) { size += c.length; if (size > limit) throw new Error('请求内容过长'); chunks.push(c); }
+  return Buffer.concat(chunks);
+}
+// 改动审查/桌面打开共用的文件定位：sessionId + 汇总里的 index → 仓库内绝对路径
+function changedFileOf(bridge, sessionId, index) {
+  const ctx = bridge.context(sessionId);
+  const repo = ctx.settings?.repo;
+  if (!repo) throw new Error('会话未绑定工作目录');
+  const summary = changesSummary(repo, 1);
+  const f = summary.files[Number(index)];
+  if (!f) throw new Error('文件不在改动清单里');
+  return { repo, path: f.path, full: path.resolve(repo, f.path) };
+}
 function file(res, root, name) {
   const full = path.resolve(root, name);
   if (!full.startsWith(root + path.sep) || !fs.existsSync(full) || !fs.statSync(full).isFile()) { res.writeHead(404); res.end('not found'); return; }
@@ -79,6 +96,7 @@ export function createApp({ dataDir = process.env.AGENT_ROUTER_DATA_DIR || path.
   const runs = new Runs({ root: ROOT, dataDir, launch, kill });
   const demo = ensureDemoRepo(path.join(ROOT, 'demo', 'todo-cli'), path.join(dataDir, 'demo', 'todo-cli'));
   const sessions = new Sessions(dataDir, demo);
+  const attachments = new Attachments(dataDir);
   const bridge = createBridge({ runs, sessions });
   // 预热可选模型清单（首个 CLI 扫描要数秒，避免第一个打开设置面板的请求卡顿）
   setTimeout(() => { try { modelCatalog(); } catch {} }, 500).unref();
@@ -110,6 +128,31 @@ export function createApp({ dataDir = process.env.AGENT_ROUTER_DATA_DIR || path.
         catch (e) { send({ type: 'error', error: { code: 'router/stream-failed', message: e.message } }); res.end(); }
         res.on('close', () => { closed = true; cleanup(); }); return;
       }
+      // ---- dsh 前端的普通 HTTP 路由（非 RPC）：改动审查 / 桌面打开 / 附件上传 ----
+      if (u.pathname === '/api/changes.summary' || u.pathname === '/api/changes.diff') {
+        const sessionId = u.searchParams.get('sessionId'), seq = u.searchParams.get('seq');
+        const repo = bridge.context(sessionId).settings?.repo;
+        if (!repo) return json(res, 404, { error: '会话未绑定工作目录' });
+        if (u.pathname === '/api/changes.summary') return json(res, 200, changesSummary(repo, seq));
+        const diff = changesDiff(repo, u.searchParams.get('index'), seq);
+        return diff ? json(res, 200, diff) : json(res, 404, { error: '文件不在改动清单里' });
+      }
+      if ((u.pathname === '/api/changes.open' || u.pathname === '/api/present.open') && req.method === 'POST') {
+        if (process.platform !== 'win32') return json(res, 422, { error: 'nativeUnavailable' });
+        const { full } = changedFileOf(bridge, u.searchParams.get('sessionId'), u.searchParams.get('index'));
+        if (u.searchParams.get('action') === 'reveal' || u.pathname === '/api/changes.open') spawn('explorer', [`/select,${full}`], { detached: true, windowsHide: true }).unref();
+        else spawn('cmd', ['/c', 'start', '', full], { detached: true, windowsHide: true }).unref();
+        return json(res, 200, { ok: true });
+      }
+      if (u.pathname === '/api/present.host') {
+        return json(res, 200, { name: 'Agent Router', available: process.platform === 'win32', fileManager: process.platform === 'win32' ? 'explorer' : null });
+      }
+      if (u.pathname === '/api/session/uploadFileBinary' && req.method === 'POST') {
+        const buf = await rawBody(req);
+        const meta = attachments.save(buf, u.searchParams.get('name') || 'file');
+        return json(res, 200, { ok: true, value: { receiptId: meta.receiptId, file: { attachmentId: meta.attachmentId, name: meta.name, bytes: meta.bytes } } });
+      }
+      if (u.pathname === '/api/session.export') return json(res, 501, { error: '会话导出暂不支持' });
       if (u.pathname === '/api/health') {
         const cfg = loadConfig(), catalog = modelCatalog(), activeRuns = runs.list().filter(r => r.live);
         const codexOk = codexAvailable(); // 对话模型由 Codex 经 gateway 驱动
