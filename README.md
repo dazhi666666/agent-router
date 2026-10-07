@@ -81,7 +81,7 @@ node web/server.mjs        # http://127.0.0.1:2288/
 
 The web app is the DeepSeek harness (dsh) chat UI (the bundled `dsh-web/` build) with Agent Router's warm theme, top bar and panels injected on top. It works like a plain chat with Claude Code: tell the main agent what you want. It answers questions and makes small changes itself, and hands larger or parallelizable work to subagents with `create_task` (much like Claude Code's subagents). Their results flow back into the chat and it reports to you.
 
-- **New conversation**: click **新会话** in the sidebar. The run settings panel opens: working directory (paste a path, or browse), the main agent (any coding CLI, or a configured chat model), subagents (CLIs that aren't installed are greyed out), direct / isolated mode, subagent timeout and per-agent models. Settings save automatically; the folder chip above the input shows the directory and reopens the panel.
+- **New conversation**: click **新会话** in the sidebar. The run settings panel opens: working directory (paste a path, or browse), the main agent (any coding CLI, or a configured chat model), subagents (CLIs that aren't installed are greyed out), direct / isolated mode, and per-agent models. Settings save automatically; the folder chip above the input shows the directory and reopens the panel.
 - **The conversation is the main agent's session**: dsh renders replies, reasoning and tool calls natively. `[事件]` / `[信箱]` injections from the Router show as compact notices (click to expand).
 - **Subagents**: the main agent's session header has dsh's subagent dropdown (live status, click through to each subagent's full conversation, breadcrumb back). Subagent sessions appear in the sidebar as `↳ T1 · ZCode · <task>`. Messaging a subagent goes to its inbox; interrupting it cancels its task.
 - **Top bar**: run status and directory, plus **运行记录** (run history), **任务** (task board and mailbox), **设置** (run settings; after a run starts you can still switch the main agent and change models) and **环境** (which CLIs were found, install/login hints, resolved paths, chat-model API keys).
@@ -103,7 +103,7 @@ The web app is the DeepSeek harness (dsh) chat UI (the bundled `dsh-web/` build)
 
 Zero dependencies (node:http), listens on 127.0.0.1 only. From the page you can:
 
-- **Start a run**: enter the goal, pick the repo, check members (their models shown next to each; unavailable ones disabled), set the timeout;
+- **Start a run**: enter the goal, pick the repo, check members (their models shown next to each; unavailable ones disabled);
 - **Monitor live**: SSE pushes console output and board/mailbox snapshots; task cards change color in real time; filter the console by manager/events/mailbox; a status strip shows the manager's online state / turns / cost / current tool;
 - **Human in the loop**: while running, type into the input box under the console to interject with the manager (`[user]` messages, top priority); cancel running / retry failed tasks from the task card;
 - **Run summary**: once the manager calls finish_run, the closing summary stays pinned to the top of the page;
@@ -129,7 +129,7 @@ Options:
   --repo <dir>        working directory (default ./demo/todo-cli; git is optional except for isolation)
   --agents <list>     subagents, comma-separated (default claude,zcode; options: devin,codex,opencode,antigravity)
   --main <agent>      which CLI the main agent uses (default claude; see "The main agent is selectable")
-  --timeout <sec>     per-subagent session timeout (default 900)
+  --timeout <sec>     per-subagent session timeout (default 0: no limit)
   --data <dir>        run data directory (default ./data/run-<timestamp>)
   --worktree          run every task in its own git worktree (default: direct; isolated:true isolates one task)
   --chat              chat mode: no finish_run; sleeps after 30 idle minutes
@@ -217,6 +217,6 @@ Every subagent session runs with maximum permissions; no tool use ever waits for
 - The main agent is a single point: process crashes self-heal via `--resume` (antigravity: `--conversation`), but if restarts exceed the limit the run stalls (stoppable from the web console).
 - Subagents are one-shot sessions and don't receive new messages mid-run (they check the mailbox at the start and before finishing). True real-time bidirectionality exists only on the manager side (claude / antigravity / devin).
 - Worktree merge conflicts mark the task failed and push an event; no automatic rebase.
-- OpenCode requires CLI ≥ 1.18: on older versions (1.1.x) the zen server rejects every free-tier model headless with "free tier can only be used from within OpenCode". Free models queue for the first token (commonly 1–2 minutes) — use a subagent timeout of 300 s or more.
+- OpenCode requires CLI ≥ 1.18: on older versions (1.1.x) the zen server rejects every free-tier model headless with "free tier can only be used from within OpenCode". Free models queue for the first token (commonly 1–2 minutes).
 - The Antigravity CLI's generation API is geo-restricted and requires a local proxy; its board MCP config is written into the target directory as `.agents/mcp_config.json` (restored when the run ends, and added to `.git/info/exclude`).
 - The Codex adapter consumes `codex exec --json` JSONL events; the current desktop CLI uses `--dangerously-bypass-approvals-and-sandbox`, with the board MCP injected per run.

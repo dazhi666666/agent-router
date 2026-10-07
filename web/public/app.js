@@ -519,7 +519,6 @@ $('#btn-start').onclick = async () => {
         repo: $('#f-repo').value.trim() || undefined,
         agents,
         main: $('#f-main')?.value || 'claude',
-        timeout: Number($('#f-timeout').value) || 900,
         worktree: $('#f-mode')?.value === 'worktree'
       })
     });

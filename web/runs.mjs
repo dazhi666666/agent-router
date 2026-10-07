@@ -46,11 +46,9 @@ export class Runs {
     if (!Array.isArray(agents) || !agents.length || agents.some(a => !validAgent(a))) throw new Error('请选择有效执行成员');
     const main = input.main ?? 'claude';
     if (!validMain(main)) throw new Error('请选择有效主代理');
-    const timeout = Number(input.timeout ?? 900);
-    if (!Number.isInteger(timeout) || timeout < 60 || timeout > 3600) throw new Error('超时须在 60–3600 秒之间');
     const worktree = input.worktree === true;
     if (worktree && spawnSync('git', ['-C', repo, 'rev-parse', '--is-inside-work-tree'], { encoding: 'utf8', windowsHide: true }).status !== 0) throw new Error('worktree 模式需要 Git 仓库');
-    return { repo, agents: [...new Set(agents)], main, timeout, worktree, models: validateModels(input.models) };
+    return { repo, agents: [...new Set(agents)], main, worktree, models: validateModels(input.models) };
   }
   // 工作目录不能与其他进行中的运行重叠（同一 git 仓库内的子目录也算）
   assertNoOverlap(repo, selfId = null) {
@@ -96,7 +94,7 @@ export class Runs {
   }
   spawnRouter(meta, text, resume) {
     const { id, settings } = meta, dir = this.dir(id);
-    const args = [text, '--repo', settings.repo, '--agents', settings.agents.join(','), '--main', settings.main, '--timeout', String(settings.timeout), '--data', dir];
+    const args = [text, '--repo', settings.repo, '--agents', settings.agents.join(','), '--main', settings.main, '--data', dir];
     if (settings.worktree) args.push('--worktree');
     if (meta.mode === 'chat') args.push('--chat');
     if (resume) args.push('--resume');

@@ -174,7 +174,7 @@
     const saved = ctx;
     const [catalog] = await Promise.all([api.request('/api/models'), loadHealth()]);
     if (saved.sessionId !== ctx?.sessionId || panelKind !== 'settings') return;
-    const s = { main: 'claude', agents: [], timeout: 900, worktree: false, models: {}, ...ctx.settings };
+    const s = { main: 'claude', agents: [], worktree: false, models: {}, ...ctx.settings };
     const chats = Object.keys(llm());
     return ctx.capabilities.configure ? renderDraft(s, catalog, chats) : renderLocked(s, catalog, chats);
   }
@@ -194,7 +194,6 @@
       <section class="ar-section"><h3>执行方式</h3>
         <div class="ar-seg"><button type="button" data-wt="false" class="${s.worktree ? '' : 'on'}">直通模式<small>子代理直接在工作目录里并行修改，最快</small></button><button type="button" data-wt="true" class="${s.worktree ? 'on' : ''}">隔离模式<small>每个任务一个 git worktree，完成后合并</small></button></div>
       </section>
-      <section class="ar-section"><h3>子代理超时</h3><div class="ar-range"><input type="range" id="ar-timeout" min="60" max="3600" step="60" value="${s.timeout}"><span id="ar-timeout-v">${Math.round(s.timeout / 60)} 分钟</span></div></section>
       <section class="ar-section"><h3>模型 <span style="font-weight:400">· 留空使用各 CLI 的默认模型</span></h3>
         <div class="ar-card">${KEYS.map(k => `<label class="ar-row" style="cursor:default">${avatar(k)}<span class="ar-row-text"><span class="ar-row-main">${AGENTS[k].name}</span></span>${modelField(k, catalog, s.models || {})}</label>`).join('')}</div>
       </section>
@@ -202,7 +201,7 @@
       <p class="ar-note">设置会自动保存。在对话框里发送第一条消息，主代理就会开始工作。</p>`;
     const save = async patch => {
       Object.assign(s, patch); $('#ar-form-error').textContent = '';
-      try { await api.request(`/api/sessions/${encodeURIComponent(saved.sessionId)}/settings`, { method: 'PATCH', body: JSON.stringify({ repo: s.repo, agents: s.agents, main: s.main, worktree: s.worktree, timeout: s.timeout, models: s.models }) }); await refresh(); }
+      try { await api.request(`/api/sessions/${encodeURIComponent(saved.sessionId)}/settings`, { method: 'PATCH', body: JSON.stringify({ repo: s.repo, agents: s.agents, main: s.main, worktree: s.worktree, models: s.models }) }); await refresh(); }
       catch (err) { $('#ar-form-error').textContent = err.message; }
     };
     const repo = $('#ar-repo');
@@ -232,9 +231,6 @@
       save({ agents });
     });
     pane.querySelectorAll('[data-wt]').forEach(b => b.onclick = () => { pane.querySelectorAll('[data-wt]').forEach(x => x.classList.toggle('on', x === b)); save({ worktree: b.dataset.wt === 'true' }); });
-    const t = $('#ar-timeout');
-    t.oninput = () => $('#ar-timeout-v').textContent = `${Math.round(t.value / 60)} 分钟`;
-    t.onchange = () => save({ timeout: Number(t.value) });
     pane.querySelectorAll('[data-model]').forEach(el => el.onchange = () => save({ models: readModels() }));
   }
 
@@ -246,7 +242,7 @@
       <section class="ar-section"><h3>本次运行</h3><div class="ar-card">
         <div class="ar-row" style="cursor:default"><span class="ar-row-text"><span class="ar-row-sub">工作目录</span><span class="ar-row-main" style="font-weight:400;overflow-wrap:anywhere">${esc(s.repo || '')}</span></span></div>
         <div class="ar-row" style="cursor:default"><span class="ar-row-text"><span class="ar-row-sub">子代理</span><span class="ar-row-main" style="font-weight:400">${esc(s.agents.map(agentName).join('、'))}</span></span></div>
-        <div class="ar-row" style="cursor:default"><span class="ar-row-text"><span class="ar-row-sub">执行方式</span><span class="ar-row-main" style="font-weight:400">${s.worktree ? '隔离模式（git worktree）' : '直通模式'} · 超时 ${Math.round(s.timeout / 60)} 分钟</span></span></div>
+        <div class="ar-row" style="cursor:default"><span class="ar-row-text"><span class="ar-row-sub">执行方式</span><span class="ar-row-main" style="font-weight:400">${s.worktree ? '隔离模式（git worktree）' : '直通模式'}</span></span></div>
       </div><p class="ar-help">目录和成员在运行开始后锁定；要换就新建一个会话。</p></section>
       <section class="ar-section"><h3>模型 <span style="font-weight:400">· 主代理在本回合结束后切换，子代理在下一个任务开始时生效</span></h3>
         <div class="ar-card">${KEYS.map(k => `<label class="ar-row" style="cursor:default">${avatar(k)}<span class="ar-row-text"><span class="ar-row-main">${AGENTS[k].name}</span></span>${modelField(k, catalog, s.models || {})}</label>`).join('')}</div>

@@ -47,7 +47,7 @@ const C = { dim: s => `\x1b[2m${s}\x1b[0m`, b: s => `\x1b[1m${s}\x1b[0m`, cyan: 
 
 // ---------- 参数 ----------
 function parseArgs(argv) {
-  const args = { agents: 'claude,zcode', main: 'claude', timeout: 900, repo: null, data: null, worktree: false, chat: false, resume: false };
+  const args = { agents: 'claude,zcode', main: 'claude', timeout: 0, repo: null, data: null, worktree: false, chat: false, resume: false };
   const positional = [];
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
@@ -82,7 +82,7 @@ function printHelp() {
   --agents <list>     子代理，逗号分隔（默认 claude,zcode；可选 devin,codex,opencode,antigravity）
   --main <agent>      主代理（默认 claude；可选 zcode/devin/codex/opencode/antigravity，
                       或 router.config.json 里 llm 下配置的对话模型名）
-  --timeout <sec>     单个子代理会话超时（默认 900）
+  --timeout <sec>     单个子代理会话超时（默认 0：不限时）
   --data <dir>        运行数据目录（默认 ./data/run-<时间戳>）
   --worktree          所有任务都在独立 git worktree 中执行，完成后合并（默认直通：在工作目录里直接并行，
                       create_task 传 isolated:true 可让单个任务隔离）
@@ -191,7 +191,7 @@ async function runAgentSession({ agentName, prompt, cwd, taskRef, onChild, resum
   try {
     const res = await RUNNERS[agentName].run({
       prompt, cwd, agentName, roster: ROSTER, dataFile: board.file, logDir: runDir,
-      timeoutMs: args.timeout * 1000,
+      timeoutMs: args.timeout > 0 ? args.timeout * 1000 : 0,
       onText: t => { textOut += t; },
       onChild, threadPath: thread.path, resumeSessionId
     });
@@ -370,7 +370,7 @@ function createMainSession(resumeId = null) {
   if (args.main === 'claude') return new MainSession(opts);
   if (args.main === 'devin') return new AcpMainSession(opts);
   if (args.main === 'antigravity') return new AgyMainSession(opts);
-  return new OneShotMainSession({ kind: args.main, ...opts });
+  return new OneShotMainSession({ kind: args.main, timeoutMs: 0, ...opts });
 }
 
 /** 读主代理线程，供换主代理时交接 */

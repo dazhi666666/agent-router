@@ -188,7 +188,7 @@ test('routes, validation, and interruption reporting',async t=>{
   assert.equal((await fetch(f.base+'/chat')).status,404);
   assert.equal((await f.call('/api/events')).status,400);
   assert.equal((await f.call('/api/runs','POST',{goal:'invalid',repo:f.repoA,agents:['unknown']})).status,400);
-  assert.equal((await f.call('/api/runs','POST',{goal:'invalid',repo:f.repoA,timeout:1})).status,400);
+  assert.equal((await f.call('/api/runs','POST',{goal:'invalid',repo:f.repoA,main:'unknown'})).status,400);
   const a=f.runs.start({goal:'A',repo:f.repoA});
   f.runs.active.delete(a.id);assert.equal(f.runs.detail(a.id).status,'interrupted');
   clearInterval([...f.launches].length&&undefined);
