@@ -127,6 +127,8 @@ test('goal-mode runs cannot be resumed after stopping', async t => {
   assert.ok(!f.launches[0].args.includes('--chat'));
   f.runs.stop(g.id);
   assert.throws(()=>f.runs.message(g.id,{text:'late'}),/不在进行中/);
+  // 桥接层同样拒绝：目标模式会话结束只能新建运行
+  assert.throws(()=>f.bridge.unary('session/prompt',{sessionId:f.sessions.managerId(g.id),content:[{type:'text',text:'late'}]}),/已结束/);
 });
 test('historical same-name sessions and streams remain bound to the correct run', async t => {
   const f=fixture(t), a=f.runs.start({goal:'A',repo:f.repoA}), b=f.runs.start({goal:'B',repo:f.repoB});
@@ -147,8 +149,11 @@ test('historical same-name sessions and streams remain bound to the correct run'
   const seq=frames.flatMap(f=>f.records?.map(r=>r.event.seq)|| (f.event?[f.event.seq]:[]));assert.equal(new Set(seq).size,seq.length);
   assert.equal(f.bridge.unary('session/search',{query:'ONLY-B'}).value.items.length,2);
   f.runs.stop(a.id);
-  assert.throws(()=>f.bridge.unary('session/prompt',{sessionId:idA,content:[{type:'text',text:'wrong'}]}),/已结束/);
   assert.throws(()=>f.bridge.unary('session/cancel',{sessionId:idA}),/只有/);
+  // 停止后的对话会话可无缝续聊：下一条消息经 runs.message → resume 用 --resume 拉起原 Router
+  assert.equal(f.bridge.unary('session/prompt',{sessionId:idA,content:[{type:'text',text:'续聊'}]}).value.delivery,'resumed');
+  assert.equal(f.runs.running(a.id),true);
+  assert.ok(f.launches.at(-1).args.includes('--resume'));
   assert.equal(f.runs.running(b.id),true);
   const restarted=new Sessions(f.dataDir,f.repoA);assert.equal(restarted.resolve(idA).runId,a.id);
 });

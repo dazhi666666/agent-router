@@ -244,7 +244,10 @@ export function createBridge({ sessions, runs }) {
     const s = get(id), run = s.runId ? runs.detail(s.runId) : null;
     const running = !!run && runs.running(run.id);
     const agent = s.thread === 'manager' ? 'manager' : run?.board?.tasks?.find(t => s.thread.startsWith(t.id + '-'))?.assignee;
-    return { sessionId: id, runId: s.runId, thread: s.thread, agent: agent || null, settings: run?.settings || s.settings, run, managerSessionId: s.runId ? sessions.managerId(s.runId) : id, capabilities: { configure: !s.runId, send: !s.runId || running && !!agent, stop: running && s.thread === 'manager', models: running && s.thread === 'manager' } };
+    // 对话模式的运行结束/休眠/中断后，主代理会话仍可续聊：下一条消息经 runs.message → resume
+    // 用 --resume 拉起原 Router，续接原主代理 CLI 会话（目标模式运行不可续）
+    const resumable = !!run && !running && run.mode === 'chat' && s.thread === 'manager';
+    return { sessionId: id, runId: s.runId, thread: s.thread, agent: agent || null, settings: run?.settings || s.settings, run, managerSessionId: s.runId ? sessions.managerId(s.runId) : id, capabilities: { configure: !s.runId, send: !s.runId || ((running || resumable) && !!agent), stop: running && s.thread === 'manager', models: running && s.thread === 'manager' } };
   };
   const unary = (endpoint, raw) => {
     const p = unpack(raw), id = addressId(p), s = id ? sessions.resolve(id) : null;

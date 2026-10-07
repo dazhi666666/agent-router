@@ -258,6 +258,8 @@ board.on('message', m => {
 
 // ---------- Web 命令通道（commands.jsonl：消息 / 取消 / 重试 / 模型切换） ----------
 let cmdOffset = 0;
+// --resume 拉起时，commands.jsonl 里全是上一进程已消费的历史命令：从文件末尾开始读，避免重放旧消息
+if (args.resume) { try { cmdOffset = fs.statSync(path.join(runDir, 'commands.jsonl')).size; } catch {} }
 function pumpCommands() {
   const f = path.join(runDir, 'commands.jsonl');
   let txt;
