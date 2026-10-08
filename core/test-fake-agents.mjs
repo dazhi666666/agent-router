@@ -26,7 +26,10 @@ async function fakeRun({ prompt, agentName, threadPath, resumeSessionId, onChild
   }
   // 需要时向 consult 顾问请教（附加工具经同一 RPC 端点）
   const advice = /consult please/.test(prompt) ? `; consulted: ${(await tool(agentName, 'consult', { question: 'how?' })).answer}` : '';
-  const text = `report from ${agentName} for ${id}${advice}`;
+  // 续用轮给不同的报告：验证收割的是本轮输出，而不是上一轮遗留的旧 result
+  const text = resumeSessionId
+    ? `follow-up report from ${agentName} for ${id}${advice}`
+    : `report from ${agentName} for ${id}${advice}`;
   thread.add('assistant', { text });
   return { sessionId: `sess-${id}`, text };
 }

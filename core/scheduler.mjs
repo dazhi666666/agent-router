@@ -73,7 +73,9 @@ export class Scheduler extends EventEmitter {
     const round = followup ? (task.continuations || 0) + 1 : 0;
     this.board.updateTask(task.id, {
       status: 'in_progress',
-      ...(followup ? { continuations: round, followup: { ...followup, state: 'running' } } : {}),
+      // 续派必须清掉上一轮的 result：harvest 里 task.result 优先于会话输出，留着旧报告
+      // 会让新一轮的完成事件/任务板永远显示旧报告（previousResult 已快照在 followup 里）
+      ...(followup ? { continuations: round, followup: { ...followup, state: 'running' }, result: null } : {}),
       reported: null
     });
     const entry = { agent: task.assignee, handle };

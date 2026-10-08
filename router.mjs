@@ -220,7 +220,7 @@ async function runTask(task, agentName, { followup, round, handle }) {
     ? subagentPrompt({ task, agentName, workspace: env.cwd, isWorktree: env.iso, isGit: workspace.git })
     : resume
       ? subagentResumePrompt({ task, message: followup.message })
-      : subagentFollowupPrompt({ task, agentName, workspace: env.cwd, message: followup.message, previousResult: task.result, isGit: workspace.git });
+      : subagentFollowupPrompt({ task, agentName, workspace: env.cwd, message: followup.message, previousResult: followup.previousResult, isGit: workspace.git });
   log(C.dim(`[${stamp()}] ▶ ${task.id}「${task.title}」→ ${agentName}${followup ? `（续派 #${round}${resume ? ' · resume' : ''}）` : ''}${env.iso ? ` · worktree ${path.basename(env.wtDir)}` : ''}`));
   const res = await runAgentSession({ agentName, prompt, cwd: env.cwd, taskRef: task.id, onChild: child => handle.attach(child), resumeSessionId: resume ? task.last_session_id : null });
 
@@ -258,8 +258,11 @@ board.on('message', m => {
 
 // ---------- Web 命令通道（commands.jsonl：消息 / 取消 / 重试 / 模型切换） ----------
 let cmdOffset = 0;
-// --resume 拉起时，commands.jsonl 里全是上一进程已消费的历史命令：从文件末尾开始读，避免重放旧消息
-if (args.resume) { try { cmdOffset = fs.statSync(path.join(runDir, 'commands.jsonl')).size; } catch {} }
+// --resume 拉起时，commands.jsonl 里全是上一进程已消费的历史命令：从文件末尾开始读，避免重放旧消息。
+// 偏移必须是「字符数」：pumpCommands 用 readFileSync(...,'utf8') 的 string.length 做偏移，
+// statSync().size 是字节数——命令里有中文时字节 > 字符，txt.length < cmdOffset 成立，
+// 会被当成文件截断把偏移归零，启动即全量重放历史命令（旧消息合并重发、旧 cancel/retry 重执行）。
+if (args.resume) { try { cmdOffset = fs.readFileSync(path.join(runDir, 'commands.jsonl'), 'utf8').length; } catch {} }
 function pumpCommands() {
   const f = path.join(runDir, 'commands.jsonl');
   let txt;

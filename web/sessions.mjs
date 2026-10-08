@@ -26,7 +26,7 @@ export class Sessions {
   create(id) {
     if (id && this.items[id]) return this.items[id];
     if (!safeId(id) || id.startsWith('run_')) id = `draft-${crypto.randomUUID()}`;
-    const item = { id, createdAt: Date.now(), runId: null, thread: 'manager', settings: { repo: this.defaultRepo, agents: ['claude', 'zcode'], main: 'claude', timeout: 900, worktree: false, models: {} } };
+    const item = { id, createdAt: Date.now(), runId: null, thread: 'manager', settings: { repo: this.defaultRepo, agents: ['claude', 'zcode'], main: 'claude', worktree: false, models: {} } };
     this.items[id] = item;
     this.save();
     return item;

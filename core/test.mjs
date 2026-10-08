@@ -11,6 +11,7 @@ import { callTool, toolsFor } from './tools.mjs';
 import { startRpcServer } from './rpc.mjs';
 import { Scheduler } from './scheduler.mjs';
 import { Workspace } from './workspace.mjs';
+import { spawnCollect } from '../lib/spawn-util.mjs';
 
 const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const ROSTER = [{ name: 'manager', description: 'm' }, { name: 'claude', description: 'c' }, { name: 'zcode', description: 'z' }];
@@ -56,6 +57,11 @@ test('tools: permissions and router-owned lifecycle', t => {
   assert.equal(board.inbox('claude', { unreadOnly: true }).length, 0);
   // 快照落盘
   assert.equal(JSON.parse(fs.readFileSync(board.file, 'utf8')).tasks[0].reported, 'failed');
+  // followup_task 快照当时的报告：续派会清掉 result（让新一轮的最终回复生效），previousResult 留在 followup 里
+  const done = callTool(board, 'manager', 'create_task', { title: 'y', spec: 's', assignee: 'claude' }, ctx);
+  board.updateTask(done.id, { status: 'done', result: 'first report' });
+  callTool(board, 'manager', 'followup_task', { task_id: done.id, message: 'continue' }, ctx);
+  assert.equal(board.task(done.id).followup.previousResult, 'first report');
 });
 
 test('rpc: the stdio board proxy forwards tool calls with the caller identity', async t => {
@@ -117,6 +123,7 @@ test('scheduler: dependencies, per-agent concurrency, follow-ups, cancel, blocke
   gates.get(failing)('failed'); await until(() => blocked.length === 1);
   assert.deepEqual(blocked[0], [downstream, failing]);
   // 续派：已结束的任务带 followup 再跑一轮（先腾出一个 claude 并发位：c、dep 正占满 2 个）
+  board.updateTask(a, { result: 'old report' });
   board.updateTask(a, { followup: { message: 'more' } });
   await tick();
   assert.ok(!runs.some(r => r.id === a && r.followup));
@@ -124,6 +131,7 @@ test('scheduler: dependencies, per-agent concurrency, follow-ups, cancel, blocke
   await until(() => runs.some(r => r.id === a && r.followup));
   assert.equal(board.task(a).continuations, 1);
   assert.equal(board.task(a).followup.state, 'running');
+  assert.equal(board.task(a).result, null);   // 续派清掉旧报告：harvest 只认本轮输出，否则完成事件永远带旧报告
   // 取消：排队中的直接失败；执行中的打 cancelled 标记
   const busy = mk('zcode'), q = mk('zcode');                         // zcode 并发 1：busy 占位，q 排队
   await until(() => runs.some(r => r.id === busy));
@@ -220,6 +228,9 @@ test('router end-to-end with fake agents: dispatch, report injection, follow-up 
   const t1 = fs.readFileSync(path.join(data, 'threads', 'T1-claude.jsonl'), 'utf8');
   assert.match(t1, /resumed session sess-T1/);
   assert.match(t1, /The manager asks you to continue task T1/);
+  // 续用轮的任务板与完成事件必须是本轮报告（回归：harvest 的旧 result 短路曾让事件永远带旧报告）
+  assert.equal(board().tasks.find(x => x.id === 'T1')?.result, 'follow-up report from claude for T1');
+  assert.match(thread(), /报告：\\nfollow-up report from claude for T1/);
   // 取消：长任务被终止并标记失败
   fs.appendFileSync(path.join(data, 'commands.jsonl'), JSON.stringify({ type: 'message', text: 'slow task' }) + '\n');
   await until(() => board().tasks.some(x => x.id === 'T3' && x.status === 'in_progress'), 15000);
@@ -235,7 +246,6 @@ test('router end-to-end with fake agents: dispatch, report injection, follow-up 
 
 const CODEX_EXE = path.join(process.env.APPDATA || '', 'npm', 'node_modules', '@openai', 'codex', 'node_modules', '@openai', 'codex-win32-x64', 'vendor', 'x86_64-pc-windows-msvc', 'bin', 'codex.exe');
 const hasCodex = !!process.env.AGENT_ROUTER_CODEX_EXE || fs.existsSync(CODEX_EXE);
-
 test('router with a chat-only model as main agent: Codex drives it through the gateway; subagents can consult it', { skip: !hasCodex && 'Codex CLI not installed', timeout: 120000 }, async t => {
   const dir = tmp(t);
   const repo = path.join(dir, 'repo'); fs.mkdirSync(repo);
@@ -260,4 +270,29 @@ test('router with a chat-only model as main agent: Codex drives it through the g
   assert.ok(status.sessionId);
   assert.ok(fs.existsSync(path.join(data, 'codex-home', 'catalog.json')));
   await killTree(child); // 先停掉 Router 和它启动的 Codex，临时目录才能删除
+});
+
+test('spawnCollect: prompt travels over stdin, well past the Windows 32k argv limit', async t => {
+  const big = `${'x'.repeat(120000)}结尾中文`;
+  const r = await spawnCollect(process.execPath, ['-e', 'let b="";process.stdin.setEncoding("utf8");process.stdin.on("data",d=>b+=d);process.stdin.on("end",()=>process.stdout.write(String(b.length)))'], { input: big, timeoutMs: 15000 });
+  assert.equal(r.code, 0);
+  assert.equal(r.stdout.trim(), String(big.length));
+});
+
+test('router --resume must not replay consumed commands (offset counts chars, not bytes)', async t => {
+  const dir = tmp(t);
+  const repo = path.join(dir, 'repo'); fs.mkdirSync(repo);
+  const data = path.join(dir, 'data'); fs.mkdirSync(data);
+  // 历史命令带中文：statSync().size（字节）> 字符数，单位错位会把偏移归零、启动即重放旧消息
+  fs.writeFileSync(path.join(data, 'commands.jsonl'), `${JSON.stringify({ type: 'message', text: '旧的中文消息' })}\n`);
+  const child = spawn(process.execPath, [path.join(ROOT, 'router.mjs'), '新目标', '--chat', '--repo', repo, '--agents', 'claude', '--data', data, '--resume'],
+    { env: { ...process.env, AGENT_ROUTER_TEST_AGENTS: path.join(ROOT, 'core', 'test-fake-agents.mjs') }, windowsHide: true });
+  let out = ''; child.stdout.on('data', d => out += d); child.stderr.on('data', d => out += d);
+  t.after(() => { try { child.kill(); } catch {} });
+  const thread = () => { try { return fs.readFileSync(path.join(data, 'threads', 'manager.jsonl'), 'utf8'); } catch { return ''; } };
+  await until(() => /新目标/.test(thread()), 15000).catch(e => { throw new Error(`${e.message}\n${out}\n${thread()}`); });
+  assert.ok(!/旧的中文消息/.test(thread()), '历史命令被重放了');
+  // resume 之后的新命令仍要正常消费
+  fs.appendFileSync(path.join(data, 'commands.jsonl'), `${JSON.stringify({ type: 'message', text: '追加的新消息' })}\n`);
+  await until(() => /追加的新消息/.test(thread()), 15000).catch(e => { throw new Error(`${e.message}\n${out}\n${thread()}`); });
 });

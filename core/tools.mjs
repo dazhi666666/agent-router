@@ -151,7 +151,8 @@ export function callTool(board, caller, name, args = {}, ctx) {
       if (!['done', 'failed'].includes(t.status)) return { error: `task ${t.id} is still ${t.status}; wait for it to finish` };
       if (t.followup) return { error: `task ${t.id} already has a pending follow-up` };
       if (!args.message) return { error: 'message is required' };
-      board.updateTask(t.id, { followup: { message: args.message, requested_at: new Date().toISOString() } }, caller);
+      // 快照当时的报告：续派会清掉 task.result（让新一轮的最终回复生效），非 resume 续用模板用快照注入旧报告
+      board.updateTask(t.id, { followup: { message: args.message, previousResult: t.result ?? null, requested_at: new Date().toISOString() } }, caller);
       return { ok: true, task_id: t.id, assignee: t.assignee };
     }
     case 'cancel_task': {
