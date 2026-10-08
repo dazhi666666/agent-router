@@ -190,6 +190,14 @@ export class Runs {
     // 任务板归 Router 进程所有：留言经命令通道交给 Router 写入（子代理在 read_inbox 时看到）
     const board = readJson(path.join(run.dir, 'board.json'), { tasks: [] });
     if (task_id && !board.tasks.some(t => t.id === task_id && t.assignee === to)) throw new Error('任务与接收者不匹配');
+    // 任务已终态（done/failed）说明子代理会话已关闭，信箱没人再读：明说，别让消息石沉大海
+    if (task_id) {
+      const task = board.tasks.find(t => t.id === task_id);
+      if (task && (task.status === 'done' || task.status === 'failed')) {
+        const state = task.status === 'done' ? '已完成' : '已结束（失败/被取消）';
+        throw new Error(`任务 ${task_id}「${task.title?.slice(0, 30) || ''}」${state}，子代理会话已关闭，不会再读取留言。可 retry 该任务重新派发，或把消息发给 manager。`);
+      }
+    }
     this.command(id, { type: 'message', to, task_id, text });
     return { ok: true, delivery: 'mailbox' };
   }
