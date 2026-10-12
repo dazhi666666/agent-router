@@ -26,6 +26,10 @@ function goalFromThread(dir) {
   return null;
 }
 
+// SSE 客户端随时可能断开：对已结束/已销毁的 response 写入会抛 ERR_STREAM_WRITE_AFTER_END，
+// 无人监听 error 会打崩整个进程 —— 所有写入走 sse() 兜底，连接再挂上 error 吞噬
+const sse = (res, text) => { if (!res.writableEnded && !res.destroyed) try { res.write(text); } catch {} };
+
 export class Runs {
   constructor({ dataDir, root, launch, kill } = {}) {
     this.dataDir = dataDir; this.root = root; this.active = new Map();
@@ -141,19 +145,23 @@ export class Runs {
   emit(run, event) {
     const item = { ...event, runId: run.id, eventId: ++run.seq };
     run.events.push(item); if (run.events.length > 500) run.events.shift();
-    for (const res of run.clients) res.write(`id: ${item.eventId}\ndata: ${JSON.stringify(item)}\n\n`);
+    for (const res of run.clients) sse(res, `id: ${item.eventId}\ndata: ${JSON.stringify(item)}\n\n`);
   }
   subscribe(id, res, lastId = 0) {
     const run = this.active.get(id);
     if (!run || run.status !== 'running') {
-      res.write(`data: ${JSON.stringify({ type: 'hello', runId: id, running: false })}\n\n`); res.end(); return;
+      sse(res, `data: ${JSON.stringify({ type: 'hello', runId: id, running: false })}\n\n`); res.end(); return;
     }
-    res.write(`data: ${JSON.stringify({ type: 'hello', runId: id, running: true })}\n\n`);
-    res.write(`data: ${JSON.stringify({ type: 'snapshot', runId: id, run: this.detail(id) })}\n\n`);
-    for (const item of run.events) if (lastId > 0 && item.eventId > lastId) res.write(`id: ${item.eventId}\ndata: ${JSON.stringify(item)}\n\n`);
+    sse(res, `data: ${JSON.stringify({ type: 'hello', runId: id, running: true })}\n\n`);
+    sse(res, `data: ${JSON.stringify({ type: 'snapshot', runId: id, run: this.detail(id) })}\n\n`);
+    for (const item of run.events) if (lastId > 0 && item.eventId > lastId) sse(res, `id: ${item.eventId}\ndata: ${JSON.stringify(item)}\n\n`);
     run.clients.add(res);
-    const heartbeat = setInterval(() => res.write(': keepalive\n\n'), 15000);
-    res.on('close', () => { run.clients.delete(res); clearInterval(heartbeat); });
+    const heartbeat = setInterval(() => sse(res, ': keepalive\n\n'), 15000);
+    const drop = () => { run.clients.delete(res); clearInterval(heartbeat); };
+    res.on('close', drop);
+    // run 结束时 finish() 会对所有客户端 res.end()，但 close 事件要等 socket 拆完才来，
+    // 窗口期内心跳再写就是 write-after-end —— error 监听既防崩也顺便提前清尾
+    res.on('error', drop);
   }
   list() {
     if (!fs.existsSync(this.dataDir)) return [];
