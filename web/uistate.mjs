@@ -7,7 +7,7 @@ import { readJson, writeJson } from './sessions.mjs';
 export class UiState {
   constructor(dataDir) {
     this.file = path.join(dataDir, 'ui-state.json');
-    this.data = { titles: {}, archived: [], pinned: [], workspaceTitle: 'Agent Router', workspaceDeleted: false, ...readJson(this.file, {}) };
+    this.data = { titles: {}, archived: [], pinned: [], workspaceTitle: 'Agent Router', workspaceDeleted: false, workspaceRepo: null, ...readJson(this.file, {}) };
   }
   save() { writeJson(this.file, this.data); }
   title(id) { return this.data.titles[id] ?? null; }
@@ -15,6 +15,9 @@ export class UiState {
   get archived() { return this.data.archived; }
   get pinned() { return this.data.pinned; }
   get workspaceTitle() { return this.data.workspaceTitle; }
+  // 工作区绑定的目录（dsh 模型：一个工作区一个目录，目录不属于单个会话）
+  get workspaceRepo() { return this.data.workspaceRepo; }
+  setWorkspaceRepo(repo) { this.data.workspaceRepo = String(repo); this.save(); }
   archive(id) { if (!this.data.archived.includes(id)) this.data.archived.push(id); this.save(); }
   unarchive(id) { this.data.archived = this.data.archived.filter(x => x !== id); this.save(); }
   pin(id) { if (!this.data.pinned.includes(id)) this.data.pinned.push(id); this.save(); }

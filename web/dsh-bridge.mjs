@@ -229,8 +229,8 @@ export function synthesizeSessionEvents(entries, take = null, state = null) {
 }
 
 /** Run-aware bridge. Every open stream resolves its own persistent session binding. */
-export function createBridge({ sessions, runs }) {
-  const uiState = new UiState(runs.dataDir);
+export function createBridge({ sessions, runs, uiState: sharedUiState }) {
+  const uiState = sharedUiState ?? new UiState(runs.dataDir);
   const attachments = new Attachments(runs.dataDir);
   // prompt 的 requestId → 目标用户消息应带的 rpcId 与附件引用块。dsh 客户端发出消息时先渲染乐观气泡，
   // 凭日志消息上的 source.rpcId 匹配后回收；不回填这个 id，同一条消息就会渲染两遍。
@@ -313,14 +313,16 @@ export function createBridge({ sessions, runs }) {
     return { sessionId: id, runId: s.runId, thread: s.thread, agent: agent || null, settings: run?.settings || s.settings, run, managerSessionId: s.runId ? sessions.managerId(s.runId) : id, capabilities: { configure: !s.runId, send: !s.runId || ((running || resumable) && !!agent), stop: running && s.thread === 'manager', models: running && s.thread === 'manager' } };
   };
   // 会话工作目录与路径安全：workspaceFiles/@文件引用 都以会话绑定的仓库为根
-  const repoOf = id => get(id).settings?.repo || runs.root;
+  const repoOf = id => get(id).settings?.repo || workspacePath();
   const safePath = (repo, rel) => {
     const full = path.resolve(repo, String(rel || ''));
     if (full !== repo && !full.startsWith(repo + path.sep)) throw new Error('路径越界');
     return full;
   };
+  // 工作区目录（dsh 模型：工作区 = 一个目录，所有会话共用）；未绑定时退回默认仓库
+  const workspacePath = () => uiState.workspaceRepo || (typeof sessions.defaultRepo === 'function' ? sessions.defaultRepo() : sessions.defaultRepo) || runs.root;
   const workspaceView = () => ({
-    workspaceId: 'agent-router', path: runs.root, title: uiState.workspaceTitle,
+    workspaceId: 'agent-router', path: workspacePath(), title: uiState.workspaceTitle,
     sessionIds: all().map(i => i.sessionId).filter(sid => !uiState.archived.includes(sid)),
     createdAt: '2026-01-01T00:00:00Z', updatedAt: new Date().toISOString(),
   });
@@ -533,7 +535,7 @@ export function createBridge({ sessions, runs }) {
     }
     if (endpoint === 'workspaceFiles/changes') {
       // 单文件变更监听（文档预览用）：mtime 即 version，删除则报 absent
-      const repoOfStream = id => sessions.resolve(id)?.settings?.repo || runs.root;
+      const repoOfStream = id => sessions.resolve(id)?.settings?.repo || workspacePath();
       const full = path.resolve(repoOfStream(posArg(0, 'sessionId')), String(posArg(1, 'path') || ''));
       send({ kind: 'ready' });
       let version = null;
@@ -552,9 +554,10 @@ export function createBridge({ sessions, runs }) {
       // 单一「Agent Router」工作区：首帧 baseline，之后会话增减用 upsert（dsh 只在重连时接受 baseline）
       let previous = '';
       const push = () => {
-        const ids = all().map(s => s.sessionId).filter(sid => !uiState.archived.includes(sid)), signature = JSON.stringify([ids, uiState.workspaceTitle, uiState.archived, uiState.pinned]);
+        const wsPath = workspacePath();
+        const ids = all().map(s => s.sessionId).filter(sid => !uiState.archived.includes(sid)), signature = JSON.stringify([ids, uiState.workspaceTitle, uiState.archived, uiState.pinned, wsPath]);
         if (signature === previous) return;
-        const workspace = { workspaceId: 'agent-router', path: runs.root, title: uiState.workspaceTitle, sessionIds: ids, createdAt: '2026-01-01T00:00:00Z', updatedAt: new Date().toISOString() };
+        const workspace = { workspaceId: 'agent-router', path: wsPath, title: uiState.workspaceTitle, sessionIds: ids, createdAt: '2026-01-01T00:00:00Z', updatedAt: new Date().toISOString() };
         const value = { items: uiState.data.workspaceDeleted ? [] : [workspace], archivedSessionIds: [...uiState.archived], pinnedSessionIds: [...uiState.pinned] };
         send(previous ? { type: 'upsert', workspace } : { type: 'baseline', value });
         previous = signature;

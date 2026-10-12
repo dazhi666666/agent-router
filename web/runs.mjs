@@ -54,26 +54,11 @@ export class Runs {
     if (worktree && spawnSync('git', ['-C', repo, 'rev-parse', '--is-inside-work-tree'], { encoding: 'utf8', windowsHide: true }).status !== 0) throw new Error('worktree 模式需要 Git 仓库');
     return { repo, agents: [...new Set(agents)], main, worktree, models: validateModels(input.models) };
   }
-  // 工作目录不能与其他进行中的运行重叠（同一 git 仓库内的子目录也算）
-  assertNoOverlap(repo, selfId = null) {
-    const canonical = dir => {
-      const git = spawnSync('git', ['-C', dir, 'rev-parse', '--show-toplevel'], { encoding: 'utf8', windowsHide: true });
-      const p = path.resolve(git.status === 0 ? git.stdout.trim() : dir);
-      return process.platform === 'win32' ? p.toLowerCase() : p;
-    };
-    const target = canonical(repo);
-    for (const run of this.active.values()) {
-      if (run.status !== 'running' || run.id === selfId) continue;
-      const other = canonical(run.settings.repo);
-      if (target === other || target.startsWith(other + path.sep) || other.startsWith(target + path.sep)) throw new Error(`工作目录与运行 ${run.id} 重叠；请选择独立目录或独立 Git worktree`);
-    }
-  }
   start(input) {
     // 对话模式（默认）：第一条消息原样发给主代理；goal 模式（mode: 'goal'）沿用"总目标 → finish_run"流程
     const goal = String(input.message ?? input.goal ?? '').trim();
     if (!goal || goal.length > 16000) throw new Error('消息不能为空且不能超过 16000 字符');
     const settings = this.settings(input);
-    this.assertNoOverlap(settings.repo);
     const id = `web-${Date.now()}-${crypto.randomBytes(3).toString('hex')}`;
     const dir = this.dir(id);
     fs.mkdirSync(dir, { recursive: true });
@@ -90,7 +75,6 @@ export class Runs {
     const meta = readJson(path.join(dir, 'run.json'));
     if (!meta?.settings || meta.mode !== 'chat') throw new Error('该运行不在进行中');
     if (!fs.existsSync(meta.settings.repo)) throw new Error(`工作目录已不存在：${meta.settings.repo}`);
-    this.assertNoOverlap(meta.settings.repo, id);
     const next = { ...meta, status: 'running', exitCode: null, error: undefined, resumedAt: Date.now() };
     writeJson(path.join(dir, 'run.json'), next);
     this.spawnRouter(next, text, true);

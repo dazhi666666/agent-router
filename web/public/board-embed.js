@@ -7,6 +7,7 @@
   const ICONS = {
     runs: icon('<path d="M10 5.5V10l3 2"/><circle cx="10" cy="10" r="7"/>'),
     board: icon('<rect x="3" y="3.5" width="14" height="13" rx="2"/><path d="M7.5 3.5v13M12.5 3.5v13"/>'),
+    folder: icon('<path d="M3 6a1.5 1.5 0 0 1 1.5-1.5H8l2 2h5.5A1.5 1.5 0 0 1 17 8v6a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 3 14V6Z"/>'),
     settings: icon('<path d="M4 6h7M15 6h1M4 14h1M9 14h7"/><circle cx="13" cy="6" r="2"/><circle cx="7" cy="14" r="2"/>'),
     env: icon('<path d="M3.5 10.5l4 4 9-9"/>')
   };
@@ -14,17 +15,18 @@
   const MARK = '<span class="ar-mark" aria-hidden="true"><svg viewBox="0 0 20 20" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"><circle cx="5" cy="10" r="2"/><circle cx="15" cy="5" r="2"/><circle cx="15" cy="15" r="2"/><path d="M7 9.2 13 6M7 10.8l6 3.2"/></svg></span>';
   bar.innerHTML = `<div class="ar-context"><strong id="ar-title"></strong><small id="ar-subtitle"></small></div>
     <nav class="ar-actions" aria-label="运行操作">
-      <button data-panel="runs" title="运行记录">${ICONS.runs}<span class="label">运行记录</span></button>
-      <button data-panel="board" title="任务与成员">${ICONS.board}<span class="label">任务</span></button>
-      <button data-panel="settings" title="运行设置">${ICONS.settings}<span class="label">设置</span></button>
-      <button data-panel="env" title="环境检查">${ICONS.env}<span class="label">环境</span></button>
+      <button data-panel="runs" aria-label="运行记录" title="运行记录">${ICONS.runs}<span class="label">运行记录</span></button>
+      <button data-panel="board" aria-label="任务与成员" title="任务与成员">${ICONS.board}<span class="label">任务</span></button>
+      <button data-panel="workspace" aria-label="工作区目录" title="工作区目录">${ICONS.folder}<span class="label">工作区</span></button>
+      <button data-panel="settings" aria-label="会话设置" title="会话设置">${ICONS.settings}<span class="label">设置</span></button>
+      <button data-panel="env" aria-label="环境检查" title="环境检查">${ICONS.env}<span class="label">环境</span></button>
     </nav>`;
   const panel = document.createElement('aside'); panel.className = 'ar-ui ar-panel'; panel.hidden = true; panel.setAttribute('aria-label', '运行详情');
   panel.innerHTML = '<div class="ar-panel-head"><div><h2 id="ar-panel-title"></h2><p id="ar-panel-subtitle"></p></div><button id="ar-close" aria-label="关闭面板">✕</button></div><div class="ar-panel-body"></div>';
   const toast = document.createElement('div'); toast.className = 'ar-ui ar-feedback'; toast.hidden = true; toast.setAttribute('role', 'status');
   document.body.append(bar, panel, toast);
   const $ = s => document.querySelector(s), pane = panel.querySelector('.ar-panel-body');
-  let ctx = null, wantSettings = false, version = 0, controller, panelKind, opener, frame, toastTimer, events, eventsRun, refreshBusy = false, health = null;
+  let ctx = null, ws = null, version = 0, controller, panelKind, opener, frame, toastTimer, events, eventsRun, refreshBusy = false, health = null;
   const notify = (text, error = false) => { toast.textContent = text; toast.classList.toggle('error', error); toast.hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => toast.hidden = true, 6500); };
   window.addEventListener('ar:notice', e => notify(e.detail.text, e.detail.error));
 
@@ -45,6 +47,7 @@
   const chatStatus = { running: '在线', finished: '休眠中', failed: '异常退出', interrupted: '已中断' };
   const statusLabel = r => (r?.mode === 'chat' ? chatStatus : statusNames)[r?.status] || r?.status || '';
   const loadHealth = async (force = false) => { if (!health || force) health = await api.request('/api/health'); return health; };
+  const loadWorkspace = async (force = false) => { if (!ws?.repo || force) { try { ws = await api.request('/api/workspace'); } catch {} } return ws; };
 
   function drawContext() {
     const run = ctx?.run, tasks = run?.board?.tasks || [];
@@ -76,8 +79,6 @@
       ctx = id ? await api.request(`/api/sessions/${encodeURIComponent(id)}/context`, { signal: controller.signal }) : null;
       if (token !== version) return;
       drawContext(); subscribe();
-      // 刚点了 dsh 的「新建会话」：自动打开运行设置，先选目录和成员
-      if (wantSettings && ctx?.capabilities.configure && !ctx.run) { wantSettings = false; if (panelKind !== 'settings') { await show('settings'); return; } }
       if (changed && !panel.hidden && panelKind !== 'runs' && panelKind !== 'env') await renderPanel();
     } catch (e) { if (e.name !== 'AbortError' && token === version) { ctx = null; drawContext(); notify(e.message, true); } }
     finally { if (token === version) refreshBusy = false; }
@@ -94,7 +95,8 @@
   }
   const TITLES = {
     board: ['任务与成员', '当前会话所属运行，自动同步'],
-    settings: ['运行设置', '工作目录、主代理与子代理'],
+    workspace: ['工作区', '同一个工作区下的所有对话都在这个目录里运行'],
+    settings: ['运行设置', '主代理、子代理与模型'],
     runs: ['运行记录', '多个目录可以同时运行'],
     env: ['环境检查', 'Agent Router 调用本机已安装的各家 CLI']
   };
@@ -108,6 +110,7 @@
     }
     if (panelKind === 'runs') return renderRuns();
     if (panelKind === 'env') return renderEnv();
+    if (panelKind === 'workspace') return renderWorkspace();
     return renderSettings();
   }
 
@@ -147,6 +150,50 @@
     $('#ar-recheck').onclick = () => renderEnv(true);
   }
 
+  /* ---------- 工作区 ---------- */
+  // 目录属于工作区而不是单个会话（dsh 模型）：这里改的是整个协作空间的工作目录
+  async function renderWorkspace() {
+    pane.innerHTML = '<p class="ar-help">加载中…</p>';
+    let current;
+    try { current = (await loadWorkspace(true))?.repo ?? ctx?.settings?.repo ?? ''; } catch { current = ctx?.settings?.repo ?? ''; }
+    if (panelKind !== 'workspace') return;
+    pane.innerHTML = `
+      <section class="ar-section"><h3>工作目录</h3>
+        <div class="ar-inline"><input id="ar-repo" value="${esc(current)}" placeholder="粘贴文件夹路径，如 D:\\code\\my-app"><button type="button" class="outline" id="ar-browse">浏览…</button></div>
+        <div id="ar-browser"></div>
+        <p class="ar-help">同一个工作区下的所有对话都在这个目录里运行：新会话直接继承，切换后还没开始的会话也会跟过去；已经在运行的对话保持各自的目录不受影响。</p>
+      </section>
+      <p id="ar-form-error" class="ar-error" role="alert"></p>`;
+    const repo = $('#ar-repo');
+    const save = async value => {
+      $('#ar-form-error').textContent = '';
+      try {
+        const r = await api.request('/api/workspace', { method: 'PATCH', body: JSON.stringify({ repo: value }) });
+        ws = { repo: r.repo }; notify('工作目录已更新'); await refresh();
+        if (panelKind === 'workspace') renderWorkspace();
+      } catch (err) { $('#ar-form-error').textContent = err.message; }
+    };
+    repo.onchange = () => save(repo.value.trim());
+    repo.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); repo.blur(); } };
+    const browse = async dir => {
+      const box = $('#ar-browser');
+      try {
+        const d = await api.request('/api/fs/dirs' + (dir ? `?path=${encodeURIComponent(dir)}` : ''));
+        const join = n => d.path.replace(/[\\/]$/, '') + (d.path.includes('\\') ? '\\' : '/') + n;
+        box.innerHTML = `<div class="ar-card" style="margin-top:8px">
+          <div class="ar-row" style="cursor:default;gap:6px">${d.parent ? `<button type="button" class="outline" data-dir="${esc(d.parent)}" title="上一级">↑</button>` : ''}<span class="ar-mono" style="flex:1" title="${esc(d.path)}">${esc(d.path)}</span><button type="button" class="primary" data-pick="${esc(d.path)}">选择</button></div>
+          <div class="ar-row" style="cursor:default;gap:4px;flex-wrap:wrap">${[d.home, ...d.roots].map(p => `<button type="button" class="outline" data-dir="${esc(p)}" style="padding:2px 8px;font-size:12px">${p === d.home ? '主目录' : esc(p)}</button>`).join('')}</div>
+          <div style="max-height:220px;overflow:auto">${d.dirs.map(n => `<button type="button" class="ar-row" data-dir="${esc(join(n))}">📁 ${esc(n)}</button>`).join('') || '<p class="ar-help" style="padding:0 12px 10px">没有子目录</p>'}</div></div>`;
+      } catch (err) { box.innerHTML = `<p class="ar-error">${esc(err.message)}</p>`; }
+    };
+    $('#ar-browse').onclick = () => $('#ar-browser').innerHTML ? ($('#ar-browser').innerHTML = '') : browse(repo.value.trim());
+    $('#ar-browser').onclick = e => {
+      const b = e.target.closest('[data-dir],[data-pick]'); if (!b) return;
+      if (b.dataset.pick) { repo.value = b.dataset.pick; $('#ar-browser').innerHTML = ''; save(b.dataset.pick); }
+      else browse(b.dataset.dir);
+    };
+  }
+
   /* ---------- 运行设置 ---------- */
   function mainRows(current, chats) {
     const row = (a, sub) => {
@@ -179,14 +226,10 @@
     return ctx.capabilities.configure ? renderDraft(s, catalog, chats) : renderLocked(s, catalog, chats);
   }
 
-  // 运行开始前：所有改动即时保存到会话，发送第一条消息时生效
+  // 运行开始前：所有改动即时保存到会话，发送第一条消息时生效（工作目录属于工作区，在「工作区」面板里改）
   function renderDraft(s, catalog, chats) {
     const saved = ctx;
     pane.innerHTML = `
-      <section class="ar-section"><h3>工作目录</h3>
-        <div class="ar-inline"><input id="ar-repo" value="${esc(s.repo || '')}" placeholder="粘贴文件夹路径，如 D:\\code\\my-app"><button type="button" class="outline" id="ar-browse">浏览…</button></div>
-        <div id="ar-browser"></div>
-      </section>
       <section class="ar-section"><h3>主代理 <span style="font-weight:400">· 和你对话，决定自己做还是派给子代理</span></h3>${mainRows(s.main, chats)}</section>
       <section class="ar-section"><h3>子代理 <span style="font-weight:400">· 主代理可以把任务派给它们并行执行</span></h3>
         <div class="ar-card">${KEYS.map(a => `<label class="ar-row${health[a] ? '' : ' disabled'}"><input type="checkbox" name="agents" value="${a}" ${s.agents.includes(a) ? 'checked' : ''} ${health[a] ? '' : 'disabled'}>${avatar(a)}<span class="ar-row-text"><span class="ar-row-main">${AGENTS[a].name}</span><span class="ar-row-sub">${health[a] ? esc(s.models?.[a] || health.models?.[a] || '客户端默认') : '未安装 · 见环境检查'}</span></span></label>`).join('')}${chats.map(a => `<label class="ar-row${mainReady(a) ? '' : ' disabled'}"><input type="checkbox" name="agents" value="${esc(a)}" ${s.agents.includes(a) ? 'checked' : ''} ${mainReady(a) ? '' : 'disabled'}>${avatar(a)}<span class="ar-row-text"><span class="ar-row-main">${esc(agentName(a))}</span><span class="ar-row-sub">对话模型 · 经 Codex 运行</span></span></label>`).join('')}</div>
@@ -201,28 +244,8 @@
       <p class="ar-note">设置会自动保存。在对话框里发送第一条消息，主代理就会开始工作。</p>`;
     const save = async patch => {
       Object.assign(s, patch); $('#ar-form-error').textContent = '';
-      try { await api.request(`/api/sessions/${encodeURIComponent(saved.sessionId)}/settings`, { method: 'PATCH', body: JSON.stringify({ repo: s.repo, agents: s.agents, main: s.main, worktree: s.worktree, models: s.models }) }); await refresh(); }
+      try { await api.request(`/api/sessions/${encodeURIComponent(saved.sessionId)}/settings`, { method: 'PATCH', body: JSON.stringify({ agents: s.agents, main: s.main, worktree: s.worktree, models: s.models }) }); await refresh(); }
       catch (err) { $('#ar-form-error').textContent = err.message; }
-    };
-    const repo = $('#ar-repo');
-    repo.onchange = () => save({ repo: repo.value.trim() });
-    repo.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); repo.blur(); } };
-    const browse = async dir => {
-      const box = $('#ar-browser');
-      try {
-        const d = await api.request('/api/fs/dirs' + (dir ? `?path=${encodeURIComponent(dir)}` : ''));
-        const join = n => d.path.replace(/[\\/]$/, '') + (d.path.includes('\\') ? '\\' : '/') + n;
-        box.innerHTML = `<div class="ar-card" style="margin-top:8px">
-          <div class="ar-row" style="cursor:default;gap:6px">${d.parent ? `<button type="button" class="outline" data-dir="${esc(d.parent)}" title="上一级">↑</button>` : ''}<span class="ar-mono" style="flex:1" title="${esc(d.path)}">${esc(d.path)}</span><button type="button" class="primary" data-pick="${esc(d.path)}">选择</button></div>
-          <div class="ar-row" style="cursor:default;gap:4px;flex-wrap:wrap">${[d.home, ...d.roots].map(p => `<button type="button" class="outline" data-dir="${esc(p)}" style="padding:2px 8px;font-size:12px">${p === d.home ? '主目录' : esc(p)}</button>`).join('')}</div>
-          <div style="max-height:220px;overflow:auto">${d.dirs.map(n => `<button type="button" class="ar-row" data-dir="${esc(join(n))}">📁 ${esc(n)}</button>`).join('') || '<p class="ar-help" style="padding:0 12px 10px">没有子目录</p>'}</div></div>`;
-      } catch (err) { box.innerHTML = `<p class="ar-error">${esc(err.message)}</p>`; }
-    };
-    $('#ar-browse').onclick = () => $('#ar-browser').innerHTML ? ($('#ar-browser').innerHTML = '') : browse(repo.value.trim());
-    $('#ar-browser').onclick = e => {
-      const b = e.target.closest('[data-dir],[data-pick]'); if (!b) return;
-      if (b.dataset.pick) { repo.value = b.dataset.pick; $('#ar-browser').innerHTML = ''; save({ repo: b.dataset.pick }); }
-      else browse(b.dataset.dir);
     };
     pane.querySelectorAll('[data-main]').forEach(b => b.onclick = async () => { await save({ main: b.dataset.main }); renderSettings(); });
     pane.querySelectorAll('[name=agents]').forEach(i => i.onchange = () => {
@@ -282,7 +305,6 @@
     await refresh(true); panelKind = null; await show('settings');
   } catch (e) { notify(e.message, true); } }
   $('#ar-close').onclick = close;
-  document.addEventListener('click', e => { if (e.target.closest?.('#root [aria-label="新建会话"]')) wantSettings = true; }, true);
   bar.querySelectorAll('[data-panel]').forEach(b => b.onclick = () => show(b.dataset.panel).catch(e => notify(e.message, true)));
   window.addEventListener('ar:session', () => refresh(true)); window.addEventListener('ar:refresh', () => refresh());
   window.addEventListener('message', e => { if (e.origin !== location.origin || e.source !== frame?.contentWindow) return; if (e.data?.type === 'ar:close') close(); });
@@ -299,7 +321,7 @@
     for (const el of document.querySelectorAll('#root [class*="_localBuildTitle"]')) if (el.textContent !== 'Agent Router') el.textContent = 'Agent Router';
     for (const el of document.querySelectorAll('#root [class*="_localBuildBrand"] > :not([class*="_localBuildTitle"])')) el.dataset.arHidden = '';
     if (document.title.includes('DSH 本地构建')) document.title = document.title === 'DSH 本地构建' ? 'Agent Router' : document.title.replace(/\s*—\s*DSH 本地构建/, ' — Agent Router');
-    // 空会话的欢迎区：换标题，去掉 dsh 的标志；工作区按钮改成显示工作目录，点击打开运行设置
+    // 空会话的欢迎区：换标题，去掉 dsh 的标志；工作区按钮改成显示工作目录，点击打开工作区面板
     const fish = document.querySelector('#root [data-slot="conversation.hero.brand.mark"]');
     if (fish?.parentElement && !fish.parentElement.dataset.arHidden) fish.parentElement.dataset.arHidden = '';
     const title = document.querySelector('#root [class*="_titleGroup"]');
@@ -312,7 +334,7 @@
     const chip = document.querySelector('#root [class*="_heroWorkspaceRow"] [aria-label="选择工作区"]');
     const label = chip?.querySelector('[class*="_workspaceLabel"]');
     if (label) {
-      const repo = ctx?.settings?.repo || '', name = repo ? repo.replace(/[\\/]+$/, '').split(/[\\/]/).pop() : '选择工作目录';
+      const repo = ws?.repo || ctx?.settings?.repo || '', name = repo ? repo.replace(/[\\/]+$/, '').split(/[\\/]/).pop() : '选择工作目录';
       if (label.textContent !== name) label.textContent = name;
       if (chip.title !== repo) chip.title = repo;
       chip.dataset.arChip = '';
@@ -321,7 +343,7 @@
   document.addEventListener('click', e => {
     if (!e.target.closest?.('[data-ar-chip]')) return;
     e.preventDefault(); e.stopPropagation();
-    if (panelKind !== 'settings') show('settings').catch(err => notify(err.message, true));
+    show('workspace').catch(err => notify(err.message, true));
   }, true);
   // Router 注入的 [事件] / [信箱] 在 dsh 里是用户消息：改成左对齐的提示条，长内容折叠，点击展开
   const markNotices = () => {
@@ -353,6 +375,6 @@
   setInterval(sweep, 1500);
   setInterval(() => { if (!document.hidden) refresh(); }, 8000);
   document.addEventListener('visibilitychange', () => { if (!document.hidden) refresh(); });
-  loadHealth().then(drawContext).catch(() => {});
+  loadWorkspace().then(() => loadHealth()).then(drawContext).catch(() => {});
   refresh();
 })();

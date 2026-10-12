@@ -8,6 +8,7 @@ import { loadConfig } from '../lib/config.mjs';
 import { createBridge } from './dsh-bridge.mjs';
 import { Sessions, readJson, safeId } from './sessions.mjs';
 import { Runs } from './runs.mjs';
+import { UiState } from './uistate.mjs';
 import { modelCatalog } from './models.mjs';
 import { providerReady } from '../chat-agent/provider.mjs';
 import { changesSummary, changesDiff } from './changes.mjs';
@@ -95,9 +96,12 @@ export function createApp({ dataDir = process.env.AGENT_ROUTER_DATA_DIR || path.
   dataDir = path.resolve(dataDir);
   const runs = new Runs({ root: ROOT, dataDir, launch, kill });
   const demo = ensureDemoRepo(path.join(ROOT, 'demo', 'todo-cli'), path.join(dataDir, 'demo', 'todo-cli'));
-  const sessions = new Sessions(dataDir, demo);
+  const uiState = new UiState(dataDir);
+  // 工作区目录（dsh 模型）：整个协作空间一个目录，所有未开始的会话都跟它走；未设置时落在 demo 模板
+  const workspaceRepo = () => uiState.workspaceRepo || demo;
+  const sessions = new Sessions(dataDir, workspaceRepo);
   const attachments = new Attachments(dataDir);
-  const bridge = createBridge({ runs, sessions });
+  const bridge = createBridge({ runs, sessions, uiState });
   // 预热可选模型清单（首个 CLI 扫描要数秒，避免第一个打开设置面板的请求卡顿）
   setTimeout(() => { try { modelCatalog(); } catch {} }, 500).unref();
   const server = http.createServer(handler);
@@ -173,6 +177,20 @@ export function createApp({ dataDir = process.env.AGENT_ROUTER_DATA_DIR || path.
           if (!ctx.capabilities.configure) return json(res, 409, { error: '运行已启动，工作目录和成员不可修改；模型可单独切换。' });
           const item = sessions.resolve(id);
           item.settings = runs.settings({ ...item.settings, ...await body(req) }); sessions.save(); return json(res, 200, bridge.context(id));
+        }
+      }
+      if (u.pathname === '/api/workspace') {
+        if (req.method === 'GET') return json(res, 200, { repo: workspaceRepo(), title: uiState.workspaceTitle });
+        if (req.method === 'PATCH') {
+          const input = String((await body(req)).repo || '');
+          let repo;
+          try { repo = fs.realpathSync(path.resolve(input)); } catch { throw new Error(`目录不存在：${input}`); }
+          if (!fs.statSync(repo).isDirectory()) throw new Error('工作目录必须是文件夹');
+          uiState.setWorkspaceRepo(repo);
+          // 目录属于工作区：切换后，还没开跑的会话全部跟到新目录（已开始的运行保持自己的目录）
+          for (const item of Object.values(sessions.items)) if (!item.runId) item.settings.repo = repo;
+          sessions.save();
+          return json(res, 200, { repo: workspaceRepo() });
         }
       }
       if (u.pathname === '/api/runs') {

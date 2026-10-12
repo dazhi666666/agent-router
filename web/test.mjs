@@ -55,7 +55,9 @@ test('concurrent runs isolate process, model configuration, messages, SSE, and s
   const a=f.runs.start({goal:'A',repo:f.repoA,agents:['claude'],models:{claude:'model-a'}});
   const b=f.runs.start({goal:'B',repo:f.repoB,agents:['zcode'],models:{claude:'model-b'}});
   assert.equal(f.runs.list().filter(r=>r.live).length,2);
-  assert.throws(()=>f.runs.start({goal:'collision',repo:f.repoA}),/重叠/);
+  // dsh 工作区模型：同一工作目录允许多个运行并行，互不隔离进程
+  const c=f.runs.start({goal:'collision',repo:f.repoA,agents:['claude']});
+  assert.equal(f.runs.list().filter(r=>r.live).length,3);
   assert.notEqual(f.launches[0].env.AGENT_ROUTER_RUN_CONFIG,f.launches[1].env.AGENT_ROUTER_RUN_CONFIG);
   assert.equal(JSON.parse(fs.readFileSync(f.launches[0].env.AGENT_ROUTER_RUN_CONFIG)).claude.model,'model-a');
   const ctrl=new AbortController();
@@ -78,6 +80,19 @@ test('concurrent runs isolate process, model configuration, messages, SSE, and s
   // 只有发给主代理的消息会唤醒对话；运行停止时不能直接给子代理留言
   f.runs.stop(a.id);
   assert.throws(()=>f.runs.message(a.id,{text:'y',to:'claude'}),/不在进行中/);
+});
+test('workspace directory is workspace-level: drafts follow it, new sessions inherit it', async t => {
+  const f = await httpFixture(t), demo = path.join(f.dataDir, 'demo', 'todo-cli');
+  assert.equal((await f.call('/api/workspace')).data.repo, demo);
+  const first=(await f.call('/dsh-api/session/create','POST',{})).data.value.sessionId;
+  assert.equal(f.sessions.resolve(first).settings.repo, demo);
+  const patched=(await f.call('/api/workspace','PATCH',{repo:f.repoA})).data;
+  assert.equal(patched.repo, fs.realpathSync(f.repoA));
+  // 切换工作区目录后：已有草稿会话跟到新目录，新建会话直接继承
+  assert.equal(f.sessions.resolve(first).settings.repo, fs.realpathSync(f.repoA));
+  const second=(await f.call('/dsh-api/session/create','POST',{})).data.value.sessionId;
+  assert.equal(f.sessions.resolve(second).settings.repo, fs.realpathSync(f.repoA));
+  assert.equal((await f.call('/api/workspace','PATCH',{repo:path.join(f.root,'missing')})).status,400);
 });
 test('switching the main agent: live runs get a command, sleeping runs relaunch with the new main', async t => {
   const f=await httpFixture(t), a=f.runs.start({goal:'A',repo:f.repoA,agents:['claude'],main:'claude'});
