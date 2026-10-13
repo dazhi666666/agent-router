@@ -106,32 +106,53 @@ export function modelCatalog() {
     zcode: { default: conf.defaultModelSelection ? `${conf.defaultModelSelection.providerId}/${conf.defaultModelSelection.modelId}` : '', options: [...choices.keys()], custom: false },
   };
 }
-export function validateModels(models = {}) {
+const TYPES = ['claude', 'zcode', 'devin', 'codex', 'opencode', 'antigravity'];
+
+function checkModel(kind, value) {
+  if (kind === 'zcode' && !modelCatalog().zcode.options.includes(value)) throw new Error('请选择本机已配置的 ZCode 模型');
+  if (kind === 'opencode') {
+    const base = value.split('@')[0];
+    const list = modelCatalog().opencode.options;
+    if (list.length && !list.includes(base)) throw new Error('请选择 OpenCode 可用模型，或清空使用客户端默认');
+  }
+}
+
+/** models 按类型 keyed；保留键 `main` 是主代理自己的模型（mainKind 给出主代理类型） */
+export function validateModels(models = {}, mainKind = null) {
   if (!models || typeof models !== 'object' || Array.isArray(models)) throw new Error('模型配置无效');
   const out = {};
   for (const [key, value] of Object.entries(models)) {
-    if (!['claude', 'zcode', 'devin', 'codex', 'opencode', 'antigravity'].includes(key) || typeof value !== 'string' || value.length > 250 || /[\r\n\x00]/.test(value)) throw new Error('模型配置无效');
-    if (value && key === 'zcode' && !modelCatalog().zcode.options.includes(value)) throw new Error('请选择本机已配置的 ZCode 模型');
-    if (value && key === 'opencode') {
-      const base = value.split('@')[0];
-      const list = modelCatalog().opencode.options;
-      if (list.length && !list.includes(base)) throw new Error('请选择 OpenCode 可用模型，或清空使用客户端默认');
-    }
+    if (!(TYPES.includes(key) || key === 'main') || typeof value !== 'string' || value.length > 250 || /[\r\n\x00]/.test(value)) throw new Error('模型配置无效');
+    const kind = key === 'main' ? mainKind : key;
+    if (value && kind && !TYPES.includes(kind)) throw new Error('该主代理类型不支持单独选择模型');
+    if (value && TYPES.includes(kind)) checkModel(kind, value.trim());
     out[key] = value.trim();
   }
   return out;
 }
-export function runtimeConfig(models) {
+/** 类型段 = 该类型子代理的模型；`main` 段仅主代理启动器读取，子代理不受影响 */
+export function runtimeConfig(models = {}, mainKind = null) {
   // antigravity 的模型名可带思考档位后缀（如 gemini-3.8-flash-high），拆成 --model + --effort；
   // opencode 支持 `provider/model@variant`（思考强度），拆成 --model + --variant
-  const agy = models.antigravity?.match(/^(.*?)(?:-(high|max|medium|low))?$/) || [];
-  const at = models.opencode ? models.opencode.lastIndexOf('@') : -1;
+  const parse = (kind, value) => {
+    if (kind === 'opencode') {
+      const at = value.lastIndexOf('@');
+      return { model: at > 0 ? value.slice(0, at) : value, ...(at > 0 ? { variant: value.slice(at + 1) } : {}) };
+    }
+    if (kind === 'antigravity') {
+      const agy = value.match(/^(.*?)(?:-(high|max|medium|low))?$/) || [];
+      return { model: agy[1] || value, ...(agy[2] ? { effort: agy[2] } : {}) };
+    }
+    return { model: value };
+  };
+  const pick = (kind, key) => (models[key] ? parse(kind, models[key]) : {});
   return {
-    claude: { ...(models.claude ? { model: models.claude } : {}) },
-    devin: { ...(models.devin ? { model: models.devin } : {}) },
-    codex: { ...(models.codex ? { model: models.codex } : {}) },
-    opencode: models.opencode ? { model: at > 0 ? models.opencode.slice(0, at) : models.opencode, ...(at > 0 ? { variant: models.opencode.slice(at + 1) } : {}) } : {},
-    antigravity: models.antigravity ? { model: agy[1] || models.antigravity, ...(agy[2] ? { effort: agy[2] } : {}) } : {},
-    zcode: { ...(models.zcode ? { model: models.zcode } : {}) }
+    claude: pick('claude', 'claude'),
+    devin: pick('devin', 'devin'),
+    codex: pick('codex', 'codex'),
+    opencode: pick('opencode', 'opencode'),
+    antigravity: pick('antigravity', 'antigravity'),
+    zcode: pick('zcode', 'zcode'),
+    ...(models.main && TYPES.includes(mainKind) ? { main: parse(mainKind, models.main) } : {})
   };
 }

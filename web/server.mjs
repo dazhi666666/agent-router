@@ -176,7 +176,11 @@ export function createApp({ dataDir = process.env.AGENT_ROUTER_DATA_DIR || path.
         if (parts[3] === 'settings' && req.method === 'PATCH') {
           if (!ctx.capabilities.configure) return json(res, 409, { error: '运行已启动，工作目录和成员不可修改；模型可单独切换。' });
           const item = sessions.resolve(id);
-          item.settings = runs.settings({ ...item.settings, ...await body(req) }); sessions.save(); return json(res, 200, bridge.context(id));
+          const patch = await body(req);
+          // 主代理模型跟类型走：换主代理类型后原选择不再适用，清掉回退类型默认
+          const models = { ...(patch.models ?? item.settings.models) };
+          if (patch.main && patch.main !== item.settings.main) delete models.main;
+          item.settings = runs.settings({ ...item.settings, ...patch, models }); sessions.save(); return json(res, 200, bridge.context(id));
         }
       }
       if (u.pathname === '/api/workspace') {

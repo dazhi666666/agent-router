@@ -230,14 +230,16 @@
   function renderDraft(s, catalog, chats) {
     const saved = ctx;
     pane.innerHTML = `
-      <section class="ar-section"><h3>主代理 <span style="font-weight:400">· 和你对话，决定自己做还是派给子代理</span></h3>${mainRows(s.main, chats)}</section>
+      <section class="ar-section"><h3>主代理 <span style="font-weight:400">· 和你对话，决定自己做还是派给子代理</span></h3>${mainRows(s.main, chats)}
+        ${AGENTS[s.main] ? `<div class="ar-card" style="margin-top:8px"><label class="ar-row" style="cursor:default">${avatar(s.main)}<span class="ar-row-text"><span class="ar-row-main">${AGENTS[s.main].name} 模型</span><span class="ar-row-sub">只对主代理生效，子代理用下面各自的模型</span></span>${modelField('main', { main: catalog[s.main] || {} }, s.models || {})}</label></div>` : (llm()[s.main] ? '<p class="ar-help" style="margin-top:8px">对话模型的模型在「环境检查」的模型配置里设置。</p>' : '')}
+      </section>
       <section class="ar-section"><h3>子代理 <span style="font-weight:400">· 主代理可以把任务派给它们并行执行</span></h3>
         <div class="ar-card">${KEYS.map(a => `<label class="ar-row${health[a] ? '' : ' disabled'}"><input type="checkbox" name="agents" value="${a}" ${s.agents.includes(a) ? 'checked' : ''} ${health[a] ? '' : 'disabled'}>${avatar(a)}<span class="ar-row-text"><span class="ar-row-main">${AGENTS[a].name}</span><span class="ar-row-sub">${health[a] ? esc(s.models?.[a] || health.models?.[a] || '客户端默认') : '未安装 · 见环境检查'}</span></span></label>`).join('')}${chats.map(a => `<label class="ar-row${mainReady(a) ? '' : ' disabled'}"><input type="checkbox" name="agents" value="${esc(a)}" ${s.agents.includes(a) ? 'checked' : ''} ${mainReady(a) ? '' : 'disabled'}>${avatar(a)}<span class="ar-row-text"><span class="ar-row-main">${esc(agentName(a))}</span><span class="ar-row-sub">对话模型 · 经 Codex 运行</span></span></label>`).join('')}</div>
       </section>
       <section class="ar-section"><h3>执行方式</h3>
         <div class="ar-seg"><button type="button" data-wt="false" class="${s.worktree ? '' : 'on'}">直通模式<small>子代理直接在工作目录里并行修改，最快</small></button><button type="button" data-wt="true" class="${s.worktree ? 'on' : ''}">隔离模式<small>每个任务一个 git worktree，完成后合并</small></button></div>
       </section>
-      <section class="ar-section"><h3>模型 <span style="font-weight:400">· 留空使用各 CLI 的默认模型</span></h3>
+      <section class="ar-section"><h3>子代理模型 <span style="font-weight:400">· 对相应类型的子代理生效，留空用各 CLI 的默认模型</span></h3>
         <div class="ar-card">${KEYS.map(k => `<label class="ar-row" style="cursor:default">${avatar(k)}<span class="ar-row-text"><span class="ar-row-main">${AGENTS[k].name}</span></span>${modelField(k, catalog, s.models || {})}</label>`).join('')}</div>
       </section>
       <p id="ar-form-error" class="ar-error" role="alert"></p>
@@ -261,13 +263,15 @@
   function renderLocked(s, catalog, chats) {
     const saved = ctx, running = saved.run?.status === 'running';
     pane.innerHTML = `
-      <section class="ar-section"><h3>主代理 <span style="font-weight:400">· ${running ? '当前回合结束后切换，子代理任务不受影响' : '下一条消息起由新主代理接手'}</span></h3>${mainRows(s.main, chats)}</section>
+      <section class="ar-section"><h3>主代理 <span style="font-weight:400">· ${running ? '当前回合结束后切换，子代理任务不受影响' : '下一条消息起由新主代理接手'}</span></h3>${mainRows(s.main, chats)}
+        ${AGENTS[s.main] ? `<div class="ar-card" style="margin-top:8px"><label class="ar-row" style="cursor:default">${avatar(s.main)}<span class="ar-row-text"><span class="ar-row-main">${AGENTS[s.main].name} 模型</span><span class="ar-row-sub">${running ? '当前回合结束后生效，子代理用下面各自的模型' : '下一条消息起生效，子代理用下面各自的模型'}</span></span>${modelField('main', { main: catalog[s.main] || {} }, s.models || {})}</label></div>` : (llm()[s.main] ? '<p class="ar-help" style="margin-top:8px">对话模型的模型在「环境检查」的模型配置里设置。</p>' : '')}
+      </section>
       <section class="ar-section"><h3>本次运行</h3><div class="ar-card">
         <div class="ar-row" style="cursor:default"><span class="ar-row-text"><span class="ar-row-sub">工作目录</span><span class="ar-row-main" style="font-weight:400;overflow-wrap:anywhere">${esc(s.repo || '')}</span></span></div>
         <div class="ar-row" style="cursor:default"><span class="ar-row-text"><span class="ar-row-sub">子代理</span><span class="ar-row-main" style="font-weight:400">${esc(s.agents.map(agentName).join('、'))}</span></span></div>
         <div class="ar-row" style="cursor:default"><span class="ar-row-text"><span class="ar-row-sub">执行方式</span><span class="ar-row-main" style="font-weight:400">${s.worktree ? '隔离模式（git worktree）' : '直通模式'}</span></span></div>
       </div><p class="ar-help">目录和成员在运行开始后锁定；要换就新建一个会话。</p></section>
-      <section class="ar-section"><h3>模型 <span style="font-weight:400">· 主代理在本回合结束后切换，子代理在下一个任务开始时生效</span></h3>
+      <section class="ar-section"><h3>子代理模型 <span style="font-weight:400">· 对相应类型的子代理生效，下一个任务开始时使用</span></h3>
         <div class="ar-card">${KEYS.map(k => `<label class="ar-row" style="cursor:default">${avatar(k)}<span class="ar-row-text"><span class="ar-row-main">${AGENTS[k].name}</span></span>${modelField(k, catalog, s.models || {})}</label>`).join('')}</div>
       </section>
       <p id="ar-form-error" class="ar-error" role="alert"></p>

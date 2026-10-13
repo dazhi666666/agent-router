@@ -52,7 +52,7 @@ export class Runs {
     if (!validMain(main)) throw new Error('请选择有效主代理');
     const worktree = input.worktree === true;
     if (worktree && spawnSync('git', ['-C', repo, 'rev-parse', '--is-inside-work-tree'], { encoding: 'utf8', windowsHide: true }).status !== 0) throw new Error('worktree 模式需要 Git 仓库');
-    return { repo, agents: [...new Set(agents)], main, worktree, models: validateModels(input.models) };
+    return { repo, agents: [...new Set(agents)], main, worktree, models: validateModels(input.models, main) };
   }
   start(input) {
     // 对话模式（默认）：第一条消息原样发给主代理；goal 模式（mode: 'goal'）沿用"总目标 → finish_run"流程
@@ -65,7 +65,7 @@ export class Runs {
     writeJson(path.join(dir, 'board.json'), { seq: { task: 0, msg: 0 }, tasks: [], messages: [] });
     const meta = { id, goal, mode: input.mode === 'goal' ? 'goal' : 'chat', settings, startedAt: Date.now(), status: 'running', exitCode: null };
     writeJson(path.join(dir, 'run.json'), meta);
-    writeJson(path.join(dir, 'runtime-config.json'), runtimeConfig(settings.models));
+    writeJson(path.join(dir, 'runtime-config.json'), runtimeConfig(settings.models, settings.main));
     const child = this.spawnRouter(meta, goal, false);
     return { id, dir, pid: child.pid };
   }
@@ -200,7 +200,10 @@ export class Runs {
     const meta = readJson(file);
     if (!meta?.settings) throw new Error('运行不存在');
     if (meta.mode !== 'chat') throw new Error('只有对话可以切换主代理');
-    const settings = { ...meta.settings, main };
+    // 主代理模型跟类型走：换成别的类型后原选择不再适用，清掉回退类型默认
+    const models = { ...meta.settings.models };
+    if (main !== meta.settings.main) delete models.main;
+    const settings = { ...meta.settings, main, models };
     writeJson(file, { ...meta, settings });
     const run = this.active.get(id);
     if (run) run.settings = settings;
@@ -211,9 +214,9 @@ export class Runs {
   models(id, models) {
     if (!this.running(id)) throw new Error('只有运行中的会话可切换模型');
     const run = this.active.get(id);
-    const selected = validateModels(models);
+    const selected = validateModels(models, run.settings.main);
     run.settings = { ...run.settings, models: selected };
-    writeJson(path.join(run.dir, 'runtime-config.json'), runtimeConfig(selected));
+    writeJson(path.join(run.dir, 'runtime-config.json'), runtimeConfig(selected, run.settings.main));
     const meta = readJson(path.join(run.dir, 'run.json'));
     writeJson(path.join(run.dir, 'run.json'), { ...meta, settings: run.settings });
     this.command(id, { type: 'models_changed' });

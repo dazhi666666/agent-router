@@ -9,6 +9,7 @@ import { spawn, execFileSync } from 'node:child_process';
 import { createApp } from './server.mjs';
 import { Sessions, threadSessionId, writeJson } from './sessions.mjs';
 import { UiState } from './uistate.mjs';
+import { runtimeConfig, validateModels } from './models.mjs';
 import { mutate, read } from '../lib/store.mjs';
 import { loadConfig } from '../lib/config.mjs';
 
@@ -191,9 +192,37 @@ test('direct subagent messages record unread/read state and validate target owne
 test('runtime model overrides do not alter global configuration',t=>{
   const f=fixture(t), previous=process.env.AGENT_ROUTER_RUN_CONFIG;
   t.after(()=>{if(previous===undefined)delete process.env.AGENT_ROUTER_RUN_CONFIG;else process.env.AGENT_ROUTER_RUN_CONFIG=previous;});
-  const config=path.join(f.root,'config.json');writeJson(config,{claude:{model:'isolated-model'}});
+  const config=path.join(f.root,'config.json');writeJson(config,{claude:{model:'isolated-model'},main:{model:'main-only'}});
   const original=loadConfig().claude.model;process.env.AGENT_ROUTER_RUN_CONFIG=config;
-  assert.equal(loadConfig().claude.model,'isolated-model');delete process.env.AGENT_ROUTER_RUN_CONFIG;assert.equal(loadConfig().claude.model,original);
+  assert.equal(loadConfig().claude.model,'isolated-model');assert.equal(loadConfig().main.model,'main-only');delete process.env.AGENT_ROUTER_RUN_CONFIG;assert.equal(loadConfig().claude.model,original);assert.equal(loadConfig().main.model,undefined);
+});
+test('main and subagent models are chosen separately',async t=>{
+  const f=await httpFixture(t);
+  const sid=(await f.call('/dsh-api/session/create','POST',{})).data.value.sessionId;
+  // 草稿：主代理模型（main 键）与子代理类型模型（类型键）并存保存
+  assert.equal((await f.call(`/api/sessions/${sid}/settings`,'PATCH',{repo:f.repoA,agents:['claude'],main:'claude',models:{main:'main-model-x',claude:'sub-model-y'}})).status,200);
+  assert.equal((await f.call('/dsh-api/session/prompt','POST',{sessionId:sid,content:[{type:'text',text:'开始'}]})).data.ok,true);
+  const runId=f.sessions.resolve(sid).runId;
+  const cfg=JSON.parse(fs.readFileSync(path.join(f.runs.dir(runId),'runtime-config.json'),'utf8'));
+  assert.deepEqual(cfg,{claude:{model:'sub-model-y'},devin:{},codex:{},opencode:{},antigravity:{},zcode:{},main:{model:'main-model-x'}});
+  // 运行中改模型：main 段与类型段一起落盘
+  assert.equal((await f.call(`/api/runs/${runId}/models`,'PATCH',{models:{main:'main-model-z',claude:'sub-model-y2'}})).status,200);
+  const cfg2=JSON.parse(fs.readFileSync(path.join(f.runs.dir(runId),'runtime-config.json'),'utf8'));
+  assert.equal(cfg2.main.model,'main-model-z');assert.equal(cfg2.claude.model,'sub-model-y2');
+  // 换主代理类型：原类型的主代理模型清空，回退类型默认
+  assert.equal((await f.call(`/api/runs/${runId}/main`,'PATCH',{main:'devin'})).status,200);
+  assert.equal(f.runs.detail(runId).settings.models.main,undefined);
+  // 草稿里换主代理类型同样清空，不会拿旧类型的模型名去校验
+  const sid2=(await f.call('/dsh-api/session/create','POST',{})).data.value.sessionId;
+  await f.call(`/api/sessions/${sid2}/settings`,'PATCH',{main:'claude',models:{main:'m1',claude:'c1'}});
+  assert.equal((await f.call(`/api/sessions/${sid2}/settings`,'PATCH',{main:'devin'})).status,200);
+  assert.equal(f.sessions.resolve(sid2).settings.models.main,undefined);
+  // main 段按类型解析：opencode 带 @variant、antigravity 带 -effort 后缀
+  assert.deepEqual(runtimeConfig({main:'p/m@high',opencode:'p/m2'},'opencode'),{claude:{},devin:{},codex:{},opencode:{model:'p/m2'},antigravity:{},zcode:{},main:{model:'p/m',variant:'high'}});
+  assert.deepEqual(runtimeConfig({main:'gemini-3.8-flash-high'},'antigravity').main,{model:'gemini-3.8-flash',effort:'high'});
+  assert.deepEqual(runtimeConfig({main:'m'},'claude').main,{model:'m'});
+  // 对话模型主代理不支持单独选模型
+  assert.throws(()=>validateModels({main:'x'},'not-a-cli'),/不支持单独选择模型/);
 });
 test('cross-process task-board updates do not overwrite each other',async t=>{
   const f=fixture(t),file=path.join(f.root,'board.json'),module=new URL('../lib/store.mjs',import.meta.url).href;
