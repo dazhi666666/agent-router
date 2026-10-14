@@ -18,6 +18,7 @@
     <div id="health" class="health">
       <span class="h-item" id="h-claude" title="Claude Code CLI"><i></i>claude</span>
       <span class="h-item" id="h-zcode" title="ZCode CLI"><i></i>zcode</span>
+      <span class="h-item" id="h-zcode-oss" title="ZCode OSS（E:\ZCode 源码自建，复用 ~/.zcode 登录态）"><i></i>zcode-oss</span>
       <span class="h-item" id="h-devin" title="Devin CLI（需 devin auth login）"><i></i>devin</span>
       <span class="h-item" id="h-codex" title="Codex CLI"><i></i>codex</span>
       <span class="h-item" id="h-opencode" title="OpenCode CLI"><i></i>opencode</span>
@@ -52,6 +53,7 @@
         <div class="checks" id="f-agents">
           <label><input type="checkbox" value="claude" checked>claude <span class="model-tag" data-m="claude"></span></label>
           <label><input type="checkbox" value="zcode" checked>zcode <span class="model-tag" data-m="zcode"></span></label>
+          <label><input type="checkbox" value="zcode-oss">zcode-oss <span class="model-tag" data-m="zcode-oss"></span></label>
           <label><input type="checkbox" value="devin">devin <span class="model-tag" data-m="devin"></span></label>
           <label><input type="checkbox" value="codex">codex <span class="model-tag" data-m="codex"></span></label>
           <label><input type="checkbox" value="opencode">opencode <span class="model-tag" data-m="opencode"></span></label>
@@ -63,6 +65,7 @@
         <select id="f-main">
           <option value="claude" selected>claude — stream-json 常驻主线程（事件即时注入）</option>
           <option value="zcode">zcode — 回合串联（每条消息一次 headless 运行续链）</option>
+          <option value="zcode-oss">zcode-oss — 回合串联（开源 ZCode CLI，E:\ZCode 自建）</option>
           <option value="devin">devin — ACP 常驻（需已 devin auth login）</option>
           <option value="codex">codex — 回合串联（OpenAI Codex CLI）</option>
           <option value="opencode">opencode — 回合串联（SST OpenCode CLI）</option>

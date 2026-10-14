@@ -135,6 +135,18 @@ function assistantMessage(id, text) {
   };
 }
 
+// ModelUsageSummary（result 条目里的聚合口径）→ dsh TokenUsage（assistant/message 的 usage 字段）
+export const TOKEN_USAGE_FIELDS = ['inputTokens', 'outputTokens', 'totalTokens', 'cacheReadTokens', 'cacheWriteTokens', 'reasoningTokens'];
+export function toTokenUsage(u) {
+  if (!u || typeof u !== 'object') return undefined;
+  const out = {};
+  for (const f of TOKEN_USAGE_FIELDS) {
+    const v = Math.round(Number(u[f]));
+    if (Number.isFinite(v) && v > 0) out[f] = v;
+  }
+  return out.inputTokens !== undefined || out.outputTokens !== undefined ? out : undefined;
+}
+
 function toolResultMessage(id, callId, text, isError) {
   return {
     id, role: 'tool',
@@ -158,6 +170,23 @@ export function synthesizeSessionEvents(entries, take = null, state = null) {
   if (!entries.length) return [];
   const events = [];
   const assistantTexts = new Set();
+  // 预扫描：① 每条 result 的 usage 挂到它之前同回合最后一条 assistant 条目（客户端按回合内
+  // 求和，挂两条会翻倍）；② queued user 条目在其后不再有 result 时仍算排队中（加注记）
+  const usageForAssistant = new Map(); // assistant 条目下标 -> usage
+  const stillQueued = new Map();       // 仍在排队的 user 条目下标 -> 'steer' | 'queue'
+  {
+    let lastAssistant = -1;
+    const resultIndexes = [];
+    entries.forEach((e, i) => {
+      if (e.kind === 'assistant') lastAssistant = i;
+      else if (e.kind === 'result') {
+        if (lastAssistant >= 0 && e.data?.usage) usageForAssistant.set(lastAssistant, e.data.usage);
+        resultIndexes.push(i);
+        lastAssistant = -1; // usage 只归本回合，不跨 result 认领
+      } else if (e.kind === 'user' && e.data?.queued) stillQueued.set(i, e.data.steer ? 'steer' : 'queue');
+    });
+    for (const i of [...stillQueued.keys()]) if (resultIndexes.some(r => r > i)) stillQueued.delete(i);
+  }
   let seq = -1;
   let step = 1, open = true;
   // 思考（thought）与它后面的正文同属一次模型尝试：合并成同一条 assistant/message 的
@@ -170,14 +199,14 @@ export function synthesizeSessionEvents(entries, take = null, state = null) {
   const closeStep = () => { if (open) { push('step/end', { turn: 1, step }); open = false; step += 1; } };
   push('turn/start', { turn: 1 });
   push('step/start', { turn: 1, step });
-  for (const e of entries) {
+  entries.forEach((e, entryIndex) => {
     const d = e.data || {};
     const time = Date.parse(e.ts) || time0;
     const emit = (type, data, extra) => { seq += 1; events.push({ type, seq, time, data, ...extra }); };
     if (e.kind === 'thought') {
       const t = String(d.text ?? '');
       pendingThought = pendingThought ? `${pendingThought}\n\n${t}` : t;
-      continue;
+      return;
     }
     if (e.kind === 'assistant') {
       const text = String(d.text ?? '');
@@ -185,9 +214,10 @@ export function synthesizeSessionEvents(entries, take = null, state = null) {
       openStep();
       const content = pendingThought ? [{ type: 'reasoning', text: pendingThought }, { type: 'text', text }] : [{ type: 'text', text }];
       pendingThought = null;
-      emit('assistant/message', { turn: 1, step, message: { ...assistantMessage(`m${seq}`, ''), content }, stream: [] }, { surfaceOp: 'append' });
+      const usage = toTokenUsage(usageForAssistant.get(entryIndex));
+      emit('assistant/message', { turn: 1, step, message: { ...assistantMessage(`m${seq}`, ''), content }, stream: [], ...(usage ? { usage } : {}) }, { surfaceOp: 'append' });
       closeStep();
-      continue;
+      return;
     }
     if (e.kind === 'result') {
       const text = String(d.text || '');
@@ -195,7 +225,8 @@ export function synthesizeSessionEvents(entries, take = null, state = null) {
         openStep();
         const content = pendingThought ? [{ type: 'reasoning', text: pendingThought }, { type: 'text', text }] : [{ type: 'text', text }];
         pendingThought = null;
-        emit('assistant/message', { turn: 1, step, message: { ...assistantMessage(`m${seq}`, ''), content }, stream: [] }, { surfaceOp: 'append' });
+        const usage = toTokenUsage(d.usage);
+        emit('assistant/message', { turn: 1, step, message: { ...assistantMessage(`m${seq}`, ''), content }, stream: [], ...(usage ? { usage } : {}) }, { surfaceOp: 'append' });
       } else if (pendingThought) {
         // 思考没有等到正文就遇到回合结束：单独下发一条 reasoning 消息，避免丢失
         openStep();
@@ -207,7 +238,7 @@ export function synthesizeSessionEvents(entries, take = null, state = null) {
       // 右侧改动审查面板凭该事件（data 只需 {turn}）拉取 /api/changes.summary；汇总为空时不渲染卡片
       emit('workspace/changes', { turn: 1 });
       emit('turn/end', { turn: 1, reason: d.isError ? { kind: 'error', error: { message: text.slice(0, 200) || '会话失败', code: 'UNKNOWN' } } : { kind: 'completed' } });
-      continue;
+      return;
     }
     openStep();
     if (e.kind === 'system') {
@@ -215,15 +246,18 @@ export function synthesizeSessionEvents(entries, take = null, state = null) {
     } else if (e.kind === 'user') {
       // Router 注入的 [事件] / [信箱] 仍按用户消息下发（dsh 会把回合中的注入上下文整个隐藏），页面上由 board-embed.js 改成提示条样式；
       // take 命中的那条带上 prompt 的 requestId（客户端凭它回收乐观气泡，缺了同一条消息会渲染两遍）
-      // 和消息里图片附件的引用块（乐观气泡里有内联图片，回填后凭 attachment 走 session/attachment 取回）
+      // 和消息里图片附件的引用块（乐观气泡里有内联图片，回填后凭 attachment 走 session/attachment 取回）；
+      // 仍在排队/已插入未结算的消息加注记（steer=软插入当前轮，queue=回合结束后送达），送达后合成即恢复原文
       const tag = take?.(e);
-      emit('user/message', userMessage(`m${seq}`, d.text, tag?.requestId, tag?.blocks), { surfaceOp: 'append' });
+      const mode = stillQueued.get(entryIndex);
+      const note = mode === 'steer' ? '\n\n_(已插入当前回合，模型将在下一次请求时看到)_' : mode === 'queue' ? '\n\n_(已排队，当前回合结束后送达)_' : '';
+      emit('user/message', userMessage(`m${seq}`, String(d.text ?? '') + note, tag?.requestId, tag?.blocks), { surfaceOp: 'append' });
     } else if (e.kind === 'tool_use') {
       emit('tool/call', { turn: 1, step, callId: String(d.id || `call-${seq}`), name: String(d.name || 'tool'), arguments: JSON.stringify(d.input ?? d.raw ?? {}) });
     } else if (e.kind === 'tool_result') {
       emit('tool/result', { turn: 1, step, message: toolResultMessage(`m${seq}`, String(d.id || ''), String(d.text || '').slice(0, 20000), d.isError === true) }, { surfaceOp: 'append' });
     }
-  }
+  });
   if (state) Object.assign(state, { turn: 1, step, open });
   return events;
 }
@@ -298,10 +332,45 @@ export function createBridge({ sessions, runs, uiState: sharedUiState }) {
       return { id: threadSessionId(runId, t.name), createdAt: Date.parse(task?.created_at) || Math.round(t.mtimeMs), mode: 'continuable', label: subagentLabel(t.name, task) };
     }).sort((a, b) => a.createdAt - b.createdAt);
   };
+  // ---- 用量投影：线程 result 条目的 usage 聚合 ----
+  // tokenUsage：累计四桶（dsh TokenUsageProjection，桶之间互斥）；contextPressure：
+  // 末回合 provider 上报的输入侧规模。注意 usage 是回合内各请求之和，多工具回合会把
+  // 压力值读高——它是参考显示不是计费口径，单请求回合（普通聊天）则是精确值。
+  // mtime 记忆化：control 流每 1.5s 轮询全部会话，避免每拍整文件重读重解析。
+  const usageMemo = new Map(); // `${runId}/${thread}` -> { mtime, value }
+  const usageProjectionOf = s => {
+    if (!s?.runId) return null;
+    const threadFile = path.join(runs.dir(s.runId), 'threads', `${s.thread}.jsonl`);
+    let mtime = 0;
+    try { mtime = fs.statSync(threadFile).mtimeMs; } catch { return null; }
+    const key = `${s.runId}/${s.thread}`;
+    const hit = usageMemo.get(key);
+    if (hit && hit.mtime === mtime) return hit.value;
+    const agg = { uncachedInputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0 };
+    let last = null;
+    for (const e of readThreadEntries(runs.dir(s.runId), s.thread) || []) {
+      const u = e.kind === 'result' ? toTokenUsage(e.data?.usage) : null;
+      if (!u) continue;
+      last = u;
+      agg.uncachedInputTokens += Math.max(0, (u.inputTokens || 0) - (u.cacheReadTokens || 0) - (u.cacheWriteTokens || 0));
+      agg.outputTokens += u.outputTokens || 0;
+      agg.cacheReadTokens += u.cacheReadTokens || 0;
+      agg.cacheWriteTokens += u.cacheWriteTokens || 0;
+    }
+    const value = {};
+    if (last) {
+      value.tokenUsage = agg;
+      const pressure = (last.inputTokens || 0) || ((last.cacheReadTokens || 0) + (last.cacheWriteTokens || 0));
+      if (pressure) value.contextPressure = { pressureTokens: pressure };
+    }
+    usageMemo.set(key, { mtime, value });
+    return value;
+  };
   const projectionValues = id => {
     const s = id ? sessions.resolve(id) : null;
-    if (s?.runId && s.thread === 'manager') return { ...modelSelectionValues(), subagentCatalog: catalogOf(s.runId) };
-    return modelSelectionValues();
+    const values = { ...modelSelectionValues(), ...(s ? usageProjectionOf(s) || {} : {}) };
+    if (s?.runId && s.thread === 'manager') return { ...values, subagentCatalog: catalogOf(s.runId) };
+    return values;
   };
   const context = id => {
     const s = get(id), run = s.runId ? runs.detail(s.runId) : null;
@@ -310,7 +379,7 @@ export function createBridge({ sessions, runs, uiState: sharedUiState }) {
     // 对话模式的运行结束/休眠/中断后，主代理会话仍可续聊：下一条消息经 runs.message → resume
     // 用 --resume 拉起原 Router，续接原主代理 CLI 会话（目标模式运行不可续）
     const resumable = !!run && !running && run.mode === 'chat' && s.thread === 'manager';
-    return { sessionId: id, runId: s.runId, thread: s.thread, agent: agent || null, settings: run?.settings || s.settings, run, managerSessionId: s.runId ? sessions.managerId(s.runId) : id, capabilities: { configure: !s.runId, send: !s.runId || ((running || resumable) && !!agent), stop: running && s.thread === 'manager', models: running && s.thread === 'manager' } };
+    return { sessionId: id, runId: s.runId, thread: s.thread, agent: agent || null, settings: run?.settings || s.settings, run, managerSessionId: s.runId ? sessions.managerId(s.runId) : id, capabilities: { configure: !s.runId, send: !s.runId || ((running || resumable) && !!agent), stop: running && s.thread === 'manager', models: running && s.thread === 'manager', mcp: s.thread === 'manager' } };
   };
   // 会话工作目录与路径安全：workspaceFiles/@文件引用 都以会话绑定的仓库为根
   const repoOf = id => get(id).settings?.repo || workspacePath();
@@ -498,8 +567,34 @@ export function createBridge({ sessions, runs, uiState: sharedUiState }) {
       const meta = attachments.save(Buffer.from(String(p.data || ''), 'base64'), p.name || 'file');
       return ok({ receiptId: meta.receiptId, file: { attachmentId: meta.attachmentId, name: meta.name, bytes: meta.bytes } });
     }
-    if (endpoint === 'commands/list') return ok([]);
-    if (endpoint === 'commands/execute') return ok(undefined);
+    if (endpoint === 'commands/list') {
+      // 斜杠命令：compact 仅 zcode 系主代理可执行（走 CLI 内建 /compact）
+      const main = id ? context(id)?.settings?.main : null;
+      const items = [];
+      if (!main || main === 'zcode' || main === 'zcode-oss') items.push({ name: 'compact', description: '主动压缩上下文：总结历史，释放上下文空间' });
+      return ok(items);
+    }
+    if (endpoint === 'commands/execute') {
+      // 位置参数 (agentId, line, submittedAttachments)：unpack 已把 args[0] 映射为会话 id
+      const line = String(posArg(1, 'line') ?? '').trim();
+      const name = line.startsWith('/') ? line.slice(1).split(/\s+/)[0].toLowerCase() : '';
+      const commandId = `cmd-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+      const done = (kind, text) => ok({ commandId, result: { kind, text } });
+      if (name !== 'compact') return ok(undefined);
+      let ctx;
+      try { ctx = context(id); } catch { return done('error', '会话不存在'); }
+      if (!ctx.runId) return done('error', '会话还没有运行记录，无法压缩');
+      if (ctx.agent !== 'manager') return done('error', '只能对主代理会话执行压缩');
+      const main = ctx.settings?.main;
+      if (main !== 'zcode' && main !== 'zcode-oss') return done('error', `主代理 ${main || '(未知)'} 不支持主动压缩（仅 zcode 系）`);
+      if (runs.running(ctx.runId)) {
+        runs.command(ctx.runId, { type: 'compact' });
+        return done('success', '已请求压缩：当前回合结束后执行');
+      }
+      if (ctx.run?.mode !== 'chat') return done('error', '该运行已结束，无法压缩');
+      runs.resume(ctx.runId, '/compact');
+      return done('success', '已唤醒会话并执行上下文压缩');
+    }
     if (endpoint === 'skills/list') return ok({ skills: [] });
     if (endpoint === 'schedule/list') return ok([]);
     if (endpoint.startsWith('goals/')) return ok(undefined);
@@ -569,19 +664,24 @@ export function createBridge({ sessions, runs, uiState: sharedUiState }) {
       for (const item of all()) {
         const values = projectionValues(item.sessionId);
         projections[item.sessionId] = { asOfSeq: -1, values };
-        if (values.subagentCatalog) last.set(item.sessionId, JSON.stringify(values.subagentCatalog));
+        for (const key of ['subagentCatalog', 'tokenUsage', 'contextPressure']) {
+          if (values[key] !== undefined) last.set(`${item.sessionId}:${key}`, JSON.stringify(values[key]));
+        }
       }
       send({ type: 'baseline', value: { projections } });
       let seq = 0;
       timer = setInterval(() => {
         try {
           for (const item of all()) {
-            const catalog = projectionValues(item.sessionId).subagentCatalog;
-            if (!catalog) continue;
-            const signature = JSON.stringify(catalog);
-            if (last.get(item.sessionId) === signature) continue;
-            last.set(item.sessionId, signature);
-            send({ type: 'projection', sessionId: item.sessionId, key: 'subagentCatalog', value: catalog, seq: ++seq });
+            const values = projectionValues(item.sessionId);
+            for (const key of ['subagentCatalog', 'tokenUsage', 'contextPressure']) {
+              const value = values[key];
+              if (value === undefined) continue;
+              const signature = JSON.stringify(value);
+              if (last.get(`${item.sessionId}:${key}`) === signature) continue;
+              last.set(`${item.sessionId}:${key}`, signature);
+              send({ type: 'projection', sessionId: item.sessionId, key, value, seq: ++seq });
+            }
           }
         } catch {}
       }, 1500);
@@ -678,7 +778,7 @@ export function createBridge({ sessions, runs, uiState: sharedUiState }) {
   return { unary, stream, context, all };
 }
 
-const AGENT_LABELS = { claude: 'Claude Code', zcode: 'ZCode', devin: 'Devin', codex: 'Codex', opencode: 'OpenCode', antigravity: 'Antigravity' };
+const AGENT_LABELS = { claude: 'Claude Code', zcode: 'ZCode', 'zcode-oss': 'ZCode OSS', devin: 'Devin', codex: 'Codex', opencode: 'OpenCode', antigravity: 'Antigravity' };
 const short = (text, n = 60) => { const v = String(text ?? '').replace(/\s+/g, ' ').trim(); return v.length > n ? `${v.slice(0, n)}…` : v; };
 /** 子代理目录里的标签：T1 · ZCode · 任务标题 */
 function subagentLabel(name, task) {

@@ -9,7 +9,8 @@ import { spawn, execFileSync } from 'node:child_process';
 import { createApp } from './server.mjs';
 import { Sessions, threadSessionId, writeJson } from './sessions.mjs';
 import { UiState } from './uistate.mjs';
-import { runtimeConfig, validateModels } from './models.mjs';
+import { runtimeConfig, validateModels, validateEfforts, validateMcpServers, modelCatalog } from './models.mjs';
+import { withConfigLock, withWorkspaceConfig, writeConfigEra } from '../lib/spawn-util.mjs';
 import { mutate, read } from '../lib/store.mjs';
 import { loadConfig } from '../lib/config.mjs';
 
@@ -192,9 +193,82 @@ test('direct subagent messages record unread/read state and validate target owne
 test('runtime model overrides do not alter global configuration',t=>{
   const f=fixture(t), previous=process.env.AGENT_ROUTER_RUN_CONFIG;
   t.after(()=>{if(previous===undefined)delete process.env.AGENT_ROUTER_RUN_CONFIG;else process.env.AGENT_ROUTER_RUN_CONFIG=previous;});
-  const config=path.join(f.root,'config.json');writeJson(config,{claude:{model:'isolated-model'},main:{model:'main-only'}});
+  const config=path.join(f.root,'config.json');writeJson(config,{claude:{model:'isolated-model'},main:{model:'main-only'},mcpServers:{fetch:{type:'stdio',command:'mcp-cmd'}}});
   const original=loadConfig().claude.model;process.env.AGENT_ROUTER_RUN_CONFIG=config;
-  assert.equal(loadConfig().claude.model,'isolated-model');assert.equal(loadConfig().main.model,'main-only');delete process.env.AGENT_ROUTER_RUN_CONFIG;assert.equal(loadConfig().claude.model,original);assert.equal(loadConfig().main.model,undefined);
+  assert.equal(loadConfig().claude.model,'isolated-model');assert.equal(loadConfig().main.model,'main-only');assert.equal(loadConfig().mcpServers.fetch.command,'mcp-cmd');
+  delete process.env.AGENT_ROUTER_RUN_CONFIG;assert.equal(loadConfig().claude.model,original);assert.equal(loadConfig().main.model,undefined);assert.deepEqual(loadConfig().mcpServers,{});
+});
+test('conversation MCP servers: validation, draft persistence, runtime-config, live and dormant edits',async t=>{
+  const f=await httpFixture(t);
+  // 校验与规范化：stdio/http 合法形状通过；坏名字、未知字段、缺 command/url 拒绝
+  assert.deepEqual(validateMcpServers({fetch:{command:'npx',args:['-y','mcp-server-fetch'],env:{K:'v'}},docs:{url:'https://example.com/mcp',headers:{A:'b'}},off:{command:'x',enabled:false}}),{
+    fetch:{type:'stdio',command:'npx',args:['-y','mcp-server-fetch'],env:{K:'v'}},
+    docs:{type:'http',url:'https://example.com/mcp',headers:{A:'b'}},
+    off:{type:'stdio',command:'x',enabled:false}
+  });
+  assert.throws(()=>validateMcpServers({'bad name':{command:'x'}}),/名字/);
+  assert.throws(()=>validateMcpServers({x:{command:'x',foo:1}}),/未知字段/);
+  assert.throws(()=>validateMcpServers({x:{}}),/command（本地进程）或 url/);
+  assert.throws(()=>validateMcpServers({x:{type:'http',command:'y'}}),/url/);
+  assert.deepEqual(validateMcpServers(undefined),{});
+  // 草稿保存 + 启动时进 runtime-config.json
+  const sid=(await f.call('/dsh-api/session/create','POST',{})).data.value.sessionId;
+  assert.equal((await f.call(`/api/sessions/${sid}/settings`,'PATCH',{repo:f.repoA,agents:['zcode'],mcpServers:{fetch:{command:'npx',args:['-y','mcp-server-fetch']}}})).status,200);
+  assert.equal((await f.call(`/api/sessions/${sid}/settings`,'PATCH',{mcpServers:{x:{nope:1}}})).status,400);
+  assert.equal((await f.call('/dsh-api/session/prompt','POST',{sessionId:sid,content:[{type:'text',text:'开始'}]})).data.ok,true);
+  const runId=f.sessions.resolve(sid).runId;
+  const cfg=JSON.parse(fs.readFileSync(path.join(f.runs.dir(runId),'runtime-config.json'),'utf8'));
+  assert.deepEqual(cfg.mcpServers,{fetch:{type:'stdio',command:'npx',args:['-y','mcp-server-fetch']}});
+  // 运行中改 MCP 即时落盘（下一个拉起的 CLI 进程重读），改模型不丢 MCP 段
+  assert.equal((await f.call(`/api/runs/${runId}/mcp`,'PATCH',{mcpServers:{docs:{url:'https://example.com/mcp'}}})).status,200);
+  assert.equal((await f.call(`/api/runs/${runId}/models`,'PATCH',{models:{claude:'m2'}})).status,200);
+  const cfg2=JSON.parse(fs.readFileSync(path.join(f.runs.dir(runId),'runtime-config.json'),'utf8'));
+  assert.deepEqual(cfg2.mcpServers,{docs:{type:'http',url:'https://example.com/mcp'}});
+  assert.equal(f.runs.detail(runId).settings.mcpServers.docs.url,'https://example.com/mcp');
+  // 非法输入 400 且不落盘
+  assert.equal((await f.call(`/api/runs/${runId}/mcp`,'PATCH',{mcpServers:{'bad name':{command:'x'}}})).status,400);
+  assert.equal(f.runs.detail(runId).settings.mcpServers.docs.url,'https://example.com/mcp');
+  // 休眠后仍可改：下一条消息唤醒的 Router 带新配置；清空后 runtime-config 不再带该段
+  f.runs.stop(runId);
+  assert.equal((await f.call(`/api/runs/${runId}/mcp`,'PATCH',{mcpServers:{}})).status,200);
+  assert.deepEqual(f.runs.detail(runId).settings.mcpServers,{});
+  assert.equal(JSON.parse(fs.readFileSync(path.join(f.runs.dir(runId),'runtime-config.json'),'utf8')).mcpServers,undefined);
+});
+test('config file lock serializes the write-spawn-read window and recovers stale locks',async t=>{
+  const f=fixture(t),file=path.join(f.root,'shared.json'),sleep=ms=>new Promise(r=>setTimeout(r,ms));
+  const events=[];
+  await Promise.all([
+    withConfigLock(file,async()=>{events.push('a-in');await sleep(60);events.push('a-out');}),
+    withConfigLock(file,async()=>{events.push('b-in');events.push('b-out');})
+  ]);
+  assert.deepEqual(events,['a-in','a-out','b-in','b-out']); // 第二个等第一个出临界区（含读配置缓冲）
+  // 崩溃残锁（超过回收线的 mtime）会被自动接管
+  const lock=`${file}.lock`;fs.writeFileSync(lock,'stale');
+  const past=new Date(Date.now()-60000);fs.utimesSync(lock,past,past);
+  let ran=false;await withConfigLock(file,async()=>{ran=true;});
+  assert.equal(ran,true);assert.ok(!fs.existsSync(lock));
+  await sleep(10);
+});
+test('workspace config window isolates parallel users: snapshots stay original, file restored after read window',async t=>{
+  const f=fixture(t),file=path.join(f.root,'ws.json');
+  fs.writeFileSync(file,JSON.stringify({keep:1}));
+  const snapshots=[];
+  const run=who=>withWorkspaceConfig(
+    file,
+    era=>{
+      const base=JSON.parse(era.original?.toString('utf8')||'{}');
+      assert.ok(!('who' in base),`${who} 的快照不该包含别人的内容`);
+      base.who=who;
+      writeConfigEra(era,file,JSON.stringify(base));
+    },
+    ()=>{snapshots.push(JSON.parse(fs.readFileSync(file,'utf8')));return null;}
+  );
+  await Promise.all([run('a'),run('b')]);
+  // 拉起进程时各自只看到自己的写入；全部结束后共享文件还原成原件（后开始的用户快照干净的关键）
+  assert.deepEqual(snapshots.map(s=>s.who).sort(),['a','b']);
+  assert.deepEqual(JSON.parse(fs.readFileSync(file,'utf8')),{keep:1});
+  // startSpawn 的 promise 原样透传（含失败），缓冲期内提前失败不算 unhandledRejection
+  await assert.rejects(()=>withWorkspaceConfig(file,()=>{},()=>Promise.reject(new Error('spawn-fail'))),/spawn-fail/);
 });
 test('main and subagent models are chosen separately',async t=>{
   const f=await httpFixture(t);
@@ -204,7 +278,7 @@ test('main and subagent models are chosen separately',async t=>{
   assert.equal((await f.call('/dsh-api/session/prompt','POST',{sessionId:sid,content:[{type:'text',text:'开始'}]})).data.ok,true);
   const runId=f.sessions.resolve(sid).runId;
   const cfg=JSON.parse(fs.readFileSync(path.join(f.runs.dir(runId),'runtime-config.json'),'utf8'));
-  assert.deepEqual(cfg,{claude:{model:'sub-model-y'},devin:{},codex:{},opencode:{},antigravity:{},zcode:{},main:{model:'main-model-x'}});
+  assert.deepEqual(cfg,{claude:{model:'sub-model-y'},devin:{},codex:{},opencode:{},antigravity:{},zcode:{},'zcode-oss':{},main:{model:'main-model-x'}});
   // 运行中改模型：main 段与类型段一起落盘
   assert.equal((await f.call(`/api/runs/${runId}/models`,'PATCH',{models:{main:'main-model-z',claude:'sub-model-y2'}})).status,200);
   const cfg2=JSON.parse(fs.readFileSync(path.join(f.runs.dir(runId),'runtime-config.json'),'utf8'));
@@ -218,11 +292,41 @@ test('main and subagent models are chosen separately',async t=>{
   assert.equal((await f.call(`/api/sessions/${sid2}/settings`,'PATCH',{main:'devin'})).status,200);
   assert.equal(f.sessions.resolve(sid2).settings.models.main,undefined);
   // main 段按类型解析：opencode 带 @variant、antigravity 带 -effort 后缀
-  assert.deepEqual(runtimeConfig({main:'p/m@high',opencode:'p/m2'},'opencode'),{claude:{},devin:{},codex:{},opencode:{model:'p/m2'},antigravity:{},zcode:{},main:{model:'p/m',variant:'high'}});
-  assert.deepEqual(runtimeConfig({main:'gemini-3.8-flash-high'},'antigravity').main,{model:'gemini-3.8-flash',effort:'high'});
-  assert.deepEqual(runtimeConfig({main:'m'},'claude').main,{model:'m'});
+  assert.deepEqual(runtimeConfig({main:'p/m@high',opencode:'p/m2'},{},'opencode'),{claude:{},devin:{},codex:{},opencode:{model:'p/m2'},antigravity:{},zcode:{},'zcode-oss':{},main:{model:'p/m',variant:'high'}});
+  assert.deepEqual(runtimeConfig({main:'gemini-3.8-flash-high'},{},'antigravity').main,{model:'gemini-3.8-flash',effort:'high'});
+  assert.deepEqual(runtimeConfig({main:'m'},{},'claude').main,{model:'m'});
+  // 开源 ZCode 类型：模型段走 runtime-config 的 zcode-oss 键，validateModels 接受该类型
+  assert.deepEqual(runtimeConfig({'zcode-oss':'p/oss'},{},null)['zcode-oss'],{model:'p/oss'});
   // 对话模型主代理不支持单独选模型
   assert.throws(()=>validateModels({main:'x'},'not-a-cli'),/不支持单独选择模型/);
+});
+test('zcode reasoning effort flows through settings and runtime config',async t=>{
+  const f=await httpFixture(t);
+  const cat=modelCatalog(),values=cat.zcode.efforts?.[cat.zcode.default]||[];
+  if (!values.length) { t.skip('本机没有 ZCode 思考档位注册表'); return; }
+  const eff=values.at(-1);
+  const sid=(await f.call('/dsh-api/session/create','POST',{})).data.value.sessionId;
+  // 草稿：只选强度不选模型也生效（zcode 段/主代理段都只有 effort）；换主类型和选强度分两次保存（与 UI 一致）
+  assert.equal((await f.call(`/api/sessions/${sid}/settings`,'PATCH',{repo:f.repoA,agents:['claude'],main:'zcode'})).status,200);
+  assert.equal((await f.call(`/api/sessions/${sid}/settings`,'PATCH',{efforts:{zcode:eff,main:eff}})).status,200);
+  await f.call('/dsh-api/session/prompt','POST',{sessionId:sid,content:[{type:'text',text:'开始'}]});
+  const runId=f.sessions.resolve(sid).runId;
+  const cfg=JSON.parse(fs.readFileSync(path.join(f.runs.dir(runId),'runtime-config.json'),'utf8'));
+  assert.deepEqual(cfg.zcode,{effort:eff});
+  assert.deepEqual(cfg.main,{effort:eff});
+  // 运行中改强度：类型段跟随落盘
+  const eff2=values[0];
+  assert.equal((await f.call(`/api/runs/${runId}/models`,'PATCH',{efforts:{zcode:eff2}})).status,200);
+  assert.equal(JSON.parse(fs.readFileSync(path.join(f.runs.dir(runId),'runtime-config.json'),'utf8')).zcode.effort,eff2);
+  // 换主代理类型：efforts.main 一并清空，回退类型默认
+  assert.equal((await f.call(`/api/runs/${runId}/main`,'PATCH',{main:'claude'})).status,200);
+  assert.equal(f.runs.detail(runId).settings.efforts.main,undefined);
+  // 不在该模型注册表档位里的取值被拒；其它类型暂不支持单独选强度（草稿会话上验证 HTTP 层）
+  const sid2=(await f.call('/dsh-api/session/create','POST',{})).data.value.sessionId;
+  assert.equal((await f.call(`/api/sessions/${sid2}/settings`,'PATCH',{efforts:{zcode:'bogus-level'}})).status,400);
+  assert.equal((await f.call(`/api/sessions/${sid2}/settings`,'PATCH',{efforts:{claude:'high'}})).status,400);
+  assert.throws(()=>validateEfforts({claude:'high'},{},'claude'),/暂不支持/);
+  assert.throws(()=>validateEfforts({zcode:'bogus-level'},{},'zcode'),/不支持思考强度/);
 });
 test('cross-process task-board updates do not overwrite each other',async t=>{
   const f=fixture(t),file=path.join(f.root,'board.json'),module=new URL('../lib/store.mjs',import.meta.url).href;
@@ -318,4 +422,65 @@ test('dsh 前端补全端点：改名/归档/置顶、工作区文件、附件�
   assert.deepEqual(f.bridge.unary('commands/list', { sessionId: sid }).value, []);
   assert.equal(f.bridge.unary('sessionFeedback/record', { sessionId: sid }).value.value.recorded, true);
   assert.deepEqual(f.bridge.unary('permissionPresets/catalog', {}).value, { options: [], defaultOptions: [], defaultPreset: '' });
+});
+
+test('dsh 合成：turn usage 只挂回合内最后一条 assistant，排队消息送达前后注记切换', async t => {
+  const { synthesizeSessionEvents, toTokenUsage } = await import('./dsh-bridge.mjs');
+  const usage = { inputTokens: 1200, outputTokens: 300, totalTokens: 1500, cacheReadTokens: 800, cacheWriteTokens: 100, reasoningTokens: 50, modelRequestCount: 2 };
+  const entries = [
+    { seq: 1, ts: '2026-10-14T07:00:00Z', kind: 'user', data: { text: '第一问' } },
+    { seq: 2, ts: '2026-10-14T07:00:10Z', kind: 'assistant', data: { text: '答一' } },
+    { seq: 3, ts: '2026-10-14T07:00:20Z', kind: 'tool_use', data: { id: 'c1', name: 'bash', input: {} } },
+    { seq: 4, ts: '2026-10-14T07:00:30Z', kind: 'tool_result', data: { id: 'c1', text: 'ok' } },
+    { seq: 5, ts: '2026-10-14T07:00:40Z', kind: 'assistant', data: { text: '答二' } },
+    { seq: 6, ts: '2026-10-14T07:00:50Z', kind: 'result', data: { text: '答二', isError: false, usage } },
+    { seq: 7, ts: '2026-10-14T07:01:00Z', kind: 'user', data: { text: '插话', queued: true } }
+  ];
+  const events = synthesizeSessionEvents(entries);
+  const msgs = events.filter(e => e.type === 'assistant/message');
+  assert.equal(msgs.length, 2);
+  assert.equal(msgs[0].data.usage, undefined); // 同回合第二条不挂 usage：客户端按回合求和，挂两条会翻倍
+  assert.deepEqual(msgs[1].data.usage, toTokenUsage(usage));
+  const users = events.filter(e => e.type === 'user/message');
+  assert.match(users.at(-1).data.content[0].text, /已排队/); // 其后没有 result → 仍排队
+  const delivered = synthesizeSessionEvents([...entries, { seq: 8, ts: '2026-10-14T07:02:00Z', kind: 'result', data: { text: '后续', isError: false, usage } }]);
+  assert.doesNotMatch(delivered.filter(e => e.type === 'user/message').at(-1).data.content[0].text, /已排队/);
+  assert.equal(toTokenUsage({ inputTokens: 0, outputTokens: 0 }), undefined);
+  assert.equal(toTokenUsage(null), undefined);
+});
+
+test('主动压缩：commands/list 按主代理类型门控，execute 走专用命令通道', async t => {
+  const f = await httpFixture(t);
+  const compactCmd = { name: 'compact', description: '主动压缩上下文：总结历史，释放上下文空间' };
+  const sid = f.bridge.unary('session/create', {}).value.sessionId;
+  await f.call(`/api/sessions/${sid}/settings`, 'PATCH', { repo: f.repoA, agents: ['zcode'], main: 'zcode' });
+  assert.deepEqual(f.bridge.unary('commands/list', { sessionId: sid }).value, [compactCmd]);
+  f.bridge.unary('session/prompt', { sessionId: sid, content: [{ type: 'text', text: '开始' }] });
+  assert.equal(f.launches.length, 1);
+  const pos = f.bridge.unary('commands/execute', { args: [sid, '/compact', []] });
+  assert.equal(pos.value.result.kind, 'success');
+  const runId = f.bridge.context(sid).runId;
+  const lines = fs.readFileSync(path.join(f.dataDir, runId, 'commands.jsonl'), 'utf8').trim().split('\n').map(l => JSON.parse(l));
+  assert.equal(lines.at(-1).type, 'compact'); // 专用通道，不与文本队列混合
+  // 非 zcode 主代理拒绝；未知命令返回 undefined（交给客户端按普通输入处理）
+  const sid2 = f.bridge.unary('session/create', {}).value.sessionId;
+  await f.call(`/api/sessions/${sid2}/settings`, 'PATCH', { repo: f.repoA, agents: ['claude'] });
+  assert.deepEqual(f.bridge.unary('commands/list', { sessionId: sid2 }).value, []);
+  assert.equal(f.bridge.unary('commands/execute', { args: [sid2, '/compact', []] }).value.result.kind, 'error');
+  assert.equal(f.bridge.unary('commands/execute', { args: [sid2, '/hello', []] }).value, undefined);
+});
+
+test('用量投影：tokenUsage 累计四桶，contextPressure 取末回合输入侧', async t => {
+  const f = await httpFixture(t);
+  const sid = f.bridge.unary('session/create', {}).value.sessionId;
+  await f.call(`/api/sessions/${sid}/settings`, 'PATCH', { repo: f.repoA, agents: ['zcode'], main: 'zcode' });
+  f.bridge.unary('session/prompt', { sessionId: sid, content: [{ type: 'text', text: '开始' }] });
+  const runId = f.bridge.context(sid).runId;
+  fs.mkdirSync(path.join(f.dataDir, runId, 'threads'), { recursive: true }); // 假启动没有 Router 落线程目录
+  const thread = path.join(f.dataDir, runId, 'threads', 'manager.jsonl');
+  fs.appendFileSync(thread, JSON.stringify({ seq: 1, ts: new Date().toISOString(), kind: 'user', data: { text: '第一问' } }) + '\n');
+  fs.appendFileSync(thread, JSON.stringify({ seq: 2, ts: new Date().toISOString(), kind: 'result', data: { text: '答', isError: false, usage: { inputTokens: 1000, outputTokens: 200, cacheReadTokens: 400, cacheWriteTokens: 100 } } }) + '\n');
+  const values = f.bridge.unary('session/projections', { sessionId: sid }).value.values;
+  assert.deepEqual(values.tokenUsage, { uncachedInputTokens: 500, outputTokens: 200, cacheReadTokens: 400, cacheWriteTokens: 100 });
+  assert.equal(values.contextPressure.pressureTokens, 1000);
 });

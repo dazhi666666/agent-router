@@ -33,6 +33,7 @@
   const AGENTS = {
     claude: { name: 'Claude Code', color: '#d97757', install: 'npm i -g @anthropic-ai/claude-code', login: 'claude（首次运行按提示登录）', mode: '常驻会话，事件即时送达（推荐）' },
     zcode: { name: 'ZCode', color: '#3b82f6', install: 'npm i -g zcode-app-cli', login: '复用 ZCode 桌面端的 GLM 套餐凭据', mode: '回合串联，事件在回合之间送达' },
+    'zcode-oss': { name: 'ZCode OSS', color: '#0ea5e9', install: 'E:\\ZCode 源码 pnpm build（apps/zcode-cli/packages/cli）', login: '复用 ~/.zcode 登录态（与 ZCode 共用）', mode: '同 ZCode：回合串联，stream-json 事件流' },
     devin: { name: 'Devin', color: '#10b981', install: '从 Devin 官网安装 Devin CLI', login: 'devin auth login', mode: '常驻 ACP 会话' },
     codex: { name: 'Codex', color: '#6b7280', install: 'npm i -g @openai/codex', login: 'codex login', mode: '回合串联，事件在回合之间送达' },
     opencode: { name: 'OpenCode', color: '#f59e0b', install: 'npm i -g opencode-ai@latest', login: 'opencode auth login', mode: '回合串联，事件在回合之间送达' },
@@ -207,21 +208,52 @@
     const c = catalog[k] || {}, val = current[k] || '', def = c.default ? `默认（${c.default}）` : '客户端默认';
     if (c.options?.length && !c.custom) {
       const labels = c.labels || {}, efforts = c.efforts || {};
-      const opts = c.options.flatMap(o => [o, ...(efforts[o] || []).map(e => `${o}@${e}`)]);
+      // opencode 的思考强度编码在模型串里（model@variant）；zcode 的强度是独立下拉，不生成组合项
+      const opts = k === 'opencode' ? c.options.flatMap(o => [o, ...(efforts[o] || []).map(e => `${o}@${e}`)]) : c.options;
       const label = o => { const [m, e] = o.split('@'); return labels[m] ? `${labels[m]}${e ? ' · ' + e : ''}` : o; };
       if (opts.length > 60) return `<input list="ar-dl-${k}" data-model="${k}" value="${esc(val)}" placeholder="${esc(def)}（可输入筛选）"><datalist id="ar-dl-${k}">${opts.map(o => `<option value="${esc(o)}">${esc(labels[o.split('@')[0]] || '')}</option>`).join('')}</datalist>`;
       return `<select data-model="${k}"><option value="">${esc(def)}</option>${opts.map(o => `<option value="${esc(o)}" ${o === val ? 'selected' : ''}>${esc(label(o))}</option>`).join('')}</select>`;
     }
     return `<input data-model="${k}" value="${esc(val)}" placeholder="${esc(def)}">`;
   }
+  // 思考强度（目前仅 ZCode：档位随模型而定，来自 runtime 注册表）——模型换档位集变化时由 syncEfforts 重建。
+  // opencode 的档位走模型串里的 @variant 组合项，不在这里渲染
+  const LEVELS = { disabled: '关闭', enabled: '开启', none: '无', minimal: '极低', low: '低', medium: '中', high: '高', xhigh: '超高', max: '最大' };
+  function effortField(k, catalog, current, modelSel, kind) {
+    if (!['zcode', 'zcode-oss'].includes(kind || k)) return '';
+    const c = catalog[k] || {}, values = (c.efforts || {})[modelSel || c.default || ''];
+    if (!values?.length) return '';
+    const cur = current[k] || '';
+    return `<select data-effort="${esc(k)}" style="max-width:120px"><option value="" ${cur ? '' : 'selected'}>思考 · 默认</option>${values.map(v => `<option value="${esc(v)}" ${v === cur ? 'selected' : ''}>思考 · ${esc(LEVELS[v] || v)}</option>`).join('')}</select>`;
+  }
+  const readEfforts = () => Object.fromEntries([...pane.querySelectorAll('[data-effort]')].map(el => [el.dataset.effort, el.value.trim()]));
+  const syncEfforts = (root, catalog, mainKind) => root.querySelectorAll('[data-effort]').forEach(sel => {
+    const k = sel.dataset.effort, c = k === 'main' ? (catalog[mainKind] || {}) : (catalog[k] || {});
+    const modelEl = root.querySelector(`[data-model="${k}"]`);
+    const values = (c.efforts || {})[modelEl?.value.trim() || c.default || ''] || [];
+    sel.innerHTML = `<option value="">思考 · 默认</option>${values.map(v => `<option value="${esc(v)}" ${v === sel.value ? 'selected' : ''}>思考 · ${esc(LEVELS[v] || v)}</option>`).join('')}`;
+  });
   const readModels = () => Object.fromEntries([...pane.querySelectorAll('[data-model]')].map(el => [el.dataset.model, el.value.trim()]));
+  const mcpText = servers => Object.keys(servers || {}).length ? JSON.stringify(servers, null, 2) : '';
+  const MCP_PLACEHOLDER = '{"fetch": {"command": "npx", "args": ["-y", "mcp-server-fetch"]}, "docs": {"url": "https://example.com/mcp"}}';
+  // MCP 文本框 → 对象：空文本 = 清空；非法 JSON 抛错（由调用方显示，不落盘）
+  const readMcp = () => {
+    const el = pane.querySelector('#ar-mcp');
+    if (!el || !el.value.trim()) return {};
+    let v; try { v = JSON.parse(el.value); } catch (e) { throw new Error(`MCP 配置不是合法 JSON：${e.message}`); }
+    if (!v || typeof v !== 'object' || Array.isArray(v)) throw new Error('MCP 配置需要 { 名字: 服务器 } 对象');
+    return v;
+  };
+  const mcpSection = (s, sub) => `<section class="ar-section"><h3>对话 MCP <span style="font-weight:400">· ${sub}</span></h3>
+        <div class="ar-card"><textarea id="ar-mcp" rows="6" style="width:100%;font-family:monospace;font-size:12.5px" placeholder="${esc(MCP_PLACEHOLDER)}">${esc(mcpText(s.mcpServers))}</textarea><p class="ar-help">JSON：本地进程用 command/args/env/cwd，远程服务用 url/headers。各成员 CLI 都加载这些服务器，且只加载本对话的 —— 对话之间互相隔离（ enabled:false 可临时停用某一个）。</p></div>
+      </section>`;
 
   async function renderSettings() {
     if (!ctx) { pane.innerHTML = '<p class="ar-help">先新建或选择一个会话。</p><div class="ar-footer"><button class="primary" id="ar-create-settings">新会话</button></div>'; $('#ar-create-settings').onclick = createSession; return; }
     const saved = ctx;
     const [catalog] = await Promise.all([api.request('/api/models'), loadHealth()]);
     if (saved.sessionId !== ctx?.sessionId || panelKind !== 'settings') return;
-    const s = { main: 'claude', agents: [], worktree: false, models: {}, ...ctx.settings };
+    const s = { main: 'claude', agents: [], worktree: false, models: {}, efforts: {}, ...ctx.settings };
     const chats = Object.keys(llm());
     return ctx.capabilities.configure ? renderDraft(s, catalog, chats) : renderLocked(s, catalog, chats);
   }
@@ -231,7 +263,7 @@
     const saved = ctx;
     pane.innerHTML = `
       <section class="ar-section"><h3>主代理 <span style="font-weight:400">· 和你对话，决定自己做还是派给子代理</span></h3>${mainRows(s.main, chats)}
-        ${AGENTS[s.main] ? `<div class="ar-card" style="margin-top:8px"><label class="ar-row" style="cursor:default">${avatar(s.main)}<span class="ar-row-text"><span class="ar-row-main">${AGENTS[s.main].name} 模型</span><span class="ar-row-sub">只对主代理生效，子代理用下面各自的模型</span></span>${modelField('main', { main: catalog[s.main] || {} }, s.models || {})}</label></div>` : (llm()[s.main] ? '<p class="ar-help" style="margin-top:8px">对话模型的模型在「环境检查」的模型配置里设置。</p>' : '')}
+        ${AGENTS[s.main] ? `<div class="ar-card" style="margin-top:8px"><label class="ar-row" style="cursor:default">${avatar(s.main)}<span class="ar-row-text"><span class="ar-row-main">${AGENTS[s.main].name} 模型</span><span class="ar-row-sub">只对主代理生效，子代理用下面各自的模型</span></span>${modelField('main', { main: catalog[s.main] || {} }, s.models || {})}${effortField('main', { main: { default: catalog[s.main]?.default, efforts: catalog[s.main]?.efforts } }, s.efforts || {}, s.models?.main, s.main)}</label></div>` : (llm()[s.main] ? '<p class="ar-help" style="margin-top:8px">对话模型的模型在「环境检查」的模型配置里设置。</p>' : '')}
       </section>
       <section class="ar-section"><h3>子代理 <span style="font-weight:400">· 主代理可以把任务派给它们并行执行</span></h3>
         <div class="ar-card">${KEYS.map(a => `<label class="ar-row${health[a] ? '' : ' disabled'}"><input type="checkbox" name="agents" value="${a}" ${s.agents.includes(a) ? 'checked' : ''} ${health[a] ? '' : 'disabled'}>${avatar(a)}<span class="ar-row-text"><span class="ar-row-main">${AGENTS[a].name}</span><span class="ar-row-sub">${health[a] ? esc(s.models?.[a] || health.models?.[a] || '客户端默认') : '未安装 · 见环境检查'}</span></span></label>`).join('')}${chats.map(a => `<label class="ar-row${mainReady(a) ? '' : ' disabled'}"><input type="checkbox" name="agents" value="${esc(a)}" ${s.agents.includes(a) ? 'checked' : ''} ${mainReady(a) ? '' : 'disabled'}>${avatar(a)}<span class="ar-row-text"><span class="ar-row-main">${esc(agentName(a))}</span><span class="ar-row-sub">对话模型 · 经 Codex 运行</span></span></label>`).join('')}</div>
@@ -239,14 +271,15 @@
       <section class="ar-section"><h3>执行方式</h3>
         <div class="ar-seg"><button type="button" data-wt="false" class="${s.worktree ? '' : 'on'}">直通模式<small>子代理直接在工作目录里并行修改，最快</small></button><button type="button" data-wt="true" class="${s.worktree ? 'on' : ''}">隔离模式<small>每个任务一个 git worktree，完成后合并</small></button></div>
       </section>
-      <section class="ar-section"><h3>子代理模型 <span style="font-weight:400">· 对相应类型的子代理生效，留空用各 CLI 的默认模型</span></h3>
-        <div class="ar-card">${KEYS.map(k => `<label class="ar-row" style="cursor:default">${avatar(k)}<span class="ar-row-text"><span class="ar-row-main">${AGENTS[k].name}</span></span>${modelField(k, catalog, s.models || {})}</label>`).join('')}</div>
+      <section class="ar-section"><h3>子代理模型 <span style="font-weight:400">· 对相应类型的子代理生效，留空用各 CLI 的默认模型；ZCode 可另选思考强度</span></h3>
+        <div class="ar-card">${KEYS.map(k => `<label class="ar-row" style="cursor:default">${avatar(k)}<span class="ar-row-text"><span class="ar-row-main">${AGENTS[k].name}</span></span>${modelField(k, catalog, s.models || {})}${effortField(k, catalog, s.efforts || {}, s.models?.[k])}</label>`).join('')}</div>
       </section>
+      ${mcpSection(s, '发送第一条消息时带上，之后每个任务都用')}
       <p id="ar-form-error" class="ar-error" role="alert"></p>
       <p class="ar-note">设置会自动保存。在对话框里发送第一条消息，主代理就会开始工作。</p>`;
     const save = async patch => {
       Object.assign(s, patch); $('#ar-form-error').textContent = '';
-      try { await api.request(`/api/sessions/${encodeURIComponent(saved.sessionId)}/settings`, { method: 'PATCH', body: JSON.stringify({ agents: s.agents, main: s.main, worktree: s.worktree, models: s.models }) }); await refresh(); }
+      try { await api.request(`/api/sessions/${encodeURIComponent(saved.sessionId)}/settings`, { method: 'PATCH', body: JSON.stringify({ agents: s.agents, main: s.main, worktree: s.worktree, models: s.models, efforts: s.efforts, mcpServers: s.mcpServers || {} }) }); await refresh(); }
       catch (err) { $('#ar-form-error').textContent = err.message; }
     };
     pane.querySelectorAll('[data-main]').forEach(b => b.onclick = async () => { await save({ main: b.dataset.main }); renderSettings(); });
@@ -256,7 +289,9 @@
       save({ agents });
     });
     pane.querySelectorAll('[data-wt]').forEach(b => b.onclick = () => { pane.querySelectorAll('[data-wt]').forEach(x => x.classList.toggle('on', x === b)); save({ worktree: b.dataset.wt === 'true' }); });
-    pane.querySelectorAll('[data-model]').forEach(el => el.onchange = () => save({ models: readModels() }));
+    pane.querySelectorAll('[data-model]').forEach(el => el.onchange = () => { syncEfforts(pane, catalog, s.main); save({ models: readModels(), efforts: readEfforts() }); });
+    pane.querySelectorAll('[data-effort]').forEach(el => el.onchange = () => save({ efforts: readEfforts() }));
+    pane.querySelector('#ar-mcp').onchange = () => { try { save({ mcpServers: readMcp() }); } catch (err) { $('#ar-form-error').textContent = err.message; } };
   }
 
   // 运行开始后：目录和成员锁定；主代理可以切换（接手之前的对话），模型可以改
@@ -264,18 +299,19 @@
     const saved = ctx, running = saved.run?.status === 'running';
     pane.innerHTML = `
       <section class="ar-section"><h3>主代理 <span style="font-weight:400">· ${running ? '当前回合结束后切换，子代理任务不受影响' : '下一条消息起由新主代理接手'}</span></h3>${mainRows(s.main, chats)}
-        ${AGENTS[s.main] ? `<div class="ar-card" style="margin-top:8px"><label class="ar-row" style="cursor:default">${avatar(s.main)}<span class="ar-row-text"><span class="ar-row-main">${AGENTS[s.main].name} 模型</span><span class="ar-row-sub">${running ? '当前回合结束后生效，子代理用下面各自的模型' : '下一条消息起生效，子代理用下面各自的模型'}</span></span>${modelField('main', { main: catalog[s.main] || {} }, s.models || {})}</label></div>` : (llm()[s.main] ? '<p class="ar-help" style="margin-top:8px">对话模型的模型在「环境检查」的模型配置里设置。</p>' : '')}
+        ${AGENTS[s.main] ? `<div class="ar-card" style="margin-top:8px"><label class="ar-row" style="cursor:default">${avatar(s.main)}<span class="ar-row-text"><span class="ar-row-main">${AGENTS[s.main].name} 模型</span><span class="ar-row-sub">${running ? '当前回合结束后生效，子代理用下面各自的模型' : '下一条消息起生效，子代理用下面各自的模型'}</span></span>${modelField('main', { main: catalog[s.main] || {} }, s.models || {})}${effortField('main', { main: { default: catalog[s.main]?.default, efforts: catalog[s.main]?.efforts } }, s.efforts || {}, s.models?.main, s.main)}</label></div>` : (llm()[s.main] ? '<p class="ar-help" style="margin-top:8px">对话模型的模型在「环境检查」的模型配置里设置。</p>' : '')}
       </section>
       <section class="ar-section"><h3>本次运行</h3><div class="ar-card">
         <div class="ar-row" style="cursor:default"><span class="ar-row-text"><span class="ar-row-sub">工作目录</span><span class="ar-row-main" style="font-weight:400;overflow-wrap:anywhere">${esc(s.repo || '')}</span></span></div>
         <div class="ar-row" style="cursor:default"><span class="ar-row-text"><span class="ar-row-sub">子代理</span><span class="ar-row-main" style="font-weight:400">${esc(s.agents.map(agentName).join('、'))}</span></span></div>
         <div class="ar-row" style="cursor:default"><span class="ar-row-text"><span class="ar-row-sub">执行方式</span><span class="ar-row-main" style="font-weight:400">${s.worktree ? '隔离模式（git worktree）' : '直通模式'}</span></span></div>
       </div><p class="ar-help">目录和成员在运行开始后锁定；要换就新建一个会话。</p></section>
-      <section class="ar-section"><h3>子代理模型 <span style="font-weight:400">· 对相应类型的子代理生效，下一个任务开始时使用</span></h3>
-        <div class="ar-card">${KEYS.map(k => `<label class="ar-row" style="cursor:default">${avatar(k)}<span class="ar-row-text"><span class="ar-row-main">${AGENTS[k].name}</span></span>${modelField(k, catalog, s.models || {})}</label>`).join('')}</div>
+      <section class="ar-section"><h3>子代理模型 <span style="font-weight:400">· 对相应类型的子代理生效，下一个任务开始时使用；ZCode 可另选思考强度</span></h3>
+        <div class="ar-card">${KEYS.map(k => `<label class="ar-row" style="cursor:default">${avatar(k)}<span class="ar-row-text"><span class="ar-row-main">${AGENTS[k].name}</span></span>${modelField(k, catalog, s.models || {})}${effortField(k, catalog, s.efforts || {}, s.models?.[k])}</label>`).join('')}</div>
       </section>
+      ${mcpSection(s, '下一个任务/回合拉起 CLI 进程时生效')}
       <p id="ar-form-error" class="ar-error" role="alert"></p>
-      <div class="ar-footer">${saved.thread !== 'manager' ? '<button type="button" class="outline" id="ar-back-manager">返回主代理</button>' : ''}${saved.capabilities.stop ? '<button type="button" class="danger" id="ar-stop">停止运行</button>' : ''}<span class="grow"></span><button type="button" class="primary" id="ar-save-models" ${saved.capabilities.models ? '' : 'disabled'}>保存模型</button></div>`;
+      <div class="ar-footer">${saved.thread !== 'manager' ? '<button type="button" class="outline" id="ar-back-manager">返回主代理</button>' : ''}${saved.capabilities.stop ? '<button type="button" class="danger" id="ar-stop">停止运行</button>' : ''}<span class="grow"></span><button type="button" class="outline" id="ar-save-mcp" ${saved.capabilities.mcp ? '' : 'disabled'}>保存 MCP</button><button type="button" class="primary" id="ar-save-models" ${saved.capabilities.models ? '' : 'disabled'}>保存模型</button></div>`;
     pane.querySelectorAll('[data-main]').forEach(b => b.onclick = async () => {
       if (b.dataset.main === s.main) return;
       try {
@@ -284,10 +320,18 @@
         await refresh(); renderSettings();
       } catch (err) { notify(err.message, true); }
     });
+    pane.querySelectorAll('[data-model]').forEach(el => el.onchange = () => syncEfforts(pane, catalog, s.main));
     $('#ar-save-models').onclick = async e => {
       e.target.disabled = true; $('#ar-form-error').textContent = '';
-      try { const r = await api.request(`/api/runs/${saved.runId}/models`, { method: 'PATCH', body: JSON.stringify({ models: readModels() }) }); notify(r.message || '已保存'); await refresh(); }
+      try { const r = await api.request(`/api/runs/${saved.runId}/models`, { method: 'PATCH', body: JSON.stringify({ models: readModels(), efforts: readEfforts() }) }); notify(r.message || '已保存'); await refresh(); }
       catch (err) { $('#ar-form-error').textContent = err.message; } finally { e.target.disabled = false; }
+    };
+    $('#ar-save-mcp').onclick = async e => {
+      e.target.disabled = true; $('#ar-form-error').textContent = '';
+      try {
+        const r = await api.request(`/api/runs/${encodeURIComponent(saved.runId)}/mcp`, { method: 'PATCH', body: JSON.stringify({ mcpServers: readMcp() }) });
+        notify(r.message || '已保存'); await refresh(); renderSettings();
+      } catch (err) { $('#ar-form-error').textContent = err.message; } finally { e.target.disabled = false; }
     };
     if ($('#ar-back-manager')) $('#ar-back-manager').onclick = () => { api.open(saved.managerSessionId); close(); };
     if ($('#ar-stop')) $('#ar-stop').onclick = async e => {

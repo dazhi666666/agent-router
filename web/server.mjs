@@ -160,7 +160,7 @@ export function createApp({ dataDir = process.env.AGENT_ROUTER_DATA_DIR || path.
       if (u.pathname === '/api/health') {
         const cfg = loadConfig(), catalog = modelCatalog(), activeRuns = runs.list().filter(r => r.live);
         const codexOk = codexAvailable(); // 对话模型由 Codex 经 gateway 驱动
-        return json(res, 200, { claude: fs.existsSync(cfg.claude.exe), zcode: fs.existsSync(cfg.zcode.entry), devin: fs.existsSync(cfg.devin.exe), codex: codexOk, opencode: fs.existsSync(cfg.opencode.exe), antigravity: fs.existsSync(cfg.antigravity.exe), checks: { claude: '仅检测 CLI 路径，未验证登录', zcode: '仅检测 CLI 路径，未验证登录', devin: '仅检测 CLI 路径，未验证登录', codex: '检测 codex --version 可执行（未验证登录）', opencode: '仅检测 CLI 路径，未验证登录', antigravity: '仅检测 CLI 路径，未验证登录（密钥环静默登录，生成接口走本地代理）' }, models: Object.fromEntries(Object.entries(catalog).map(([k, v]) => [k, v.default || '客户端默认'])), paths: { claude: cfg.claude.exe, zcode: cfg.zcode.entry, devin: cfg.devin.exe, codex: cfg.codex.exe, opencode: cfg.opencode.exe, antigravity: cfg.antigravity.exe }, llm: Object.fromEntries(Object.entries(cfg.llm).map(([k, v]) => [k, { label: v.label || v.model || k, model: v.model || (v.module ? 'custom module' : null), ready: providerReady(v) && codexOk, codex: codexOk, apiKeyEnv: v.apiKeyEnv || null }])), consult: cfg.llm[cfg.consult] ? cfg.consult : null, busy: activeRuns.length > 0, activeRuns, activeRun: activeRuns[0] || null });
+        return json(res, 200, { claude: fs.existsSync(cfg.claude.exe), zcode: fs.existsSync(cfg.zcode.entry), 'zcode-oss': fs.existsSync(cfg['zcode-oss'].entry), devin: fs.existsSync(cfg.devin.exe), codex: codexOk, opencode: fs.existsSync(cfg.opencode.exe), antigravity: fs.existsSync(cfg.antigravity.exe), checks: { claude: '仅检测 CLI 路径，未验证登录', zcode: '仅检测 CLI 路径，未验证登录', 'zcode-oss': '仅检测 CLI 路径，未验证登录（复用 ~/.zcode 登录态）', devin: '仅检测 CLI 路径，未验证登录', codex: '检测 codex --version 可执行（未验证登录）', opencode: '仅检测 CLI 路径，未验证登录', antigravity: '仅检测 CLI 路径，未验证登录（密钥环静默登录，生成接口走本地代理）' }, models: Object.fromEntries(Object.entries(catalog).map(([k, v]) => [k, v.default || '客户端默认'])), paths: { claude: cfg.claude.exe, zcode: cfg.zcode.entry, 'zcode-oss': cfg['zcode-oss'].entry, devin: cfg.devin.exe, codex: cfg.codex.exe, opencode: cfg.opencode.exe, antigravity: cfg.antigravity.exe }, llm: Object.fromEntries(Object.entries(cfg.llm).map(([k, v]) => [k, { label: v.label || v.model || k, model: v.model || (v.module ? 'custom module' : null), ready: providerReady(v) && codexOk, codex: codexOk, apiKeyEnv: v.apiKeyEnv || null }])), consult: cfg.llm[cfg.consult] ? cfg.consult : null, busy: activeRuns.length > 0, activeRuns, activeRun: activeRuns[0] || null });
       }
       if (u.pathname === '/api/fs/dirs') return json(res, 200, listDirs(u.searchParams.get('path')));
       if (u.pathname === '/api/models') return json(res, 200, modelCatalog());
@@ -177,10 +177,11 @@ export function createApp({ dataDir = process.env.AGENT_ROUTER_DATA_DIR || path.
           if (!ctx.capabilities.configure) return json(res, 409, { error: '运行已启动，工作目录和成员不可修改；模型可单独切换。' });
           const item = sessions.resolve(id);
           const patch = await body(req);
-          // 主代理模型跟类型走：换主代理类型后原选择不再适用，清掉回退类型默认
+          // 主代理的模型与思考强度跟类型走：换主代理类型后原选择不再适用，清掉回退类型默认
           const models = { ...(patch.models ?? item.settings.models) };
-          if (patch.main && patch.main !== item.settings.main) delete models.main;
-          item.settings = runs.settings({ ...item.settings, ...patch, models }); sessions.save(); return json(res, 200, bridge.context(id));
+          const efforts = { ...(patch.efforts ?? item.settings.efforts ?? {}) };
+          if (patch.main && patch.main !== item.settings.main) { delete models.main; delete efforts.main; }
+          item.settings = runs.settings({ ...item.settings, ...patch, models, efforts }); sessions.save(); return json(res, 200, bridge.context(id));
         }
       }
       if (u.pathname === '/api/workspace') {
@@ -207,7 +208,8 @@ export function createApp({ dataDir = process.env.AGENT_ROUTER_DATA_DIR || path.
         if (action === 'stop' && req.method === 'POST') return json(res, 200, runs.stop(id));
         if (action === 'message' && req.method === 'POST') return json(res, 200, runs.message(id, await body(req)));
         if (action === 'main' && req.method === 'PATCH') return json(res, 200, runs.switchMain(id, (await body(req)).main));
-        if (action === 'models' && req.method === 'PATCH') return json(res, 200, runs.models(id, (await body(req)).models));
+        if (action === 'models' && req.method === 'PATCH') return json(res, 200, runs.models(id, await body(req)));
+        if (action === 'mcp' && req.method === 'PATCH') return json(res, 200, runs.mcp(id, (await body(req)).mcpServers));
         if (action === 'task' && req.method === 'POST') {
           const task = d.board?.tasks?.find(t => t.id === parts[4]), command = parts[5];
           if (!task || !['cancel', 'retry'].includes(command)) throw new Error('无效任务操作');

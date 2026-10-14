@@ -3,10 +3,10 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { spawn, spawnSync } from 'node:child_process';
 import { readJson, writeJson, safeId } from './sessions.mjs';
-import { runtimeConfig, validateModels } from './models.mjs';
+import { runtimeConfig, validateModels, validateEfforts, validateMcpServers } from './models.mjs';
 import { loadConfig } from '../lib/config.mjs';
 
-const CLI_AGENTS = ['claude', 'zcode', 'devin', 'codex', 'opencode', 'antigravity'];
+const CLI_AGENTS = ['claude', 'zcode', 'zcode-oss', 'devin', 'codex', 'opencode', 'antigravity'];
 // 成员可以是 CLI，也可以是 router.config.json 里 llm 下配置的对话模型（经 Codex + chat-agent gateway 运行）
 const validAgent = name => CLI_AGENTS.includes(name) || Object.hasOwn(loadConfig().llm, name);
 const validMain = validAgent;
@@ -52,7 +52,8 @@ export class Runs {
     if (!validMain(main)) throw new Error('请选择有效主代理');
     const worktree = input.worktree === true;
     if (worktree && spawnSync('git', ['-C', repo, 'rev-parse', '--is-inside-work-tree'], { encoding: 'utf8', windowsHide: true }).status !== 0) throw new Error('worktree 模式需要 Git 仓库');
-    return { repo, agents: [...new Set(agents)], main, worktree, models: validateModels(input.models, main) };
+    const models = validateModels(input.models, main);
+    return { repo, agents: [...new Set(agents)], main, worktree, models, efforts: validateEfforts(input.efforts, models, main), mcpServers: validateMcpServers(input.mcpServers) };
   }
   start(input) {
     // 对话模式（默认）：第一条消息原样发给主代理；goal 模式（mode: 'goal'）沿用"总目标 → finish_run"流程
@@ -65,7 +66,7 @@ export class Runs {
     writeJson(path.join(dir, 'board.json'), { seq: { task: 0, msg: 0 }, tasks: [], messages: [] });
     const meta = { id, goal, mode: input.mode === 'goal' ? 'goal' : 'chat', settings, startedAt: Date.now(), status: 'running', exitCode: null };
     writeJson(path.join(dir, 'run.json'), meta);
-    writeJson(path.join(dir, 'runtime-config.json'), runtimeConfig(settings.models, settings.main));
+    writeJson(path.join(dir, 'runtime-config.json'), runtimeConfig(settings.models, settings.efforts, settings.main, settings.mcpServers));
     const child = this.spawnRouter(meta, goal, false);
     return { id, dir, pid: child.pid };
   }
@@ -200,10 +201,11 @@ export class Runs {
     const meta = readJson(file);
     if (!meta?.settings) throw new Error('运行不存在');
     if (meta.mode !== 'chat') throw new Error('只有对话可以切换主代理');
-    // 主代理模型跟类型走：换成别的类型后原选择不再适用，清掉回退类型默认
+    // 主代理的模型与思考强度跟类型走：换成别的类型后原选择不再适用，清掉回退类型默认
     const models = { ...meta.settings.models };
-    if (main !== meta.settings.main) delete models.main;
-    const settings = { ...meta.settings, main, models };
+    const efforts = { ...meta.settings.efforts };
+    if (main !== meta.settings.main) { delete models.main; delete efforts.main; }
+    const settings = { ...meta.settings, main, models, efforts };
     writeJson(file, { ...meta, settings });
     const run = this.active.get(id);
     if (run) run.settings = settings;
@@ -211,16 +213,31 @@ export class Runs {
     if (running) this.command(id, { type: 'switch_main', main });
     return { ok: true, main, applied: running ? 'after_turn' : 'next_message' };
   }
-  models(id, models) {
+  models(id, patch = {}) {
     if (!this.running(id)) throw new Error('只有运行中的会话可切换模型');
     const run = this.active.get(id);
-    const selected = validateModels(models, run.settings.main);
-    run.settings = { ...run.settings, models: selected };
-    writeJson(path.join(run.dir, 'runtime-config.json'), runtimeConfig(selected, run.settings.main));
+    const selected = validateModels(patch.models ?? {}, run.settings.main);
+    const efforts = validateEfforts(patch.efforts ?? {}, selected, run.settings.main);
+    run.settings = { ...run.settings, models: selected, efforts };
+    writeJson(path.join(run.dir, 'runtime-config.json'), runtimeConfig(selected, efforts, run.settings.main, run.settings.mcpServers));
     const meta = readJson(path.join(run.dir, 'run.json'));
     writeJson(path.join(run.dir, 'run.json'), { ...meta, settings: run.settings });
     this.command(id, { type: 'models_changed' });
-    return { ok: true, models: selected, message: '主代理将在当前回合结束后切换；子代理在下一次会话启动时使用新模型。' };
+    return { ok: true, models: selected, efforts, message: '主代理将在当前回合结束后切换；子代理在下一次会话启动时使用新配置。' };
+  }
+  /** 对话级 MCP：写入运行设置与 runtime-config.json；CLI 进程在下一个任务/回合拉起时重新读取，无需命令通道 */
+  mcp(id, mcpServers) {
+    const file = path.join(this.dir(id), 'run.json');
+    const meta = readJson(file);
+    if (!meta?.settings) throw new Error('运行不存在');
+    if (meta.mode !== 'chat') throw new Error('只有对话可以配置 MCP');
+    const servers = validateMcpServers(mcpServers);
+    const settings = { ...meta.settings, mcpServers: servers };
+    writeJson(file, { ...meta, settings });
+    const run = this.active.get(id);
+    if (run) run.settings = settings;
+    writeJson(path.join(this.dir(id), 'runtime-config.json'), runtimeConfig(settings.models, settings.efforts, settings.main, servers));
+    return { ok: true, mcpServers: servers, message: '已保存，下一个任务/回合拉起 CLI 进程时生效。' };
   }
   stop(id) {
     if (!this.running(id)) throw new Error('该运行不在进行中');

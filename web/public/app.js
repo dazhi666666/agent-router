@@ -37,7 +37,7 @@ async function loadHealth() {
   try {
     state.health = await (await fetch('/api/health')).json();
   } catch { state.health = null; return; }
-  for (const a of ['claude', 'zcode', 'devin', 'codex', 'opencode', 'antigravity']) {
+  for (const a of ['claude', 'zcode', 'zcode-oss', 'devin', 'codex', 'opencode', 'antigravity']) {
     $('#h-' + a).classList.toggle('ok', !!state.health[a]);
     $('#h-' + a).title = state.health.checks?.[a] || '仅检测 CLI 路径';
     const label = document.querySelector(`#f-agents input[value=${a}]`).closest('label');
@@ -61,7 +61,7 @@ function updateRunState() {
 }
 
 /* ---------- 运行列表 ---------- */
-const MAIN_LABELS = { claude: 'Claude', zcode: 'ZCode', devin: 'Devin', codex: 'Codex', opencode: 'OpenCode', antigravity: 'Antigravity' };
+const MAIN_LABELS = { claude: 'Claude', zcode: 'ZCode', 'zcode-oss': 'ZCode OSS', devin: 'Devin', codex: 'Codex', opencode: 'OpenCode', antigravity: 'Antigravity' };
 
 async function loadRuns() {
   try { state.runs = await (await fetch('/api/runs')).json(); } catch { return; }

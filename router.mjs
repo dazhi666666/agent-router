@@ -33,6 +33,7 @@ import { runAntigravity } from './lib/antigravity.mjs';
 import { boardMcpEntry, setBoardEndpoint } from './lib/spawn-util.mjs';
 import { MainSession } from './lib/claude-main.mjs';
 import { OneShotMainSession } from './lib/oneshot-main.mjs';
+import { ZcodeAppServerSession } from './lib/zcode-app-server.mjs';
 import { AcpMainSession } from './lib/acp-main.mjs';
 import { AgyMainSession } from './lib/agy-main.mjs';
 import { createThreadWriter } from './lib/thread.mjs';
@@ -101,6 +102,8 @@ if (!args.goal) {
 const RUNNERS = {
   claude: { run: runClaude, label: 'Claude Code', resumable: true },
   zcode: { run: runZcode, label: 'ZCode', resumable: true },
+  // 开源 ZCode CLI（E:\ZCode 自建）：与 npm 版同一适配器，只换入口；CFG 在下方定义，闭包在调用时取值
+  'zcode-oss': { run: opts => runZcode({ ...opts, entry: CFG['zcode-oss']?.entry, configKind: 'zcode-oss' }), label: 'ZCode OSS', resumable: true },
   devin: { run: opts => runDevin({ ...opts, boardMcp: boardMcpEntry({ agentName: opts.agentName }) }), label: 'Devin', resumable: false },
   codex: { run: runCodex, label: 'Codex CLI', resumable: true },
   opencode: { run: runOpencode, label: 'OpenCode', resumable: true },
@@ -290,6 +293,13 @@ function handleCommand(cmd) {
     log(C.cyan(`[用户 → manager] ${oneLine(cmd.text, 200)}`));
     noteActivity();
     mainSession.send(args.chat ? String(cmd.text) : `[用户] ${cmd.text}`);
+  } else if (cmd.type === 'compact') {
+    // 主动上下文压缩（zcode 系内建 /compact）：走专用通道独占下一回合，
+    // 绝不能进文本队列——与普通消息合并拼接会破坏斜杠行语义
+    log(C.cyan('[用户 → manager] 请求压缩上下文'));
+    noteActivity();
+    if (typeof mainSession.compact === 'function') mainSession.compact();
+    else pushEvent('[事件] 当前主代理类型不支持主动压缩。');
   } else if (cmd.type === 'cancel' && cmd.task_id) {
     const r = scheduler.cancel(cmd.task_id, 'cancelled by the user');
     log(C.yellow(`  ⚡ 用户取消 ${cmd.task_id}: ${r.error || 'ok'}`));
@@ -375,6 +385,23 @@ function createMainSession(resumeId = null) {
   if (args.main === 'claude') return new MainSession(opts);
   if (args.main === 'devin') return new AcpMainSession(opts);
   if (args.main === 'antigravity') return new AgyMainSession(opts);
+  if (args.main === 'zcode-oss' || args.main === 'zcode') {
+    // 阶段二：zcode 系主代理走 app-server 常驻会话（回合中 guide 软插入 / 空闲 startNow）；
+    // 启动或协议失败自动回退 OneShotMainSession（-p 队列模式）。AGENT_ROUTER_APP_SERVER=0 强制旧模式。
+    if (process.env.AGENT_ROUTER_APP_SERVER !== '0') {
+      const kind = args.main;
+      return new ZcodeAppServerSession({
+        kind,
+        entry: kind === 'zcode-oss' ? CFG['zcode-oss']?.entry : CFG.zcode?.entry,
+        fallback: resumeOverride => (kind === 'zcode-oss'
+          ? new OneShotMainSession({ kind, runnerOptions: { entry: CFG['zcode-oss']?.entry, configKind: 'zcode-oss' }, timeoutMs: 0, ...opts, resumeId: resumeOverride ?? opts.resumeId })
+          : new OneShotMainSession({ kind, timeoutMs: 0, ...opts, resumeId: resumeOverride ?? opts.resumeId })),
+        timeoutMs: 0,
+        ...opts
+      });
+    }
+  }
+  if (args.main === 'zcode-oss') return new OneShotMainSession({ kind: 'zcode-oss', runnerOptions: { entry: CFG['zcode-oss']?.entry, configKind: 'zcode-oss' }, timeoutMs: 0, ...opts });
   return new OneShotMainSession({ kind: args.main, timeoutMs: 0, ...opts });
 }
 
