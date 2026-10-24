@@ -113,6 +113,29 @@ function readThreadEntries(runDir, name) {
   } catch { return null; }
 }
 
+// 流文件里仍在进行的最后一段尝试（最近一条 done 之后）。用于两类场景：
+//  ① 会话中途打开/刷新：snapshot 里带上 activeAttempt，进行中的回答能直接续显；
+//  ② 流式过程中用户插话：客户端只能靠 rebaseline 重新锚定，baseline 必须包含已产出的增量。
+// 返回的 stream 是 dsh 的 chunk 记录格式（expandAssistantStream 逐条校验 type）。
+function readLiveAttempt(streamPath, turn, step, startedAfterSeq) {
+  let lines;
+  try { lines = fs.readFileSync(streamPath, 'utf8').split('\n'); } catch { return null; }
+  const total = lines.length - 1;
+  let start = 0;
+  for (let i = 0; i < total; i++) if (/"done"\s*:/.test(lines[i])) start = i + 1;
+  const stream = [];
+  let id = null;
+  for (let i = start; i < total; i++) {
+    let rec; try { rec = JSON.parse(lines[i]); } catch { continue; }
+    if (!rec.id || rec.done) continue;
+    if (!id) id = rec.id;
+    if (rec.id !== id || typeof rec.text !== 'string' || !rec.text) continue;
+    stream.push({ type: 'chunk', time: Number(rec.t) || Date.now(), chunk: { type: 'text-delta', index: 0, text: rec.text } });
+  }
+  if (!id) return null;
+  return { attemptId: id, startedAfterSeq, turn, step, nextIndex: stream.length, stream, lines: total };
+}
+
 // ---------- 线程条目 → SessionEvent v4 合成 ----------
 
 function ok(value) { return { ok: true, value }; }
@@ -270,7 +293,7 @@ export function createBridge({ sessions, runs, uiState: sharedUiState }) {
   // 凭日志消息上的 source.rpcId 匹配后回收；不回填这个 id，同一条消息就会渲染两遍。
   // plainUsers 是 prompt 时线程里已有的“普通用户消息”（排除 [事件]/[信箱] 注入）条数，
   // 目标 = 之后出现的第一条普通用户消息（目标消息与它的文本一致）。
-  const pendingEcho = new Map(); // sessionId -> { requestId, plainUsers, blocks }
+  const pendingEcho = new Map(); // sessionId -> { requestId, plainUsers, blocks, targetSeq }
   const isPlainUser = e => e.kind === 'user' && !/^\s*\[(事件|信箱)\]/.test(String(e.data?.text || ''));
   const echoTagger = id => {
     const pending = pendingEcho.get(id);
@@ -278,7 +301,11 @@ export function createBridge({ sessions, runs, uiState: sharedUiState }) {
     let seen = 0;
     return e => {
       if (!isPlainUser(e)) return null;
-      return seen++ === pending.plainUsers ? (pendingEcho.delete(id), pending) : null;
+      // 命中后记住目标条目：流式插话会触发 rebaseline，snapshot 会重合成整段线程，
+      // 若只在首次命中时带 rpcId，重启后乐观气泡就回收不了（同一条消息渲染两遍）
+      if (pending.targetSeq !== undefined) return e.seq === pending.targetSeq ? pending : null;
+      if (seen++ === pending.plainUsers) { pending.targetSeq = e.seq; return pending; }
+      return null;
     };
   };
   // prompt 内容块：图片内联 base64 → 存成附件（日志里以 attachment 引用块下发）；
@@ -695,21 +722,27 @@ export function createBridge({ sessions, runs, uiState: sharedUiState }) {
       const initial = synthesizeSessionEvents(entries(s), take, state); count = initial.length;
       // dsh 协议：cursor 是最后一条事件的 seq（空日志为 -1），不是事件条数
       const head = initial.length ? initial[initial.length - 1].seq : -1;
-      send({ type: 'snapshot', header: sessionHeader(id, s.createdAt || initial[0]?.time || Date.now()), cursor: head, records: initial.map(event => ({ type: 'event', event })), hasMore: false, projections: { asOfSeq: head, values: projectionValues(id) }, assistantStream: { revision: 0 } });
-      // —— 逐字流式：跟随运行器写的 <thread>.stream.jsonl（text_delta 增量），
-      //    以 assistant-stream 帧下发。协议约束（客户端强校验，违者断流）：
-      //    revision 与 chunk.index 逐帧严格 +1；日志 assistant/message 事件先到，
-      //    end 帧用其 seq 结算，且必须赶在该消息的 step/end 之前（否则保留态卡死）
-      let rev = 0, streamLines = null, attempt = null;
-      // 扣住的 step/end：协议要求 end 帧先于它（客户端靠 step/end 退休流式残留），
-      // end 帧发不出的批次里先扣住，结算后补发
-      let deferredStepEnd = null;
-      const asFrame = f => { rev += 1; send({ type: 'assistant-stream', frame: { revision: rev, ...f } }); };
       // 运行绑定可能晚于 follow 打开（新会话先开面板再发首条消息），所以每次泵都重新解析流文件路径
       const streamPathFor = () => {
         const cur = sessions.resolve(id);
         return cur?.runId ? path.join(runs.dir(cur.runId), 'threads', `${cur.thread}.stream.jsonl`) : null;
       };
+      // 中途打开/重连：把仍在进行的尝试随 snapshot 下发（activeAttempt），
+      // 客户端据此在 durable 事件之后重建流式行；不重建的话它只会等新 chunk，已经流出的文字要等回合结束才出现
+      const streamPath0 = streamPathFor();
+      const live = streamPath0 ? readLiveAttempt(streamPath0, state.turn, state.step, head) : null;
+      const activeAttempt = live ? { attemptId: live.attemptId, startedAfterSeq: live.startedAfterSeq, turn: live.turn, step: live.step, nextIndex: live.nextIndex, stream: live.stream } : null;
+      send({ type: 'snapshot', header: sessionHeader(id, s.createdAt || initial[0]?.time || Date.now()), cursor: head, records: initial.map(event => ({ type: 'event', event })), hasMore: false, projections: { asOfSeq: head, values: projectionValues(id) }, assistantStream: activeAttempt ? { revision: 0, activeAttempt } : { revision: 0 } });
+      // —— 逐字流式：跟随运行器写的 <thread>.stream.jsonl（text_delta 增量），
+      //    以 assistant-stream 帧下发。协议约束（客户端强校验，违者断流）：
+      //    revision 与 chunk.index 逐帧严格 +1；日志 assistant/message 事件先到，
+      //    end 帧用其 seq 结算，且必须赶在该消息的 step/end 之前（否则保留态卡死）
+      let rev = 0, streamLines = live ? live.lines : null;
+      let attempt = live ? { id: live.attemptId, startedAfterSeq: live.startedAfterSeq, turn: live.turn, step: live.step, nextIndex: live.nextIndex, pendingEnd: false } : null;
+      // 扣住的 step/end：协议要求 end 帧先于它（客户端靠 step/end 退休流式残留），
+      // end 帧发不出的批次里先扣住，结算后补发
+      let deferredStepEnd = null;
+      const asFrame = f => { rev += 1; send({ type: 'assistant-stream', frame: { revision: rev, ...f } }); };
       const pumpStream = () => {
         const streamPath = streamPathFor();
         if (!streamPath) return;
@@ -766,6 +799,13 @@ export function createBridge({ sessions, runs, uiState: sharedUiState }) {
           if (settled && !endSent) {
             // 结算事件在更早批次已发：end 帧此刻补发
             sendEnd();
+          }
+          // 用户在一段回答的流式过程中插话：客户端把 assistant 行钉在首个增量处，不会因后到的
+          // user/message 重排，后续增量会继续长在用户消息上方。dsh 没有"重排"帧，只能触发一次
+          // rebaseline：客户端重启 follow，新 snapshot 的 activeAttempt 会把已流出的文字整体落到
+          // durable 游标之后（即用户消息下方），后续 chunk 再接着续。
+          if (attempt && !attempt.pendingEnd && fresh.some(e => e.type === 'user/message' && e.data.source?.kind === 'user')) {
+            asFrame({ type: 'start', attemptId: attempt.id, startedAfterSeq: attempt.startedAfterSeq, turn: attempt.turn, step: attempt.step });
           }
         } catch (e) { send({ type: 'error', error: { code: 'router/read-failed', message: e.message } }); }
       };

@@ -484,3 +484,76 @@ test('用量投影：tokenUsage 累计四桶，contextPressure 取末回合输�
   assert.deepEqual(values.tokenUsage, { uncachedInputTokens: 500, outputTokens: 200, cacheReadTokens: 400, cacheWriteTokens: 100 });
   assert.equal(values.contextPressure.pressureTokens, 1000);
 });
+
+test('prompt 回显：同一用户消息在重复 snapshot 里始终带 rpcId（rebaseline 后乐观气泡不重复）', async t => {
+  const f = await httpFixture(t);
+  const sid = f.bridge.unary('session/create', {}).value.sessionId;
+  await f.call(`/api/sessions/${sid}/settings`, 'PATCH', { repo: f.repoA, agents: ['claude'] });
+  f.bridge.unary('session/prompt', { sessionId: sid, requestId: 'rpc-keep', content: [{ type: 'text', text: '带附件的问题' }] });
+  const runId = f.bridge.context(sid).runId;
+  fs.mkdirSync(path.join(f.dataDir, runId, 'threads'), { recursive: true });
+  fs.appendFileSync(path.join(f.dataDir, runId, 'threads', 'manager.jsonl'), JSON.stringify({ seq: 1, ts: new Date().toISOString(), kind: 'user', data: { text: '带附件的问题' } }) + '\n');
+  const rpc = page => page.value.records.map(r => r.event).find(e => e.type === 'user/message' && e.data.content[0].text === '带附件的问题')?.data.source.rpcId;
+  assert.equal(rpc(f.bridge.unary('session/page', { address: { sessionId: sid } })), 'rpc-keep');
+  assert.equal(rpc(f.bridge.unary('session/page', { address: { sessionId: sid } })), 'rpc-keep'); // 第二次（等价于 rebaseline/snapshot）仍回填
+});
+
+test('流式锚点：进行中打开可续显；用户插话触发 rebaseline，回答整体落到消息之后', async t => {
+  const f = fixture(t);
+  const a = f.runs.start({ goal: 'live', repo: f.repoA, agents: ['zcode'] });
+  const dir = path.join(a.dir, 'threads'); fs.mkdirSync(dir, { recursive: true });
+  const thread = path.join(dir, 'manager.jsonl'), streamFile = path.join(dir, 'manager.stream.jsonl');
+  const day = '2026-10-18T00:00:00Z';
+  fs.writeFileSync(thread, [
+    { seq: 1, ts: day, kind: 'user', data: { text: '先做个任务' } },
+    { seq: 2, ts: day, kind: 'assistant', data: { text: '旧回答' } },
+    { seq: 3, ts: day, kind: 'result', data: { text: '旧回答', isError: false } }
+  ].map(JSON.stringify).join('\n') + '\n');
+  const rec = (text) => JSON.stringify({ id: 'msg-live', t: Date.now(), text }) + '\n';
+  fs.writeFileSync(streamFile, rec('第一段') + rec('第二段'));
+  const sid = f.sessions.managerId(a.id);
+  const frames = [];
+  const stop = f.bridge.stream('session/follow', { address: { sessionId: sid } }, frame => frames.push(frame));
+  t.after(stop);
+  const snap = frames.find(x => x.type === 'snapshot');
+  // ① 打开时进行中的回答随 snapshot 下发（而不是只等新 chunk）
+  assert.equal(snap.assistantStream.activeAttempt.attemptId, 'msg-live');
+  assert.equal(snap.assistantStream.activeAttempt.nextIndex, 2);
+  assert.match(JSON.stringify(snap.assistantStream.activeAttempt.stream), /第一段/);
+  assert.equal(frames.filter(x => x.type === 'assistant-stream' && x.frame.type === 'chunk').length, 0, 'baseline 已带的增量不应重复下发');
+  // ② 流式过程中用户插话：给客户端一个 start 帧触发 rebaseline（客户端没有重排帧）
+  fs.appendFileSync(thread, JSON.stringify({ seq: 4, ts: new Date().toISOString(), kind: 'user', data: { text: '插话', queued: true, steer: true } }) + '\n');
+  await new Promise(r => setTimeout(r, 1200));
+  const forced = frames.filter(x => x.type === 'assistant-stream' && x.frame.type === 'start');
+  assert.equal(forced.length, 1, '插话应触发一次 rebaseline');
+  assert.equal(forced[0].frame.attemptId, 'msg-live');
+  stop();
+  // ③ 重连后的 baseline：用户消息已在 durable 记录里，进行中的回答锚定在它之后
+  const frames2 = [];
+  const stop2 = f.bridge.stream('session/follow', { address: { sessionId: sid } }, frame => frames2.push(frame));
+  t.after(stop2);
+  const snap2 = frames2.find(x => x.type === 'snapshot');
+  const userEvt = snap2.records.map(r => r.event).find(e => e.type === 'user/message' && e.data.content[0].text.includes('插话'));
+  assert.ok(userEvt, '用户消息应出现在 snapshot 里');
+  const live2 = snap2.assistantStream.activeAttempt;
+  assert.ok(live2.startedAfterSeq >= userEvt.seq, '流式行应锚定在用户消息之后');
+  assert.match(JSON.stringify(live2.stream), /第二段/);
+  // ④ 后续增量从 baseline 的 nextIndex 续接，不重放
+  fs.appendFileSync(streamFile, rec('第三段'));
+  await new Promise(r => setTimeout(r, 1200));
+  const chunks = frames2.flatMap(x => x.type === 'assistant-stream' && x.frame.type === 'chunk' ? [x.frame] : []);
+  assert.equal(chunks.length, 1);
+  assert.equal(chunks[0].index, live2.nextIndex);
+  assert.equal(chunks[0].chunk.text, '第三段');
+  // ⑤ 回合结束：end 帧用日志 assistant/message 的 seq 结算（必须大于 baseline 锚点）
+  fs.appendFileSync(streamFile, JSON.stringify({ id: 'msg-live', done: 1 }) + '\n');
+  const answer = { seq: 5, ts: new Date().toISOString(), kind: 'assistant', data: { text: '完整回答' } };
+  fs.appendFileSync(thread, JSON.stringify(answer) + '\n');
+  fs.appendFileSync(thread, JSON.stringify({ seq: 6, ts: new Date().toISOString(), kind: 'result', data: { text: '完整回答', isError: false } }) + '\n');
+  await new Promise(r => setTimeout(r, 1400));
+  const msgEvt = frames2.flatMap(x => x.type === 'event' ? [x.event] : []).find(e => e.type === 'assistant/message' && JSON.stringify(e).includes('完整回答'));
+  const end = frames2.flatMap(x => x.type === 'assistant-stream' && x.frame.type === 'end' ? [x.frame] : [])[0];
+  assert.ok(msgEvt && end, '结算消息与 end 帧都应下发');
+  assert.equal(end.outcome.seq, msgEvt.seq);
+  assert.equal(end.index, 3);
+});
