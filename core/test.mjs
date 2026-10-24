@@ -64,6 +64,27 @@ test('tools: permissions and router-owned lifecycle', t => {
   assert.equal(board.task(done.id).followup.previousResult, 'first report');
 });
 
+test('tools: peer mode (平等互联) — everyone dispatches, creator-only cancel/followup, finish_run stays manager-only', t => {
+  const board = new Board(path.join(tmp(t), 'board.json'));
+  const ctx = { roster: ROSTER, chat: true, mode: 'peer', cancel: (id, reason) => { board.updateTask(id, { status: 'failed', result: `Cancelled: ${reason}` }); return { ok: true, id }; } };
+  assert.ok(toolsFor('claude', { mode: 'peer', chat: true }).some(x => x.name === 'create_task'));
+  // 人人可派活
+  const { id } = callTool(board, 'claude', 'create_task', { title: 'x', spec: 's', assignee: 'zcode' }, ctx);
+  assert.equal(board.task(id).created_by, 'claude');
+  // 非创建者不能续派/取消别人的任务
+  assert.match(callTool(board, 'zcode', 'cancel_task', { task_id: id }, ctx).error, /created by claude/);
+  assert.match(callTool(board, 'zcode', 'followup_task', { task_id: id, message: 'm' }, ctx).error, /created by claude/);
+  // 创建者可以
+  board.updateTask(id, { status: 'done', result: 'r' });
+  assert.equal(callTool(board, 'claude', 'followup_task', { task_id: id, message: 'continue' }, ctx).ok, true);
+  const mine = callTool(board, 'claude', 'create_task', { title: 'y', spec: 's', assignee: 'claude' }, ctx);
+  assert.equal(callTool(board, 'claude', 'cancel_task', { task_id: mine.id }, ctx).ok, true);
+  // finish_run 永远仅管理者（chat 模式下任何人都不可见，goal 模式下仅 manager 可调）
+  assert.match(callTool(board, 'claude', 'finish_run', { summary: 'x' }, { ...ctx, chat: false }).error, /only the manager/);
+  assert.ok(!toolsFor('claude', { mode: 'peer', chat: false }).some(x => x.name === 'finish_run'));
+  assert.ok(toolsFor('manager', { mode: 'peer' }).some(x => x.name === 'finish_run'));
+});
+
 test('rpc: the stdio board proxy forwards tool calls with the caller identity', async t => {
   const board = new Board(path.join(tmp(t), 'board.json'));
   const rpc = await startRpcServer({ board, roster: ROSTER, chat: true });
@@ -242,6 +263,31 @@ test('router end-to-end with fake agents: dispatch, report injection, follow-up 
   await until(() => /主代理已从 Fake Claude 切换为 Fake ZCode/.test(thread()), 5000).catch(e => { throw new Error(`${e.message}\n${out}`); });
   assert.match(thread(), /<previous_conversation>[\s\S]*User: please build it[\s\S]*<task_board>[\s\S]*T1 \[done\] part one/);
   await until(() => JSON.parse(fs.readFileSync(path.join(data, 'status.json'), 'utf8')).main === 'zcode', 5000);
+});
+
+test('router peer mode end-to-end: a subagent dispatches to a teammate and to manager; reports route back', async t => {
+  const dir = tmp(t);
+  const repo = path.join(dir, 'repo'); fs.mkdirSync(repo);
+  const data = path.join(dir, 'data');
+  const fake = path.join(ROOT, 'core', 'test-fake-agents.mjs');
+  const child = spawn(process.execPath, [path.join(ROOT, 'router.mjs'), 'peer goal', '--chat', '--collab', 'peer', '--repo', repo, '--agents', 'claude,zcode', '--data', data],
+    { env: { ...process.env, AGENT_ROUTER_TEST_AGENTS: fake }, windowsHide: true });
+  let out = ''; child.stdout.on('data', d => out += d); child.stderr.on('data', d => out += d);
+  t.after(() => { try { child.kill(); } catch {} });
+  const thread = () => { try { return fs.readFileSync(path.join(data, 'threads', 'manager.jsonl'), 'utf8'); } catch { return ''; } };
+  const boardFile = () => { try { return JSON.parse(fs.readFileSync(path.join(data, 'board.json'), 'utf8')); } catch { return { tasks: [], messages: [] }; } };
+  await until(() => /FINAL: peer done/.test(thread()), 15000).catch(e => { throw new Error(`${e.message}\n${out}\n${thread()}`); });
+  const b = boardFile();
+  const sub = b.tasks.find(x => x.title === 'sub part'), mgr = b.tasks.find(x => x.title === 'manager part');
+  assert.ok(sub && mgr, `tasks: ${b.tasks.map(x => `${x.id}:${x.title}:${x.status}`).join(', ')}`);
+  assert.equal(sub.created_by, 'claude');
+  assert.equal(sub.status, 'done');
+  assert.equal(mgr.created_by, 'claude');
+  await until(() => boardFile().tasks.find(x => x.title === 'manager part')?.status === 'done', 5000);
+  // 子代理创建的任务完成时，创建者信箱收到结局同步（主代理照常收到 [事件]）
+  assert.ok(b.messages.some(m => m.from === 'router' && m.to === 'claude' && m.task_id === sub.id), JSON.stringify(b.messages));
+  // 子代理指派给 manager 的任务收到了通知
+  assert.match(thread(), /来自 claude）指派给你/);
 });
 
 const CODEX_EXE = path.join(process.env.APPDATA || '', 'npm', 'node_modules', '@openai', 'codex', 'node_modules', '@openai', 'codex-win32-x64', 'vendor', 'x86_64-pc-windows-msvc', 'bin', 'codex.exe');

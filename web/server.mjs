@@ -208,6 +208,7 @@ export function createApp({ dataDir = process.env.AGENT_ROUTER_DATA_DIR || path.
         if (action === 'stop' && req.method === 'POST') return json(res, 200, runs.stop(id));
         if (action === 'message' && req.method === 'POST') return json(res, 200, runs.message(id, await body(req)));
         if (action === 'main' && req.method === 'PATCH') return json(res, 200, runs.switchMain(id, (await body(req)).main));
+        if (action === 'collab' && req.method === 'PATCH') return json(res, 200, runs.collab(id, (await body(req)).collab));
         if (action === 'models' && req.method === 'PATCH') return json(res, 200, runs.models(id, await body(req)));
         if (action === 'mcp' && req.method === 'PATCH') return json(res, 200, runs.mcp(id, (await body(req)).mcpServers));
         if (action === 'task' && req.method === 'POST') {

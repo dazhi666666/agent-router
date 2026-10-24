@@ -132,6 +132,8 @@ Options:
   --timeout <sec>     per-subagent session timeout (default 0: no limit)
   --data <dir>        run data directory (default ./data/run-<timestamp>)
   --worktree          run every task in its own git worktree (default: direct; isolated:true isolates one task)
+  --collab <m>        collaboration mode: manager (default) | peer (平等互联 — every member can dispatch,
+                      follow up and cancel its own tasks; subagents can assign work to the manager)
   --chat              chat mode: no finish_run; sleeps after 30 idle minutes
   --resume            with --data: resume the main agent's previous session in that directory
 ```
@@ -148,6 +150,17 @@ The main agent doesn't have to be Claude — any of the six CLIs can take the ro
 | `zcode` / `codex` / `opencode` | turn chaining | these CLIs have no persistent bidirectional stream: each injected message triggers one headless run, chained via sessionId; events are injected between turns, no live tool events within a turn |
 
 **Switching the main agent**: pick it in the run settings panel before the first message, or switch it there later inside a conversation. A running conversation switches after the current turn, and running subagent tasks are unaffected. A sleeping one switches when the next message wakes it. Sessions cannot be shared between CLIs, so the new main agent starts a fresh session and receives a handoff with the earlier conversation and the task board (`handoffMessage` in `lib/prompts.mjs`). From the API: `PATCH /api/runs/:id/main {"main": "zcode"}`.
+
+### Peer mode (--collab peer)
+
+By default a run is in **manager mode**: only the main agent dispatches work. `--collab peer` (or the 协作方式 selector in the web settings) turns the run into **平等互联 (peer mode)** — every member holds the same board permissions:
+
+- Any member can `create_task`: a subagent mid-task can dispatch sub-work to another member (with `blocked_by` for ordering) instead of round-tripping through the main agent, and it can assign a task to `"manager"` — the main agent gets a `[事件]` notice and does it in person.
+- `followup_task` / `cancel_task` are limited to the task's **creator** (or the manager), so a teammate cannot rewrite or kill someone else's work.
+- Completion reports still reach the main agent as `[事件]` — it stays the user's single anchor; in peer mode the task's creator also gets a copy in its mailbox.
+- `finish_run` remains manager-only; dispatch, harvest and followup mechanics are unchanged.
+
+The mode can be switched at any time from the web settings panel (设置 → 协作方式 → 切换)：running conversations switch immediately through the command channel; sleeping ones on the next message. The standalone MCP edition ([Agent-Router-MCP](https://github.com/dazhi666666/agent-router-mcp)) carries the same two modes for agent software that joins a space by itself.
 
 ### Chat-only models (no tool use)
 
@@ -194,9 +207,9 @@ data/<run>/
 
 | Tool | Who | Purpose |
 |---|---|---|
-| `create_task(title, spec, assignee, blocked_by?, isolated?)` | manager | launch a subagent on a self-contained task (non-blocking) |
-| `followup_task(task_id, message)` | manager | have the original subagent continue a finished task |
-| `cancel_task(task_id, reason?)` | manager | cancel a queued or running task |
+| `create_task(title, spec, assignee, blocked_by?, isolated?)` | manager (peer: all members) | launch a subagent on a self-contained task (non-blocking) |
+| `followup_task(task_id, message)` | manager (peer: creator) | have the original subagent continue a finished task |
+| `cancel_task(task_id, reason?)` | manager (peer: creator) | cancel a queued or running task |
 | `list_tasks` / `get_task` | all | inspect tasks and full reports |
 | `update_task(task_id, status?, result?, artifacts?)` | all | subagents: report failure or attach a structured result (done is automatic); manager: complete its own tasks |
 | `send_message(to, content, task_id?)` | all | message a member, the manager, or `*` |

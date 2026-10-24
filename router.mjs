@@ -48,7 +48,7 @@ const C = { dim: s => `\x1b[2m${s}\x1b[0m`, b: s => `\x1b[1m${s}\x1b[0m`, cyan: 
 
 // ---------- 参数 ----------
 function parseArgs(argv) {
-  const args = { agents: 'claude,zcode', main: 'claude', timeout: 0, repo: null, data: null, worktree: false, chat: false, resume: false };
+  const args = { agents: 'claude,zcode', main: 'claude', timeout: 0, repo: null, data: null, worktree: false, chat: false, resume: false, collab: 'manager' };
   const positional = [];
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
@@ -60,6 +60,7 @@ function parseArgs(argv) {
     else if (a === '--worktree') args.worktree = true;
     else if (a === '--chat') args.chat = true;
     else if (a === '--resume') args.resume = true;
+    else if (a === '--collab') args.collab = argv[++i];
     else if (a === '--max-rounds') i++; // 已废弃，兼容旧调用
     else if (a === '--help' || a === '-h') { printHelp(); process.exit(0); }
     else positional.push(a);
@@ -87,6 +88,8 @@ function printHelp() {
   --data <dir>        运行数据目录（默认 ./data/run-<时间戳>）
   --worktree          所有任务都在独立 git worktree 中执行，完成后合并（默认直通：在工作目录里直接并行，
                       create_task 传 isolated:true 可让单个任务隔离）
+  --collab <m>        协作模式：manager（默认：主代理派活）| peer（平等互联：所有成员都可 create_task /
+                      followup / cancel 自己创建的任务，子代理也可把任务指派给 manager）
   --chat              对话模式：不需要 finish_run，空闲 ${CHAT_IDLE_EXIT_MIN} 分钟后休眠
   --resume            与 --data 搭配：续接该目录里上次的主代理会话
 每个 agent 的并发上限见 router.config.json 的 maxConcurrent。`);
@@ -137,6 +140,7 @@ for (const name of agentNames) {
   if (!RUNNERS[name]) { console.error(`未知子代理: ${name}（可选: ${Object.keys(RUNNERS).join(', ')}）`); process.exit(2); }
 }
 if (!isMainAgent(args.main)) { console.error(`未知主代理: ${args.main}（可选: ${Object.keys(RUNNERS).join(', ')}）`); process.exit(2); }
+if (!['manager', 'peer'].includes(args.collab)) { console.error('--collab 只能是 manager 或 peer'); process.exit(2); }
 const managerDescription = main => `Main agent (${agentLabel(main)}${isChatModel(main) ? ' via Codex' : ''}): talks to the user, delegates and coordinates tasks, and does tasks assigned to "manager" itself.`;
 const ROSTER = [
   { name: 'manager', description: managerDescription(args.main) },
@@ -159,6 +163,7 @@ const oneLine = (s, n = 160) => String(s ?? '').replace(/\s+/g, ' ').trim().slic
 
 // ---------- 运行状态 ----------
 const board = new Board(path.join(runDir, 'board.json'));
+let collab = args.collab; // 协作模式（运行中可经 commands 通道 set_mode 即时切换）；rpcCtx.mode 是它的 getter
 let mainSession = null;
 let shuttingDown = false;
 let lastActiveAt = Date.now();
@@ -220,10 +225,10 @@ async function runTask(task, agentName, { followup, round, handle }) {
   // 续派：工作目录没变（直通模式）且该 CLI 支持续接时，resume 原会话；否则开新会话并注入原任务上下文
   const resume = followup && !env.iso && RUNNERS[agentName].resumable && task.last_session_id;
   const prompt = !followup
-    ? subagentPrompt({ task, agentName, workspace: env.cwd, isWorktree: env.iso, isGit: workspace.git })
+    ? subagentPrompt({ task, agentName, workspace: env.cwd, isWorktree: env.iso, isGit: workspace.git, mode: collab })
     : resume
       ? subagentResumePrompt({ task, message: followup.message })
-      : subagentFollowupPrompt({ task, agentName, workspace: env.cwd, message: followup.message, previousResult: followup.previousResult, isGit: workspace.git });
+      : subagentFollowupPrompt({ task, agentName, workspace: env.cwd, message: followup.message, previousResult: followup.previousResult, isGit: workspace.git, mode: collab });
   log(C.dim(`[${stamp()}] ▶ ${task.id}「${task.title}」→ ${agentName}${followup ? `（续派 #${round}${resume ? ' · resume' : ''}）` : ''}${env.iso ? ` · worktree ${path.basename(env.wtDir)}` : ''}`));
   const res = await runAgentSession({ agentName, prompt, cwd: env.cwd, taskRef: task.id, onChild: child => handle.attach(child), resumeSessionId: resume ? task.last_session_id : null });
 
@@ -237,6 +242,10 @@ async function runTask(task, agentName, { followup, round, handle }) {
   log(h.status === 'done' ? C.green(`  ✔ ${task.id} 完成${h.notes.length ? `（${h.notes.join('；')}）` : ''}`) : C.yellow(`  ✗ ${task.id} 失败：${oneLine(h.result, 120)}`));
   const report = h.result.length > REPORT_LIMIT ? `${h.result.slice(0, REPORT_LIMIT)}\n…（报告已截断，完整内容用 get_task("${task.id}") 查看）` : h.result;
   const notes = h.notes.length ? `\n\n备注：${h.notes.join('；')}` : '';
+  // 平等互联模式：创建者是子代理时，把结局同步一份到它的信箱（主代理照常收到 [事件] 注入）
+  if (collab === 'peer' && latest.created_by && latest.created_by !== 'manager')
+    board.sendMessage({ from: 'router', to: latest.created_by, task_id: task.id, content:
+      `[事件] 你创建的任务 ${task.id}「${task.title}」（${agentName} 执行）${h.status === 'done' ? '已完成' : '失败'}。\n\n${report}${notes}` });
   if (handle.cancelled) pushEvent(`[事件] 任务 ${task.id}「${task.title}」（${agentName}）已取消（${handle.reason || 'cancelled'}）。${notes}`);
   else if (h.status === 'done') pushEvent(`[事件] 任务 ${task.id}「${task.title}」（${agentName}）已完成。\n\n报告：\n${report}${notes}`);
   else pushEvent(`[事件] 任务 ${task.id}「${task.title}」（${agentName}）失败。\n\n${report}${notes}`);
@@ -257,6 +266,12 @@ board.on('message', m => {
   if (m.from === 'manager') return;
   board.inbox('manager'); // 注入即视为已读
   pushEvent(`[信箱] 来自 ${m.from}${m.task_id ? ` · 任务 ${m.task_id}` : ''}：\n${m.content}`);
+});
+
+// 平等互联模式：子代理可以把任务指派给 manager（由主代理亲自完成）——必须通知，否则主代理不知道有这活
+board.on('task:created', task => {
+  if (collab !== 'peer' || task.assignee !== 'manager' || task.created_by === 'manager') return;
+  pushEvent(`[事件] 任务 ${task.id}「${task.title}」（来自 ${task.created_by}）指派给你：${task.spec ? `spec：${oneLine(task.spec, 500)}` : '（无 spec，用 get_task 查看）'}。请亲自完成，结束后 update_task 置为 done 并写清 result。`);
 });
 
 // ---------- Web 命令通道（commands.jsonl：消息 / 取消 / 重试 / 模型切换） ----------
@@ -300,6 +315,10 @@ function handleCommand(cmd) {
     noteActivity();
     if (typeof mainSession.compact === 'function') mainSession.compact();
     else pushEvent('[事件] 当前主代理类型不支持主动压缩。');
+  } else if (cmd.type === 'set_mode') {
+    if (!['manager', 'peer'].includes(cmd.collab)) return;
+    collab = cmd.collab;
+    log(C.cyan(`[协作模式] 已切换为 ${collab === 'peer' ? '平等互联' : '管理者'}模式（工具表与权限立即生效）`));
   } else if (cmd.type === 'cancel' && cmd.task_id) {
     const r = scheduler.cancel(cmd.task_id, 'cancelled by the user');
     log(C.yellow(`  ⚡ 用户取消 ${cmd.task_id}: ${r.error || 'ok'}`));
@@ -362,7 +381,7 @@ let rpcCtx = null; // 任务板工具上下文（main() 里建立）
 function createMainSession(resumeId = null) {
   const opts = {
     resumeId, cwd: repo, agentName: 'manager', roster: ROSTER, dataFile: board.file, logDir, threadPath: managerThread,
-    systemPrompt: (args.chat ? managerChatPrompt : managerMainPrompt)({ roster: ROSTER, repo, directMode: !args.worktree, gitMode: workspace.git }),
+    systemPrompt: (args.chat ? managerChatPrompt : managerMainPrompt)({ roster: ROSTER, repo, directMode: !args.worktree, gitMode: workspace.git, mode: collab }),
     onText: t => { noteActivity(); runStatus.session = 'online'; runStatus.busy = true; writeStatus(); log(C.cyan(`[manager] ${oneLine(t, 400)}`)); },
     onTool: name => { noteActivity(); runStatus.busy = true; runStatus.currentTool = name; writeStatus(); },
     onTurnEnd: ev => {
@@ -435,7 +454,7 @@ function trySwitchMain() {
 
 async function main() {
   log(C.b(`Agent Router（${args.chat ? '对话模式' : '目标模式'}）`), C.dim(`${args.chat ? '消息' : '目标'}: ${oneLine(args.goal, 200)}`));
-  log(C.dim(`工作目录: ${repo} · 主代理: ${agentLabel(args.main)} · 子代理: ${agentNames.map(n => `${n}×${capLabel(concurrency[n])}`).join(', ') || '(无)'} · ${args.worktree ? '全部隔离（worktree）' : `直通${workspace.git ? '（git）' : '（非 git 目录）'}`} · 数据: ${runDir}`));
+  log(C.dim(`工作目录: ${repo} · 主代理: ${agentLabel(args.main)} · 子代理: ${agentNames.map(n => `${n}×${capLabel(concurrency[n])}`).join(', ') || '(无)'} · ${args.worktree ? '全部隔离（worktree）' : `直通${workspace.git ? '（git）' : '（非 git 目录）'}`} · ${collab === 'peer' ? '平等互联模式' : '管理者模式'} · 数据: ${runDir}`));
   if (workspace.git && hasPendingChanges(repo)) log(C.yellow('  ⚠ 工作目录有未提交改动：子代理只提交自己改的文件，这些改动会保留原样。'));
 
   // consult：所有 agent 都能向配置的对话模型请教（主代理就是该模型时不提供给主代理）
@@ -455,6 +474,7 @@ async function main() {
   }
   rpcCtx = {
     board, roster: ROSTER, chat: args.chat, extra,
+    get mode() { return collab; }, // 平等互联（peer）/ 管理者（manager），运行中可经 set_mode 切换
     cancel: (id, reason) => scheduler.cancel(id, reason),
     onCall: (caller, name, input) => { noteActivity(); log(C.dim(`  [${caller}] ⚙ ${name} ${oneLine(JSON.stringify(input), 120)}`)); }
   };

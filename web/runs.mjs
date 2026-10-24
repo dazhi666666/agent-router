@@ -53,7 +53,7 @@ export class Runs {
     const worktree = input.worktree === true;
     if (worktree && spawnSync('git', ['-C', repo, 'rev-parse', '--is-inside-work-tree'], { encoding: 'utf8', windowsHide: true }).status !== 0) throw new Error('worktree 模式需要 Git 仓库');
     const models = validateModels(input.models, main);
-    return { repo, agents: [...new Set(agents)], main, worktree, models, efforts: validateEfforts(input.efforts, models, main), mcpServers: validateMcpServers(input.mcpServers) };
+    return { repo, agents: [...new Set(agents)], main, worktree, collab: input.collab === 'peer' ? 'peer' : 'manager', models, efforts: validateEfforts(input.efforts, models, main), mcpServers: validateMcpServers(input.mcpServers) };
   }
   start(input) {
     // 对话模式（默认）：第一条消息原样发给主代理；goal 模式（mode: 'goal'）沿用"总目标 → finish_run"流程
@@ -85,6 +85,7 @@ export class Runs {
     const { id, settings } = meta, dir = this.dir(id);
     const args = [text, '--repo', settings.repo, '--agents', settings.agents.join(','), '--main', settings.main, '--data', dir];
     if (settings.worktree) args.push('--worktree');
+    if (settings.collab === 'peer') args.push('--collab', 'peer');
     if (meta.mode === 'chat') args.push('--chat');
     if (resume) args.push('--resume');
     let child;
@@ -212,6 +213,21 @@ export class Runs {
     const running = this.running(id);
     if (running) this.command(id, { type: 'switch_main', main });
     return { ok: true, main, applied: running ? 'after_turn' : 'next_message' };
+  }
+  /** 切换协作模式（管理者 ↔ 平等互联）：运行中经命令通道立即生效；休眠/停止时下次唤醒生效 */
+  collab(id, collab) {
+    if (!['manager', 'peer'].includes(collab)) throw new Error('协作模式只能是 manager 或 peer');
+    const file = path.join(this.dir(id), 'run.json');
+    const meta = readJson(file);
+    if (!meta?.settings) throw new Error('运行不存在');
+    const changed = meta.settings.collab !== collab;
+    const settings = { ...meta.settings, collab };
+    writeJson(file, { ...meta, settings });
+    const run = this.active.get(id);
+    if (run) run.settings = settings;
+    const running = this.running(id);
+    if (running && changed) this.command(id, { type: 'set_mode', collab });
+    return { ok: true, collab, applied: running ? (changed ? 'immediately' : 'noop') : 'next_message' };
   }
   models(id, patch = {}) {
     if (!this.running(id)) throw new Error('只有运行中的会话可切换模型');

@@ -25,6 +25,11 @@ async function fakeRun({ prompt, agentName, threadPath, resumeSessionId, onChild
     return { sessionId: `sess-${id}`, text: '' };
   }
   // 需要时向 consult 顾问请教（附加工具经同一 RPC 端点）
+  // 平等互联模式：子代理收到带 "delegate please" 的 spec 时，把活派给同伴、并指派一部分给 manager（走真实 RPC 权限）
+  if (/delegate please/.test(prompt)) {
+    await tool(agentName, 'create_task', { title: 'sub part', spec: 'do the sub part', assignee: 'zcode' });
+    await tool(agentName, 'create_task', { title: 'manager part', spec: 'please do this yourself', assignee: 'manager' });
+  }
   const advice = /consult please/.test(prompt) ? `; consulted: ${(await tool(agentName, 'consult', { question: 'how?' })).answer}` : '';
   // 续用轮给不同的报告：验证收割的是本轮输出，而不是上一轮遗留的旧 result
   const text = resumeSessionId
@@ -49,10 +54,15 @@ class FakeMain {
     }
     if (text === 'followup T1') { this.followup = true; await tool('manager', 'followup_task', { task_id: 'T1', message: 'add more' }); return; }
     if (text === 'slow task') { await tool('manager', 'create_task', { title: 'slow one', spec: 'slow work', assignee: 'claude' }); return; }
+    if (text === 'peer goal') { this.peer = true; await tool('manager', 'create_task', { title: 'peer one', spec: 'delegate please', assignee: 'claude' }); return say('dispatched T1 (peer)'); }
+    // 平等互联：子代理指派给 manager 的任务，收到通知后亲自完成
+    const assigned = text.match(/任务 (T\d+)「[^」]*」（来自 \w+）指派给你/);
+    if (assigned) { await tool('manager', 'update_task', { task_id: assigned[1], status: 'done', result: 'manager did it in person' }); return; }
     const m = text.match(/任务 (T\d+)「[^」]*」（\w+）已完成/);
     if (m) {
       this.done.add(m[1]);
       if (this.followup && m[1] === 'T1') { this.followup = false; return say('FINAL: followup done'); }
+      if (this.peer && this.done.has('T1') && this.done.has('T2') && !this.final) { this.final = true; return say('FINAL: peer done'); }
       if (this.done.has('T1') && this.done.has('T2') && !this.final) { this.final = true; say('FINAL: T1 done, T2 done'); }
     }
   }

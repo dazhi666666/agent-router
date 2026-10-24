@@ -253,7 +253,7 @@
     const saved = ctx;
     const [catalog] = await Promise.all([api.request('/api/models'), loadHealth()]);
     if (saved.sessionId !== ctx?.sessionId || panelKind !== 'settings') return;
-    const s = { main: 'claude', agents: [], worktree: false, models: {}, efforts: {}, ...ctx.settings };
+    const s = { main: 'claude', agents: [], worktree: false, collab: 'manager', models: {}, efforts: {}, ...ctx.settings };
     const chats = Object.keys(llm());
     return ctx.capabilities.configure ? renderDraft(s, catalog, chats) : renderLocked(s, catalog, chats);
   }
@@ -268,6 +268,9 @@
       <section class="ar-section"><h3>子代理 <span style="font-weight:400">· 主代理可以把任务派给它们并行执行</span></h3>
         <div class="ar-card">${KEYS.map(a => `<label class="ar-row${health[a] ? '' : ' disabled'}"><input type="checkbox" name="agents" value="${a}" ${s.agents.includes(a) ? 'checked' : ''} ${health[a] ? '' : 'disabled'}>${avatar(a)}<span class="ar-row-text"><span class="ar-row-main">${AGENTS[a].name}</span><span class="ar-row-sub">${health[a] ? esc(s.models?.[a] || health.models?.[a] || '客户端默认') : '未安装 · 见环境检查'}</span></span></label>`).join('')}${chats.map(a => `<label class="ar-row${mainReady(a) ? '' : ' disabled'}"><input type="checkbox" name="agents" value="${esc(a)}" ${s.agents.includes(a) ? 'checked' : ''} ${mainReady(a) ? '' : 'disabled'}>${avatar(a)}<span class="ar-row-text"><span class="ar-row-main">${esc(agentName(a))}</span><span class="ar-row-sub">对话模型 · 经 Codex 运行</span></span></label>`).join('')}</div>
       </section>
+      <section class="ar-section"><h3>协作方式</h3>
+        <div class="ar-seg"><button type="button" data-collab="manager" class="${s.collab !== 'peer' ? 'on' : ''}">管理者模式<small>主代理拆解派活，子代理执行并汇报（默认）</small></button><button type="button" data-collab="peer" class="${s.collab === 'peer' ? 'on' : ''}">平等互联<small>所有成员平权：人人可派活、续派、取消自己创建的任务</small></button></div>
+      </section>
       <section class="ar-section"><h3>执行方式</h3>
         <div class="ar-seg"><button type="button" data-wt="false" class="${s.worktree ? '' : 'on'}">直通模式<small>子代理直接在工作目录里并行修改，最快</small></button><button type="button" data-wt="true" class="${s.worktree ? 'on' : ''}">隔离模式<small>每个任务一个 git worktree，完成后合并</small></button></div>
       </section>
@@ -279,7 +282,7 @@
       <p class="ar-note">设置会自动保存。在对话框里发送第一条消息，主代理就会开始工作。</p>`;
     const save = async patch => {
       Object.assign(s, patch); $('#ar-form-error').textContent = '';
-      try { await api.request(`/api/sessions/${encodeURIComponent(saved.sessionId)}/settings`, { method: 'PATCH', body: JSON.stringify({ agents: s.agents, main: s.main, worktree: s.worktree, models: s.models, efforts: s.efforts, mcpServers: s.mcpServers || {} }) }); await refresh(); }
+      try { await api.request(`/api/sessions/${encodeURIComponent(saved.sessionId)}/settings`, { method: 'PATCH', body: JSON.stringify({ agents: s.agents, main: s.main, worktree: s.worktree, collab: s.collab, models: s.models, efforts: s.efforts, mcpServers: s.mcpServers || {} }) }); await refresh(); }
       catch (err) { $('#ar-form-error').textContent = err.message; }
     };
     pane.querySelectorAll('[data-main]').forEach(b => b.onclick = async () => { await save({ main: b.dataset.main }); renderSettings(); });
@@ -289,6 +292,7 @@
       save({ agents });
     });
     pane.querySelectorAll('[data-wt]').forEach(b => b.onclick = () => { pane.querySelectorAll('[data-wt]').forEach(x => x.classList.toggle('on', x === b)); save({ worktree: b.dataset.wt === 'true' }); });
+    pane.querySelectorAll('[data-collab]').forEach(b => b.onclick = () => { pane.querySelectorAll('[data-collab]').forEach(x => x.classList.toggle('on', x === b)); save({ collab: b.dataset.collab }); });
     pane.querySelectorAll('[data-model]').forEach(el => el.onchange = () => { syncEfforts(pane, catalog, s.main); save({ models: readModels(), efforts: readEfforts() }); });
     pane.querySelectorAll('[data-effort]').forEach(el => el.onchange = () => save({ efforts: readEfforts() }));
     pane.querySelector('#ar-mcp').onchange = () => { try { save({ mcpServers: readMcp() }); } catch (err) { $('#ar-form-error').textContent = err.message; } };
@@ -305,6 +309,7 @@
         <div class="ar-row" style="cursor:default"><span class="ar-row-text"><span class="ar-row-sub">工作目录</span><span class="ar-row-main" style="font-weight:400;overflow-wrap:anywhere">${esc(s.repo || '')}</span></span></div>
         <div class="ar-row" style="cursor:default"><span class="ar-row-text"><span class="ar-row-sub">子代理</span><span class="ar-row-main" style="font-weight:400">${esc(s.agents.map(agentName).join('、'))}</span></span></div>
         <div class="ar-row" style="cursor:default"><span class="ar-row-text"><span class="ar-row-sub">执行方式</span><span class="ar-row-main" style="font-weight:400">${s.worktree ? '隔离模式（git worktree）' : '直通模式'}</span></span></div>
+        <div class="ar-row" style="cursor:default"><span class="ar-row-text"><span class="ar-row-sub">协作方式</span><span class="ar-row-main" style="font-weight:400">${s.collab === 'peer' ? '平等互联（人人可派活）' : '管理者模式（主代理派活）'}</span></span>${saved.capabilities.models ? `<button type="button" class="outline" id="ar-collab" style="margin-left:auto;padding:2px 10px;font-size:12px">切换</button>` : ''}</div>
       </div><p class="ar-help">目录和成员在运行开始后锁定；要换就新建一个会话。</p></section>
       <section class="ar-section"><h3>子代理模型 <span style="font-weight:400">· 对相应类型的子代理生效，下一个任务开始时使用；ZCode 可另选思考强度</span></h3>
         <div class="ar-card">${KEYS.map(k => `<label class="ar-row" style="cursor:default">${avatar(k)}<span class="ar-row-text"><span class="ar-row-main">${AGENTS[k].name}</span></span>${modelField(k, catalog, s.models || {})}${effortField(k, catalog, s.efforts || {}, s.models?.[k])}</label>`).join('')}</div>
@@ -332,6 +337,16 @@
         const r = await api.request(`/api/runs/${encodeURIComponent(saved.runId)}/mcp`, { method: 'PATCH', body: JSON.stringify({ mcpServers: readMcp() }) });
         notify(r.message || '已保存'); await refresh(); renderSettings();
       } catch (err) { $('#ar-form-error').textContent = err.message; } finally { e.target.disabled = false; }
+    };
+    if ($('#ar-collab')) $('#ar-collab').onclick = async e => {
+      const next = s.collab === 'peer' ? 'manager' : 'peer';
+      if (!confirm(next === 'peer' ? '切换为平等互联？所有成员立即可以互相派活。' : '切换回管理者模式？之后只有主代理可以派活。')) return;
+      e.target.disabled = true;
+      try {
+        const r = await api.request(`/api/runs/${encodeURIComponent(saved.runId)}/collab`, { method: 'PATCH', body: JSON.stringify({ collab: next }) });
+        notify(r.applied === 'immediately' ? `已切换为${next === 'peer' ? '平等互联' : '管理者'}模式，立即生效` : '已保存，发送下一条消息时生效');
+        await refresh(); renderSettings();
+      } catch (err) { notify(err.message, true); } finally { e.target.disabled = false; }
     };
     if ($('#ar-back-manager')) $('#ar-back-manager').onclick = () => { api.open(saved.managerSessionId); close(); };
     if ($('#ar-stop')) $('#ar-stop').onclick = async e => {

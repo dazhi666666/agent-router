@@ -130,6 +130,8 @@ node router.mjs "<总目标>" [选项]           # 目标模式：拆解目标�
   --timeout <sec>     单个子代理会话超时（默认 0：不限时）
   --data <dir>        运行数据目录（默认 ./data/run-<时间戳>）
   --worktree          所有任务都在独立 git worktree 中执行（默认直通；isolated:true 可隔离单个任务）
+  --collab <m>        协作模式：manager（默认：主代理派活）| peer（平等互联：所有成员都可派活、
+                      续派、取消自己创建的任务；子代理也可把任务指派给 manager）
   --chat              对话模式：不需要 finish_run，空闲 30 分钟后休眠
   --resume            与 --data 搭配：续接该目录里上次的主代理会话
 ```
@@ -146,6 +148,17 @@ node router.mjs "<总目标>" [选项]           # 目标模式：拆解目标�
 | `zcode` / `codex` / `opencode` | 回合串联 | 这三个 CLI 没有常驻双向流：每条注入消息触发一次 headless 运行，用 sessionId 续链上下文；事件在回合之间注入，回合内没有实时工具事件 |
 
 **切换主代理**：发送第一条消息前在运行设置面板里选择；对话开始后也可以在同一个面板里切换。运行中会在当前回合结束后切换，正在执行的子代理任务不受影响；休眠中的对话在下一条消息唤醒时切换。不同 CLI 的会话不能互通，新主代理会开新会话，并收到之前的对话记录和任务板作为交接（`lib/prompts.mjs` 的 `handoffMessage`）。API：`PATCH /api/runs/:id/main {"main": "zcode"}`。
+
+### 平等互联模式（--collab peer）
+
+默认是**管理者模式**：只有主代理派活。`--collab peer`（或网页设置的"协作方式"选择器）把运行切换为**平等互联**——所有成员持有相同的板工具权限：
+
+- 任何成员都能 `create_task`：子代理在任务中途可以把一部分活直接派给另一个成员（`blocked_by` 排序），不必绕回主代理；也可以把任务指派给 `"manager"`——主代理会收到 `[事件]` 通知并亲自完成。
+- `followup_task` / `cancel_task` 限定任务的**创建者**（或主代理），同伴无法改动或终止别人的工作。
+- 完成报告照常以 `[事件]` 注入主代理（它仍是用户唯一对接口）；平等模式下创建者的信箱也会同步一份结局。
+- `finish_run` 仍然只有主代理能调；派发、收割、followup 机制完全不变。
+
+模式可在网页设置里随时切换（设置 → 协作方式 → 切换）：运行中的对话经命令通道立即生效，休眠的下一条消息唤醒时生效。独立版 [Agent-Router-MCP](https://github.com/dazhi666666/agent-router-mcp) 带同样的两种模式，供各 Agent 软件自行加载加入协作空间。
 
 ### 只能对话的模型（不能用工具）
 
@@ -192,9 +205,9 @@ data/<run>/
 
 | 工具 | 谁可用 | 用途 |
 |---|---|---|
-| `create_task(title, spec, assignee, blocked_by?, isolated?)` | 主代理 | 派一个自包含的任务给子代理（非阻塞） |
-| `followup_task(task_id, message)` | 主代理 | 让原子代理继续一个已结束的任务 |
-| `cancel_task(task_id, reason?)` | 主代理 | 取消排队中或执行中的任务 |
+| `create_task(title, spec, assignee, blocked_by?, isolated?)` | 主代理（peer：所有成员） | 派一个自包含的任务给子代理（非阻塞） |
+| `followup_task(task_id, message)` | 主代理（peer：创建者） | 让原子代理继续一个已结束的任务 |
+| `cancel_task(task_id, reason?)` | 主代理（peer：创建者） | 取消排队中或执行中的任务 |
 | `list_tasks` / `get_task` | 全部 | 查看任务与完整报告 |
 | `update_task(task_id, status?, result?, artifacts?)` | 全部 | 子代理：报告失败或附加结构化结果（完成是自动的）；主代理：完成自己的任务 |
 | `send_message(to, content, task_id?)` | 全部 | 给成员、主代理或 `*` 发消息 |

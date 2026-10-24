@@ -3,10 +3,12 @@
 // 子代理只在需要主动报告失败、或补充结构化结果时才调用 update_task。
 
 const MANAGER_ONLY = new Set(['create_task', 'followup_task', 'cancel_task', 'finish_run']);
+// 平等互联模式（--collab peer）：这三个工具对所有成员开放（逐个校验创建者权限）；finish_run 永远仅管理者
+const PEER_OPEN = new Set(['create_task', 'followup_task', 'cancel_task']);
 
 export const TOOL_SCHEMAS = {
   create_task: {
-    description: `(manager only) Launch a subagent on a self-contained task. The task is dispatched to the assignee automatically and runs in a fresh session that does not share your context. Returns the task ID immediately; you get a [事件] message with the subagent's full report when it finishes or fails.
+    description: `Launch a subagent on a self-contained task. The task is dispatched to the assignee automatically and runs in a fresh session that does not share your context. Returns the task ID immediately; the completion event (with the subagent's full report) goes to the main agent, and in peer mode also to the creator's mailbox. Permissions: manager mode — manager only; peer mode (平等互联) — every member.
 
 When to use: the work is large enough to split into independent parts that can run in parallel, or the user asks for a specific agent.
 When NOT to use: small changes or anything you can finish in a few tool calls (do it yourself); work that needs back-and-forth with the user; parts that would edit the same files as another running task.
@@ -28,7 +30,7 @@ Usage notes:
     }
   },
   followup_task: {
-    description: '(manager only) Ask the subagent that ran a finished task to continue it. When possible the subagent\'s original session is resumed; otherwise the original spec and previous report are injected into a new session. Use this to extend or correct a task; use create_task for unrelated new work.',
+    description: 'Ask the subagent that ran a finished task to continue it. When possible the subagent\'s original session is resumed; otherwise the original spec and previous report are injected into a new session. Use this to extend or correct a task; use create_task for unrelated new work. Permissions: manager mode — manager only; peer mode — the task\'s creator (or the manager).',
     inputSchema: {
       type: 'object',
       properties: {
@@ -39,7 +41,7 @@ Usage notes:
     }
   },
   cancel_task: {
-    description: '(manager only) Cancel a pending or running task. A running subagent session is terminated and the task is marked failed; changes it already made are left in place for you to inspect.',
+    description: '(manager mode: manager only; peer mode: the task\'s creator or the manager) Cancel a pending or running task. A running subagent session is terminated and the task is marked failed; changes it already made are left in place for you to inspect.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -103,12 +105,13 @@ Usage notes:
 /**
  * 某个 agent 可见的工具定义。
  * @param {string} caller  agent 名（manager / claude / zcode …）
- * @param {{chat?: boolean, extra?: object}} opts  对话模式下不提供 finish_run；extra 是 Router 挂上的附加工具
+ * @param {{chat?: boolean, extra?: object, mode?: string}} opts  对话模式下不提供 finish_run；
+ *        mode: 'manager'（默认，管理者派活）| 'peer'（平等互联，人人可派活）；extra 是 Router 挂上的附加工具
  *        （名字 → { description, inputSchema, call(caller, args), for?(caller) }，如 consult）
  */
-export function toolsFor(caller, { chat = false, extra = {} } = {}) {
+export function toolsFor(caller, { chat = false, extra = {}, mode = 'manager' } = {}) {
   const board = Object.entries(TOOL_SCHEMAS)
-    .filter(([name]) => caller === 'manager' || !MANAGER_ONLY.has(name))
+    .filter(([name]) => caller === 'manager' || (mode === 'peer' ? name !== 'finish_run' : !MANAGER_ONLY.has(name)))
     .filter(([name]) => !(chat && name === 'finish_run'))
     .map(([name, def]) => ({ name, ...def }));
   const more = Object.entries(extra)
@@ -133,7 +136,8 @@ export function callTool(board, caller, name, args = {}, ctx) {
     return Promise.resolve().then(() => extra.call(caller, args)).catch(e => ({ error: String(e.message || e) }));
   }
   if (!TOOL_SCHEMAS[name] || (ctx.chat && name === 'finish_run')) return { error: `unknown tool ${name}` };
-  if (MANAGER_ONLY.has(name) && caller !== 'manager') return { error: `only the manager can call ${name}` };
+  const peerOpen = ctx.mode === 'peer' && PEER_OPEN.has(name);
+  if (MANAGER_ONLY.has(name) && caller !== 'manager' && !peerOpen) return { error: `only the manager can call ${name}` };
   const members = ctx.roster.map(r => r.name);
   switch (name) {
     case 'create_task': {
@@ -147,6 +151,7 @@ export function callTool(board, caller, name, args = {}, ctx) {
     case 'followup_task': {
       const t = board.task(args.task_id);
       if (!t) return { error: `task ${args.task_id} not found` };
+      if (peerOpen && caller !== 'manager' && t.created_by !== caller) return { error: `task ${t.id} was created by ${t.created_by}; only its creator can follow up in peer mode` };
       if (t.assignee === 'manager') return { error: 'tasks assigned to manager are yours; just continue the work yourself' };
       if (!['done', 'failed'].includes(t.status)) return { error: `task ${t.id} is still ${t.status}; wait for it to finish` };
       if (t.followup) return { error: `task ${t.id} already has a pending follow-up` };
@@ -158,6 +163,7 @@ export function callTool(board, caller, name, args = {}, ctx) {
     case 'cancel_task': {
       const t = board.task(args.task_id);
       if (!t) return { error: `task ${args.task_id} not found` };
+      if (peerOpen && caller !== 'manager' && t.created_by !== caller) return { error: `task ${t.id} was created by ${t.created_by}; only its creator can cancel it in peer mode` };
       return ctx.cancel ? ctx.cancel(t.id, args.reason || 'cancelled by manager') : { error: 'cancel is not available' };
     }
     case 'list_tasks':
