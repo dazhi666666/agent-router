@@ -550,4 +550,3 @@ $('#btn-logs').onclick = () => { if (state.currentRun?.id) openLogModal(); };
 loadHealth();
 loadRuns();
 setInterval(loadHealth, 15000);
-
