@@ -237,6 +237,7 @@ export function createApp({ dataDir = process.env.AGENT_ROUTER_DATA_DIR || path.
       }
       if (parts[0] === 'assets' || /favicon|manifest/.test(u.pathname)) return file(res, path.join(DSH, 'dist'), u.pathname.slice(1));
       if (u.pathname === '/board') return file(res, PUBLIC, 'board.html');
+      if (u.pathname === '/flow') return file(res, PUBLIC, 'flow.html');
       if (u.pathname === '/console') { res.writeHead(302, { Location: '/console/' }); return res.end(); }
       return file(res, PUBLIC, parts[0] === 'console' ? parts.slice(1).join('/') || 'index.html' : parts.join('/'));
     } catch (e) { if (res.headersSent) return res.end(); json(res, e.code === 'ENOENT' ? 404 : 400, { error: e.message }); }

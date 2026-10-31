@@ -1,0 +1,211 @@
+/* 协作拓扑页：成员 → 主代理 → 结果 三栏节点图（SVG 连线 + 流动光点）+ 时间泳道 */
+:root{
+  --bg:#eef2f7;--side:#f6f8fb;--card:#ffffff;--card-2:#f7f9fc;--ink:#1c2536;--ink-2:#3a465c;--muted:#7a869c;
+  --line:#dfe5ee;--line-2:#cdd5e1;--grid:#d7dee8;--accent:#6d5efc;--ok:#16a34a;--warn:#d97706;--bad:#e5484d;
+  --shadow:0 1px 2px rgba(20,30,50,.05),0 6px 18px rgba(20,30,50,.06);--glow:.28;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0b0f17;--side:#0f1520;--card:#131a27;--card-2:#172031;--ink:#e7ecf5;--ink-2:#c2cbda;--muted:#8592a8;
+  --line:#222c3d;--line-2:#2d394d;--grid:#1c2535;--accent:#8b80ff;--ok:#3ccf7a;--warn:#f0a43a;--bad:#ff6b6f;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 10px 30px rgba(0,0,0,.35);--glow:.5;color-scheme:dark;
+}}
+:root[data-theme="dark"]{
+  --bg:#0b0f17;--side:#0f1520;--card:#131a27;--card-2:#172031;--ink:#e7ecf5;--ink-2:#c2cbda;--muted:#8592a8;
+  --line:#222c3d;--line-2:#2d394d;--grid:#1c2535;--accent:#8b80ff;--ok:#3ccf7a;--warn:#f0a43a;--bad:#ff6b6f;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 10px 30px rgba(0,0,0,.35);--glow:.5;color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font:13px/1.45 system-ui,-apple-system,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit;cursor:pointer}
+a{color:inherit}
+
+/* 顶栏 */
+.fx-top{height:52px;display:flex;align-items:center;gap:14px;padding:0 16px;background:var(--side);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:20}
+.fx-brand{display:flex;align-items:center;gap:8px;font-weight:650;text-decoration:none}
+.fx-mark{width:24px;height:24px;border-radius:7px;background:linear-gradient(135deg,var(--accent),#3bb4ff);display:grid;place-items:center}
+.fx-mark svg{width:15px;height:15px}
+.fx-crumb{color:var(--muted);border-left:1px solid var(--line);padding-left:14px}
+.fx-stats{display:flex;gap:16px;margin-left:8px;color:var(--muted);font-size:12px;white-space:nowrap;overflow:hidden}
+.fx-stats b{color:var(--ink);font-weight:600;margin-right:3px;font-variant-numeric:tabular-nums}
+.fx-stats .live b{color:var(--ok)}
+.fx-stats .live::before{content:"";display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--ok);margin-right:6px;vertical-align:1px;animation:blink 1.6s infinite}
+.fx-links{margin-left:auto;display:flex;gap:6px}
+.fx-chip{border:1px solid var(--line);background:var(--card);border-radius:8px;padding:5px 10px;font-size:12px;text-decoration:none;white-space:nowrap}
+.fx-chip:hover{border-color:var(--line-2)}
+.fx-chip[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:#fff}
+
+/* 布局 */
+.fx-body{display:grid;grid-template-columns:232px minmax(0,1fr);height:calc(100% - 52px)}
+.fx-side{background:var(--side);border-right:1px solid var(--line);padding:14px 12px;overflow:auto}
+.fx-side h2{font-size:11px;font-weight:600;color:var(--muted);letter-spacing:.06em;margin:4px 6px 8px}
+.fx-side h2:not(:first-child){margin-top:20px}
+.fx-runs{display:flex;flex-direction:column;gap:4px}
+.fx-run{all:unset;cursor:pointer;display:block;padding:8px 10px;border-radius:9px;border:1px solid transparent}
+.fx-run:hover{background:var(--card-2)}
+.fx-run.on{background:var(--card);border-color:var(--line);box-shadow:var(--shadow)}
+.fx-run strong{display:block;font-weight:550;font-size:12.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fx-run small{color:var(--muted);font-size:11px}
+.fx-run .dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--line-2);margin-right:6px;vertical-align:1px}
+.fx-run .dot.live{background:var(--ok);box-shadow:0 0 0 3px color-mix(in srgb,var(--ok) 20%,transparent)}
+.fx-dim{color:var(--muted);font-size:12px;margin:4px 6px}
+.fx-members{display:grid;grid-template-columns:repeat(3,1fr);gap:10px 4px;padding:0 4px}
+.fx-member{display:flex;flex-direction:column;align-items:center;gap:5px;font-size:11px;color:var(--ink-2);cursor:default}
+.fx-member .av{width:40px;height:40px;font-size:15px}
+.fx-member.s-run .av{box-shadow:0 0 0 2px var(--side),0 0 0 4px var(--c);animation:ring 1.8s ease-in-out infinite}
+
+.fx-main{overflow:auto;padding:14px 22px 24px;display:flex;flex-direction:column;gap:12px;min-width:0}
+.fx-goal{display:flex;align-items:center;gap:10px;min-width:0}
+.fx-goal strong{font-size:15px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fx-badge{flex:none;font-size:11px;padding:2px 7px;border-radius:5px;background:var(--accent);color:#fff}
+.fx-conn{margin-left:auto;flex:none;font-size:11.5px;color:var(--muted)}
+.fx-conn.ok{color:var(--ok)}.fx-conn.bad{color:var(--bad)}
+
+/* 节点图 */
+.fx-stage,.fx-lanes{flex:none}
+.fx-stage{position:relative;display:grid;grid-template-columns:minmax(210px,1fr) minmax(250px,1.1fr) minmax(210px,1fr);column-gap:clamp(56px,9vw,150px);padding:18px 22px 22px;border-radius:16px;
+  background:radial-gradient(circle,var(--grid) 1px,transparent 1.2px) 0 0/18px 18px,var(--card-2);border:1px solid var(--line);min-height:420px}
+.fx-wires{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible;z-index:1}
+.fx-col{position:relative;z-index:2;display:flex;flex-direction:column;min-width:0}
+.fx-col h3{font-size:11.5px;font-weight:600;color:var(--muted);margin:0 0 12px;text-align:center}
+.fx-col h3 span{color:var(--ink-2);margin-left:2px}
+.fx-stack{display:flex;flex-direction:column;gap:12px;flex:1;justify-content:center}
+
+.node{position:relative;background:var(--card);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);transition:opacity .2s,box-shadow .25s,border-color .25s,transform .25s}
+.node header{display:flex;align-items:center;gap:9px;padding:10px 11px 8px}
+.node header b{font-weight:600;display:block;font-size:13px}
+.node header small{display:block;color:var(--muted);font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.node header>div{min-width:0;flex:1}
+.av{flex:none;width:28px;height:28px;border-radius:50%;display:grid;place-items:center;font-weight:650;font-size:12px;color:#fff;background:var(--c);box-shadow:inset 0 0 0 1px rgba(255,255,255,.25)}
+.state{flex:none;font-size:11px;color:var(--muted);display:flex;align-items:center;gap:5px}
+.state i{width:6px;height:6px;border-radius:50%;background:var(--line-2)}
+.s-run>header .state,.s-run .state{color:var(--ok)}
+.s-run .state i{background:var(--ok);animation:blink 1.4s infinite}
+.s-bad .state{color:var(--bad)}.s-bad .state i{background:var(--bad)}
+.s-done .state i{background:var(--ink-2)}
+.agent.s-run{border-color:color-mix(in srgb,var(--c) 45%,var(--line));box-shadow:var(--shadow),0 0 0 4px color-mix(in srgb,var(--c) calc(var(--glow)*30%),transparent)}
+
+.rows{list-style:none;margin:0;padding:4px 0 6px;border-top:1px solid var(--line)}
+.row{position:relative;display:flex;align-items:center;gap:7px;padding:5px 11px;font-size:12px;cursor:pointer;transition:background .15s,opacity .2s}
+.row:hover{background:var(--card-2)}
+.row .tid{flex:none;font:600 10.5px/1 ui-monospace,SFMono-Regular,Consolas,monospace;color:var(--c,var(--muted));background:color-mix(in srgb,var(--c,var(--muted)) 12%,transparent);padding:3px 5px;border-radius:4px}
+.row .tt{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ink-2)}
+.row .st{flex:none;font-size:10.5px;color:var(--muted)}
+.row.s-in_progress .st{color:var(--ok)}.row.s-failed .st{color:var(--bad)}.row.s-done .st{color:var(--ink-2)}
+.row.s-pending .tt{color:var(--muted)}
+.row.flash{animation:flash 1.2s ease-out}
+.port{position:absolute;top:50%;width:9px;height:9px;margin-top:-4.5px;border-radius:50%;background:var(--card);border:2px solid var(--c,var(--line-2));z-index:3}
+.port.out{right:-5px}.port.in{left:-5px}
+.s-in_progress>.port,.row.s-in_progress .port{background:var(--c)}
+.idle-note{margin:0;padding:0 11px 10px 48px;font-size:11.5px;color:var(--muted)}
+
+/* 主代理枢纽卡：运行中时有一圈流转的渐变描边 */
+.hub{--c:var(--accent);overflow:visible}
+.hub.live::before{content:"";position:absolute;inset:-1.5px;border-radius:13px;padding:1.5px;background:conic-gradient(from var(--spin,0deg),transparent 0 60%,var(--c) 75%,#3bb4ff 85%,transparent 95%);
+  -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude;animation:spin 4s linear infinite;pointer-events:none}
+@property --spin{syntax:"<angle>";inherits:false;initial-value:0deg}
+.hub-head{display:flex;flex-direction:column;align-items:center;text-align:center;padding:16px 14px 12px;gap:4px}
+.hub-head .av{width:44px;height:44px;font-size:18px;margin-bottom:4px;box-shadow:0 0 0 6px color-mix(in srgb,var(--c) 14%,transparent)}
+.hub.live .hub-head .av{animation:ring 2.2s ease-in-out infinite}
+.hub-head b{font-size:15px;font-weight:650}
+.hub-head small{color:var(--muted);font-size:11px}
+.hub-head .state{margin-top:4px}
+.hub-goal{background:var(--card-2);border-top:1px solid var(--line);padding:8px 12px}
+.hub-goal small{font-size:10.5px;color:var(--muted)}
+.hub-goal p{margin:2px 0 0;font-size:12px;font-weight:550;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.hub .rows.outs{background:var(--card-2);border-radius:0 0 12px 12px}
+.hub .rows.outs .row{color:var(--ink-2)}
+.hub-foot{text-align:center;color:var(--muted);font-size:11px;margin:10px 0 0}
+.hub-empty{padding:14px;text-align:center;color:var(--muted);font-size:12px;border-top:1px solid var(--line)}
+
+.sink header .ico{width:28px;height:28px;border-radius:8px;display:grid;place-items:center;background:color-mix(in srgb,var(--c) 14%,transparent);color:var(--c)}
+.sink header .ico svg{width:15px;height:15px}
+.sink{--c:#0ea5e9}.sink.reports{--c:var(--ok)}.sink.summary{--c:var(--accent)}
+.sink .row{cursor:pointer}
+.sink .row .tt small{color:var(--muted);margin-left:4px}
+.sink .port.in{top:22px;margin-top:0}
+.sink .more{padding:4px 11px 8px;font-size:11px;color:var(--muted);border-top:1px dashed var(--line)}
+.sink .summary-text{margin:0;padding:8px 12px 12px;font-size:12px;color:var(--ink-2);white-space:pre-wrap;max-height:160px;overflow:auto;border-top:1px solid var(--line)}
+.count{font-size:10.5px;color:var(--muted);border:1px solid var(--line);border-radius:5px;padding:1px 6px}
+
+/* 连线：静态点线（参考稿的样子），动效由 JS 飞线负责 */
+.wire{fill:none;stroke:var(--c);stroke-width:1.5;stroke-linecap:round;stroke-dasharray:.5 4.5;opacity:.7;transition:opacity .2s,stroke-width .2s}
+.wire.s-pending{stroke:var(--line-2);opacity:.9}
+.wire.s-in_progress{stroke-width:1.8;opacity:.95}
+.wire.s-done{opacity:.5}
+.wire.s-failed{stroke:var(--bad);opacity:.75}
+.wire.out{opacity:.6}
+.fx-comets{z-index:4}
+.comet-head{fill:#fff;stroke:var(--c);stroke-width:2;filter:drop-shadow(0 0 4px var(--c)) drop-shadow(0 0 8px var(--c))}
+.fx-overlay{position:fixed;inset:0;width:100vw;height:100vh;pointer-events:none;z-index:30;overflow:visible}
+
+/* 悬停联动：同一任务的卡片行、连线、泳道元素一起高亮，其余淡出 */
+body.focus .row[data-task]:not(.hl),body.focus .wire[data-task]:not(.hl),body.focus .lane-item[data-task]:not(.hl){opacity:.18}
+body.focus .wire.hl{opacity:1;stroke-width:2.4}
+body.focus .row.hl{background:color-mix(in srgb,var(--c,var(--accent)) 10%,transparent)}
+
+/* 泳道 */
+.fx-lanes{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:10px 14px 8px;box-shadow:var(--shadow)}
+.fx-lanes-head{display:flex;align-items:center;gap:12px;margin-bottom:4px}
+.fx-lanes-head h3{margin:0;font-size:12px;font-weight:600}
+.fx-legend{margin-left:auto;display:flex;align-items:center;gap:5px;font-size:11px;color:var(--muted);flex-wrap:wrap}
+.fx-legend i{display:inline-block;width:16px;height:0;border-top:2px solid var(--muted);margin-left:8px}
+.fx-legend .lg-dispatch{border-top-style:dashed}.fx-legend .lg-run{border-top-width:6px;border-radius:3px;opacity:.6}.fx-legend .lg-report{border-color:var(--ok)}
+.fx-legend .lg-mail{width:8px;height:8px;border:0;background:var(--warn);transform:rotate(45deg)}
+.fx-lanes-body{overflow-x:auto}
+.fx-lanes-body svg{display:block;font:11px system-ui,-apple-system,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif}
+.lane-line{stroke:var(--c);stroke-width:1.5;opacity:.35}
+.lane-label{fill:var(--ink-2);font-weight:550}
+.lane-tick{stroke:var(--line);stroke-dasharray:2 4}
+.lane-tick-text{fill:var(--muted);font-size:10px}
+.lane-now{stroke:var(--accent);stroke-width:1.2;stroke-dasharray:3 3}
+.lane-item{cursor:pointer;transition:opacity .2s}
+.lane-bar{fill:var(--c);opacity:.28}
+.lane-item.s-in_progress .lane-bar{opacity:.55;animation:pulse 1.6s ease-in-out infinite}
+.lane-item.s-failed .lane-bar{fill:var(--bad)}
+.lane-dispatch{fill:none;stroke:var(--c);stroke-width:1.2;stroke-dasharray:3 3;opacity:.7}
+.lane-report{fill:none;stroke:var(--ok);stroke-width:1.2;opacity:.7}
+.lane-item.s-failed .lane-report{stroke:var(--bad)}
+.lane-node{fill:var(--card);stroke:var(--c);stroke-width:2}
+.lane-item.s-done .lane-end{fill:var(--c);stroke:var(--card)}
+.lane-item.s-failed .lane-end{fill:var(--bad);stroke:var(--card)}
+.lane-mail{fill:var(--warn)}
+.lane-mail-arc{fill:none;stroke:var(--warn);stroke-width:1;opacity:.55}
+.lane-empty{fill:var(--muted)}
+
+/* 抽屉与提示 */
+.fx-drawer{position:fixed;top:64px;right:12px;bottom:12px;width:min(380px,calc(100vw - 24px));background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:0 20px 60px rgba(0,0,0,.18);z-index:40;padding:18px 18px 20px;overflow:auto;animation:slide .22s ease-out}
+.fx-drawer h4{font-size:11px;color:var(--muted);font-weight:600;margin:16px 0 4px;letter-spacing:.04em}
+.fx-drawer p,.fx-drawer pre{margin:0;font-size:12.5px;white-space:pre-wrap;overflow-wrap:anywhere;color:var(--ink-2);font-family:inherit}
+.fx-drawer .dh{display:flex;gap:10px;align-items:center;padding-right:26px}
+.fx-drawer .dh b{font-size:15px}
+.fx-drawer ul{margin:0;padding-left:18px;font-size:12px}
+.fx-x{position:absolute;top:12px;right:12px;border:0;background:transparent;color:var(--muted);font-size:14px;border-radius:6px;padding:2px 6px}
+.fx-x:hover{background:var(--card-2)}
+.fx-tip{position:fixed;z-index:50;pointer-events:none;background:var(--ink);color:var(--bg);font-size:11.5px;padding:6px 9px;border-radius:7px;max-width:280px;white-space:pre-wrap;box-shadow:0 6px 20px rgba(0,0,0,.2)}
+
+/* 首次进入：节点依次浮现 */
+.enter .node{animation:rise .5s cubic-bezier(.2,.8,.2,1) both;animation-delay:calc(var(--i,0)*60ms)}
+
+@keyframes blink{50%{opacity:.35}}
+@keyframes dash{to{stroke-dashoffset:-12}}
+@keyframes spin{to{--spin:360deg}}
+@keyframes ring{50%{box-shadow:0 0 0 2px var(--side),0 0 0 6px color-mix(in srgb,var(--c) 35%,transparent)}}
+@keyframes pulse{50%{opacity:.3}}
+@keyframes flash{from{background:color-mix(in srgb,var(--c,var(--accent)) 22%,transparent)}}
+@keyframes rise{from{opacity:0;transform:translateY(8px) scale(.98)}}
+@keyframes slide{from{opacity:0;transform:translateX(16px)}}
+
+@media (prefers-reduced-motion:reduce){*,*::before{animation:none!important}}
+@media (max-width:980px){
+  .fx-body{grid-template-columns:1fr}
+  .fx-side{display:none}
+  .fx-stats{display:none}
+}
+@media (max-width:760px){
+  .fx-main{padding:12px 16px 20px}
+  .fx-stage{grid-template-columns:1fr;row-gap:20px;padding:14px}
+  .fx-wires,.fx-overlay{display:none}
+  .fx-crumb{display:none}
+}

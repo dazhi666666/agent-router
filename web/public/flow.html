@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>协作拓扑 · Agent Router</title>
+<link rel="stylesheet" href="/flow.css">
+</head>
+<body>
+<header class="fx-top">
+  <a class="fx-brand" href="/"><span class="fx-mark" aria-hidden="true"><svg viewBox="0 0 20 20" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"><circle cx="5" cy="10" r="2"/><circle cx="15" cy="5" r="2"/><circle cx="15" cy="15" r="2"/><path d="M7 9.2 13 6M7 10.8l6 3.2"/></svg></span>Agent Router</a>
+  <span class="fx-crumb">协作拓扑</span>
+  <div id="stats" class="fx-stats"></div>
+  <nav class="fx-links">
+    <button id="btn-demo" class="fx-chip" aria-pressed="false" title="播放一段模拟运行">演示</button>
+    <a class="fx-chip" href="/">聊天 ↗</a>
+    <a class="fx-chip" href="/console/">控制台 ↗</a>
+  </nav>
+</header>
+<div class="fx-body">
+  <aside class="fx-side">
+    <h2>运行记录</h2>
+    <div id="runs" class="fx-runs"><p class="fx-dim">加载中…</p></div>
+    <h2>成员</h2>
+    <div id="members" class="fx-members"></div>
+  </aside>
+  <main class="fx-main">
+    <div class="fx-goal"><span id="goal-badge" class="fx-badge">运行</span><strong id="goal">请选择一次运行</strong><span id="conn" class="fx-conn" role="status"></span></div>
+    <div id="stage" class="fx-stage">
+      <svg id="wires" class="fx-wires" aria-hidden="true"></svg><svg id="comets" class="fx-wires fx-comets" aria-hidden="true"></svg>
+      <section class="fx-col"><h3>执行成员 <span id="n-agents"></span></h3><div id="col-agents" class="fx-stack"></div></section>
+      <section class="fx-col"><h3>主代理 · 拆解与整合</h3><div id="col-hub" class="fx-stack"></div></section>
+      <section class="fx-col"><h3>结果去向 <span id="n-outs"></span></h3><div id="col-outs" class="fx-stack"></div></section>
+    </div>
+    <section class="fx-lanes">
+      <div class="fx-lanes-head"><h3>时间泳道</h3><span class="fx-legend"><i class="lg-dispatch"></i>派发<i class="lg-run"></i>执行<i class="lg-report"></i>汇报<i class="lg-mail"></i>信箱</span></div>
+      <div id="lanes" class="fx-lanes-body"></div>
+    </section>
+  </main>
+</div>
+<aside id="drawer" class="fx-drawer" hidden aria-label="任务详情"><button id="drawer-close" class="fx-x" aria-label="关闭">✕</button><div id="drawer-body"></div></aside>
+<svg id="overlay" class="fx-overlay" aria-hidden="true"></svg>
+<div id="tip" class="fx-tip" hidden></div>
+<script src="/flow.js"></script>
+</body>
+</html>

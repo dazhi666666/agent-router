@@ -9,7 +9,8 @@
     board: icon('<rect x="3" y="3.5" width="14" height="13" rx="2"/><path d="M7.5 3.5v13M12.5 3.5v13"/>'),
     folder: icon('<path d="M3 6a1.5 1.5 0 0 1 1.5-1.5H8l2 2h5.5A1.5 1.5 0 0 1 17 8v6a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 3 14V6Z"/>'),
     settings: icon('<path d="M4 6h7M15 6h1M4 14h1M9 14h7"/><circle cx="13" cy="6" r="2"/><circle cx="7" cy="14" r="2"/>'),
-    env: icon('<path d="M3.5 10.5l4 4 9-9"/>')
+    env: icon('<path d="M3.5 10.5l4 4 9-9"/>'),
+    flow: icon('<circle cx="4.5" cy="10" r="2"/><circle cx="15.5" cy="5" r="2"/><circle cx="15.5" cy="15" r="2"/><path d="M6.5 10c4 0 3-5 7-5M6.5 10c4 0 3 5 7 5"/>')
   };
   const bar = document.createElement('header'); bar.className = 'ar-ui ar-topbar';
   const MARK = '<span class="ar-mark" aria-hidden="true"><svg viewBox="0 0 20 20" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"><circle cx="5" cy="10" r="2"/><circle cx="15" cy="5" r="2"/><circle cx="15" cy="15" r="2"/><path d="M7 9.2 13 6M7 10.8l6 3.2"/></svg></span>';
@@ -17,6 +18,7 @@
     <nav class="ar-actions" aria-label="运行操作">
       <button data-panel="runs" aria-label="运行记录" title="运行记录">${ICONS.runs}<span class="label">运行记录</span></button>
       <button data-panel="board" aria-label="任务与成员" title="任务与成员">${ICONS.board}<span class="label">任务</span></button>
+      <a id="ar-flow" class="ar-button" href="/flow" target="_blank" rel="noopener" aria-label="协作拓扑" title="协作拓扑（新窗口）">${ICONS.flow}<span class="label">拓扑</span></a>
       <button data-panel="workspace" aria-label="工作区目录" title="工作区目录">${ICONS.folder}<span class="label">工作区</span></button>
       <button data-panel="settings" aria-label="会话设置" title="会话设置">${ICONS.settings}<span class="label">设置</span></button>
       <button data-panel="env" aria-label="环境检查" title="环境检查">${ICONS.env}<span class="label">环境</span></button>
@@ -61,6 +63,7 @@
       const next = ctx?.runId ? `/board?embedded=1&runId=${encodeURIComponent(ctx.runId)}` : '/board?embedded=1';
       if (frame.getAttribute('src') !== next) frame.src = next;
     }
+    $('#ar-flow').href = ctx?.runId ? `/flow?runId=${encodeURIComponent(ctx.runId)}` : '/flow';
     document.body.dataset.arReadonly = ctx && !ctx.capabilities.send ? 'true' : 'false';
     rebrand();
   }
