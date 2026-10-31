@@ -278,7 +278,7 @@ test('main and subagent models are chosen separately',async t=>{
   assert.equal((await f.call('/dsh-api/session/prompt','POST',{sessionId:sid,content:[{type:'text',text:'开始'}]})).data.ok,true);
   const runId=f.sessions.resolve(sid).runId;
   const cfg=JSON.parse(fs.readFileSync(path.join(f.runs.dir(runId),'runtime-config.json'),'utf8'));
-  assert.deepEqual(cfg,{claude:{model:'sub-model-y'},devin:{},codex:{},opencode:{},antigravity:{},zcode:{},'zcode-oss':{},main:{model:'main-model-x'}});
+  assert.deepEqual(cfg,{claude:{model:'sub-model-y'},devin:{},codex:{},opencode:{},antigravity:{},zcode:{},'zcode-oss':{},dsh:{},main:{model:'main-model-x'}});
   // 运行中改模型：main 段与类型段一起落盘
   assert.equal((await f.call(`/api/runs/${runId}/models`,'PATCH',{models:{main:'main-model-z',claude:'sub-model-y2'}})).status,200);
   const cfg2=JSON.parse(fs.readFileSync(path.join(f.runs.dir(runId),'runtime-config.json'),'utf8'));
@@ -292,7 +292,7 @@ test('main and subagent models are chosen separately',async t=>{
   assert.equal((await f.call(`/api/sessions/${sid2}/settings`,'PATCH',{main:'devin'})).status,200);
   assert.equal(f.sessions.resolve(sid2).settings.models.main,undefined);
   // main 段按类型解析：opencode 带 @variant、antigravity 带 -effort 后缀
-  assert.deepEqual(runtimeConfig({main:'p/m@high',opencode:'p/m2'},{},'opencode'),{claude:{},devin:{},codex:{},opencode:{model:'p/m2'},antigravity:{},zcode:{},'zcode-oss':{},main:{model:'p/m',variant:'high'}});
+  assert.deepEqual(runtimeConfig({main:'p/m@high',opencode:'p/m2'},{},'opencode'),{claude:{},devin:{},codex:{},opencode:{model:'p/m2'},antigravity:{},zcode:{},'zcode-oss':{},dsh:{},main:{model:'p/m',variant:'high'}});
   assert.deepEqual(runtimeConfig({main:'gemini-3.8-flash-high'},{},'antigravity').main,{model:'gemini-3.8-flash',effort:'high'});
   assert.deepEqual(runtimeConfig({main:'m'},{},'claude').main,{model:'m'});
   // 开源 ZCode 类型：模型段走 runtime-config 的 zcode-oss 键，validateModels 接受该类型

@@ -37,7 +37,8 @@
     devin: { name: 'Devin', color: '#10b981', install: '从 Devin 官网安装 Devin CLI', login: 'devin auth login', mode: '常驻 ACP 会话' },
     codex: { name: 'Codex', color: '#6b7280', install: 'npm i -g @openai/codex', login: 'codex login', mode: '回合串联，事件在回合之间送达' },
     opencode: { name: 'OpenCode', color: '#f59e0b', install: 'npm i -g opencode-ai@latest', login: 'opencode auth login', mode: '回合串联，事件在回合之间送达' },
-    antigravity: { name: 'Antigravity', color: '#8b5cf6', install: '使用 Antigravity 官方安装器（命令 agy）', login: '复用 IDE 登录；需本地代理', mode: '常驻会话，事件即时送达' }
+    antigravity: { name: 'Antigravity', color: '#8b5cf6', install: '使用 Antigravity 官方安装器（命令 agy）', login: '复用 IDE 登录；需本地代理', mode: '常驻会话，事件即时送达' },
+    dsh: { name: 'DSH', color: '#4d6bfe', install: 'science-harness 仓库 pnpm install && pnpm run build', login: '复用 harness 配置的模型凭据（如 DEEPSEEK_API_KEY）', mode: '回合串联（headless profile），事件在回合之间送达' }
   };
   const KEYS = Object.keys(AGENTS);
   const llm = () => health?.llm || {};

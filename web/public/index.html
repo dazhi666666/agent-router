@@ -23,6 +23,7 @@
       <span class="h-item" id="h-codex" title="Codex CLI"><i></i>codex</span>
       <span class="h-item" id="h-opencode" title="OpenCode CLI"><i></i>opencode</span>
       <span class="h-item" id="h-antigravity" title="Antigravity CLI（agy，密钥环静默登录）"><i></i>antigravity</span>
+      <span class="h-item" id="h-dsh" title="dsh CLI（science-harness，apps/cli/lib/bin.js 构建产物）"><i></i>dsh</span>
     </div>
     <span id="run-state" class="pill idle">空闲</span>
     <button id="btn-stop" class="btn danger" disabled>停止运行</button>
@@ -58,6 +59,7 @@
           <label><input type="checkbox" value="codex">codex <span class="model-tag" data-m="codex"></span></label>
           <label><input type="checkbox" value="opencode">opencode <span class="model-tag" data-m="opencode"></span></label>
           <label><input type="checkbox" value="antigravity">antigravity <span class="model-tag" data-m="antigravity"></span></label>
+          <label><input type="checkbox" value="dsh">dsh <span class="model-tag" data-m="dsh"></span></label>
         </div>
       </div>
       <div class="field">
@@ -70,6 +72,7 @@
           <option value="codex">codex — 回合串联（OpenAI Codex CLI）</option>
           <option value="opencode">opencode — 回合串联（SST OpenCode CLI）</option>
           <option value="antigravity">antigravity — stream-json 常驻（Google Antigravity CLI）</option>
+          <option value="dsh">dsh — 回合串联（science-harness，headless profile）</option>
         </select>
       </div>
       <button id="btn-start" class="btn primary">▶ 启动运行</button>
