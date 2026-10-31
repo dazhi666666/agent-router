@@ -130,9 +130,9 @@ a{color:inherit}
 .count{font-size:10.5px;color:var(--muted);border:1px solid var(--line);border-radius:5px;padding:1px 6px}
 
 /* 连线：静态点线（参考稿的样子），动效由 JS 飞线负责 */
-.wire{fill:none;stroke:var(--c);stroke-width:2.6;stroke-linecap:round;stroke-dasharray:1 6.5;opacity:.7;transition:opacity .2s,stroke-width .2s}
+.wire{fill:none;stroke:var(--c);stroke-width:3;stroke-linecap:round;stroke-dasharray:1 7.5;opacity:.7;transition:opacity .2s,stroke-width .2s}
 .wire.s-pending{stroke:var(--line-2);opacity:.9}
-.wire.s-in_progress{stroke-width:3;opacity:.95}
+.wire.s-in_progress{stroke-width:3.6;opacity:.95}
 .wire.s-done{opacity:.5}
 .wire.s-failed{stroke:var(--bad);opacity:.75}
 .wire.out{opacity:.6}
@@ -254,3 +254,16 @@ body.focus .row.hl{background:color-mix(in srgb,var(--c,var(--accent)) 10%,trans
 :root[data-theme="dark"] .fx-tip{background:rgba(232,238,252,.95);color:#0b1120}
 :root[data-theme="dark"] .fx-run.on{background:rgba(139,123,255,.1);border-color:rgba(139,123,255,.3)}
 .fx-theme{width:30px;padding:5px 0;text-align:center}
+
+/* 飞线命中：目标（和源头）亮起一圈发光的高亮框，然后慢慢退去 */
+.fx-hit{position:relative;animation:hit 1.3s ease-out}
+@keyframes hit{
+  0%{box-shadow:0 0 0 2px var(--hit),0 0 22px var(--hit);background-color:color-mix(in srgb,var(--hit) 16%,transparent)}
+  60%{box-shadow:0 0 0 2px color-mix(in srgb,var(--hit) 60%,transparent),0 0 12px color-mix(in srgb,var(--hit) 40%,transparent)}
+  100%{box-shadow:0 0 0 0 transparent}}
+.row.fx-hit{border-radius:7px}
+.fl-glow{filter:blur(6px)}
+.fl-body{filter:drop-shadow(0 0 4px var(--c))}
+.fl-spark{filter:drop-shadow(0 0 6px var(--c)) drop-shadow(0 0 14px var(--c))}
+:root[data-theme="dark"] .fl-body{filter:drop-shadow(0 0 6px var(--c)) drop-shadow(0 0 16px var(--c))}
+:root[data-theme="dark"] .fl-glow{opacity:.45}

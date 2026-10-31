@@ -49,7 +49,7 @@ async function loadRuns() {
 }
 async function select(id) {
   stopDemo(); es?.close(); es = null;
-  state.runId = id; state.data = null; state.stageSig = ''; state.wireSig = ''; state.prevStatus.clear();
+  state.runId = id; state.data = null; state.stageSig = ''; state.wireSig = ''; state.prevStatus.clear(); state.prevMails = null;
   history.replaceState(null, '', `?runId=${encodeURIComponent(id)}`);
   enter(); renderSide(); await load();
 }
@@ -115,7 +115,7 @@ function renderStage(d, live) {
   const artifacts = tasks.flatMap(t => (t.artifacts || []).map(a => ({ t, name: typeof a === 'string' ? a : a.path || a.name || JSON.stringify(a) })));
   const reports = tasks.filter(t => t.status === 'done' || t.status === 'failed').sort((a, b) => (ts(b.finished_at) || 0) - (ts(a.finished_at) || 0));
   const finished = d?.board?.finished;
-  const sig = JSON.stringify([state.runId, state.demo, tasks.map(t => [t.id, t.status, t.title, t.assignee, (t.artifacts || []).length, t.result?.length]), members(d), live, s.session, s.turns, s.currentTool, d?.goal, !!finished]);
+  const sig = JSON.stringify([(d?.board?.messages || []).length, state.runId, state.demo, tasks.map(t => [t.id, t.status, t.title, t.assignee, (t.artifacts || []).length, t.result?.length]), members(d), live, s.session, s.turns, s.currentTool, d?.goal, !!finished]);
   if (sig === state.stageSig) return;
   state.stageSig = sig;
   let i = 0;
@@ -141,13 +141,16 @@ function renderStage(d, live) {
   $('#n-outs').textContent = sinks.length;
   $('#col-outs').innerHTML = sinks.join('');
   // 状态变化交给飞线演出（首次加载不演）
-  const changes = [];
+  const changes = [], first = !state.prevMails;
   for (const t of tasks) {
     const before = state.prevStatus.get(t.id);
     if (before && before !== t.status) changes.push({ t, to: t.status });
     state.prevStatus.set(t.id, t.status);
   }
-  requestAnimationFrame(() => { drawWires(); renderLanes(state.data, live); play(changes); });
+  const messages = d?.board?.messages || [];
+  const mails = first ? [] : messages.filter(m => !state.prevMails.has(m.id));
+  state.prevMails = new Set(messages.map(m => m.id));
+  requestAnimationFrame(() => { drawWires(); renderLanes(state.data, live); play(changes, mails); });
 }
 
 /* ---------- 连线：静态点线，动效全部交给下面的"飞线" ---------- */
@@ -183,19 +186,19 @@ const NS = 'http://www.w3.org/2000/svg';
 function svgEl(tag, attrs, parent) { const el = document.createElementNS(NS, tag); for (const k in attrs) el.setAttribute(k, attrs[k]); parent?.append(el); return el; }
 const easeInOut = t => t < .5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2;
 const easeOut = t => 1 - (1 - t) ** 3;
-function ripple(svg, p, color) {
-  const c = svgEl('circle', { cx: p.x, cy: p.y, r: 3, fill: 'none', stroke: color, 'stroke-width': 2.6 }, svg), t0 = performance.now();
-  (function frame(now) { const k = Math.min(1, (now - t0) / 650); c.setAttribute('r', 3 + easeOut(k) * 13); c.setAttribute('opacity', 1 - k); k < 1 ? requestAnimationFrame(frame) : c.remove(); })(t0);
+function ripple(svg, p, color, { r = 16, w = 2.6, dur = 650 } = {}) {
+  const c = svgEl('circle', { cx: p.x, cy: p.y, r: 3, fill: 'none', stroke: color, 'stroke-width': w }, svg), t0 = performance.now();
+  (function frame() { const now = performance.now(); const k = Math.min(1, (now - t0) / dur); c.setAttribute('r', 3 + easeOut(k) * r); c.setAttribute('opacity', 1 - k); k < 1 ? requestAnimationFrame(frame) : c.remove(); })(t0);
 }
-// 尾巴用三层不同长度/透明度的描边叠出渐隐，dasharray "0 起点 长度 余量" 只露出头部后面的一段
-function comet(svg, d, color, { tail = 54, onArrive } = {}) {
+// 尾巴用几层不同长度/透明度的描边叠出渐隐，dasharray "0 起点 长度 余量" 只露出头部后面的一段；最上层是白色内芯
+function comet(svg, d, color, { tail = 70, onArrive } = {}) {
   if (reduceMotion || document.hidden) { onArrive?.(); return; }
   const g = svgEl('g', { class: 'comet', style: `--c:${color}` }, svg);
-  const layers = [[1, 2.4, .18], [.5, 3.4, .42], [.18, 4.6, .92]].map(([f, w, o]) => ({ f, p: svgEl('path', { d, fill: 'none', stroke: color, 'stroke-width': w, 'stroke-linecap': 'round', opacity: o }, g) }));
-  const len = layers[0].p.getTotalLength(), dur = Math.min(1800, Math.max(750, len * 2.6)), t0 = performance.now();
-  const head = svgEl('circle', { r: 4.4, class: 'comet-head', style: `--c:${color}` }, g);
+  const layers = [[1, 3.4, .2, color], [.55, 5, .5, color], [.2, 7, .95, color], [.35, 1.8, .9, '#fff']].map(([f, w, o, c]) => ({ f, p: svgEl('path', { d, fill: 'none', stroke: c, 'stroke-width': w, 'stroke-linecap': 'round', opacity: o }, g) }));
+  const len = layers[0].p.getTotalLength(), dur = Math.min(1700, Math.max(700, len * 2.4)), t0 = performance.now();
+  const head = svgEl('circle', { r: 5.6, class: 'comet-head', style: `--c:${color}` }, g);
   let arrived = false;
-  (function frame(now) {
+  (function frame() { const now = performance.now();
     const k = Math.min(1, (now - t0) / dur), pos = easeInOut(k) * (len + tail), hp = Math.min(pos, len);
     for (const { f, p } of layers) { const start = Math.max(0, pos - tail * f); p.setAttribute('stroke-dasharray', `0 ${start} ${Math.max(0, hp - start)} ${len + tail}`); }
     const pt = layers[0].p.getPointAtLength(hp); head.setAttribute('cx', pt.x); head.setAttribute('cy', pt.y); head.setAttribute('opacity', pos > len ? 0 : 1);
@@ -203,30 +206,54 @@ function comet(svg, d, color, { tail = 54, onArrive } = {}) {
     k < 1 ? requestAnimationFrame(frame) : g.remove();
   })(t0);
 }
-// 跨面板飞线（泳道 ↔ 卡片）：曲线从起点"长"出去，到达后从尾部收回
-function flyLine(fromEl, toEl, color, onArrive) {
-  if (!fromEl || !toEl || reduceMotion || document.hidden) return;
-  const svg = $('#overlay'), r1 = fromEl.getBoundingClientRect(), r2 = toEl.getBoundingClientRect();
-  const a = { x: r1.left + r1.width / 2, y: r1.top + r1.height / 2 }, b = { x: r2.left + 8, y: r2.top + r2.height / 2 };
-  const sag = Math.max(a.y, b.y) + Math.min(160, Math.abs(b.x - a.x) * .25 + 40);
-  const d = `M${a.x},${a.y} C${a.x + (b.x - a.x) * .15},${sag} ${b.x - (b.x - a.x) * .35},${sag} ${b.x},${b.y}`;
+
+/* ---------- 跨面板飞线：从源头"射"出一条大弧线 → 命中目标（高亮框 + 双层涟漪）→ 从尾部收回并淡出 ---------- */
+// 端点可以是元素（取中心或左右边缘）或现成的 {x, y}；不在视口里就不飞
+function anchor(target, side) {
+  if (!target) return null;
+  if ('x' in target && 'y' in target && !target.getBoundingClientRect) return target;
+  const r = target.getBoundingClientRect(); if (!r.width && !r.height) return null;
+  const x = side === 'left' ? r.left + 6 : side === 'right' ? r.right - 6 : r.left + r.width / 2;
+  return { x, y: r.top + r.height / 2 };
+}
+const onScreen = p => p && p.x >= 0 && p.y >= 0 && p.x <= innerWidth && p.y <= innerHeight;
+function hit(el, color) {
+  if (!el?.classList || el instanceof SVGElement) return;
+  el.style.setProperty('--hit', color); el.classList.remove('fx-hit'); void el.offsetWidth; el.classList.add('fx-hit');
+}
+function flyLine(from, to, color, onArrive, { fromSide, toSide } = {}) {
+  const a = anchor(from, fromSide), b = anchor(to, toSide);
+  if (!onScreen(a) || !onScreen(b) || reduceMotion || document.hidden) return;
+  const svg = $('#overlay'), dx = b.x - a.x, dist = Math.hypot(dx, b.y - a.y);
+  // 先向下俯冲、再横扫、最后抬头扎进目标：控制点都压在两端下方
+  const low = Math.min(innerHeight - 24, Math.max(a.y, b.y) + Math.min(240, dist * .32 + 40));
+  const d = `M${a.x.toFixed(1)},${a.y.toFixed(1)} C${(a.x + dx * .06).toFixed(1)},${low.toFixed(1)} ${(b.x - dx * .38).toFixed(1)},${(low - 10).toFixed(1)} ${b.x.toFixed(1)},${b.y.toFixed(1)}`;
   const g = svgEl('g', { class: 'flyline', style: `--c:${color}` }, svg);
-  const glow = svgEl('path', { d, fill: 'none', stroke: color, 'stroke-width': 9, opacity: .2, 'stroke-linecap': 'round' }, g);
-  const line = svgEl('path', { d, fill: 'none', stroke: color, 'stroke-width': 2.8, 'stroke-linecap': 'round' }, g);
-  const head = svgEl('circle', { r: 4.6, class: 'comet-head', style: `--c:${color}` }, g);
-  const len = line.getTotalLength(), GROW = 700, HOLD = 380, SHRINK = 520, t0 = performance.now();
+  const mk = (w, o, c, cls = '') => svgEl('path', { d, fill: 'none', stroke: c, 'stroke-width': w, opacity: o, 'stroke-linecap': 'round', class: cls }, g);
+  const glow = mk(18, .28, color, 'fl-glow'), body = mk(4.6, 1, color, 'fl-body'), core = mk(1.8, .9, '#fff'), spark = mk(9, .95, color, 'fl-spark');
+  const head = svgEl('circle', { r: 6.5, class: 'comet-head', style: `--c:${color}` }, g);
+  const len = body.getTotalLength(), GROW = Math.min(820, Math.max(480, len * .7)), HOLD = 220, FADE = 760, SPARK = 90, t0 = performance.now();
+  hit(from, color); ripple(svg, a, color, { r: 12, w: 2.4, dur: 500 });
   let arrived = false;
-  (function frame(now) {
+  (function frame() { const now = performance.now();
     const t = now - t0;
-    let s = 0, e = len;
+    let s = 0, e = len, alpha = 1;
     if (t < GROW) e = easeOut(t / GROW) * len;
-    else if (t > GROW + HOLD) s = easeInOut(Math.min(1, (t - GROW - HOLD) / SHRINK)) * len;
-    const dash = `0 ${s} ${Math.max(0, e - s)} ${len}`;
-    line.setAttribute('stroke-dasharray', dash); glow.setAttribute('stroke-dasharray', dash);
-    const pt = line.getPointAtLength(e); head.setAttribute('cx', pt.x); head.setAttribute('cy', pt.y);
-    head.setAttribute('opacity', t < GROW ? 1 : Math.max(0, 1 - (t - GROW) / HOLD));
-    if (!arrived && t >= GROW) { arrived = true; ripple(svg, pt, color); onArrive?.(); }
-    t < GROW + HOLD + SHRINK ? requestAnimationFrame(frame) : g.remove();
+    else if (t > GROW + HOLD) { const k = Math.min(1, (t - GROW - HOLD) / FADE); s = easeInOut(k) * len; alpha = 1 - k * k; }
+    const dash = `0 ${s} ${Math.max(0, e - s)} ${len * 2}`;
+    for (const p of [glow, body, core]) p.setAttribute('stroke-dasharray', dash);
+    const ss = Math.max(s, e - SPARK);
+    spark.setAttribute('stroke-dasharray', `0 ${ss} ${Math.max(0, e - ss)} ${len * 2}`);
+    spark.setAttribute('opacity', t < GROW ? .95 : Math.max(0, .95 - (t - GROW) / 260));
+    const pt = body.getPointAtLength(e); head.setAttribute('cx', pt.x); head.setAttribute('cy', pt.y);
+    head.setAttribute('opacity', t < GROW ? 1 : Math.max(0, 1 - (t - GROW) / 300));
+    g.setAttribute('opacity', alpha);
+    if (!arrived && t >= GROW) {
+      arrived = true; hit(to, color);
+      ripple(svg, b, color, { r: 26, w: 3.2, dur: 700 }); setTimeout(() => ripple(svg, b, color, { r: 40, w: 1.6, dur: 900 }), 120);
+      onArrive?.();
+    }
+    t < GROW + HOLD + FADE ? requestAnimationFrame(frame) : g.remove();
   })(t0);
 }
 function flash(selector) { document.querySelectorAll(selector).forEach(el => { el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash'); }); }
@@ -234,30 +261,51 @@ function wireComet(key, color, reverse, onArrive) {
   const w = state.wires?.[key]; if (!w) return onArrive?.();
   comet($('#comets'), reverse ? curve(w.b, w.a) : curve(w.a, w.b), color || w.color, { onArrive });
 }
-// 状态变化 → 一串有因果的飞线：派发（主代理 → 成员）、完成（成员 → 主代理 → 报告，同时泳道飞向报告卡）
-function play(changes) {
+const q = s => document.querySelector(s);
+// 泳道上某任务执行条的"最新一端"（执行中的条随时间变长）
+function laneHead(id) { const r = q(`.lane-item[data-task="${id}"] .lane-bar`)?.getBoundingClientRect(); return r && { x: r.right, y: r.top + r.height / 2 }; }
+// 事件 → 一串有因果的飞线：
+//   派发：主代理行 → 泳道上该成员的开始点，同时连线上光点飞向成员
+//   完成/失败：成员 → 主代理 → 报告（光点），同时泳道结束点射向报告卡
+//   信箱：发信成员卡 → 泳道上的信件菱形
+function play(changes, mails = []) {
   changes.forEach(({ t, to }, i) => setTimeout(() => {
-    const id = CSS.escape(t.id), bad = to === 'failed' ? '#e5484d' : null;
-    if (to === 'in_progress') wireComet(t.id, null, true, () => flash(`.agent .row[data-task="${id}"]`));
+    const id = CSS.escape(t.id), bad = to === 'failed' ? '#ff4d6d' : null, c = bad || colorOf(t.assignee);
+    if (to === 'in_progress') {
+      wireComet(t.id, null, true, () => flash(`.agent .row[data-task="${id}"]`));
+      flyLine(q(`.hub .row[data-task="${id}"]`), q(`.lane-item[data-task="${id}"] .lane-start`), c, null, { fromSide: 'left' });
+    }
     if (to === 'done' || to === 'failed') {
       wireComet(t.id, bad, false, () => {
         flash(`.hub .row[data-task="${id}"]`);
         wireComet('out:reports', bad, false, () => flash(`[data-sink="reports"] .row[data-task="${id}"]`));
         if (t.artifacts?.length) setTimeout(() => wireComet('out:artifacts', null, false, () => flash(`[data-sink="artifacts"] .row[data-task="${id}"]`)), 260);
       });
-      setTimeout(() => flyLine(document.querySelector(`.lane-item[data-task="${id}"] .lane-end`), document.querySelector(`[data-sink="reports"] .row[data-task="${id}"]`), bad || colorOf(t.assignee)), 900);
+      setTimeout(() => flyLine(q(`.lane-item[data-task="${id}"] .lane-end`), q(`[data-sink="reports"] .row[data-task="${id}"]`), c, null, { toSide: 'left' }), 650);
     }
   }, i * 420));
+  mails.forEach((m, i) => setTimeout(() => {
+    const src = m.from === 'manager' || m.from === 'user' ? q('.hub .hub-head .av') : q(`.agent[data-agent="${CSS.escape(m.from)}"] header`);
+    flyLine(src, q(`.lane-item[data-mail="${CSS.escape(m.id)}"] .lane-mail`), '#fbbf24');
+  }, 300 + (changes.length + i) * 420));
 }
-// 平时的"心跳"：执行中的任务隔几秒向主代理送出一颗光点，同时最多两颗在飞
+// 平时的"心跳"：执行中的任务隔几秒向主代理送出一颗光点；每隔一阵再从成员卡向泳道射一条飞线，把工作"记"进时间线
 const cooldown = new Map();
+let lastFly = 0;
 setInterval(() => {
   const d = state.data; if (document.hidden || reduceMotion || d?.status !== 'running') return;
-  const now = Date.now(), ready = (d.board?.tasks || []).filter(t => t.status === 'in_progress' && state.wires?.[t.id] && !(cooldown.get(t.id) > now));
-  if (!ready.length || document.querySelectorAll('#comets .comet').length >= 2) return;
-  const t = ready[Math.floor(Math.random() * ready.length)];
-  cooldown.set(t.id, now + 2600 + Math.random() * 3200);
-  wireComet(t.id, null, false, () => flash(`.hub .row[data-task="${CSS.escape(t.id)}"]`));
+  const now = Date.now(), active = (d.board?.tasks || []).filter(t => t.status === 'in_progress');
+  const ready = active.filter(t => state.wires?.[t.id] && !(cooldown.get(t.id) > now));
+  if (ready.length && document.querySelectorAll('#comets .comet').length < 2) {
+    const t = ready[Math.floor(Math.random() * ready.length)];
+    cooldown.set(t.id, now + 2400 + Math.random() * 2600);
+    wireComet(t.id, null, false, () => flash(`.hub .row[data-task="${CSS.escape(t.id)}"]`));
+  }
+  if (active.length && now - lastFly > 2300 && !document.querySelector('#overlay .flyline')) {
+    lastFly = now;
+    const t = active[Math.floor(Math.random() * active.length)], id = CSS.escape(t.id);
+    flyLine(q(`.agent .row[data-task="${id}"]`), laneHead(id), colorOf(t.assignee), null, { fromSide: 'right' });
+  }
 }, 650);
 
 /* ---------- 时间泳道 ---------- */
@@ -290,7 +338,7 @@ function renderLanes(d, live) {
     }
     if (start != null) {
       const xs = x(start), xe = end != null ? x(end) : xs + 4;
-      g.push(`<rect class="lane-bar" x="${xs}" y="${ya - 5}" width="${Math.max(xe - xs, 4)}" height="10" rx="5"/>`, `<circle class="lane-node" cx="${xs}" cy="${ya}" r="3.5"/>`);
+      g.push(`<rect class="lane-bar" x="${xs}" y="${ya - 5}" width="${Math.max(xe - xs, 4)}" height="10" rx="5"/>`, `<circle class="lane-node lane-start" cx="${xs}" cy="${ya}" r="3.5"/>`);
       if (t.status === 'done' || t.status === 'failed') g.push(`<path class="lane-report" d="M${xe},${ya} C${xe + 14},${ya} ${xe + 4},${ym} ${xe + 18},${ym}"/>`, `<circle class="lane-node lane-end" cx="${xe}" cy="${ya}" r="4.5"/>`);
     } else if (created == null) continue;
     const tip = `${t.id} · ${nameOf(t.assignee)} · ${LABEL[t.status] || t.status}\n${t.title}${start ? `\n开始 ${clock(start)}` : ''}${ts(t.finished_at) ? `  结束 ${clock(ts(t.finished_at))}` : ''}`;
@@ -300,7 +348,7 @@ function renderLanes(d, live) {
     const from = m.from === 'user' ? 'manager' : m.from, to = m.to;
     if (!lanes.includes(from) || !lanes.includes(to) || ts(m.ts) == null) continue;
     const xm = x(ts(m.ts)), y1 = y(from), y2 = y(to), bend = Math.min(30, Math.abs(y2 - y1) / 2 + 8);
-    out.push(`<g class="lane-item" ${m.task_id ? `data-task="${esc(m.task_id)}"` : ''} data-tip="${esc(`${m.from} → ${m.to} · ${clock(ts(m.ts))}\n${String(m.content).slice(0, 160)}`)}"><path class="lane-mail-arc" d="M${xm},${y1} C${xm + bend},${y1} ${xm + bend},${y2} ${xm},${y2}"/><rect class="lane-mail" x="${xm - 3.5}" y="${y2 - 3.5}" width="7" height="7" transform="rotate(45 ${xm} ${y2})"/></g>`);
+    out.push(`<g class="lane-item" data-mail="${esc(m.id)}" ${m.task_id ? `data-task="${esc(m.task_id)}"` : ''} data-tip="${esc(`${m.from} → ${m.to} · ${clock(ts(m.ts))}\n${String(m.content).slice(0, 160)}`)}"><path class="lane-mail-arc" d="M${xm},${y1} C${xm + bend},${y1} ${xm + bend},${y2} ${xm},${y2}"/><rect class="lane-mail" x="${xm - 3.5}" y="${y2 - 3.5}" width="7" height="7" transform="rotate(45 ${xm} ${y2})"/></g>`);
   }
   host.innerHTML = `<svg width="${W}" height="${height}" viewBox="0 0 ${W} ${height}">${out.join('')}</svg>`;
 }
@@ -379,7 +427,7 @@ const DEMO_RESULTS = {
 };
 function demoTick() {
   const d = state.data, tasks = d.board.tasks, now = new Date().toISOString(), s = d.agentStatus;
-  if (d.status !== 'running') { state.data = demoSeed(); state.prevStatus.clear(); state.stageSig = ''; enter(); return render(); }
+  if (d.status !== 'running') { state.data = demoSeed(); state.prevStatus.clear(); state.prevMails = null; state.stageSig = ''; enter(); return render(); }
   s.turns++;
   const runningTasks = tasks.filter(t => t.status === 'in_progress');
   const ready = tasks.find(t => t.status === 'pending' && t.blocked_by.every(b => tasks.find(x => x.id === b)?.status === 'done'));
@@ -400,7 +448,7 @@ function demoTick() {
 }
 function startDemo() {
   stopDemo(); es?.close(); es = null; state.demo = true; state.runId = null;
-  state.data = demoSeed(); state.stageSig = ''; state.wireSig = ''; state.prevStatus.clear();
+  state.data = demoSeed(); state.stageSig = ''; state.wireSig = ''; state.prevStatus.clear(); state.prevMails = null;
   $('#btn-demo').setAttribute('aria-pressed', 'true'); setConn('模拟数据 · 不调用 Agent', 'ok');
   enter(); renderSide(); render();
   demoTimer = setInterval(demoTick, 3200);
