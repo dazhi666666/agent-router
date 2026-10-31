@@ -130,19 +130,19 @@ a{color:inherit}
 .count{font-size:10.5px;color:var(--muted);border:1px solid var(--line);border-radius:5px;padding:1px 6px}
 
 /* 连线：静态点线（参考稿的样子），动效由 JS 飞线负责 */
-.wire{fill:none;stroke:var(--c);stroke-width:1.5;stroke-linecap:round;stroke-dasharray:.5 4.5;opacity:.7;transition:opacity .2s,stroke-width .2s}
+.wire{fill:none;stroke:var(--c);stroke-width:2.6;stroke-linecap:round;stroke-dasharray:1 6.5;opacity:.7;transition:opacity .2s,stroke-width .2s}
 .wire.s-pending{stroke:var(--line-2);opacity:.9}
-.wire.s-in_progress{stroke-width:1.8;opacity:.95}
+.wire.s-in_progress{stroke-width:3;opacity:.95}
 .wire.s-done{opacity:.5}
 .wire.s-failed{stroke:var(--bad);opacity:.75}
 .wire.out{opacity:.6}
 .fx-comets{z-index:4}
-.comet-head{fill:#fff;stroke:var(--c);stroke-width:2;filter:drop-shadow(0 0 4px var(--c)) drop-shadow(0 0 8px var(--c))}
+.comet-head{fill:#fff;stroke:var(--c);stroke-width:2.6;filter:drop-shadow(0 0 4px var(--c)) drop-shadow(0 0 8px var(--c))}
 .fx-overlay{position:fixed;inset:0;width:100vw;height:100vh;pointer-events:none;z-index:30;overflow:visible}
 
 /* 悬停联动：同一任务的卡片行、连线、泳道元素一起高亮，其余淡出 */
 body.focus .row[data-task]:not(.hl),body.focus .wire[data-task]:not(.hl),body.focus .lane-item[data-task]:not(.hl){opacity:.18}
-body.focus .wire.hl{opacity:1;stroke-width:2.4}
+body.focus .wire.hl{opacity:1;stroke-width:3.6}
 body.focus .row.hl{background:color-mix(in srgb,var(--c,var(--accent)) 10%,transparent)}
 
 /* 泳道 */
@@ -155,7 +155,7 @@ body.focus .row.hl{background:color-mix(in srgb,var(--c,var(--accent)) 10%,trans
 .fx-legend .lg-mail{width:8px;height:8px;border:0;background:var(--warn);transform:rotate(45deg)}
 .fx-lanes-body{overflow-x:auto}
 .fx-lanes-body svg{display:block;font:11px system-ui,-apple-system,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif}
-.lane-line{stroke:var(--c);stroke-width:1.5;opacity:.35}
+.lane-line{stroke:var(--c);stroke-width:2;opacity:.35}
 .lane-label{fill:var(--ink-2);font-weight:550}
 .lane-tick{stroke:var(--line);stroke-dasharray:2 4}
 .lane-tick-text{fill:var(--muted);font-size:10px}
@@ -164,14 +164,14 @@ body.focus .row.hl{background:color-mix(in srgb,var(--c,var(--accent)) 10%,trans
 .lane-bar{fill:var(--c);opacity:.28}
 .lane-item.s-in_progress .lane-bar{opacity:.55;animation:pulse 1.6s ease-in-out infinite}
 .lane-item.s-failed .lane-bar{fill:var(--bad)}
-.lane-dispatch{fill:none;stroke:var(--c);stroke-width:1.2;stroke-dasharray:3 3;opacity:.7}
-.lane-report{fill:none;stroke:var(--ok);stroke-width:1.2;opacity:.7}
+.lane-dispatch{fill:none;stroke:var(--c);stroke-width:1.8;stroke-dasharray:3 3;opacity:.7}
+.lane-report{fill:none;stroke:var(--ok);stroke-width:1.8;opacity:.7}
 .lane-item.s-failed .lane-report{stroke:var(--bad)}
 .lane-node{fill:var(--card);stroke:var(--c);stroke-width:2}
 .lane-item.s-done .lane-end{fill:var(--c);stroke:var(--card)}
 .lane-item.s-failed .lane-end{fill:var(--bad);stroke:var(--card)}
 .lane-mail{fill:var(--warn)}
-.lane-mail-arc{fill:none;stroke:var(--warn);stroke-width:1;opacity:.55}
+.lane-mail-arc{fill:none;stroke:var(--warn);stroke-width:1.5;opacity:.55}
 .lane-empty{fill:var(--muted)}
 
 /* 抽屉与提示 */
@@ -209,3 +209,48 @@ body.focus .row.hl{background:color-mix(in srgb,var(--c,var(--accent)) 10%,trans
   .fx-wires,.fx-overlay{display:none}
   .fx-crumb{display:none}
 }
+
+/* ===== 暗色主题（默认）：深空背景 + 星云光晕 + 毛玻璃卡片 + 霓虹连线 ===== */
+:root[data-theme="dark"]{
+  --bg:#05080f;--side:rgba(9,13,24,.72);--card:rgba(16,22,38,.7);--card-2:rgba(12,18,32,.85);--ink:#e9eefb;--ink-2:#b8c3da;--muted:#7a87a2;
+  --line:rgba(130,150,210,.14);--line-2:rgba(140,160,220,.3);--grid:rgba(120,160,255,.13);--accent:#8b7bff;--ok:#34d399;--warn:#fbbf24;--bad:#fb7185;
+  --shadow:0 0 0 1px rgba(255,255,255,.02),0 12px 40px rgba(0,0,0,.55);--glow:.75;color-scheme:dark;
+}
+:root[data-theme="dark"] body{background:
+  radial-gradient(1100px 620px at 12% -12%,rgba(124,92,255,.22),transparent 62%),
+  radial-gradient(900px 520px at 105% 108%,rgba(34,211,238,.14),transparent 60%),
+  radial-gradient(700px 400px at 60% 40%,rgba(59,130,246,.06),transparent 70%),var(--bg);background-attachment:fixed}
+:root[data-theme="dark"] .fx-top,:root[data-theme="dark"] .fx-side{backdrop-filter:blur(14px)}
+:root[data-theme="dark"] .fx-top{box-shadow:0 1px 0 rgba(139,123,255,.12)}
+:root[data-theme="dark"] .fx-brand{text-shadow:0 0 18px rgba(139,123,255,.45)}
+:root[data-theme="dark"] .fx-mark{box-shadow:0 0 16px rgba(110,140,255,.6)}
+:root[data-theme="dark"] .fx-goal strong{background:linear-gradient(90deg,#fff,#b9c6ff 60%,#7dd3fc);-webkit-background-clip:text;background-clip:text;color:transparent}
+:root[data-theme="dark"] .fx-badge{box-shadow:0 0 14px rgba(139,123,255,.6)}
+:root[data-theme="dark"] .fx-stage{background:
+  radial-gradient(circle,var(--grid) 1px,transparent 1.3px) 0 0/20px 20px,
+  radial-gradient(ellipse at 50% 45%,rgba(99,102,241,.1),transparent 65%),rgba(8,12,22,.6);
+  border-color:rgba(130,150,220,.16);box-shadow:inset 0 0 120px rgba(40,70,160,.12),0 0 0 1px rgba(255,255,255,.015)}
+:root[data-theme="dark"] .node{backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-color:rgba(140,160,230,.16)}
+:root[data-theme="dark"] .node header .av,:root[data-theme="dark"] .fx-member .av{box-shadow:0 0 14px color-mix(in srgb,var(--c) 55%,transparent),inset 0 0 0 1px rgba(255,255,255,.25)}
+:root[data-theme="dark"] .agent.s-run{border-color:color-mix(in srgb,var(--c) 70%,transparent);box-shadow:0 0 0 1px color-mix(in srgb,var(--c) 30%,transparent),0 0 28px color-mix(in srgb,var(--c) 35%,transparent),0 12px 40px rgba(0,0,0,.5)}
+:root[data-theme="dark"] .hub{box-shadow:0 0 50px rgba(110,100,255,.16),0 12px 40px rgba(0,0,0,.55)}
+:root[data-theme="dark"] .hub-head .av{box-shadow:0 0 0 6px color-mix(in srgb,var(--c) 18%,transparent),0 0 34px color-mix(in srgb,var(--c) 60%,transparent)}
+:root[data-theme="dark"] .hub-goal,:root[data-theme="dark"] .hub .rows.outs{background:rgba(255,255,255,.025)}
+:root[data-theme="dark"] .row:hover{background:rgba(255,255,255,.04)}
+:root[data-theme="dark"] .port{background:#0b1120;box-shadow:0 0 8px color-mix(in srgb,var(--c,#8b7bff) 70%,transparent)}
+:root[data-theme="dark"] .wire{opacity:.85;filter:drop-shadow(0 0 2.5px var(--c))}
+:root[data-theme="dark"] .wire.s-pending{stroke:rgba(150,170,230,.35);filter:none}
+:root[data-theme="dark"] .wire.s-done{opacity:.55}
+:root[data-theme="dark"] .comet path{filter:drop-shadow(0 0 4px var(--c)) drop-shadow(0 0 10px var(--c))}
+:root[data-theme="dark"] .comet-head{filter:drop-shadow(0 0 5px var(--c)) drop-shadow(0 0 14px var(--c)) drop-shadow(0 0 26px var(--c))}
+:root[data-theme="dark"] .flyline path{filter:drop-shadow(0 0 5px var(--c)) drop-shadow(0 0 12px var(--c))}
+:root[data-theme="dark"] .fx-lanes{background:rgba(10,15,28,.7);backdrop-filter:blur(12px)}
+:root[data-theme="dark"] .lane-line{opacity:.5;filter:drop-shadow(0 0 2px var(--c))}
+:root[data-theme="dark"] .lane-bar{opacity:.45;filter:drop-shadow(0 0 6px var(--c))}
+:root[data-theme="dark"] .lane-item.s-in_progress .lane-bar{opacity:.8}
+:root[data-theme="dark"] .lane-node{fill:#0b1120}
+:root[data-theme="dark"] .lane-now{stroke:#7dd3fc;filter:drop-shadow(0 0 4px #7dd3fc)}
+:root[data-theme="dark"] .fx-drawer{background:rgba(14,20,36,.88);backdrop-filter:blur(18px);border-color:rgba(140,160,230,.2);box-shadow:0 20px 60px rgba(0,0,0,.6),0 0 40px rgba(110,100,255,.12)}
+:root[data-theme="dark"] .fx-tip{background:rgba(232,238,252,.95);color:#0b1120}
+:root[data-theme="dark"] .fx-run.on{background:rgba(139,123,255,.1);border-color:rgba(139,123,255,.3)}
+.fx-theme{width:30px;padding:5px 0;text-align:center}

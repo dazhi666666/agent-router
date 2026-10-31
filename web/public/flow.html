@@ -4,7 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>协作拓扑 · Agent Router</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 20 20%27%3E%3Crect width=%2720%27 height=%2720%27 rx=%275%27 fill=%27%236d5efc%27/%3E%3Cg fill=%27none%27 stroke=%27%23fff%27 stroke-width=%272%27 stroke-linecap=%27round%27%3E%3Ccircle cx=%275%27 cy=%2710%27 r=%272%27/%3E%3Ccircle cx=%2715%27 cy=%275%27 r=%272%27/%3E%3Ccircle cx=%2715%27 cy=%2715%27 r=%272%27/%3E%3Cpath d=%27M7 9.2 13 6M7 10.8l6 3.2%27/%3E%3C/g%3E%3C/svg%3E">
 <link rel="stylesheet" href="/flow.css">
+<script>try{document.documentElement.dataset.theme=localStorage.getItem('flow-theme')||'dark'}catch{document.documentElement.dataset.theme='dark'}</script>
 </head>
 <body>
 <header class="fx-top">
@@ -12,6 +14,7 @@
   <span class="fx-crumb">协作拓扑</span>
   <div id="stats" class="fx-stats"></div>
   <nav class="fx-links">
+    <button id="btn-theme" class="fx-chip fx-theme" title="切换明暗主题" aria-label="切换明暗主题"></button>
     <button id="btn-demo" class="fx-chip" aria-pressed="false" title="播放一段模拟运行">演示</button>
     <a class="fx-chip" href="/">聊天 ↗</a>
     <a class="fx-chip" href="/console/">控制台 ↗</a>

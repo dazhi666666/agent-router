@@ -184,16 +184,16 @@ function svgEl(tag, attrs, parent) { const el = document.createElementNS(NS, tag
 const easeInOut = t => t < .5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2;
 const easeOut = t => 1 - (1 - t) ** 3;
 function ripple(svg, p, color) {
-  const c = svgEl('circle', { cx: p.x, cy: p.y, r: 3, fill: 'none', stroke: color, 'stroke-width': 2 }, svg), t0 = performance.now();
+  const c = svgEl('circle', { cx: p.x, cy: p.y, r: 3, fill: 'none', stroke: color, 'stroke-width': 2.6 }, svg), t0 = performance.now();
   (function frame(now) { const k = Math.min(1, (now - t0) / 650); c.setAttribute('r', 3 + easeOut(k) * 13); c.setAttribute('opacity', 1 - k); k < 1 ? requestAnimationFrame(frame) : c.remove(); })(t0);
 }
 // 尾巴用三层不同长度/透明度的描边叠出渐隐，dasharray "0 起点 长度 余量" 只露出头部后面的一段
 function comet(svg, d, color, { tail = 54, onArrive } = {}) {
   if (reduceMotion || document.hidden) { onArrive?.(); return; }
-  const g = svgEl('g', { class: 'comet' }, svg);
-  const layers = [[1, 1.4, .16], [.5, 2, .4], [.18, 2.8, .9]].map(([f, w, o]) => ({ f, p: svgEl('path', { d, fill: 'none', stroke: color, 'stroke-width': w, 'stroke-linecap': 'round', opacity: o }, g) }));
+  const g = svgEl('g', { class: 'comet', style: `--c:${color}` }, svg);
+  const layers = [[1, 2.4, .18], [.5, 3.4, .42], [.18, 4.6, .92]].map(([f, w, o]) => ({ f, p: svgEl('path', { d, fill: 'none', stroke: color, 'stroke-width': w, 'stroke-linecap': 'round', opacity: o }, g) }));
   const len = layers[0].p.getTotalLength(), dur = Math.min(1800, Math.max(750, len * 2.6)), t0 = performance.now();
-  const head = svgEl('circle', { r: 3.4, class: 'comet-head', style: `--c:${color}` }, g);
+  const head = svgEl('circle', { r: 4.4, class: 'comet-head', style: `--c:${color}` }, g);
   let arrived = false;
   (function frame(now) {
     const k = Math.min(1, (now - t0) / dur), pos = easeInOut(k) * (len + tail), hp = Math.min(pos, len);
@@ -210,10 +210,10 @@ function flyLine(fromEl, toEl, color, onArrive) {
   const a = { x: r1.left + r1.width / 2, y: r1.top + r1.height / 2 }, b = { x: r2.left + 8, y: r2.top + r2.height / 2 };
   const sag = Math.max(a.y, b.y) + Math.min(160, Math.abs(b.x - a.x) * .25 + 40);
   const d = `M${a.x},${a.y} C${a.x + (b.x - a.x) * .15},${sag} ${b.x - (b.x - a.x) * .35},${sag} ${b.x},${b.y}`;
-  const g = svgEl('g', { class: 'flyline' }, svg);
-  const glow = svgEl('path', { d, fill: 'none', stroke: color, 'stroke-width': 5, opacity: .18, 'stroke-linecap': 'round' }, g);
-  const line = svgEl('path', { d, fill: 'none', stroke: color, 'stroke-width': 1.6, 'stroke-linecap': 'round' }, g);
-  const head = svgEl('circle', { r: 3.6, class: 'comet-head', style: `--c:${color}` }, g);
+  const g = svgEl('g', { class: 'flyline', style: `--c:${color}` }, svg);
+  const glow = svgEl('path', { d, fill: 'none', stroke: color, 'stroke-width': 9, opacity: .2, 'stroke-linecap': 'round' }, g);
+  const line = svgEl('path', { d, fill: 'none', stroke: color, 'stroke-width': 2.8, 'stroke-linecap': 'round' }, g);
+  const head = svgEl('circle', { r: 4.6, class: 'comet-head', style: `--c:${color}` }, g);
   const len = line.getTotalLength(), GROW = 700, HOLD = 380, SHRINK = 520, t0 = performance.now();
   let arrived = false;
   (function frame(now) {
@@ -410,6 +410,15 @@ $('#btn-demo').onclick = () => {
   if (state.demo) { stopDemo(); state.runs[0] ? select(state.runs[0].id) : startDemo(); }
   else { history.replaceState(null, '', '?demo=1'); startDemo(); }
 };
+
+// 明暗主题：默认暗色（head 里的内联脚本已先行设置，避免闪白），选择记在本机
+function paintThemeButton() { $('#btn-theme').textContent = document.documentElement.dataset.theme === 'dark' ? '☀' : '☾'; }
+$('#btn-theme').onclick = () => {
+  const next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.theme = next; paintThemeButton();
+  try { localStorage.setItem('flow-theme', next); } catch {}
+};
+paintThemeButton();
 
 // 演示模式下泳道的"当前时刻"要跟着走；真实运行靠 SSE 快照，再加 5 秒兜底轮询
 setInterval(() => { if (state.data?.status === 'running') renderLanes(state.data, true); }, 1000);
