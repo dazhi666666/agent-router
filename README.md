@@ -2,7 +2,9 @@
 
 <div align="right">English · <b><a href="README.zh-CN.md">中文</a></b></div>
 
-**A main agent runs the main thread (Claude Code by default; pick zcode / devin / codex / opencode / antigravity via `--main`)**: it holds a long-lived session, breaks the overall goal into tasks and dispatches them to local subagents (ZCode / Devin / Codex / OpenCode / Antigravity / other Claude Code instances). Dispatch is non-blocking — the manager creates tasks and immediately moves on; subagent progress (completion / failure / messages) is pushed back into the main session in real time. All agents collaborate through a **shared local task board** and exchange messages via the **board mailbox**; the Router handles automatic dispatch, harvest & merge, and the final summary.
+> **Home**: Agent Router lives inside the [science-harness](https://github.com/dazhi666666/science-harness) monorepo at `integrations/agent-router/`; this checkout is the upstream source it is synced from. As a member of that monorepo, **DeepSeek Harness itself (`dsh`) joins the roster as the seventh CLI** — as a subagent over `dsh --profile headless`, and as a selectable main agent (turn-chained). `dsh-web/` is not shipped there: it is rebuilt locally with `harness/build-dsh-web.mjs` (see below).
+
+**A main agent runs the main thread (Claude Code by default; pick zcode / devin / codex / opencode / antigravity / dsh via `--main`)**: it holds a long-lived session, breaks the overall goal into tasks and dispatches them to local subagents (ZCode / Devin / Codex / OpenCode / Antigravity / DeepSeek Harness / other Claude Code instances). Dispatch is non-blocking — the manager creates tasks and immediately moves on; subagent progress (completion / failure / messages) is pushed back into the main session in real time. All agents collaborate through a **shared local task board** and exchange messages via the **board mailbox**; the Router handles automatic dispatch, harvest & merge, and the final summary.
 
 Everything stays on your machine — agent runtimes, sessions, task data and communication. Model inference calls each vendor's API; that is the only boundary.
 
@@ -48,6 +50,7 @@ you ──message──▶ main agent session (persistent: claude / antigravity 
 | codex | Codex CLI (`npm i -g @openai/codex`, `codex exec --json`, ChatGPT login) | uses the machine's Codex login and model config |
 | opencode | OpenCode CLI (`npm i -g opencode-ai`) | uses the machine's `opencode auth` credentials; default model `opencode/space-bunny-free` |
 | antigravity | Antigravity CLI (official installer → `%LOCALAPPDATA%\agy\bin`, command `agy`) | silent keyring login (reuses IDE credentials); the generation API is geo-restricted — `antigravity.proxy` must point to a local proxy |
+| dsh | the science-harness checkout Agent Router lives in: `pnpm install && pnpm run build` at the repo root | entry auto-discovered as `apps/cli/lib/bin.js` (override `AGENT_ROUTER_DSH_ENTRY`); the model is whatever the harness profile is configured with (`DEEPSEEK_API_KEY` etc.), not selectable per run |
 
 `router.config.json` can override each agent's executable path, proxy and model (omit a field to use the client default):
 
@@ -58,7 +61,8 @@ you ──message──▶ main agent session (persistent: claude / antigravity 
   "devin":  { "exe": "...devin.exe", "model": "swe-2-high" },
   "codex":  { "exe": "...codex.exe", "proxy": "http://127.0.0.1:10808", "model": "gpt-5.4" },
   "opencode": { "exe": "...opencode.exe", "model": "opencode/space-bunny-free" },
-  "antigravity": { "exe": "...agy.exe", "proxy": "http://127.0.0.1:10808", "model": "gemini-3.8-flash-high", "effort": "high" }
+  "antigravity": { "exe": "...agy.exe", "proxy": "http://127.0.0.1:10808", "model": "gemini-3.8-flash-high", "effort": "high" },
+  "dsh": { "entry": ".../science-harness/apps/cli/lib/bin.js" }
 }
 ```
 
@@ -68,6 +72,7 @@ you ──message──▶ main agent session (persistent: claude / antigravity 
 - codex: `exe` must point to the native binary inside the npm package (the `codex` on PATH is a .cmd shim Node can't spawn); set `proxy` to a local proxy — direct connections make Codex's WebSocket time out repeatedly before the HTTPS fallback (~90 s), through a proxy it connects instantly.
 - opencode: `exe` likewise points at the native binary, **requires CLI ≥ 1.18** (`npm i -g opencode-ai@latest`) — older versions (1.1.x) send request headers that the zen server treats as "not the OpenCode client", and every free-tier model is rejected with 403. `model` is `provider/model`, optionally with a reasoning-effort variant appended as `provider/model@variant` (e.g. `opencode/space-bunny-free@high`, which becomes `run --variant high`); the valid variants per model come from models.dev's `reasoning_options` and are offered as a dropdown in the web settings. All zen free-tier models work, but the first token often queues for 1–2 minutes (`space-bunny-free` responds fastest and stays the default). The Router injects `small_model` and passes an explicit `--title` so auxiliary calls (auto title, session summary) never hit the paid small model — on a free-tier account that call fails with "Insufficient account funds" and the whole session hangs. The board MCP and permission allowances are injected inline via `OPENCODE_CONFIG_CONTENT` — your global config is untouched.
 - antigravity: `model` takes a name from `agy models` (e.g. `gemini-3.8-flash-high`, `claude-sonnet-4-6`); the `-high/-medium/-low/-max` suffix becomes `--effort` — the reasoning strength is part of the model name, and the web settings dropdown shows the human labels (e.g. "Gemini 3.8 Flash (High)"). `proxy` is required — without it the API returns "User location is not supported". The board MCP is injected via the workspace-level `.agents/mcp_config.json` (write-restore, and added to `.git/info/exclude` so it never gets committed).
+- dsh: `entry` is auto-discovered by walking up from the Router checkout to a `apps/cli/lib/bin.js` build output — inside the science-harness monorepo this resolves on its own after `pnpm install && pnpm run build`; set `AGENT_ROUTER_DSH_ENTRY` (or `dsh.entry`) to point elsewhere. The board MCP and any conversation-scoped MCP servers are injected as a per-session temporary `--patch` file consumed by the harness's own `dsh-mcp-client`; the model comes from the harness profile configuration (cordis.yml / `DEEPSEEK_API_KEY`) and cannot be chosen per run. `/compact` is not offered for dsh (it is gated to the zcode family).
 
 The web settings panel fills the model dropdowns from each CLI (`opencode models`, `agy models`, `devin models list`, ZCode provider config, cached 10 minutes) — pick instead of type; claude / codex stay free-text (their CLIs don't expose a model list). Devin's several hundred models render as a combo box (type to filter).
 
@@ -92,9 +97,9 @@ The web app is the DeepSeek harness (dsh) chat UI (the bundled `dsh-web/` build)
 
 <details><summary>Rebuilding <code>dsh-web/</code></summary>
 
-> `dsh-web/` (a local deepseek-harness build) ships with the repository; you can also replace it with your own build (must contain `index.html` and `dist/`).
+> `dsh-web/` (a local deepseek-harness build) is not shipped from the science-harness side (gitignored there); until you build it, `/` serves the classic console. You can also replace it with your own build (must contain `index.html` and `dist/`).
 
-> Rebuilding `dsh-web/` after a deepseek-harness update (current base: **0.2.1-alpha.1**): the harness frontend source tree lives in-project at `deepseek-harness/` (gitignored; `git clone` it there once if missing). Copy the two integration files from `web/dsh-harness-patch/` into the tree (`router-transport.ts` → `apps/web/src/`, plus the patched `main.ts` that wraps `start()` behind a `router-transport` import) — then `pnpm install && pnpm build` (proxy env needed for the install). Finally run the automated capture: `node web/dsh-harness-patch/capture-dsh-web.mjs <harnessRoot> <projectRoot>/dsh-web 3080` — it boots the web profile with a scratch `DSH_HOME`, follows the token URL for the auth cookie, saves the rendered `/` HTML as `dsh-web/index.html`, fetches every `__DSH_BOOT__` manifest URL into `dsh-web/plugins/` (`pN.js` + `map.json`); you still copy `apps/web/dist/{assets,favicon.svg,favicon-dark.svg,manifest.webmanifest}` to `dsh-web/dist/` by hand. The manifest revs hash bundle mtimes, so plugins must be re-captured on every rebuild.
+> One-shot rebuild inside the science-harness monorepo (current base: **0.2.1-alpha.2**): `node harness/build-dsh-web.mjs` from `integrations/agent-router/harness/` — it overlays the two integration files from `web/dsh-harness-patch/` onto `apps/web/src/` (`router-transport.ts`, plus the patched `main.ts` that wraps `start()` behind a `router-transport` import), runs `pnpm run build`, boots the web profile with a scratch `DSH_HOME` via `capture-dsh-web.mjs` (follows the token URL for the auth cookie, saves the rendered `/` HTML as `dsh-web/index.html`, fetches every `__DSH_BOOT__` manifest URL into `dsh-web/plugins/` → `pN.js` + `map.json`), copies `apps/web/dist` to `dsh-web/dist/`, and restores `apps/web/` exactly as it was. `--no-build` skips the build step for re-captures. The manifest revs hash bundle mtimes, so plugins must be re-captured on every rebuild.
 
 > The Agent Router look is not part of the build: `web/public/router-ui.css` re-tints dsh's base palettes (`--dsw-static-neutral-bluish-*`, `--dsw-static-deepseek-*`), and `web/public/board-embed.js` adds the top bar and panels. Traffic is bridged to the dsh protocol by `web/dsh-bridge.mjs`.
 </details>
@@ -127,7 +132,7 @@ node router.mjs "<overall goal>" [options]     # goal mode: decompose the goal, 
 
 Options:
   --repo <dir>        working directory (default ./demo/todo-cli; git is optional except for isolation)
-  --agents <list>     subagents, comma-separated (default claude,zcode; options: devin,codex,opencode,antigravity)
+  --agents <list>     subagents, comma-separated (default claude,zcode; options: devin,codex,opencode,antigravity,dsh)
   --main <agent>      which CLI the main agent uses (default claude; see "The main agent is selectable")
   --timeout <sec>     per-subagent session timeout (default 0: no limit)
   --data <dir>        run data directory (default ./data/run-<timestamp>)
@@ -140,14 +145,14 @@ Options:
 
 ### The main agent is selectable (--main)
 
-The main agent doesn't have to be Claude — any of the six CLIs can take the role; the board, dispatch, harvest and followup protocols are unchanged, and subagents never know who the manager is:
+The main agent doesn't have to be Claude — any of the seven CLIs can take the role; the board, dispatch, harvest and followup protocols are unchanged, and subagents never know who the manager is:
 
 | Main agent | Persistence | Notes |
 |---|---|---|
 | `claude` (default) | bidirectional stream-json | long-lived process, events injected into the current turn; `--resume` self-healing restarts |
 | `antigravity` | bidirectional stream-json | `agy --input-format stream-json` persistent, structurally identical to claude; `--conversation` self-healing; needs a local proxy |
 | `devin` | persistent ACP child process | sequential `session/prompt` on one session, events stream live; on crash rebuild prefers `session/load` context restore (requires `devin auth login`) |
-| `zcode` / `codex` / `opencode` | turn chaining | these CLIs have no persistent bidirectional stream: each injected message triggers one headless run, chained via sessionId; events are injected between turns, no live tool events within a turn |
+| `zcode` / `codex` / `opencode` / `dsh` | turn chaining | these CLIs have no persistent bidirectional stream: each injected message triggers one headless run, chained via sessionId; events are injected between turns, no live tool events within a turn. dsh: `dsh --profile headless --json --session-id` |
 
 **Switching the main agent**: pick it in the run settings panel before the first message, or switch it there later inside a conversation. A running conversation switches after the current turn, and running subagent tasks are unaffected. A sleeping one switches when the next message wakes it. Sessions cannot be shared between CLIs, so the new main agent starts a fresh session and receives a handoff with the earlier conversation and the task board (`handoffMessage` in `lib/prompts.mjs`). From the API: `PATCH /api/runs/:id/main {"main": "zcode"}`.
 

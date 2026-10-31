@@ -2,8 +2,9 @@
 
 <div align="right"><b>English</b> · <a href="README.zh-CN.md">中文</a></div>
 
+> **新家**：Agent Router 已并入 [science-harness](https://github.com/dazhi666666/science-harness) monorepo 的 `integrations/agent-router/`；本仓库是它的上游源码，那边经 `scripts/sync-agent-router.mjs` 从这里同步。作为 monorepo 成员，**DeepSeek Harness 本体（`dsh`）成为第七个 CLI 成员**——子代理经 `dsh --profile headless` 执行任务，也可担任主代理（回合串联）。`dsh-web/` 在那边不随仓库分发：用 `harness/build-dsh-web.mjs` 本地重建（见下文）。
 
-**主代理担任主线程（默认 Claude Code，可用 `--main` 指定为 zcode / devin / codex / opencode / antigravity）**：它常驻一个长期会话，把总目标拆解成任务派给本地子代理（ZCode / Devin / Codex / OpenCode / Antigravity / 其他 Claude Code 实例），派完活不等待、继续干自己的事；子代理的动向（完成/失败/留言）由 Router 实时推送回主会话。所有 agent 通过**本地任务板**协作、经**任务板信箱**互发消息，Router 负责自动派发、收割合并、汇总产出。
+**主代理担任主线程（默认 Claude Code，可用 `--main` 指定为 zcode / devin / codex / opencode / antigravity / dsh）**：它常驻一个长期会话，把总目标拆解成任务派给本地子代理（ZCode / Devin / Codex / OpenCode / Antigravity / DeepSeek Harness / 其他 Claude Code 实例），派完活不等待、继续干自己的事；子代理的动向（完成/失败/留言）由 Router 实时推送回主会话。所有 agent 通过**本地任务板**协作、经**任务板信箱**互发消息，Router 负责自动派发、收割合并、汇总产出。
 
 所有 agent 运行时、会话、任务数据、通信全部在本机（模型推理走各自厂商 API，这是唯一的边界）。
 
@@ -12,7 +13,7 @@
 你和**主代理**对话。它的用法和 Claude Code 一样：简单的问题和小改动自己完成，工作量大、可并行的部分用 `create_task` 派给**子代理**（本机的其他编程 agent CLI）。每段对话对应一个 Router 进程：
 
 ```
-你 ──消息──▶ 主代理会话（常驻：claude / antigravity / devin；回合串联：zcode / codex / opencode）
+你 ──消息──▶ 主代理会话（常驻：claude / antigravity / devin；回合串联：zcode / codex / opencode / dsh）
                ├─ create_task / followup_task / cancel_task   （经 MCP 调用任务板工具）
                └─ 收到 [事件]（完成+完整报告 / 失败 / 依赖受阻）与 [信箱]（子代理留言）
                      ▲ 注入                          │ 工具调用
@@ -48,6 +49,7 @@
 | codex | Codex CLI（`npm i -g @openai/codex`，`codex exec --json`，需 ChatGPT 登录） | 使用本机 Codex 登录与模型配置 |
 | opencode | OpenCode CLI（`npm i -g opencode-ai`） | 使用本机 `opencode auth` 的凭证；模型默认 `opencode/space-bunny-free` |
 | antigravity | Antigravity CLI（官方安装脚本装到 `%LOCALAPPDATA%\agy\bin`，命令 `agy`） | 密钥环静默登录（复用 IDE 凭据）；生成接口有地区限制，`antigravity.proxy` 指向本地代理 |
+| dsh | Agent Router 所在的 science-harness 仓库：仓库根 `pnpm install && pnpm run build` | 入口自动向上发现 `apps/cli/lib/bin.js`（可用 `AGENT_ROUTER_DSH_ENTRY` 覆盖）；模型由 harness profile 配置决定（`DEEPSEEK_API_KEY` 等），不能按运行选择 |
 
 `router.config.json` 可覆盖各 agent 的可执行路径、代理与模型（模型字段省略则用各客户端默认/继承桌面端选择）：
 
@@ -58,7 +60,8 @@
   "devin":  { "exe": "...devin.exe", "model": "swe-2-high" },
   "codex":  { "exe": "...codex.exe", "proxy": "http://127.0.0.1:10808", "model": "gpt-5.4" },
   "opencode": { "exe": "...opencode.exe", "model": "opencode/space-bunny-free" },
-  "antigravity": { "exe": "...agy.exe", "proxy": "http://127.0.0.1:10808", "model": "gemini-3.8-flash-high", "effort": "high" }
+  "antigravity": { "exe": "...agy.exe", "proxy": "http://127.0.0.1:10808", "model": "gemini-3.8-flash-high", "effort": "high" },
+  "dsh": { "entry": ".../science-harness/apps/cli/lib/bin.js" }
 }
 ```
 
@@ -68,6 +71,7 @@
 - codex：`exe` 指向 npm 包内的原生二进制（PATH 上的 `codex` 是 .cmd 垫片，Node spawn 不能直接执行）；`proxy` 建议设为本地代理——直连时 Codex 的 WebSocket 会反复超时再回退 HTTPS（约 90 秒），走代理秒连。
 - opencode：`exe` 同样指向 npm 包内的原生二进制；`model` 填 `provider/model`（`opencode models` 可列出）。注意 zen 免费档多数模型（`-free` 后缀）被服务端限制为仅交互客户端可用，实测无头可用的免费模型是 `opencode/space-bunny-free`。任务板 MCP 与权限放行经 `OPENCODE_CONFIG_CONTENT` 内联注入，不改动用户全局配置。
 - antigravity：`model` 填 `agy models` 列出的模型名（如 `gemini-3.8-flash-high`、`claude-sonnet-4-6`），`-high/-medium/-low/-max` 档位后缀会转为 `--effort`；`proxy` 必填——生成接口对未代理地区返回 "User location is not supported"。任务板 MCP 经工作区级 `.agents/mcp_config.json` 注入（写-还原，且已加入 `.git/info/exclude` 不会被误提交）。
+- dsh：`entry` 从 Router 所在目录向上逐级查找 `apps/cli/lib/bin.js` 构建产物——在 science-harness monorepo 内 `pnpm install && pnpm run build` 后自动命中；用 `AGENT_ROUTER_DSH_ENTRY`（或 `dsh.entry`）可指向别处。任务板 MCP 与对话级 MCP 经每次会话生成的临时 `--patch` 文件注入（由 harness 自带的 `dsh-mcp-client` 消费）；模型由 harness profile 配置决定（cordis.yml / `DEEPSEEK_API_KEY`），不能按运行选择。dsh 不提供 `/compact`（该命令仅 zcode 系）。
 
 ## 用法
 
@@ -90,9 +94,9 @@ Web 应用是 DeepSeek harness（dsh）的聊天界面（随仓库分发的 `dsh
 
 <details><summary>重建 <code>dsh-web/</code></summary>
 
-> `dsh-web/`（deepseek-harness 的本地构建）随仓库分发；也可替换为你自己的构建（需含 `index.html` 与 `dist/`）。
+> `dsh-web/`（deepseek-harness 的本地构建）在 science-harness 侧不随仓库分发（已加入 .gitignore）；构建出来之前 `/` 使用经典控制台。也可替换为你自己的构建（需含 `index.html` 与 `dist/`）。
 
-> deepseek-harness 更新后重建 `dsh-web/`（当前基线：0.2.1-alpha.1）：harness 源码放在项目内的 `deepseek-harness/`（已加入 .gitignore，没有就先 `git clone` 一份）。把 `web/dsh-harness-patch/` 里的两个集成文件拷进去（`router-transport.ts` → `apps/web/src/`，以及把 `start()` 包在 `router-transport` 导入之后的 `main.ts`），然后 `pnpm install && pnpm build`。再运行 `node web/dsh-harness-patch/capture-dsh-web.mjs <harnessRoot> <projectRoot>/dsh-web 3080` 自动抓取：它用临时 `DSH_HOME` 启动 web profile、带 token URL 取登录 cookie，把渲染后的 `/` HTML 存为 `dsh-web/index.html`，并把 `__DSH_BOOT__` 清单里的全部 URL 抓到 `dsh-web/plugins/`（`pN.js` + `map.json`）。`apps/web/dist/{assets,favicon.svg,favicon-dark.svg,manifest.webmanifest}` 仍需手动拷到 `dsh-web/dist/`。清单 rev 由 bundle 的 mtime 哈希而来，每次重建都要重新抓取 plugins。
+> 在 science-harness monorepo 内一键重建（当前基线：0.2.1-alpha.2）：在 `integrations/agent-router/harness/` 里运行 `node build-dsh-web.mjs`——它把 `web/dsh-harness-patch/` 的两个集成文件临时覆盖到 `apps/web/src/`（`router-transport.ts`，以及把 `start()` 包在 `router-transport` 导入之后的 `main.ts`），运行 `pnpm run build`，经 `capture-dsh-web.mjs` 用临时 `DSH_HOME` 启动 web profile（带 token URL 取登录 cookie，把渲染后的 `/` HTML 存为 `dsh-web/index.html`，把 `__DSH_BOOT__` 清单里的全部 URL 抓到 `dsh-web/plugins/` → `pN.js` + `map.json`），拷贝 `apps/web/dist` 到 `dsh-web/dist/`，最后把 `apps/web/` 原样还原。`--no-build` 跳过构建步骤（用于重复抓取）。清单 rev 由 bundle 的 mtime 哈希而来，每次重建都要重新抓取 plugins。
 
 > Agent Router 的外观不在构建里：`web/public/router-ui.css` 重设了 dsh 的基础色板（`--dsw-static-neutral-bluish-*`、`--dsw-static-deepseek-*`），`web/public/board-embed.js` 加上顶栏和面板；数据经 `web/dsh-bridge.mjs` 桥接为 dsh 的协议。
 </details>
@@ -113,7 +117,7 @@ Web 应用是 DeepSeek harness（dsh）的聊天界面（随仓库分发的 `dsh
 
 Web 控制台支持同时启动多个运行。每次运行必须使用互不重叠的工作目录（或独立 Git worktree），运行列表、SSE 事件、任务板和会话线程都按 `runId` 隔离；历史会话不会把消息或停止操作转发到另一个运行。
 
-运行设置面板可以为当前运行选择六个成员（Claude、ZCode、Devin、Codex、OpenCode、Antigravity）各自的模型。配置写入该运行的 `runtime-config.json`，不会修改全局配置；主代理在当前回合结束后重新载入配置，子代理在下一次会话启动时读取对应模型。
+运行设置面板可以为当前运行选择各成员（Claude、ZCode、Devin、Codex、OpenCode、Antigravity；dsh 的模型由 harness 配置决定，不在此列）各自的模型。配置写入该运行的 `runtime-config.json`，不会修改全局配置；主代理在当前回合结束后重新载入配置，子代理在下一次会话启动时读取对应模型。
 
 任务板的“信箱”页支持选择 `manager` 或具体子代理直接发消息。发给主代理的消息进入主代理输入队列，发给子代理的消息写入任务板信箱，并显示“已写入信箱，等待读取”；消息必须绑定当前运行，发给不属于该运行的成员会被拒绝。
 
@@ -125,7 +129,7 @@ node router.mjs "<总目标>" [选项]           # 目标模式：拆解目标�
 
 选项:
   --repo <dir>        工作目录（默认 ./demo/todo-cli；除隔离模式外不要求 git）
-  --agents <list>     子代理，逗号分隔（默认 claude,zcode；可选 devin,codex,opencode,antigravity）
+  --agents <list>     子代理，逗号分隔（默认 claude,zcode；可选 devin,codex,opencode,antigravity,dsh）
   --main <agent>      主代理使用的 CLI（默认 claude，见"主代理可指定"）
   --timeout <sec>     单个子代理会话超时（默认 0：不限时）
   --data <dir>        运行数据目录（默认 ./data/run-<时间戳>）
@@ -138,14 +142,14 @@ node router.mjs "<总目标>" [选项]           # 目标模式：拆解目标�
 
 ### 主代理可指定（--main）
 
-主代理不一定是 Claude，六种 CLI 都可以担任；任务板、派发、收割、followup 协议完全不变，子代理也不感知主代理是谁：
+主代理不一定是 Claude，七种 CLI 都可以担任；任务板、派发、收割、followup 协议完全不变，子代理也不感知主代理是谁：
 
 | 主代理 | 常驻方式 | 说明 |
 |---|---|---|
 | `claude`（默认） | stream-json 双向流 | 长期进程，事件即时注入当前回合；`--resume` 续命重启 |
 | `antigravity` | stream-json 双向流 | `agy --input-format stream-json` 常驻，与 claude 同构；`--conversation` 续命重启；需本地代理 |
 | `devin` | ACP 常驻子进程 | 同一会话连续 `session/prompt`，事件实时流出；崩溃重建时优先 `session/load` 恢复上下文（需已 `devin auth login`） |
-| `zcode` / `codex` / `opencode` | 回合串联 | 这三个 CLI 没有常驻双向流：每条注入消息触发一次 headless 运行，用 sessionId 续链上下文；事件在回合之间注入，回合内没有实时工具事件 |
+| `zcode` / `codex` / `opencode` / `dsh` | 回合串联 | 这些 CLI 没有常驻双向流：每条注入消息触发一次 headless 运行，用 sessionId 续链上下文；事件在回合之间注入，回合内没有实时工具事件。dsh：`dsh --profile headless --json --session-id` |
 
 **切换主代理**：发送第一条消息前在运行设置面板里选择；对话开始后也可以在同一个面板里切换。运行中会在当前回合结束后切换，正在执行的子代理任务不受影响；休眠中的对话在下一条消息唤醒时切换。不同 CLI 的会话不能互通，新主代理会开新会话，并收到之前的对话记录和任务板作为交接（`lib/prompts.mjs` 的 `handoffMessage`）。API：`PATCH /api/runs/:id/main {"main": "zcode"}`。
 
