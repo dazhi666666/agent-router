@@ -12,7 +12,7 @@ import { UiState } from './uistate.mjs';
 import { runtimeConfig, validateModels, validateEfforts, validateMcpServers, modelCatalog } from './models.mjs';
 import { withConfigLock, withWorkspaceConfig, writeConfigEra } from '../lib/spawn-util.mjs';
 import { mutate, read } from '../lib/store.mjs';
-import { loadConfig } from '../lib/config.mjs';
+import { findExecutableOnPath, loadConfig } from '../lib/config.mjs';
 
 function fixture(t) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'agent-router-test-'));
@@ -28,6 +28,19 @@ function fixture(t) {
   });
   return { ...app, root, dataDir, repoA, repoB, launches, killed };
 }
+
+test('CLI path resolver finds executable commands on the supplied PATH', t => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'agent-router-cli-'));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const bin = path.join(root, 'bin');
+  fs.mkdirSync(bin);
+  const executable = path.join(bin, 'sample-agent');
+  fs.writeFileSync(executable, '#!/bin/sh\nexit 0\n', { mode: 0o755 });
+
+  assert.equal(findExecutableOnPath('sample-agent', bin), executable);
+  assert.equal(findExecutableOnPath('missing-agent', bin), null);
+});
+
 async function httpFixture(t) {
   const f = fixture(t); await new Promise(resolve => f.server.listen(0, '127.0.0.1', resolve));
   const base = `http://127.0.0.1:${f.server.address().port}`;
