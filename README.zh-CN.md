@@ -49,6 +49,8 @@
 | opencode | OpenCode CLI（`npm i -g opencode-ai`） | 使用本机 `opencode auth` 的凭证；模型默认 `opencode/space-bunny-free` |
 | antigravity | Antigravity CLI（官方安装脚本装到 `%LOCALAPPDATA%\agy\bin`，命令 `agy`） | 密钥环静默登录（复用 IDE 凭据）；生成接口有地区限制，`antigravity.proxy` 指向本地代理 |
 
+CLI 路径会从 `PATH` 和当前 Node 安装对应的 npm 全局包目录（含 nvm）自动发现，也支持用 `NPM_CONFIG_PREFIX` / `npm_config_prefix` 设置自定义前缀。Windows 下跳过 npm 的 `.cmd` 包装器并查找原生可执行文件；ZCode 保留 JavaScript 入口，由适配器通过 Node 加载。
+
 `router.config.json` 可覆盖各 agent 的可执行路径、代理与模型（模型字段省略则用各客户端默认/继承桌面端选择）：
 
 ```json
@@ -65,8 +67,8 @@
 - claude：`model` 接 `--model`（如 `claude-opus-5-5`），`effort` 接 `--effort`（low/medium/high）；也可用 `AGENT_ROUTER_CLAUDE_MODEL` / `AGENT_ROUTER_CLAUDE_EFFORT` 环境变量覆盖。
 - devin：`model` 以 `DEVIN_MODEL` 环境变量注入（`devin models list` 查看可用模型）。
 - zcode：模型跟随 `~/.zcode/v2/provider_config.json` 的 `defaultModelSelection`（与桌面端共用同一份选择）；网页设置里可按子代理类型和主代理单独选择思考强度（`defaultModelSelection.options.reasoningLevel`）。每个模型的可用档位：桌面端「编辑模型配置」里配过的（provider_config.json 的 modelConfigRules）优先，否则取 ZCode runtime 模型注册表（如 GLM-5.3 是 low/high/max）。
-- codex：`exe` 指向 npm 包内的原生二进制（PATH 上的 `codex` 是 .cmd 垫片，Node spawn 不能直接执行）；`proxy` 建议设为本地代理——直连时 Codex 的 WebSocket 会反复超时再回退 HTTPS（约 90 秒），走代理秒连。
-- opencode：`exe` 同样指向 npm 包内的原生二进制；`model` 填 `provider/model`（`opencode models` 可列出）。注意 zen 免费档多数模型（`-free` 后缀）被服务端限制为仅交互客户端可用，实测无头可用的免费模型是 `opencode/space-bunny-free`。任务板 MCP 与权限放行经 `OPENCODE_CONFIG_CONTENT` 内联注入，不改动用户全局配置。
+- codex：Windows 下 `exe` 应指向原生可执行文件而非 `.cmd` 包装器；macOS/Linux 可使用 `PATH` 中的可执行命令；`proxy` 建议设为本地代理——直连时 Codex 的 WebSocket 会反复超时再回退 HTTPS（约 90 秒），走代理秒连。
+- opencode：Windows 下 `exe` 同样应指向原生可执行文件；macOS/Linux 可使用 `PATH` 中的命令；`model` 填 `provider/model`（`opencode models` 可列出）。注意 zen 免费档多数模型（`-free` 后缀）被服务端限制为仅交互客户端可用，实测无头可用的免费模型是 `opencode/space-bunny-free`。任务板 MCP 与权限放行经 `OPENCODE_CONFIG_CONTENT` 内联注入，不改动用户全局配置。
 - antigravity：`model` 填 `agy models` 列出的模型名（如 `gemini-3.8-flash-high`、`claude-sonnet-4-6`），`-high/-medium/-low/-max` 档位后缀会转为 `--effort`；`proxy` 必填——生成接口对未代理地区返回 "User location is not supported"。任务板 MCP 经工作区级 `.agents/mcp_config.json` 注入（写-还原，且已加入 `.git/info/exclude` 不会被误提交）。
 
 ## 用法

@@ -52,16 +52,16 @@ function file(res, root, name) {
   if (!full.startsWith(root + path.sep) || !fs.existsSync(full) || !fs.statSync(full).isFile()) { res.writeHead(404); res.end('not found'); return; }
   res.writeHead(200, { 'Content-Type': MIME[path.extname(full)] || 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' }); fs.createReadStream(full).pipe(res);
 }
-// codex 的 exe 可能是 PATH 相对名（npm 垫片是 .cmd，fs.existsSync 探测不到）：用 --version 实测，结果缓存 60s
-let codexOk = null, codexCheckedAt = 0;
+// 用 --version 实测，按配置路径缓存 60s。
+let codexOk = null, codexCheckedAt = 0, codexCheckedExe = null;
 function codexAvailable() {
-  if (codexOk !== null && Date.now() - codexCheckedAt < 60000) return codexOk;
-  codexCheckedAt = Date.now();
   const exe = loadConfig().codex.exe;
+  if (exe === codexCheckedExe && codexOk !== null && Date.now() - codexCheckedAt < 60000) return codexOk;
+  codexCheckedAt = Date.now();
+  codexCheckedExe = exe;
   if (!exe) { codexOk = false; return false; }
-  const resolved = findExecutableOnPath(exe) || exe;
-  if (path.isAbsolute(resolved)) codexOk = fs.existsSync(resolved);
-  else codexOk = spawnSync(resolved, ['--version'], { encoding: 'utf8', timeout: 8000, windowsHide: true }).status === 0;
+  const resolved = findExecutableOnPath(exe);
+  codexOk = !!resolved && spawnSync(resolved, ['--version'], { encoding: 'utf8', timeout: 8000, windowsHide: true }).status === 0;
   return codexOk;
 }
 // 目录浏览（新建任务时选择工作目录）：只列子目录；不传 path 时返回主目录与 Windows 盘符
@@ -161,8 +161,9 @@ export function createApp({ dataDir = process.env.AGENT_ROUTER_DATA_DIR || path.
       if (u.pathname === '/api/health') {
         const cfg = loadConfig(), catalog = modelCatalog(), activeRuns = runs.list().filter(r => r.live);
         const codexOk = codexAvailable(); // 对话模型由 Codex 经 gateway 驱动
-        const available = exe => !!findExecutableOnPath(exe) || (path.isAbsolute(exe) && fs.existsSync(exe));
-        return json(res, 200, { claude: available(cfg.claude.exe), zcode: available(cfg.zcode.entry), 'zcode-oss': available(cfg['zcode-oss'].entry), devin: available(cfg.devin.exe), codex: codexOk, opencode: available(cfg.opencode.exe), antigravity: available(cfg.antigravity.exe), checks: { claude: '仅检测 CLI 路径，未验证登录', zcode: '仅检测 CLI 路径，未验证登录', 'zcode-oss': '仅检测 CLI 路径，未验证登录（复用 ~/.zcode 登录态）', devin: '仅检测 CLI 路径，未验证登录', codex: '检测 codex --version 可执行（未验证登录）', opencode: '仅检测 CLI 路径，未验证登录', antigravity: '仅检测 CLI 路径，未验证登录（密钥环静默登录，生成接口走本地代理）' }, models: Object.fromEntries(Object.entries(catalog).map(([k, v]) => [k, v.default || '客户端默认'])), paths: { claude: cfg.claude.exe, zcode: cfg.zcode.entry, 'zcode-oss': cfg['zcode-oss'].entry, devin: cfg.devin.exe, codex: cfg.codex.exe, opencode: cfg.opencode.exe, antigravity: cfg.antigravity.exe }, llm: Object.fromEntries(Object.entries(cfg.llm).map(([k, v]) => [k, { label: v.label || v.model || k, model: v.model || (v.module ? 'custom module' : null), ready: providerReady(v) && codexOk, codex: codexOk, apiKeyEnv: v.apiKeyEnv || null }])), consult: cfg.llm[cfg.consult] ? cfg.consult : null, busy: activeRuns.length > 0, activeRuns, activeRun: activeRuns[0] || null });
+        const available = exe => !!findExecutableOnPath(exe);
+        const entryAvailable = entry => { try { return fs.statSync(entry).isFile(); } catch { return false; } };
+        return json(res, 200, { claude: available(cfg.claude.exe), zcode: entryAvailable(cfg.zcode.entry), 'zcode-oss': entryAvailable(cfg['zcode-oss'].entry), devin: available(cfg.devin.exe), codex: codexOk, opencode: available(cfg.opencode.exe), antigravity: available(cfg.antigravity.exe), checks: { claude: '仅检测 CLI 路径，未验证登录', zcode: '仅检测 CLI 路径，未验证登录', 'zcode-oss': '仅检测 CLI 路径，未验证登录（复用 ~/.zcode 登录态）', devin: '仅检测 CLI 路径，未验证登录', codex: '检测 codex --version 可执行（未验证登录）', opencode: '仅检测 CLI 路径，未验证登录', antigravity: '仅检测 CLI 路径，未验证登录（密钥环静默登录，生成接口走本地代理）' }, models: Object.fromEntries(Object.entries(catalog).map(([k, v]) => [k, v.default || '客户端默认'])), paths: { claude: cfg.claude.exe, zcode: cfg.zcode.entry, 'zcode-oss': cfg['zcode-oss'].entry, devin: cfg.devin.exe, codex: cfg.codex.exe, opencode: cfg.opencode.exe, antigravity: cfg.antigravity.exe }, llm: Object.fromEntries(Object.entries(cfg.llm).map(([k, v]) => [k, { label: v.label || v.model || k, model: v.model || (v.module ? 'custom module' : null), ready: providerReady(v) && codexOk, codex: codexOk, apiKeyEnv: v.apiKeyEnv || null }])), consult: cfg.llm[cfg.consult] ? cfg.consult : null, busy: activeRuns.length > 0, activeRuns, activeRun: activeRuns[0] || null });
       }
       if (u.pathname === '/api/fs/dirs') return json(res, 200, listDirs(u.searchParams.get('path')));
       if (u.pathname === '/api/models') return json(res, 200, modelCatalog());
