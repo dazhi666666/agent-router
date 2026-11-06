@@ -28,12 +28,35 @@ function fixture(t) {
   });
   return { ...app, root, dataDir, repoA, repoB, launches, killed };
 }
+
 async function httpFixture(t) {
   const f = fixture(t); await new Promise(resolve => f.server.listen(0, '127.0.0.1', resolve));
   const base = `http://127.0.0.1:${f.server.address().port}`;
   f.call = async (url, method='GET', value) => { const response = await fetch(base+url, { method, headers:{'Content-Type':'application/json'}, ...(value === undefined ? {} : { body: JSON.stringify(value) }) }); return { status:response.status, data:await response.json() }; };
   f.base = base; return f;
 }
+test('environment checks honor CLI command names from PATH', async t => {
+  const original = Object.fromEntries(['AGENT_ROUTER_CLAUDE_EXE', 'AGENT_ROUTER_CODEX_EXE', 'AGENT_ROUTER_ZCODE_ENTRY'].map(key => [key, process.env[key]]));
+  t.after(() => {
+    for (const [key, value] of Object.entries(original)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  });
+  const f = await httpFixture(t);
+  const entry = path.join(f.root, 'zcode.js');
+  fs.writeFileSync(entry, '', { mode: 0o644 });
+  process.env.AGENT_ROUTER_CLAUDE_EXE = path.basename(process.execPath);
+  process.env.AGENT_ROUTER_CODEX_EXE = path.basename(process.execPath);
+  process.env.AGENT_ROUTER_ZCODE_ENTRY = entry;
+  const health = (await f.call('/api/health')).data;
+  assert.equal(health.claude, true);
+  assert.equal(health.codex, true);
+  assert.equal(health.zcode, true);
+  assert.equal(health.paths.claude, path.basename(process.execPath));
+  process.env.AGENT_ROUTER_CODEX_EXE = f.root;
+  assert.equal((await f.call('/api/health')).data.codex, false);
+});
 test('empty installation: draft settings persist, invalid settings retain draft, first prompt starts only once', async t => {
   const f = await httpFixture(t);
   assert.equal((await f.call('/dsh-api/health','POST',{})).data.ok,true);
