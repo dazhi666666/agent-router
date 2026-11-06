@@ -2,7 +2,7 @@ import http from 'node:http';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { spawn, spawnSync } from 'node:child_process';
+import { execFile, spawn, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { findExecutableOnPath, loadConfig } from '../lib/config.mjs';
 import { createBridge } from './dsh-bridge.mjs';
@@ -52,17 +52,17 @@ function file(res, root, name) {
   if (!full.startsWith(root + path.sep) || !fs.existsSync(full) || !fs.statSync(full).isFile()) { res.writeHead(404); res.end('not found'); return; }
   res.writeHead(200, { 'Content-Type': MIME[path.extname(full)] || 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' }); fs.createReadStream(full).pipe(res);
 }
-// 用 --version 实测，按配置路径缓存 60s。
-let codexOk = null, codexCheckedAt = 0, codexCheckedExe = null;
+// 用 --version 实测，按配置路径缓存 60s。异步探测，避免同步子进程阻塞事件循环。
+let codexProbe = null; // { exe, at, promise }
 function codexAvailable() {
   const exe = loadConfig().codex.exe;
-  if (exe === codexCheckedExe && codexOk !== null && Date.now() - codexCheckedAt < 60000) return codexOk;
-  codexCheckedAt = Date.now();
-  codexCheckedExe = exe;
-  if (!exe) { codexOk = false; return false; }
-  const resolved = findExecutableOnPath(exe);
-  codexOk = !!resolved && spawnSync(resolved, ['--version'], { encoding: 'utf8', timeout: 8000, windowsHide: true }).status === 0;
-  return codexOk;
+  if (codexProbe && codexProbe.exe === exe && Date.now() - codexProbe.at < 60000) return codexProbe.promise;
+  const resolved = exe ? findExecutableOnPath(exe) : null;
+  const promise = resolved
+    ? new Promise(resolve => execFile(resolved, ['--version'], { encoding: 'utf8', timeout: 8000, windowsHide: true }, error => resolve(!error)))
+    : Promise.resolve(false);
+  codexProbe = { exe, at: Date.now(), promise };
+  return promise;
 }
 // 目录浏览（新建任务时选择工作目录）：只列子目录；不传 path 时返回主目录与 Windows 盘符
 function listDirs(dir) {
@@ -160,7 +160,7 @@ export function createApp({ dataDir = process.env.AGENT_ROUTER_DATA_DIR || path.
       if (u.pathname === '/api/session.export') return json(res, 501, { error: '会话导出暂不支持' });
       if (u.pathname === '/api/health') {
         const cfg = loadConfig(), catalog = modelCatalog(), activeRuns = runs.list().filter(r => r.live);
-        const codexOk = codexAvailable(); // 对话模型由 Codex 经 gateway 驱动
+        const codexOk = await codexAvailable(); // 对话模型由 Codex 经 gateway 驱动
         const available = exe => !!findExecutableOnPath(exe);
         const entryAvailable = entry => { try { return fs.statSync(entry).isFile(); } catch { return false; } };
         return json(res, 200, { claude: available(cfg.claude.exe), zcode: entryAvailable(cfg.zcode.entry), 'zcode-oss': entryAvailable(cfg['zcode-oss'].entry), devin: available(cfg.devin.exe), codex: codexOk, opencode: available(cfg.opencode.exe), antigravity: available(cfg.antigravity.exe), dsh: !!cfg.dsh.entry && entryAvailable(cfg.dsh.entry), checks: { claude: '仅检测 CLI 路径，未验证登录', zcode: '仅检测 CLI 路径，未验证登录', 'zcode-oss': '仅检测 CLI 路径，未验证登录（复用 ~/.zcode 登录态）', devin: '仅检测 CLI 路径，未验证登录', codex: '检测 codex --version 可执行（未验证登录）', opencode: '仅检测 CLI 路径，未验证登录', antigravity: '仅检测 CLI 路径，未验证登录（密钥环静默登录，生成接口走本地代理）', dsh: '检测 apps/cli/lib/bin.js 构建产物（需先在 science-harness 仓库 pnpm install && pnpm run build；模型由 harness 配置决定）' }, models: Object.fromEntries(Object.entries(catalog).map(([k, v]) => [k, v.default || '客户端默认'])), paths: { claude: cfg.claude.exe, zcode: cfg.zcode.entry, 'zcode-oss': cfg['zcode-oss'].entry, devin: cfg.devin.exe, codex: cfg.codex.exe, opencode: cfg.opencode.exe, antigravity: cfg.antigravity.exe, dsh: cfg.dsh.entry }, llm: Object.fromEntries(Object.entries(cfg.llm).map(([k, v]) => [k, { label: v.label || v.model || k, model: v.model || (v.module ? 'custom module' : null), ready: providerReady(v) && codexOk, codex: codexOk, apiKeyEnv: v.apiKeyEnv || null }])), consult: cfg.llm[cfg.consult] ? cfg.consult : null, busy: activeRuns.length > 0, activeRuns, activeRun: activeRuns[0] || null });
