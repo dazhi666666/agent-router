@@ -30,6 +30,7 @@ import { runDevin } from './lib/devin.mjs';
 import { runCodex } from './lib/codex.mjs';
 import { runOpencode } from './lib/opencode.mjs';
 import { runAntigravity } from './lib/antigravity.mjs';
+import { runDsh } from './lib/dsh.mjs';
 import { boardMcpEntry, setBoardEndpoint } from './lib/spawn-util.mjs';
 import { MainSession } from './lib/claude-main.mjs';
 import { OneShotMainSession } from './lib/oneshot-main.mjs';
@@ -81,8 +82,8 @@ function printHelp() {
 
 选项:
   --repo <dir>        工作目录（默认 ./demo/todo-cli；不要求是 git 仓库，但隔离模式需要 git）
-  --agents <list>     子代理，逗号分隔（默认 claude,zcode；可选 devin,codex,opencode,antigravity）
-  --main <agent>      主代理（默认 claude；可选 zcode/devin/codex/opencode/antigravity，
+  --agents <list>     子代理，逗号分隔（默认 claude,zcode；可选 devin,codex,opencode,antigravity,dsh）
+  --main <agent>      主代理（默认 claude；可选 zcode/devin/codex/opencode/antigravity/dsh，
                       或 router.config.json 里 llm 下配置的对话模型名）
   --timeout <sec>     单个子代理会话超时（默认 0：不限时）
   --data <dir>        运行数据目录（默认 ./data/run-<时间戳>）
@@ -110,7 +111,9 @@ const RUNNERS = {
   devin: { run: opts => runDevin({ ...opts, boardMcp: boardMcpEntry({ agentName: opts.agentName }) }), label: 'Devin', resumable: false },
   codex: { run: runCodex, label: 'Codex CLI', resumable: true },
   opencode: { run: runOpencode, label: 'OpenCode', resumable: true },
-  antigravity: { run: runAntigravity, label: 'Antigravity', resumable: false }
+  antigravity: { run: runAntigravity, label: 'Antigravity', resumable: false },
+  // DeepSeek Harness（science-harness 仓库）：headless profile 一次性任务；模型由 harness 配置决定
+  dsh: { run: runDsh, label: 'DSH (science-harness)', resumable: true }
 };
 // 测试钩子：AGENT_ROUTER_TEST_AGENTS 指向一个模块，用假的子代理 runner / 主代理会话替换真实 CLI（见 core/test-fake-agents.mjs）
 let TestMainSession = null;

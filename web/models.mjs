@@ -150,9 +150,11 @@ export function modelCatalog() {
     zcode: { default: conf.defaultModelSelection ? `${conf.defaultModelSelection.providerId}/${conf.defaultModelSelection.modelId}` : '', options: [...choices.keys()], custom: false, efforts: Object.fromEntries([...choices.keys()].map(o => [o, zcodeLevels(o)]).filter(([, v]) => v)) },
     // 开源版与 npm 版共用 ~/.zcode/v2/provider_config.json：模型清单与默认值完全一致
     'zcode-oss': { default: conf.defaultModelSelection ? `${conf.defaultModelSelection.providerId}/${conf.defaultModelSelection.modelId}` : '', options: [...choices.keys()], custom: false, efforts: Object.fromEntries([...choices.keys()].map(o => [o, zcodeLevels(o)]).filter(([, v]) => v)) },
+    // dsh 的模型由 science-harness 的 profile 配置决定（cordis.yml / DEEPSEEK_API_KEY），Router 侧不选择
+    dsh: { default: '', options: [], custom: false },
   };
 }
-const TYPES = ['claude', 'zcode', 'zcode-oss', 'devin', 'codex', 'opencode', 'antigravity'];
+const TYPES = ['claude', 'zcode', 'zcode-oss', 'devin', 'codex', 'opencode', 'antigravity', 'dsh'];
 
 function checkModel(kind, value) {
   if ((kind === 'zcode' || kind === 'zcode-oss') && !modelCatalog()[kind].options.includes(value)) throw new Error('请选择本机已配置的 ZCode 模型');
@@ -161,6 +163,7 @@ function checkModel(kind, value) {
     const list = modelCatalog().opencode.options;
     if (list.length && !list.includes(base)) throw new Error('请选择 OpenCode 可用模型，或清空使用客户端默认');
   }
+  if (kind === 'dsh') throw new Error('dsh 的模型由 science-harness 配置决定，不支持单独选择');
 }
 
 /** models 按类型 keyed；保留键 `main` 是主代理自己的模型（mainKind 给出主代理类型） */
@@ -272,6 +275,8 @@ export function runtimeConfig(models = {}, efforts = {}, mainKind = null, mcpSer
     antigravity: models.antigravity ? parse('antigravity', models.antigravity) : {},
     zcode: pick('zcode', 'zcode'),
     'zcode-oss': pick('zcode-oss', 'zcode-oss'),
+    // dsh 不接受模型/思考强度覆盖（由 harness 配置决定）；保留键位让 runtime-config 形状稳定
+    dsh: {},
     ...(main ? { main } : {}),
     ...(Object.keys(servers).length ? { mcpServers: servers } : {})
   };
